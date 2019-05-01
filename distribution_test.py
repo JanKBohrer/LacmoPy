@@ -10,7 +10,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-two_pi_sqrt = math.sqrt(2 * math.pi)
+two_pi_sqrt = math.sqrt(2.0 * math.pi)
 
 # par[0] = mu
 # par[1] = sigma
@@ -240,6 +240,10 @@ pos = generate_random_positions(corners, no_cells, steps, N_c, seed)
 
 print(pos)
 
+
+def plot_particle_positions(corners, pos):
+    fig, ax = plt.subplots(figsize=(6,6))
+    ax.plot()
 # xi[:,] = 
 
 # rad2 = np.reshape(rad, (5,5,N_c))
@@ -364,13 +368,16 @@ for cnt in [0,1]:
     #     ax.annotate( f"{q:.3f},{Ps[cnt][i]}",
     #                   (q_an, dst_log_normal(q,par_dist[cnt]) + 0.02*f_mid),
     #                   ha = "center"
-    #                   # xytext = (q + (q-mu_t)* , 0.0), textcoords = "offset points"
+    #                   # xytext = (q + (q-mu_t)* , 0.0),
+    #                    textcoords = "offset points"
     #                   )
         # ax.annotate( f"{q:.3f},{Ps[cnt][i]}",
-        #               (lambda q : q  q + 0.0002*(q-qs[cnt][3])/(0.01 + q-qs[cnt][3])**2,
+        #               (lambda q : q + 0.0002*(q-qs[cnt][3])\
+        #                               / (0.01 + q-qs[cnt][3])**2,
         #               dst_log_normal(q,par_dist[cnt])),
         #               ha = "center"
-        #               # xytext = (q + (q-mu_t)* , 0.0), textcoords = "offset points"
+        #               # xytext = (q + (q-mu_t)* , 0.0),
+        #               textcoords = "offset points"
         #               )
     
     # ax.hist(randoms[cnt], bins, density=True)
