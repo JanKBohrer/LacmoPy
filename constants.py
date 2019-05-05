@@ -6,7 +6,7 @@ Created on Wed May  1 12:23:12 2019
 @author: jdesk
 """
 
-import math.pi
+import math
 # COMPUTE MASS FROM DIAMETER AND DENSITY
 # 1/3
 one_third = 1.0 / 3.0
@@ -104,6 +104,22 @@ adiabatic_index_air_dry = 1.4
 
 # Lemmon 2015 in Lohmann 2016
 specific_heat_capacity_water_vapor_20C = 1906 # J/(kg K)
+
+# isobaric heat capacity water
+# of data from Sabbah 1999, converted from molar with molar_mass_water
+# NOTE that the graph describes a "parabolic" curve with minimum at 308 K
+# and varies ca. 1 % from 0 to 100 °C
+# a linear fit is not satisfactory, it lowers the error to 0.5%
+# HOWEVER comparing data sources (CRC and Sabbah)
+# leads to deviations of about 0.5 % anyways...
+# THUS:
+# just take NPT value from Sabbah 1999 for comparibility
+# the average value from 0 .. 60 C from Sabbah
+# shifts the error to be from -0.2 % to 0.8 %
+specific_heat_capacity_water = 4187.9 # J/(kg K)
+specific_heat_capacity_water_NTP = 4183.8 # J/(kg K)
+# CRC:
+#specific_heat_capacity_water_NTP = 4181.8 # J/(kg K)
                 
 ####################################
 # FORCES
@@ -117,9 +133,9 @@ drag_coefficient_high_Re_p = 0.44
 # 1/3
 one_third = 1.0 / 3.0
 # 4/3 * pi
-pi_times_4_over_3 = 4.0 * np.pi / 3.0
+pi_times_4_over_3 = 4.0 * math.pi / 3.0
 # 3 / (4 * pi)
-pi_times_4_over_3_inv = 0.75 / np.pi
+pi_times_4_over_3_inv = 0.75 / math.pi
 
 # volume to radius:
 # R = (3/4/pi)^0.3333 V^1/3

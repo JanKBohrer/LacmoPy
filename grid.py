@@ -5,7 +5,8 @@ copied everything from /python/grid_class.py
 
 import matplotlib.pyplot as plt
 import numpy as np
-import math.floor
+import math
+from numba import njit, vectorize
 # from numba import jit
 # from help_functions import *
 # from physical_relations_and_constants import *
@@ -35,10 +36,45 @@ p_ref = 101325.0 # Pa
 def pressure_field_exponential(x_, y_):
     return p_ref * np.exp( -y_ * c.earth_gravity * c.molar_mass_air_dry\
                            / ( T_ref * c.universal_gas_constant ) )
+# @njit()
+# @vectorize( "(int64,int64,float64,float64)(float64,float64,float64,float64,float64,float64)" )
+# @vectorize()
+# def compute_cell(x, y, dx, dy):
+#     i = int(math.floor(x/dx))
+#     j = int(math.floor(y/dy))
+#     return i, j
 
+@njit()
+def compute_cell_and_relative_position_jit(pos, grid_ranges, grid_steps):
+    x = pos[0]
+    y = pos[1]
+    cells = np.empty( (2,len(x)) , dtype = np.int64)
+    rel_pos = np.empty( (2,len(x)) , dtype = np.float64 )
+    rel_pos[0] = x - grid_ranges[0,0] # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+    rel_pos[1] = y - grid_ranges[1,0]
+    cells[0] = np.floor(x/grid_steps[0]).astype(np.int64)
+    cells[1] = np.floor(y/grid_steps[1]).astype(np.int64)
+    
+    rel_pos[0] = rel_pos[0] / grid_steps[0] - cells[0]
+    rel_pos[1] = rel_pos[1] / grid_steps[1] - cells[1]
+    return cells, rel_pos
+    # cell_list = np.empty( (2,len(x)) )
+    # rel_pos = np.empty( (2,len(x)) )
+    # x = x - x_min # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+    # y = y - y_min
+    # i = np.floor(x/dx).astype(np.int64)
+    # j = np.floor(y/dy).astype(np.int64)
+    
+    # cell_list[0] = i
+    # cell_list[1] = j
+    # rel_pos[0] = x / dx - i
+    # rel_pos[1] = y / dy - j
+    # return i, j, x / dx - i, y / dy - j
+
+@njit()
 def weight_velocities_linear(i, j, a, b, u_n, v_n):
     return a * u_n[i + 1, j] + (1 - a) * u_n[i, j], \
-            b * v_n[i, j + 1] + (1 - b) * v_n[i, j]
+           b * v_n[i, j + 1] + (1 - b) * v_n[i, j]
          
 # f is a 2D scalar array, giving values for the grid cell [i,j]
 # i.e. f[i,j] = scalar value of cell [i,j]
@@ -47,9 +83,96 @@ def weight_velocities_linear(i, j, a, b, u_n, v_n):
 # [i, j+1]    [i+1, j+1]
 # [i, j]      [i+1, j]
 # where a = 0..1,  b = 0..1   
+@njit()
 def bilinear_weight(i, j, a, b, f):
     return a * (b * f[i+1, j+1] + (1 - b) * f[i+1, j]) + \
             (1 - a) * (b * f[i, j+1] + (1 - b) * f[i, j])
+
+# NOTE: this is adjusted for PBC in x and solid BC in z
+# function was tested versus the grid.interpol... function            
+@njit()
+def interpolate_velocity_from_cell_bilinear_jit(cells, rel_pos,
+        grid_vel, grid_no_cells ):
+    no_pt = len(rel_pos[0])
+    vel_ipol = np.empty( (2, no_pt), dtype = np.float64 )
+    # vel_x = np.empty(len(x_rel), dtype = np.float64)
+    # vel_y = np.empty(len(x_rel), dtype = np.float64)
+    # vel_y = np.zeros_like(x_rel)
+    # print("np.shape(vel_ipol)")
+    # print(vel_ipol.shape)
+    for n in range( no_pt ):
+        i = cells[0,n]
+        j = cells[1,n]
+        # i = i_list[n]
+        # j = j_list[n]
+        weight_x = rel_pos[0,n]
+        weight_y = rel_pos[1,n]
+        if ( j == 0 and weight_y <= 0.5 ):
+            u, v = weight_velocities_linear(i, j, weight_x, weight_y,
+                                            grid_vel[0], grid_vel[1])
+        elif ( j == (grid_no_cells[1] - 1) and weight_y >= 0.5 ):
+            u, v = weight_velocities_linear(i, j, weight_x, weight_y,
+                                            grid_vel[0], grid_vel[1])
+        else:
+            if weight_y > 0.5:
+                u = bilinear_weight(i, j,
+                                    weight_x, weight_y - 0.5, grid_vel[0])
+            else:
+                u = bilinear_weight(i, j - 1,
+                                    weight_x, weight_y + 0.5, grid_vel[0])
+        if weight_x > 0.5:
+            v = bilinear_weight(i, j,
+                                weight_x - 0.5, weight_y, grid_vel[1])
+        else:
+            v = bilinear_weight(i - 1, j,
+                                weight_x + 0.5, weight_y, grid_vel[1])
+        # vel_x[n] = u
+        # vel_y[n] = v
+        
+        vel_ipol[0,n] = u
+        vel_ipol[1,n] = v
+    return vel_ipol
+    # for n in range( len(x_rel) ):
+    #     i = i_list[n]
+    #     j = j_list[n]
+    #     weight_x = x_rel[n]
+    #     weight_y = y_rel[n]
+    #     if ( j == 0 and weight_y <= 0.5 ):
+    #         u, v = weight_velocities_linear(i, j, weight_x, weight_y,
+    #                                         grid_vel[0], grid_vel[1])
+    #     elif ( j == (grid_no_cells[1] - 1) and weight_y >= 0.5 ):
+    #         u, v = weight_velocities_linear(i, j, weight_x, weight_y,
+    #                                         grid_vel[0], grid_vel[1])
+    #     else:
+    #         if weight_y > 0.5:
+    #             u = bilinear_weight(i, j,
+    #                                 weight_x, weight_y - 0.5, grid_vel[0])
+    #         else:
+    #             u = bilinear_weight(i, j - 1,
+    #                                 weight_x, weight_y + 0.5, grid_vel[0])
+    #     if weight_x > 0.5:
+    #         v = bilinear_weight(i, j,
+    #                             weight_x - 0.5, weight_y, grid_vel[1])
+    #     else:
+    #         v = bilinear_weight(i - 1, j,
+    #                             weight_x + 0.5, weight_y, grid_vel[1])
+    #     # vel_x[n] = u
+    #     # vel_y[n] = v
+        
+    #     vel_ipol[0,n] = u
+    #     vel_ipol[1,n] = v
+    # return vel_ipol
+    # vel_x, vel_y
+
+# function was tested versus the grid.interpol.. function
+@njit()
+def interpolate_velocity_from_position_bilinear_jit(pos,
+        grid_vel, grid_no_cells, grid_ranges, grid_steps):
+    cells, rel_pos = compute_cell_and_relative_position_jit(pos,grid_ranges,
+                                                            grid_steps)
+    # return cells, rel_pos
+    return interpolate_velocity_from_cell_bilinear_jit(cells, rel_pos,
+                grid_vel, grid_no_cells)
 
 def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
     no_cells = []
@@ -184,8 +307,8 @@ class Grid:
     def set_analytic_velocity_field_and_discretize(self, u_field_, v_field_):
         self.analytic_velocity_field = [u_field_, v_field_]
         self.velocity =\
-            [ self.analytic_velocity_field[0](*self.surface_centers[0]),
-              self.analytic_velocity_field[1](*self.surface_centers[1]) ]
+            np.array([ self.analytic_velocity_field[0](*self.surface_centers[0]),
+              self.analytic_velocity_field[1](*self.surface_centers[1]) ])
     
     def interpolate_velocity_from_location_linear(self, x, y):
         n, rloc = self.compute_cell_and_relative_location(x, y)

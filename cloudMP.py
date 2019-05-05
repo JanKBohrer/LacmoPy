@@ -13,7 +13,7 @@ Created on Wed May  1 14:07:21 2019
 ### output:
 ## full saves:
 # grid_parameters, grid_scalars, grid_vectors
-# pos, cells, vel, masses
+# pos, cells, vel, masses, xi
 ## data:
 # grid:
 # initial: p, T, Theta, S, r_v, r_l, rho_dry, e_s
@@ -28,11 +28,11 @@ Created on Wed May  1 14:07:21 2019
 # files for data output -> which data?
 
 # 1.+ save initial to file
-grid, pos, cells, vel, masses = init()
+grid, pos, cells, vel, masses, xi = init()
 
 # 2. changes grid, pos, cells, vel, masses and save to file after spin up
 # data output during spinup if desired
-spinup(grid, pos, cells, vel, masses)
+spinup(grid, pos, cells, vel, masses, xi)
 # in here:
 # advection(grid) (grid, dt_adv) spread over particle time step h
 # propagation(pos, vel, masses, grid) (particles) # switch gravity on/off here!
@@ -43,5 +43,5 @@ spinup(grid, pos, cells, vel, masses)
 # save to file in intervals chosen
 # need to set start time, end time, integr. params, interval of print,
 # interval of full save, ...)
-simulate(grid, pos, vel, masses)
+simulate(grid, pos, vel, masses, xi)
 

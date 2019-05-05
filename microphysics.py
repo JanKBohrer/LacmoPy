@@ -7,10 +7,11 @@ Created on Wed May  1 12:28:02 2019
 """
 
 
-import math.sqrt
+import math
 import numpy as np
 from scipy.optimize import fminbound
 from scipy.optimize import brentq
+from numba import njit, vectorize
 
 import constants as c
 from atmosphere import compute_surface_tension_water,\
@@ -23,12 +24,17 @@ from atmosphere import compute_surface_tension_water,\
 # compute mass in femto gram = 10^-18 kg 
 # from radius in microns 
 # and density in kg/m^3
+@vectorize("float64(float64,float64)")
 def compute_mass_from_radius(radius_, density_):
     return c.pi_times_4_over_3 * density_ * radius_ * radius_ * radius_ 
 
 # compute radius in microns
 # mass in 10^-18 kg, density in kg/m^3, radius in micro meter
+@vectorize("float64(float64,float64)")
 def compute_radius_from_mass(mass_, density_):
+    return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
+@vectorize("float64(float64,float64)", target="parallel")
+def compute_radius_from_mass_par(mass_, density_):
     return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
 
 # molality and molec. weight have to be in inverse units, e.g.
@@ -52,7 +58,8 @@ def compute_molality_from_mass_fraction(mass_fraction_, molecular_weight_):
 # water density in kg/m^3
 # quad. fit to data from CRC 2005
 # relative error is below 0.05 % in the range 0 .. 60°C
-par_water_dens = [  1.00013502e+03,  -4.68112708e-03,   2.72389977e+02]
+par_water_dens = np.array([  1.00013502e+03, -4.68112708e-03, 2.72389977e+02])
+@vectorize("float64(float64)")  
 def compute_density_water(temperature_):
     return par_water_dens[0]\
          + par_water_dens[1] * (temperature_ - par_water_dens[2])**2
@@ -63,9 +70,10 @@ def compute_density_water(temperature_):
 # relative error is below 0.1 % for range 0 .. 50 °C
 #                   below 0.17 % in range 0 .. 60 °C
 # (only high w_s lead to high error)
-par_sol_dens = [  7.619443952135e+02,   1.021264281453e+03,
+par_sol_dens = np.array([  7.619443952135e+02,   1.021264281453e+03,
                   1.828970151543e+00, 2.405352122804e+02,
-                 -1.080547892416e+00,  -3.492805028749e-03 ]
+                 -1.080547892416e+00,  -3.492805028749e-03 ] )
+@vectorize("float64(float64,float64)")  
 def compute_density_NaCl_solution(mass_fraction_solute_, temperature_):
     return    par_sol_dens[0] \
             + par_sol_dens[1] * mass_fraction_solute_ \
@@ -74,20 +82,42 @@ def compute_density_NaCl_solution(mass_fraction_solute_, temperature_):
             + par_sol_dens[4] * mass_fraction_solute_ * temperature_ \
             + par_sol_dens[5] * temperature_ * temperature_
 
-#    approx. density of the particle (droplet)
+# approx. density of the particle (droplet)
+# For now, use rho(w_s,T) for all ranges, no if then else...
+# to avoid discontinuity in the density
+w_s_rho_p = 0.001
+@vectorize("float64(float64,float64)")
+def compute_density_particle(mass_fraction_solute_, temperature_):
+    return    par_sol_dens[0] \
+            + par_sol_dens[1] * mass_fraction_solute_ \
+            + par_sol_dens[2] * temperature_ \
+            + par_sol_dens[3] * mass_fraction_solute_ * mass_fraction_solute_ \
+            + par_sol_dens[4] * mass_fraction_solute_ * temperature_ \
+            + par_sol_dens[5] * temperature_ * temperature_
+#    return compute_density_NaCl_solution( mass_fraction_solute_, temperature_ )
+#    return compute_density_water(temperature_)
 #    Combine the two density functions
 #    Use water density if mass fraction < 0.001,
-#    then rel dev of the two density functions is < 0.1 %
-#    For now, use rho(w_s,T) for all ranges,
-#    no if then else... to avoid discontinuity in the density
-w_s_rho_p = 0.001
-def compute_density_particle(mass_fraction_solute_, temperature_):
-    return compute_density_NaCl_solution( mass_fraction_solute_, temperature_ )
-#    return compute_density_water(temperature_)
+#   then rel dev of the two density functions is < 0.1 %
 #    return np.where( mass_fraction_solute_ < w_s_rho_p,
 #                    compute_density_water(temperature_),
-#                    compute_density_NaCl_solution(mass_fraction_solute_,
-#                                        temperature_))
+#                    compute_density_NaCl_solution(mass_fraction_solute_, temperature_))
+
+# @njit("UniTuple(float64[::1], 3)(float64[::1], float64[::1], float64[::1])")
+@njit()
+def compute_R_p_w_s_rho_p(m_w, m_s, T_p):
+    m_p = m_w + m_s
+    w_s = m_s / m_p
+    rho_p = compute_density_particle(w_s, T_p)
+    return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
+
+# @njit("UniTuple(float64[::1], 3)(float64[::1], float64[::1], float64[::1])", parallel = True)
+@njit(parallel = True)
+def compute_R_p_w_s_rho_p_par(m_w, m_s, T_p):
+    m_p = m_w + m_s
+    w_s = m_s / m_p
+    rho_p = compute_density_particle(w_s, T_p)
+    return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
     
 def compute_particle_radius_from_ws_T_ms( mass_fraction_solute_,
                                          temperature_, dry_mass_):
@@ -107,7 +137,8 @@ def compute_particle_radius_from_ws_T_ms( mass_fraction_solute_,
 # solubility of NaCl in water as mass fraction w_s_sol
 # saturation mass fraction (kg_solute/kg_solution)    
 # fit to data from CRC 2005 page 8-115
-par_solub = [  3.77253081e-01,  -8.68998172e-04,   1.64705858e-06]
+par_solub = np.array([  3.77253081e-01,  -8.68998172e-04,   1.64705858e-06])
+@vectorize("float64(float64)") 
 def compute_solubility_NaCl(temperature_):
     return par_solub[0] + par_solub[1] * temperature_\
          + par_solub[2] * temperature_ * temperature_
@@ -119,6 +150,8 @@ def compute_solubility_NaCl(temperature_):
 # for D_dry = 10 nm fits with fitted curve of Biskos
 supersaturation_factor_NaCl = 1.92
 # efflorescence mass fraction at a given temperature
+# @njit("[float64[:](float64[:]),float64(float64)]")
+@njit()
 def compute_efflorescence_mass_fraction_NaCl(temperature_):
     return supersaturation_factor_NaCl * compute_solubility_NaCl(temperature_)
 
@@ -132,7 +165,8 @@ def compute_efflorescence_mass_fraction_NaCl(temperature_):
 # approx +15 % for w_s = 0.46
 # we overestimate the water activity a_w by 6 % and rising
 # 0.308250118 = M_w/M_s
-par_vH_NaCl = [ 1.55199086,  4.95679863]
+par_vH_NaCl = np.array([ 1.55199086,  4.95679863])
+@vectorize("float64(float64)") 
 def compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_):
     return par_vH_NaCl[0] + par_vH_NaCl[1] * mass_fraction_solute_
 
@@ -143,12 +177,26 @@ molar_mass_ratio_w_NaCl = c.molar_mass_water/c.molar_mass_NaCl
 #mf_cross_NaCl = 0.090382759623349337
 mf_cross_NaCl = 0.09038275962335
 
+# vectorized version
+@vectorize("float64(float64)") 
 def compute_vant_Hoff_factor_NaCl(mass_fraction_solute_):
 #    return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
 #    return vant_Hoff_factor_NaCl_const
+    if mass_fraction_solute_ < mf_cross_NaCl: return vant_Hoff_factor_NaCl_const
+    else: return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
+
+# numpy version
+def compute_vant_Hoff_factor_NaCl_np(mass_fraction_solute_):
+#    return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
+#    return vant_Hoff_factor_NaCl_const
     return np.where(mass_fraction_solute_ < mf_cross_NaCl,
-                    vant_Hoff_factor_NaCl_const,
+                    vant_Hoff_factor_NaCl_const * np.ones_like(mass_fraction_solute_),
                     compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_))
+
+@vectorize("float64(float64)")
+def compute_dvH_dws(w_s):
+    if w_s < mf_cross_NaCl: return 0.0
+    else: return par_vH_NaCl[1]
 
 ##############################################################################
 ### forces
@@ -175,20 +223,8 @@ def compute_particle_reynolds_number(radius_, velocity_dev_, fluid_density_,
 
 #############################################################################
 ### microphysics
-    
-# in particle class:
-# calc m_s, m_w, w_s, R_p first => vant_Hoff(w_s), a_w (w_s, T_p)
-# IN WORK
-def compute_water_activity(mass_fraction_solute_, vant_Hoff_):
-#    vant_Hoff = np.where( mass_fraction_solute_ < mf_cross,
-#                          2.0,
-#                          self.compute_vant_Hoff_factor_fit_init(mass_fraction_solute_))
-#    return (1 - mass_fraction_solute_)\
-#         / ( 1 - ( 1 - molar_mass_ratio_w_NaCl * compute_vant_Hoff_factor_NaCl(mass_fraction_solute_) ) * mass_fraction_solute_ )
-    return ( 1 - mass_fraction_solute_ )\
-         / ( 1 - ( 1 - molar_mass_ratio_w_NaCl * vant_Hoff_ ) \
-                 * mass_fraction_solute_ )
 
+# use continuous version for now...  
 def compute_water_activity_mf(mass_fraction_solute_, vant_Hoff_):
 #    vant_Hoff = np.where( mass_fraction_solute_ < mf_cross,
 #                          2.0,
@@ -198,18 +234,6 @@ def compute_water_activity_mf(mass_fraction_solute_, vant_Hoff_):
     return (1 - mass_fraction_solute_)\
          / ( 1 - ( 1 - molar_mass_ratio_w_NaCl * vant_Hoff_ )
                  * mass_fraction_solute_ )
-
-# IN WORK
-# factor E6 comes from conversion mu -> m
-def compute_kelvin_term(radius_particle_,
-                        temperature_,
-                        mass_density_particle_,
-                        surface_tension_ ):
-    return np.exp(
-                   2.0E6 * surface_tension_
-                   / ( c.specific_gas_constant_water_vapor * temperature_
-                       * mass_density_particle_* radius_particle_)
-                 )
 
 def compute_kelvin_term_mf(mass_fraction_solute_,
                         temperature_,
@@ -225,28 +249,28 @@ def compute_kelvin_term_mf(mass_fraction_solute_,
                  )
 
 # IN WORK
-def compute_kelvin_raoult_term(radius_particle_,
-                                   mass_fraction_solute_,
-                                   temperature_,
-                                   vant_Hoff_,
-                                   mass_density_particle_,
-                                   surface_tension_):
-    return   compute_water_activity(mass_fraction_solute_, vant_Hoff_) \
-           * compute_kelvin_term(radius_particle_,
-                               temperature_,
-                               mass_density_particle_,
-                               surface_tension_)
+# def compute_kelvin_raoult_term(radius_particle_,
+#                                    mass_fraction_solute_,
+#                                    temperature_,
+#                                    vant_Hoff_,
+#                                    mass_density_particle_,
+#                                    surface_tension_):
+#     return   compute_water_activity(mass_fraction_solute_, vant_Hoff_) \
+#            * compute_kelvin_term(radius_particle_,
+#                                temperature_,
+#                                mass_density_particle_,
+#                                surface_tension_)
 # IN WORK
-def compute_kelvin_raoult_term_NaCl(radius_particle_,
-                                        mass_fraction_solute_,
-                                        temperature_):
-    return compute_kelvin_raoult_term(
-               radius_particle_,
-               mass_fraction_solute_,
-               temperature_,
-               compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
-               compute_density_particle(mass_fraction_solute_, temperature_),
-               compute_surface_tension_water(temperature_))
+# def compute_kelvin_raoult_term_NaCl(radius_particle_,
+#                                         mass_fraction_solute_,
+#                                         temperature_):
+#     return compute_kelvin_raoult_term(
+#                radius_particle_,
+#                mass_fraction_solute_,
+#                temperature_,
+#                compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
+#                compute_density_particle(mass_fraction_solute_, temperature_),
+#                compute_surface_tension_water(temperature_))
 
 def compute_kelvin_raoult_term_mf(mass_fraction_solute_,
                                       temperature_,
@@ -272,6 +296,28 @@ def compute_kelvin_raoult_term_NaCl_mf(mass_fraction_solute_,
                compute_density_particle(mass_fraction_solute_, temperature_),
                compute_surface_tension_water(temperature_))
 
+def compute_kelvin_raoult_term_negative_NaCl_mf(mass_fraction_solute_,
+                                           temperature_,
+                                           mass_solute_):
+    return -compute_kelvin_raoult_term_mf(
+               mass_fraction_solute_,
+               temperature_,
+               compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
+               mass_solute_,
+               compute_density_particle(mass_fraction_solute_, temperature_),
+               compute_surface_tension_water(temperature_))
+
+def compute_kelvin_raoult_term_minus_S_amb_NaCl_mf(mass_fraction_solute_,
+                                           temperature_,
+                                           mass_solute_, ambient_saturation_):
+    return -ambient_saturation_ + compute_kelvin_raoult_term_mf(
+               mass_fraction_solute_,
+               temperature_,
+               compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
+               mass_solute_,
+               compute_density_particle(mass_fraction_solute_, temperature_),
+               compute_surface_tension_water(temperature_))
+
 ### INITIALIZE MASS FRACTION
 # input:
 # R_dry
@@ -289,10 +335,15 @@ def compute_kelvin_raoult_term_NaCl_mf(mass_fraction_solute_,
 ## check for convergence at every stage... if not converged
 # -> set to activation radius ???
 
+# this function was tested and yields the same results as the non-vectorized
+# version. The old version had to be modified because inside vectorized
+# function, you can not create another function via lambda: 
+@vectorize( "float64(float64,float64,float64)" )
 def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
                                               ambient_saturation_,
                                               ambient_temperature_,
-                                              opt = 'None'):
+                                              # opt = 'None'
+                                              ):
     # 0.
     m_s = compute_mass_from_radius(radius_dry_, c.mass_density_NaCl_dry)
     w_s_effl = compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
@@ -300,14 +351,15 @@ def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
     S_effl = compute_kelvin_raoult_term_NaCl_mf(w_s_effl,
                                                 ambient_temperature_, m_s)
     # 2.
+    # np.where(ambient_saturation_ <= S_effl, w_s_init = w_s_effl,)
     if ambient_saturation_ <= S_effl:
         w_s_init = w_s_effl
     else:
         # 3.
         w_s_act, S_act, flag, nofc  = \
-            fminbound(lambda w: -compute_kelvin_raoult_term_NaCl_mf(
-                                                w, ambient_temperature_, m_s),
-                      x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
+            fminbound(compute_kelvin_raoult_term_negative_NaCl_mf,
+                      x1=1E-8, x2=w_s_effl, args=(ambient_temperature_, m_s),
+                      xtol = 1.0E-12, full_output=True )
         # 4.
         # increase w_s_act slightly to avoid numerical problems
         # in solving with brentq() below
@@ -327,11 +379,13 @@ def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
             # 6.
             solve_result = \
                 brentq(
-                    lambda w: compute_kelvin_raoult_term_NaCl_mf(
-                                  w, ambient_temperature_, m_s)\
-                              - ambient_saturation_,
+                    compute_kelvin_raoult_term_minus_S_amb_NaCl_mf,
+                    # lambda w: compute_kelvin_raoult_term_NaCl_mf(
+                    #               w, ambient_temperature_, m_s)\
+                    #           - ambient_saturation_,
                     w_s_act,
                     w_s_effl,
+                    (ambient_temperature_, m_s, ambient_saturation_),
                     xtol = 1e-15,
                     full_output=True)
             if solve_result[1].converged:
@@ -342,736 +396,297 @@ def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
             else:
                 w_s_init = w_s_act        
     
-    if opt == 'verbose':
-        w_s_act, S_act, flag, nofc  = \
-            fminbound(lambda w: -compute_kelvin_raoult_term_NaCl_mf(
-                                    w, ambient_temperature_, m_s),
-                      x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
-        S_act = -S_act
-        return w_s_init, w_s_act, S_act
-    else:
-        return w_s_init
+    # if opt == 'verbose':
+    #     w_s_act, S_act, flag, nofc  = \
+    #         fminbound(lambda w: -compute_kelvin_raoult_term_NaCl_mf(
+    #                                 w, ambient_temperature_, m_s),
+    #                   x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
+    #     S_act = -S_act
+    #     return w_s_init, w_s_act, S_act
+    # else:
+    return w_s_init
 
+# def compute_initial_mass_fraction_solute_NaCl_old(radius_dry_,
+#                                               ambient_saturation_,
+#                                               ambient_temperature_,
+#                                               # opt = 'None'
+#                                               ):
+#     # 0.
+#     m_s = compute_mass_from_radius(radius_dry_, c.mass_density_NaCl_dry)
+#     w_s_effl = compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
+#     # 1.
+#     S_effl = compute_kelvin_raoult_term_NaCl_mf(w_s_effl,
+#                                                 ambient_temperature_, m_s)
+#     # 2.
+#     # np.where(ambient_saturation_ <= S_effl, w_s_init = w_s_effl,)
+#     if ambient_saturation_ <= S_effl:
+#         w_s_init = w_s_effl
+#     else:
+#         # 3.
+#         w_s_act, S_act, flag, nofc  = \
+#             fminbound(lambda w: -compute_kelvin_raoult_term_NaCl_mf(
+#                                                 w, ambient_temperature_, m_s),
+#                       x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
+#         # 4.
+#         # increase w_s_act slightly to avoid numerical problems
+#         # in solving with brentq() below
+#         if flag == 0:
+#             w_s_act *= 1.000001
+#         # set w_s_act (i.e. the min bound for brentq() solve below )
+#         # to deliqu. mass fraction if fminbound does not converge
+#         else:
+#             w_s_act = compute_solubility_NaCl(ambient_temperature_)
+#         # update S_act to S_act* < S_act (right branch of S_eq vs w_s curve)
+#         S_act = compute_kelvin_raoult_term_NaCl_mf(w_s_act,
+#                                                     ambient_temperature_, m_s)
+#         # 5.
+#         if ambient_saturation_ > S_act:
+#             w_s_init = w_s_act
+#         else:
+#             # 6.
+#             solve_result = \
+#                 brentq(
+#                     lambda w: compute_kelvin_raoult_term_NaCl_mf(
+#                                   w, ambient_temperature_, m_s)\
+#                               - ambient_saturation_,
+#                     w_s_act,
+#                     w_s_effl,
+#                     xtol = 1e-15,
+#                     full_output=True)
+#             if solve_result[1].converged:
+#                 w_s_init = solve_result[0]
+#     #         solute_mass_fraction
+#     # = brentq(droplet.compute_kelvin_raoult_term_mf_init,
+#     #            mf_max, mf_del, args = S_a)
+#             else:
+#                 w_s_init = w_s_act        
+    
+#     # if opt == 'verbose':
+#     #     w_s_act, S_act, flag, nofc  = \
+#     #         fminbound(lambda w: -compute_kelvin_raoult_term_NaCl_mf(
+#     #                                 w, ambient_temperature_, m_s),
+#     #                   x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
+#     #     S_act = -S_act
+#     #     return w_s_init, w_s_act, S_act
+#     # else:
+#     return w_s_init
 
+# Rs = np.array([0.01,0.02,0.03])
+# ws = compute_initial_mass_fraction_solute_NaCl(Rs,1.01,289)
 
+# print(ws)
+# ws2 = []
+# for i,R in enumerate(Rs):
+#     ws2.append(compute_initial_mass_fraction_solute_NaCl_old(R,1.01,289))
+#     print(ws2[i]-ws[i])
 
 
 ##############################################################################
 ### mass rate
+    
+# Size corrections Fukuta (both in mu!)
+# size corrections in droplet growth equation of Fukuta 1970 used in Szumowski 1998 
+# we use adiabatic index = 1.4 = 7/5 -> 1/1.4 = 5/7 = 0.7142857142857143
+# also accommodation coeff = 1.0
+# and c_v_air = c_v_air_dry_NTP
 accommodation_coeff = 1.0
 adiabatic_index_inv = 0.7142857142857143
-def compute_thermal_size_correction_Fukuta_short(amb_temp_, amb_press_,
-                                                 thermal_cond_air_):
-    return thermal_cond_air_ * np.sqrt(2.0 * np.pi
-                                       * c.specific_gas_constant_air_dry
-                                       * amb_temp_) \
-        / ( accommodation_coeff * amb_press_
-           * (c.specific_heat_capacity_air_dry_NTP * adiabatic_index_inv
-              + 0.5 * c.specific_gas_constant_air_dry) )
 
 T_alpha_0 = 289 # K
-c_alpha_1 =\
-    math.sqrt(2.0 * np.pi * c.specific_gas_constant_air_dry * T_alpha_0 )\
-    / ( accommodation_coeff\
-       * (c.specific_heat_capacity_air_dry_NTP * adiabatic_index_inv 
-          + 0.5 * c.specific_gas_constant_air_dry) )
-c_alpha_2 =\
-    0.5 * math.sqrt(2.0 * np.pi * c.specific_gas_constant_air_dry / T_alpha_0 )\
-    / ( accommodation_coeff
-       * (c.specific_heat_capacity_air_dry_NTP * adiabatic_index_inv
-          + 0.5 * c.specific_gas_constant_air_dry) )
-def compute_thermal_size_correction_Fukuta_lin(amb_temp_, amb_press_,
-                                               thermal_cond_air_):
-    return ( c_alpha_1 + c_alpha_2 * (amb_temp_ - T_alpha_0) )\
-           * thermal_cond_air_ / amb_press_
-
-def compute_thermal_size_correction_Fukuta2(amb_temp_, amb_press_,
-                                            thermal_cond_air_, r_v_):
-    return thermal_cond_air_\
-           * np.sqrt(2.0 * np.pi * c.specific_gas_constant_air_dry * amb_temp_) \
-        / ( accommodation_coeff * amb_press_
-           * ( compute_specific_heat_capacity_air_moist(r_v_) 
-               * 0.7142857142857143 + 0.5 * c.specific_gas_constant_air_dry) )
-def compute_thermal_size_correction_Fukuta(amb_temp_, amb_press_,
-                                           thermal_cond_air_,
-                                           spec_heat_cap_air_,
-                                           adiabatic_index_,
-                                           accomm_coeff_):
-    return thermal_cond_air_\
-         * np.sqrt(2.0 * np.pi * c.specific_gas_constant_air_dry * amb_temp_) \
-        / ( accomm_coeff_ * amb_press_\
-           * (spec_heat_cap_air_ / adiabatic_index_\
-              + 0.5 * c.specific_gas_constant_air_dry) )
-
-# l_alpha, fixed T = 289 K, p = 900 hPa
-thermal_size_correction_Fukuta_T289_p900 =\
-    compute_thermal_size_correction_Fukuta_short(
-            289.0, 9.0E4, compute_thermal_conductivity_air(289.0))
+c_alpha_1 = 1.0E6 * math.sqrt(2.0 * np.pi * c.specific_gas_constant_air_dry 
+                              * T_alpha_0 )\
+                    / ( accommodation_coeff
+                        * ( c.specific_heat_capacity_air_dry_NTP
+                            * adiabatic_index_inv\
+                            + 0.5 * c.specific_gas_constant_air_dry ) )
+c_alpha_2 = 0.5E6\
+            * math.sqrt(2.0 * np.pi * c.specific_gas_constant_air_dry
+                        / T_alpha_0 )\
+              / ( accommodation_coeff
+                  * (c.specific_heat_capacity_air_dry_NTP * adiabatic_index_inv\
+                      + 0.5 * c.specific_gas_constant_air_dry) )
+# in mu
+@vectorize("float64(float64,float64,float64)")
+def compute_l_alpha_lin(T_amb, p_amb, K):
+    return ( c_alpha_1 + c_alpha_2 * (T_amb - T_alpha_0) ) * K / p_amb
 
 condensation_coeff = 0.0415
-def compute_diffusive_size_correction_Fukuta_short(amb_temp_, diff_const_air_):
-    return np.sqrt( 2.0 * np.pi * c.molar_mass_water
-                   / ( c.universal_gas_constant * amb_temp_ ) ) \
-            * diff_const_air_ / condensation_coeff
-c_beta_1 = math.sqrt( 2.0 * np.pi * c.molar_mass_water
-                     / ( c.universal_gas_constant * T_alpha_0 ) )\
-           / condensation_coeff
+c_beta_1 = 1.0E6 * math.sqrt( 2.0 * np.pi * c.molar_mass_water\
+                              / ( c.universal_gas_constant * T_alpha_0 ) )\
+                   / condensation_coeff
 c_beta_2 = -0.5 / T_alpha_0
-def compute_diffusive_size_correction_Fukuta_lin(amb_temp_, diff_const_air_):
-    return c_beta_1 * ( 1.0 + c_beta_2 * (amb_temp_ - T_alpha_0) )\
-                    * diff_const_air_
+# in mu
+@vectorize("float64(float64,float64)")
+def compute_l_beta_lin(T_amb, D_v):
+    return c_beta_1 * ( 1.0 + c_beta_2 * (T_amb - T_alpha_0) ) * D_v
 
-def compute_diffusive_size_correction_Fukuta(amb_temp_, diff_const_air_,
-                                             condens_coeff_):
-    return np.sqrt( 2.0 * np.pi * c.molar_mass_water
-                   / ( c.universal_gas_constant * amb_temp_ ) ) \
-            * diff_const_air_ / condens_coeff_
+### 
+# R_p in mu
+# result without unit -> conversion from mu 
+@vectorize("float64(float64,float64,float64,float64)")
+def compute_kelvin_argument(R_p, T_p, rho_p, sigma_w):
+    return 2.0E6 * sigma_w / ( c.specific_gas_constant_water_vapor * T_p * rho_p * R_p )
 
-# l_beta, fixed T = 289 K, p = 900 hPa
-diffusive_size_correction_Fukuta_T289_p900\
-    = compute_diffusive_size_correction_Fukuta_short(
-            289.0, compute_diffusion_constant(289.0, 9.0E4))
+#@vectorize( "float64[::1](float64[::1], float64[::1], float64[::1], float64[::1])")
+@vectorize( "float64(float64, float64, float64, float64)")
+def compute_kelvin_term(R_p, T_p, rho_p, sigma_w):
+    return np.exp(compute_kelvin_argument(R_p, T_p, rho_p, sigma_w))
 
-# mass rate Szumowski
-#     besides the other properties, we need the diffusion constant, which
-#     is among others dependent on the ambient pressure
-#     i.e. the diff. const. must be updated before the mass rate is computed
-#     note that the E12 in 4.0E12 is coming from the unit conversion 
-#     to get mass rate in 10^-18 kg/s = 1 fg/s (femtogram)
-#     requires T_amb, S_amb, e_s_amb, D_v(p_amb, T_amb), K(p_amb, T_amb)
-#     AND S_eq, L_v, e_ps, Tp, 
-def compute_mass_rate_Szumowski_from_Seq(  amb_temp_, amb_press_,
-                                  amb_sat_, amb_sat_press_,
-                                  diffusion_constant_,
-                                  thermal_conductivity_air_,
-                                  specific_heat_capacity_air_,
-                                  adiabatic_index_,
-                                  accomodation_coefficient_,
-                                  condensation_coefficient_, 
-                                  radius_,
-                                  heat_of_vaporization_,
-                                  equilibrium_saturation_
-                                  ):
-    # thermal size correction
-    l_alpha = compute_thermal_size_correction_Fukuta(amb_temp_, amb_press_,
-                                                 thermal_conductivity_air_,
-                                                 specific_heat_capacity_air_,
-                                                 adiabatic_index_,
-                                                 accomodation_coefficient_)
-    # diffusive size correction
-    l_beta = compute_diffusive_size_correction_Fukuta(
-                amb_temp_,
-                diffusion_constant_,
-                condensation_coefficient_)
-    thermal_term = heat_of_vaporization_ * heat_of_vaporization_\
-                   * equilibrium_saturation_ \
-        / ( thermal_conductivity_air_ * c.specific_gas_constant_water_vapor
-            * amb_temp_ * amb_temp_ ) \
-        * ( radius_ + l_alpha * 1.0E6)
-    diffusion_term = c.specific_gas_constant_water_vapor * amb_temp_ \
-                     / ( diffusion_constant_ * amb_sat_press_ )\
-                     * (radius_ + l_beta * 1.0E6)
-    return 4.0E12 * np.pi * radius_ * radius_\
-           * (amb_sat_ - equilibrium_saturation_) \
-           / (thermal_term + diffusion_term)            
+@vectorize( "float64(float64, float64, float64, float64)", target = "parallel")
+def compute_kelvin_term_par(R_p, T_p, rho_p, sigma_w):
+    return np.exp(compute_kelvin_argument(R_p, T_p, rho_p, sigma_w))
 
-#NEW
-def compute_mass_rate_Szumowski(mass_water_, mass_solute_,
-                                  mass_fraction_solute_, radius_particle_,
-                                  density_particle_,
-                                  amb_temp_, amb_press_,
-                                  amb_sat_, amb_sat_press_,
-                                  diffusion_constant_,
-                                  thermal_conductivity_air_,
-                                  specific_heat_capacity_air_,
-                                  heat_of_vaporization_,
-                                  surface_tension_,
-                                  adiabatic_index_,
-                                  accomodation_coefficient_,
-                                  condensation_coefficient_):
+@vectorize( "float64(float64, float64, float64)")
+def compute_water_activity(m_w, m_s, w_s):
+    return m_w / ( m_w + molar_mass_ratio_w_NaCl * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
+
+@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64)")
+def compute_equilibrium_saturation(m_w, m_s, w_s, R_p, rho_p, T, sigma_w):
+    return compute_water_activity(m_w, m_s, w_s) * compute_kelvin_term(R_p, rho_p, T, sigma_w)
+
+# @vectorize( "float64(float64, float64, float64, float64, float64, float64, float64)", target = "parallel")
+# def compute_equilibrium_saturation_par(m_w, m_s, w_s, R_p, rho_p, T, sigma_w):
+    # return compute_water_activity(m_w, m_s, w_s) * compute_kelvin_term(R_p, rho_p, T, sigma_w)
+
+# in SI
+@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64)")
+def compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v  ):
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb  )
+    c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
+    l_alpha = compute_l_alpha_lin(T_amb, p_amb, K)
+    l_beta = compute_l_beta_lin(T_amb, D_v)
+    return 1.0E-6 * ( c1 * S_eq * (R_p + l_alpha) + c2 * (R_p + l_beta) )
+
+@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64)", target = "parallel")
+def compute_gamma_denom_par(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v  ):
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb  )
+    c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
+    l_alpha = compute_l_alpha_lin(T_amb, p_amb, K)
+    l_beta = compute_l_beta_lin(T_amb, D_v)
+    return 1.0E-6 * ( c1 * S_eq * (R_p + l_alpha) + c2 * (R_p + l_beta) )
+
+### the functions mass_rate, mass_rate_deriv and mass_rate_and_deriv are checked with the old versions.. -> rel err 1E-12 (numeric I guess)
+### the linearization of l_alpha, l_beta has small effects for small radii, but the coefficients are somewhat arbitrary anyways.
+# in fg/s = 1.0E-18 kg/s
+@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64)")
+def compute_mass_rate(m_w, m_s, w_s, R_p, T_p, rho_p,
+                      T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
+    S_eq = compute_equilibrium_saturation(m_w, m_s, w_s, R_p, T_p, rho_p, sigma_w)
+    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq) / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
+
+@vectorize("float64(float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64)",
+           target = "parallel")
+def compute_mass_rate_par(m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
+    S_eq = compute_equilibrium_saturation(m_w, m_s, w_s, R_p, T_p, rho_p, sigma_w)
+    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq) / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
+
+#@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64)")
+def compute_mass_rate_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
+    R_p_SI = 1.0E-6 * R_p # in SI: meter   
     
-    R_p_SI = 1.0E-6 * radius_particle_ # in SI: meter   
-    # thermal size correction
-    l_alpha_plus_R_p = R_p_SI\
-        + compute_thermal_size_correction_Fukuta(amb_temp_, amb_press_,
-                                                 thermal_conductivity_air_,
-                                                 specific_heat_capacity_air_,
-                                                 adiabatic_index_,
-                                                 accomodation_coefficient_)
-    # diffusive size correction
-    l_beta_plus_R_p = R_p_SI\
-        + compute_diffusive_size_correction_Fukuta(amb_temp_,
-                                                   diffusion_constant_,
-                                                   condensation_coefficient_)
-    
-    vH = compute_vant_Hoff_factor_NaCl(mass_fraction_solute_)
-    a_k_over_R_p = 2.0E6 * surface_tension_ \
-             / ( c.specific_gas_constant_water_vapor
-                 * amb_temp_
-                 * density_particle_* radius_particle_)# in SI -> no unit
-    S_eq = np.exp(a_k_over_R_p) * mass_water_\
-           / (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH)
-    c1 = heat_of_vaporization_ * heat_of_vaporization_ \
-         / ( thermal_conductivity_air_
-             * c.specific_gas_constant_water_vapor * amb_temp_ * amb_temp_ )
-    c2 = c.specific_gas_constant_water_vapor * amb_temp_\
-         / (diffusion_constant_ * amb_sat_press_)
-    return 4.0E6 * np.pi * radius_particle_ * radius_particle_\
-           * (amb_sat_ - S_eq)\
-           / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 )
-
-# IN WORK: MODIFY WITH LINEAR SIZE CORRECTION
-# modified WITH density derivative
-def compute_mass_rate_and_mass_rate_derivative_Szumowski(
-        mass_water_, mass_solute_,
-        mass_particle_, mass_fraction_solute_, radius_particle_,
-        temperature_particle_, density_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        heat_of_vaporization_,
-        surface_tension_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_):
-    R_p_SI = 1.0E-6 * radius_particle_ # in SI: meter   
-    
-    # thermal size correction
-#    l_alpha_plus_R_p = R_p_SI 
-#+ compute_thermal_size_correction_Fukuta_lin(
-#amb_temp_, amb_press_, thermal_conductivity_air_)
-    l_alpha_plus_R_p = R_p_SI\
-        + compute_thermal_size_correction_Fukuta(amb_temp_, amb_press_,
-                                                 thermal_conductivity_air_,
-                                                 specific_heat_capacity_air_,
-                                                 adiabatic_index_,
-                                                 accomodation_coefficient_)
-    # diffusive size correction
-#    l_beta_plus_R_p = R_p_SI 
-#+ compute_diffusive_size_correction_Fukuta_lin(amb_temp_, diffusion_constant_)
-    l_beta_plus_R_p = R_p_SI\
-        + compute_diffusive_size_correction_Fukuta(amb_temp_,
-                                                  diffusion_constant_,
-                                                  condensation_coefficient_)
+    # thermal size correction in SI
+    l_alpha_plus_R_p = 1.0E-6 * (R_p + compute_l_alpha_lin(T_amb, p_amb, K))
+#    l_alpha_plus_R_p = 1.0E-6 * (R_p + ( c_alpha_1 + c_alpha_2 * (T_amb - T_alpha_0) ) * K / p_amb)
+    # diffusive size correction in SI
+    l_beta_plus_R_p = 1.0E-6 * (R_p + compute_l_beta_lin(T_amb, D_v) )
+#    l_beta_plus_R_p = 1.0E-6 * (R_p + c_beta_1 * ( 1.0 + c_beta_2 * (T_amb - T_alpha_0) ) * D_v )
        
-    m_p_inv_SI = 1.0E18 / mass_particle_ # in 1 / 1.0E-18 kg
+    m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
     # dont use piecewise for now to avoid discontinuity in density...
-    drho_dm_over_rho = -mass_fraction_solute_ * m_p_inv_SI / density_particle_\
-                       * (par_sol_dens[1]
-                          + 2.0 * par_sol_dens[3] * mass_fraction_solute_
-                          + par_sol_dens[4] * temperature_particle_  )
-#    drho_dm_over_rho = np.where(mass_fraction_solute_ < w_s_rho_p,
-#                       0.0,
-#                       -mass_fraction_solute_
-#                   * m_p_inv_SI / density_particle_ \
-#  * (par_sol_dens[1] 
-# + 2.0*par_sol_dens[3]*mass_fraction_solute_
-# + par_sol_dens[4]*temperature_particle_  ) ) 
+    drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
+                       * (par_sol_dens[1] + 2.0 * par_sol_dens[3] * w_s + par_sol_dens[4] * T_p )
 
-
-    dR_p_dm_over_R = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
-    dR_p_dm = dR_p_dm_over_R * R_p_SI
+    dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
+    dR_p_dm = dR_p_dm_over_R_p * R_p_SI
 #    dR_p_dm = one_third * R_p_SI * ( m_p_inv_SI - drho_dm_over_rho) # in SI
 #    dR_p_dm_over_R = dR_p_dm / R_p_SI
-        
-    a_k_over_R_p = 2.0E6 * surface_tension_ \
-                 / ( c.specific_gas_constant_water_vapor * amb_temp_
-                    * density_particle_* radius_particle_)# in SI -> no unit
     
-    vH = compute_vant_Hoff_factor_NaCl(mass_fraction_solute_)
-    ###########
-    dvH_dws = np.where(mass_fraction_solute_ < mf_cross_NaCl,
-                       0.0, par_vH_NaCl[1])
-#    dvH_dws = 0.0
-#    dvH_dws = par_vH_NaCl[1]
-    ##########
-    # masses in 1.0E-18 kg
-#    h1 = (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH) 
+    eps_k = compute_kelvin_argument(R_p, T_p, rho_p, sigma_w) # in SI - no unit
+    
+    vH = compute_vant_Hoff_factor_NaCl(w_s)
+    dvH_dws = compute_dvH_dws(w_s)
+#    dvH_dws = np.where(w_s < mf_cross_NaCl, 0.0, par_vH_NaCl[1])
+    
     # dont convert masses here
-    h1_inv = 1.0 / (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH) 
+    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
         
-    S_eq = mass_water_ * h1_inv * np.exp(a_k_over_R_p)
+    S_eq = m_w * h1_inv * np.exp(eps_k)
     
-    dSeq_dm = S_eq * (1.0E18 / mass_water_
-                      - a_k_over_R_p * ( dR_p_dm_over_R + drho_dm_over_rho )
-                      - ( 1 - molar_mass_ratio_w_NaCl * dvH_dws
-                          * mass_fraction_solute_ * mass_fraction_solute_)
-                        * h1_inv * 1.0E18 )
+    dSeq_dm = S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho ) \
+                      - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s) * h1_inv * 1.0E18)
     
-#    f1 = 4.0 * np.pi * radius_particle_ * radius_particle_#too large by 1.0E12
-    
-    
-#    df1_dm = 2.0 * f1 * dR_p_dm_over_R
-    
-    c1 = heat_of_vaporization_ * heat_of_vaporization_ \
-         / ( thermal_conductivity_air_ * c.specific_gas_constant_water_vapor
-             * amb_temp_ * amb_temp_ )
-    c2 = c.specific_gas_constant_water_vapor * amb_temp_\
-         / (diffusion_constant_ * amb_sat_press_)
-    # in SI : m^2 s / kg:     
-    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 )
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb  )
+    c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
+    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) # in SI : m^2 s / kg
     
     f1f3 = 4.0 * np.pi * R_p_SI * R_p_SI * f3 # SI
     
-    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm )\
-             * c1 + dR_p_dm * c2
-    f2 = amb_sat_ - S_eq
-    
-#    gamma = f1 * f2 * f3 # in kg/s
-#    dgamma_dm = f1*f3*( f2*( 2.0*dR_p_dm_over_R - f3*dg1_dm ) - dSeq_dm )
-    # return 1.0E18 * gamma, dgamma_dm
-    return 1.0E18 * f1f3 * f2,\
-           f1f3 * ( f2 * ( 2.0 * dR_p_dm_over_R - f3 * dg1_dm ) - dSeq_dm )
+    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm * c2
+#    f2 = S_amb - S_eq
+    return f1f3 * ( ( S_amb - S_eq ) * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+compute_mass_rate_derivative =\
+njit()(compute_mass_rate_derivative_np)
+# njit("float64[::1](float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])")(compute_mass_rate_derivative_np)
+compute_mass_rate_derivative_par =\
+njit(parallel = True)(compute_mass_rate_derivative_np)
+# njit("float64[::1](float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])", parallel = True)(compute_mass_rate_derivative_np)
 
-def compute_mass_rate_and_mass_rate_derivative_Szumowski_lin_l(
-        mass_water_, mass_solute_,
-        mass_particle_, mass_fraction_solute_, radius_particle_,
-        temperature_particle_, density_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        heat_of_vaporization_,
-        surface_tension_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_):
+# return mass rate in fg/s and mass rate deriv in SI: 1/s
+def compute_mass_rate_and_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p,
+                                        T_amb, p_amb, S_amb, e_s_amb,
+                                        L_v, K, D_v, sigma_w):
+#    R_p_SI = 1.0E-6 * R_p # in SI: meter   
     
-    R_p_SI = 1.0E-6 * radius_particle_ # in SI: meter   
-    
-    # thermal size correction
-    l_alpha_plus_R_p = R_p_SI\
-        + compute_thermal_size_correction_Fukuta_lin(amb_temp_, amb_press_,
-                                                     thermal_conductivity_air_)
-#    l_alpha_plus_R_p = R_p_SI\
-#    + compute_thermal_size_correction_Fukuta(amb_temp_, amb_press_,
-#                                             thermal_conductivity_air_,
-#                                             specific_heat_capacity_air_,
-#                                             adiabatic_index_,
-#                                             accomodation_coefficient_)
-    # diffusive size correction
-    l_beta_plus_R_p = R_p_SI\
-        + compute_diffusive_size_correction_Fukuta_lin(amb_temp_,
-                                                       diffusion_constant_)
-#    l_beta_plus_R_p = R_p_SI\
-#   + compute_diffusive_size_correction_Fukuta(amb_temp_,
-#                                                  diffusion_constant_,
-#                                                  condensation_coefficient_)
+    # thermal size correction in SI
+    l_alpha_plus_R_p = 1.0E-6 * (R_p + compute_l_alpha_lin(T_amb, p_amb, K))
+    # diffusive size correction in SI
+    l_beta_plus_R_p = 1.0E-6 * (R_p + compute_l_beta_lin(T_amb, D_v) )
        
-    m_p_inv_SI = 1.0E18 / mass_particle_ # in 1 / 1.0E-18 kg
+    m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
     # dont use piecewise for now to avoid discontinuity in density...
-    drho_dm_over_rho = -mass_fraction_solute_ * m_p_inv_SI / density_particle_\
-                       * ( par_sol_dens[1]
-                           + 2.0 * par_sol_dens[3] * mass_fraction_solute_
-                           + par_sol_dens[4] * temperature_particle_  )
-#    drho_dm_over_rho = np.where(mass_fraction_solute_ < w_s_rho_p,
-#                       0.0,
-#                       -mass_fraction_solute_ * m_p_inv_SI
-#                       / density_particle_ \
-#   * (par_sol_dens[1] 
-#   + 2.0*par_sol_dens[3]*mass_fraction_solute_
-# + par_sol_dens[4]*temperature_particle_  ) ) 
+    drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
+                       * (par_sol_dens[1] + 2.0 * par_sol_dens[3] * w_s + par_sol_dens[4] * T_p )
 
-
-    dR_p_dm_over_R = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
-    dR_p_dm = dR_p_dm_over_R * R_p_SI
-#    dR_p_dm = one_third * R_p_SI * ( m_p_inv_SI - drho_dm_over_rho) # in SI
-#    dR_p_dm_over_R = dR_p_dm / R_p_SI
-        
-    a_k_over_R_p = 2.0E6 * surface_tension_ \
-                 / ( c.specific_gas_constant_water_vapor * amb_temp_
-                    * density_particle_* radius_particle_)# in SI -> no unit
+    dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
+    dR_p_dm = 1.0E-6 * dR_p_dm_over_R_p * R_p
     
-    vH = compute_vant_Hoff_factor_NaCl(mass_fraction_solute_)
-    ###########
-    dvH_dws = np.where(mass_fraction_solute_ < mf_cross_NaCl,
-                       0.0, par_vH_NaCl[1])
-#    dvH_dws = 0.0
-#    dvH_dws = par_vH_NaCl[1]
-    ##########
-    # masses in 1.0E-18 kg
-#    h1 = (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH) 
+    eps_k = compute_kelvin_argument(R_p, T_p, rho_p, sigma_w) # in SI - no unit
+    
+    vH = compute_vant_Hoff_factor_NaCl(w_s)
+    dvH_dws = compute_dvH_dws(w_s)
+#    dvH_dws = np.where(w_s < mf_cross_NaCl, np.zeros_like(w_s), np.ones_like(w_s) * par_vH_NaCl[1])
     # dont convert masses here
-    h1_inv = 1.0 / (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH) 
+    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
         
-    S_eq = mass_water_ * h1_inv * np.exp(a_k_over_R_p)
+    S_eq = m_w * h1_inv * np.exp(eps_k)
     
-    dSeq_dm = S_eq * (1.0E18 / mass_water_
-                      - a_k_over_R_p * ( dR_p_dm_over_R + drho_dm_over_rho )
-                      - (1 - molar_mass_ratio_w_NaCl * dvH_dws
-                         * mass_fraction_solute_ * mass_fraction_solute_)
-                        * h1_inv * 1.0E18)
-# too large by 1.0E12    
-#    f1 = 4.0 * np.pi * radius_particle_ * radius_particle_ 
+    dSeq_dm = S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho ) \
+                      - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s) * h1_inv * 1.0E18)
     
-#    df1_dm = 2.0 * f1 * dR_p_dm_over_R
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb )
+    c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
+    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) # in SI : m^2 s / kg
     
-    c1 = heat_of_vaporization_ * heat_of_vaporization_ \
-         / ( thermal_conductivity_air_ * c.specific_gas_constant_water_vapor
-             * amb_temp_ * amb_temp_ )
-    c2 = c.specific_gas_constant_water_vapor * amb_temp_\
-         / (diffusion_constant_ * amb_sat_press_)
-    # in SI : m^2 s / kg
-    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) 
+    f1f3 = 4.0 * np.pi * R_p * R_p * f3 # in 1E-12
     
-    f1f3 = 4.0 * np.pi * R_p_SI * R_p_SI * f3 # SI
-    
-    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1\
-             + dR_p_dm * c2
-    f2 = amb_sat_ - S_eq
-    
-#    gamma = f1 * f2 * f3 # in kg/s
-#    dgamma_dm = f1*f3*( f2*( 2.0*dR_p_dm_over_R - f3*dg1_dm ) - dSeq_dm )
-    # return 1.0E18 * gamma, dgamma_dm
-    return 1.0E18 * f1f3 * f2,\
-           f1f3 * ( f2 * ( 2.0 * dR_p_dm_over_R - f3 * dg1_dm ) - dSeq_dm )
-
-def compute_mass_rate_and_mass_rate_derivative_Szumowski_const_l(
-        mass_water_, mass_solute_,
-        mass_particle_, mass_fraction_solute_, radius_particle_,
-        temperature_particle_, density_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        heat_of_vaporization_,
-        surface_tension_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_):
-    R_p_SI = 1.0E-6 * radius_particle_ # in SI: meter   
-    
-    # thermal size correction
-    l_alpha_plus_R_p = R_p_SI + thermal_size_correction_Fukuta_T289_p900
-#    l_alpha_plus_R_p = R_p_SI
-#   + compute_thermal_size_correction_Fukuta(amb_temp_, amb_press_,
-#                                                 thermal_conductivity_air_,
-#                                                 specific_heat_capacity_air_,
-#                                                 adiabatic_index_,
-#                                                 accomodation_coefficient_)
-    # diffusive size correction
-    l_beta_plus_R_p = R_p_SI + diffusive_size_correction_Fukuta_T289_p900
-#    l_beta_plus_R_p = R_p_SI\
-#   + compute_diffusive_size_correction_Fukuta(amb_temp_,
-#                                                  diffusion_constant_,
-#                                                  condensation_coefficient_)
-       
-    m_p_inv_SI = 1.0E18 / mass_particle_ # in 1 / 1.0E-18 kg
-    # dont use piecewise for now to avoid discontinuity in density...
-    drho_dm_over_rho = -mass_fraction_solute_ * m_p_inv_SI / density_particle_\
-                       * ( par_sol_dens[1]
-                           + 2.0 * par_sol_dens[3] * mass_fraction_solute_
-                           + par_sol_dens[4] * temperature_particle_ )
-#    drho_dm_over_rho = np.where(
-#           mass_fraction_solute_ < w_s_rho_p,
-#                       0.0,
-#           -mass_fraction_solute_ * m_p_inv_SI / density_particle_ \
-#           * (par_sol_dens[1]
-#              + 2.0*par_sol_dens[3]*mass_fraction_solute_
-#              + par_sol_dens[4]*temperature_particle_  ) ) 
+    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm * c2
+    # use name S_eq = f2
+    S_eq = S_amb - S_eq
+#    f2 = S_amb - S_eq
+    # NOTE: here S_eq = f2 = S_amb - S_eq
+#    return 1.0E-12 * f1f3 * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+    return 1.0E6 * f1f3 * S_eq, 1.0E-12 * f1f3 * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+#    return 1.0E6 * f1f3 * f2, 1.0E-12 * f1f3 * ( f2 * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+compute_mass_rate_and_derivative =\
+njit()(compute_mass_rate_and_derivative_np)
+# njit("UniTuple(float64[::1], 2)(float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])")(compute_mass_rate_and_derivative_np)
+compute_mass_rate_and_derivative_par =\
+njit(parallel = True)(compute_mass_rate_and_derivative_np)
+# njit("UniTuple(float64[::1], 2)(float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])", parallel = True)(compute_mass_rate_and_derivative_np)
 
 
-    dR_p_dm_over_R = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
-    dR_p_dm = dR_p_dm_over_R * R_p_SI
-#    dR_p_dm = one_third * R_p_SI * ( m_p_inv_SI - drho_dm_over_rho) # in SI
-#    dR_p_dm_over_R = dR_p_dm / R_p_SI
-        
-    a_k_over_R_p = 2.0E6 * surface_tension_ \
-                 / ( c.specific_gas_constant_water_vapor * amb_temp_
-                     * density_particle_* radius_particle_)# in SI -> no unit
-    
-    vH = compute_vant_Hoff_factor_NaCl(mass_fraction_solute_)
-    ###########
-    dvH_dws = np.where(mass_fraction_solute_ < mf_cross_NaCl,
-                       0.0, par_vH_NaCl[1])
-#    dvH_dws = 0.0
-#    dvH_dws = par_vH_NaCl[1]
-    ##########
-    # masses in 1.0E-18 kg
-#    h1 = (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH) 
-    # dont convert masses here
-    h1_inv = 1.0 / (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH) 
-        
-    S_eq = mass_water_ * h1_inv * np.exp(a_k_over_R_p)
-    
-    dSeq_dm = S_eq * (1.0E18 / mass_water_
-                      - a_k_over_R_p * ( dR_p_dm_over_R + drho_dm_over_rho ) \
-                      - (1 - molar_mass_ratio_w_NaCl * dvH_dws
-                         * mass_fraction_solute_ * mass_fraction_solute_)
-                        * h1_inv * 1.0E18)
-# too large by 1.0E12    
-#    f1 = 4.0 * np.pi * radius_particle_ * radius_particle_ 
-    
-#    df1_dm = 2.0 * f1 * dR_p_dm_over_R
-    
-    c1 = heat_of_vaporization_ * heat_of_vaporization_ \
-         / ( thermal_conductivity_air_ * c.specific_gas_constant_water_vapor
-             * amb_temp_ * amb_temp_ )
-    c2 = c.specific_gas_constant_water_vapor * amb_temp_\
-         / (diffusion_constant_ * amb_sat_press_)
-    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1
-                 + (l_beta_plus_R_p) * c2 ) # in SI : m^2 s / kg
-    
-    f1f3 = 4.0 * np.pi * R_p_SI * R_p_SI * f3 # SI
-    
-    dg1_dm = ( dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1\
-             + dR_p_dm * c2
-    f2 = amb_sat_ - S_eq
-    
-#    gamma = f1 * f2 * f3 # in kg/s
-#    dgamma_dm = f1*f3*( f2*( 2.0*dR_p_dm_over_R - f3*dg1_dm ) - dSeq_dm )
-    # return 1.0E18 * gamma, dgamma_dm
-    return 1.0E18 * f1f3 * f2,\
-           f1f3*( f2*( 2.0*dR_p_dm_over_R - f3*dg1_dm ) - dSeq_dm )
 
-# # WORKS FOR SMALL w_s < 0.001 (w_s_rho_crit), large deviations for large w_s > 0.05
-### new: analytic derivative, but with rho_p (m_w, T) = rho_p(m_w^n, T^n) (fix at start value)
-#def compute_mass_rate_and_mass_rate_derivative_Szumowski2(mass_water_, mass_solute_,
-#                                                         mass_particle_, mass_fraction_solute_, radius_particle_,
-#                                                          temperature_particle_, density_particle_,
-#                                                          amb_temp_, amb_press_,
-#                                                          amb_sat_, amb_sat_press_,
-#                                                          diffusion_constant_,
-#                                                          thermal_conductivity_air_,
-#                                                          specific_heat_capacity_air_,
-#                                                          heat_of_vaporization_,
-#                                                          adiabatic_index_,
-#                                                          accomodation_coefficient_,
-#                                                          condensation_coefficient_):
-#    
-#    # thermal size correction
-#    l_alpha = compute_thermal_size_correction_Fukuta(amb_temp_, amb_press_,
-#                                                     thermal_conductivity_air_,
-#                                                     specific_heat_capacity_air_,
-#                                                     adiabatic_index_,
-#                                                     accomodation_coefficient_)
-#    # diffusive size correction
-#    l_beta = compute_diffusive_size_correction_Fukuta(amb_temp_,
-#                                                      diffusion_constant_,
-#                                                      condensation_coefficient_)
-#    # better below...
-##    S_eq = compute_kelvin_raoult_term(radius_particle,
-##                                      mass_fraction_solute,
-##                                      temperature_particle_,
-##                                      vant_Hoff,
-##                                      density_particle,
-##                                      surface_tension_water)
-#       
-#    R_p_SI = 1.0E-6 * radius_particle_
-#    dR_p_dm = 1.0 / ( 4.0 * np.pi * density_particle_ * R_p_SI * R_p_SI ) # in SI: m/kg
-##    df1_dm = 2.0 / (density_particle_ * R_p_SI) # in SI
-#    
-#    m_p_inv = 1.0 / mass_particle_ # in 1 / 1.0E-18 kg
-#    
-#    surface_tension_ = compute_surface_tension_water(temperature_particle_)
-#    a_k_over_R_p = 2.0E6 * surface_tension_ \
-#                 / ( specific_gas_constant_water_vapor * amb_temp_ * density_particle_* radius_particle_)# in SI -> no unit
-#    
-#    vH = compute_vant_Hoff_factor_NaCl(mass_fraction_solute_)
-#    dvH_dws = np.where(mass_fraction_solute_ < mf_cross_NaCl, 0.0, par_vH_NaCl[1])
-#    
-#    # masses in 1.0E-18 kg
-#    h1 = (mass_water_ + mass_solute_ * molar_mass_ratio_w_NaCl * vH) 
-#    # dont convert masses here
-#    h1_inv = 1.0 / h1
-#        
-#    ### IN WORK, use a_k_over_R_p and h1
-#    S_eq = mass_water_ * h1_inv * np.exp(a_k_over_R_p)
-#    
-#    dSeq_dm = S_eq * 1.0E18 * (1.0 / mass_water_ - one_third * m_p_inv * a_k_over_R_p\
-#                      - (1 - molar_mass_ratio_w_NaCl * dvH_dws * mass_fraction_solute_ * mass_fraction_solute_) * h1_inv )
-#    
-#    f1 = 4.0 * np.pi * radius_particle_ * radius_particle_ # too large by 1.0E12
-#    
-##    f1 = 4.0 * np.pi * radius_particle_ * radius_particle_ R_p_SI * R_p_SI
-#    
-#    c1 = heat_of_vaporization_ * heat_of_vaporization_ \
-#         / ( thermal_conductivity_air_ * specific_gas_constant_water_vapor * amb_temp_ * amb_temp_ )
-#    c2 = specific_gas_constant_water_vapor * amb_temp_ / (diffusion_constant_ * amb_sat_press_)
-#    f3 = 1.0 / ( (R_p_SI + l_alpha) * S_eq * c1 + (R_p_SI + l_beta) * c2 ) # in SI : m^2 s / kg
-#    
-#    dg1_dm = (dSeq_dm * (R_p_SI + l_alpha) + S_eq * dR_p_dm ) * c1 + dR_p_dm * c2
-#        
-#    gamma = 1.0E6 * f1 * (amb_sat_ - S_eq) * f3 # in 1.0E-18 kg/s
-#    
-#    dgamma_dm = gamma * (2.0 * one_third * m_p_inv - f3 * dg1_dm * 1.0E-18 ) - 1.0E-12 * f1 * dSeq_dm * f3 # in SI: 1/s
-#    
-#    return gamma, dgamma_dm
-# masses  in femto gram
-def compute_mass_rate_from_water_mass_Szumowski(  mass_water_, mass_solute_,
-                                                  temperature_particle_,
-                                                  amb_temp_, amb_press_,
-                                                  amb_sat_, amb_sat_press_,
-                                                  diffusion_constant_,
-                                                  thermal_conductivity_air_,
-                                                  specific_heat_capacity_air_,
-                                                  adiabatic_index_,
-                                                  accomodation_coefficient_,
-                                                  condensation_coefficient_, 
-                                                  heat_of_vaporization_
-                                                  ):
-    # first term
-#    mass_water = mass_water_ + h
-    mass_particle = mass_water_ + mass_solute_
-    mass_fraction_solute = mass_solute_ / mass_particle
-    density_particle = compute_density_particle(  mass_fraction_solute,
-                                                temperature_particle_  )
-     # in micro meter
-    radius_particle = c.const_volume_to_radius\
-                      * ( mass_particle / density_particle )**(c.one_third)
-#    radius_particle_sq = radius_particle*radius_particle
-    vant_Hoff = compute_vant_Hoff_factor_NaCl( mass_fraction_solute )
-    surface_tension_water = compute_surface_tension_water(temperature_particle_)
-    kelvin_raoult_term = compute_kelvin_raoult_term(radius_particle,
-                                                      mass_fraction_solute,
-                                                      temperature_particle_,
-                                                      vant_Hoff,
-                                                      density_particle,
-                                                      surface_tension_water)
-    
-    mass_rate = compute_mass_rate_Szumowski_from_Seq(  amb_temp_, amb_press_,
-                                              amb_sat_, amb_sat_press_,
-                                              diffusion_constant_,
-                                              thermal_conductivity_air_,
-                                              specific_heat_capacity_air_,
-                                              adiabatic_index_,
-                                              accomodation_coefficient_,
-                                              condensation_coefficient_, 
-                                              radius_particle,
-                                              heat_of_vaporization_,
-                                              kelvin_raoult_term
-                                              )
-#    print('mass_water_')
-#    print('mass_particle')
-#    print('mass_fraction_solute')
-#    print('density_particle')
-#    print('radius_particle')
-#    print('surface_tension_water')
-#    print('kelvin_raoult_term')
-#    print(mass_water_)
-#    print(mass_particle)
-#    print(mass_fraction_solute)
-#    print(density_particle)
-#    print(radius_particle)
-#    print(surface_tension_water)
-#    print(kelvin_raoult_term)
-    return mass_rate
 
-###############################################################################
-
-## OLD: numeric derivative
-machine_epsilon_sqrt = 1.5E-8
-def compute_mass_rate_derivative_Szumowski_numerical(
-        mass_water_, mass_solute_, #  in femto gram
-        temperature_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_, 
-        heat_of_vaporization_):
-    
-    h = mass_water_ * machine_epsilon_sqrt
-    # surface_tension_water = compute_surface_tension_water(temperature_particle_)
-    
-    # first term
-    mass_water1 = mass_water_ + h
-    
-    mass_rate = compute_mass_rate_from_water_mass_Szumowski(
-                    mass_water1, mass_solute_, #  in femto gram
-                    temperature_particle_,
-                    amb_temp_, amb_press_,
-                    amb_sat_, amb_sat_press_,
-                    diffusion_constant_,
-                    thermal_conductivity_air_,
-                    specific_heat_capacity_air_,
-                    adiabatic_index_,
-                    accomodation_coefficient_,
-                    condensation_coefficient_, 
-                    heat_of_vaporization_)
-    # second term
-    mass_water2 = mass_water_ - h
-    
-    mass_rate -= compute_mass_rate_from_water_mass_Szumowski(
-                     mass_water2, mass_solute_, #  in femto gram
-                     temperature_particle_,
-                     amb_temp_, amb_press_,
-                     amb_sat_, amb_sat_press_,
-                     diffusion_constant_,
-                     thermal_conductivity_air_,
-                     specific_heat_capacity_air_,
-                     adiabatic_index_,
-                     accomodation_coefficient_,
-                     condensation_coefficient_, 
-                     heat_of_vaporization_)
-    
-    return mass_rate / (mass_water1 - mass_water2)
-#    return mass_rate / (2*h)
-    
-#    mass_particle = mass_water + mass_solute_
-#    mass_fraction_solute = mass_solute_ / mass_particle
-#    density_particle = compute_density_particle(  mass_fraction_solute,
-#                                                  temperature_particle_  )
-#    # in micro meter
-#    radius_particle = const_volume_to_radius\
-#                      * ( mass_particle / density_particle )**(0.33333333) 
-##    radius_particle_sq = radius_particle*radius_particle
-#    vant_Hoff = compute_vant_Hoff_factor_NaCl( mass_fraction_solute )
-#    kelvin_raoult_term = compute_kelvin_raoult_term(radius_particle,
-#                                                      mass_fraction_solute,
-#                                                      temperature_particle_,
-#                                                      vant_Hoff,
-#                                                      density_particle,
-#                                                      surface_tension_water)
-    
-#    mass_rate = compute_mass_rate_Szumowski(  amb_temp_, amb_press_,
-#                                              amb_sat_, amb_sat_press_,
-#                                              diffusion_constant_,
-#                                              thermal_conductivity_air_,
-#                                              specific_heat_capacity_air_,
-#                                              adiabatic_index_,
-#                                              accomodation_coefficient_,
-#                                              condensation_coefficient_, 
-#                                              radius_particle,
-#                                              heat_of_vaporization_,
-#                                              kelvin_raoult_term
-#                                              )
-    
-    # second term
-
-    
-#    mass_particle = mass_water + mass_solute_
-#    mass_fraction_solute = mass_solute_ / mass_particle
-#    density_particle = compute_density_particle(  mass_fraction_solute, temperature_particle_  )
-#    radius_particle = const_volume_to_radius * ( mass_particle / density_particle )**(0.33333333)
-##    radius_particle_sq = radius_particle*radius_particle
-#    vant_Hoff = compute_vant_Hoff_factor_NaCl( mass_fraction_solute )
-#    kelvin_raoult_term = compute_kelvin_raoult_term(radius_particle,
-#                                                      mass_fraction_solute,
-#                                                      temperature_particle_,
-#                                                      vant_Hoff,
-#                                                      density_particle,
-#                                                      surface_tension_water)
-    
-#    mass_rate -= compute_mass_rate_Szumowski(  amb_temp_, amb_press_,
-#                                              amb_sat_, amb_sat_press_,
-#                                              diffusion_constant_,
-#                                              thermal_conductivity_air_,
-#                                              specific_heat_capacity_air_,
-#                                              adiabatic_index_,
-#                                              accomodation_coefficient_,
-#                                              condensation_coefficient_, 
-#                                              radius_particle,
-#                                              heat_of_vaporization_,
-#                                              kelvin_raoult_term
-#                                              )
  
 ##############################################################################
 ### integration
@@ -1079,591 +694,555 @@ def compute_mass_rate_derivative_Szumowski_numerical(
 # returns the difference dm_w = m_w_n+1 - m_w_n during condensation/evaporation
 # during one timestep using linear implicit explicit euler
 # masses in femto gram    
-def compute_delta_water_liquid_imex_linear( dt_, mass_water_, mass_solute_, 
-                                                  temperature_particle_,
-                                                  amb_temp_, amb_press_,
-                                                  amb_sat_, amb_sat_press_,
-                                                  diffusion_constant_,
-                                                  thermal_conductivity_air_,
-                                                  specific_heat_capacity_air_,
-                                                  surface_tension_,
-                                                  adiabatic_index_,
-                                                  accomodation_coefficient_,
-                                                  condensation_coefficient_, 
-                                                  heat_of_vaporization_,
-                                                  verbose = False):
+# IN WORK: NOT UPDATED TO NUMBA
+# def compute_delta_water_liquid_imex_linear( dt_, mass_water_, mass_solute_, 
+#                                                   temperature_particle_,
+#                                                   amb_temp_, amb_press_,
+#                                                   amb_sat_, amb_sat_press_,
+#                                                   diffusion_constant_,
+#                                                   thermal_conductivity_air_,
+#                                                   specific_heat_capacity_air_,
+#                                                   surface_tension_,
+#                                                   adiabatic_index_,
+#                                                   accomodation_coefficient_,
+#                                                   condensation_coefficient_, 
+#                                                   heat_of_vaporization_,
+#                                                   verbose = False):
 
-    dt_left = dt_
-#    dt = dt_
-    mass_water_new = mass_water_
+#     dt_left = dt_
+# #    dt = dt_
+#     mass_water_new = mass_water_
     
-    mass_fraction_solute_effl = compute_efflorescence_mass_fraction_NaCl(
-                                    temperature_particle_)
+#     mass_fraction_solute_effl = compute_efflorescence_mass_fraction_NaCl(
+#                                     temperature_particle_)
     
-    while (dt_left > 0.0):
-        m_p = mass_water_new + mass_solute_
-        w_s = mass_solute_ / m_p
-        rho = compute_density_particle(w_s, temperature_particle_)
-        R = compute_radius_from_mass(m_p, rho)
-        # mass_rate = compute_mass_rate_from_water_mass_Szumowski(
-        #                 mass_water_new, mass_solute_, #  in femto gram
-        #                 temperature_particle_,
-        #                 amb_temp_, amb_press_,
-        #                 amb_sat_, amb_sat_press_,
-        #                 diffusion_constant_,
-        #                 thermal_conductivity_air_,
-        #                 specific_heat_capacity_air_,
-        #                 adiabatic_index_,
-        #                 accomodation_coefficient_,
-        #                 condensation_coefficient_, 
-        #                 heat_of_vaporization_)
-        # # masses in femto gram
-        # mass_rate_derivative = compute_mass_rate_derivative_Szumowski(
-        #                            mass_water_new, mass_solute_,
-        #                            temperature_particle_,
-        #                            amb_temp_, amb_press_,
-        #                            amb_sat_, amb_sat_press_,
-        #                            diffusion_constant_,
-        #                            thermal_conductivity_air_,
-        #                            specific_heat_capacity_air_,
-        #                            adiabatic_index_,
-        #                            accomodation_coefficient_,
-        #                            condensation_coefficient_, 
-        #                            heat_of_vaporization_)
-        mass_rate, mass_rate_derivative\
-            = compute_mass_rate_and_mass_rate_derivative_Szumowski(
-                    mass_water_, mass_solute_,
-                    m_p, w_s, R,
-                    temperature_particle_, rho,
-                    amb_temp_, amb_press_,
-                    amb_sat_, amb_sat_press_,
-                    diffusion_constant_,
-                    thermal_conductivity_air_,
-                    specific_heat_capacity_air_,
-                    heat_of_vaporization_,
-                    surface_tension_,
-                    adiabatic_index_,
-                    accomodation_coefficient_,
-                    condensation_coefficient_)
-        if (verbose):
-            print('mass_rate, mass_rate_derivative:')
-            print(mass_rate, mass_rate_derivative)
-        # safety to avoid (1 - dt/2 * f'(m_n)) going to zero
-        if mass_rate_derivative * dt_ < 1.0:
-            dt = dt_left
-            dt_left = -1.0
-        else:
-            dt = 1.0 / mass_rate_derivative
-            dt_left -= dt
+#     while (dt_left > 0.0):
+#         m_p = mass_water_new + mass_solute_
+#         w_s = mass_solute_ / m_p
+#         rho = compute_density_particle(w_s, temperature_particle_)
+#         R = compute_radius_from_mass(m_p, rho)
+#         # mass_rate = compute_mass_rate_from_water_mass_Szumowski(
+#         #                 mass_water_new, mass_solute_, #  in femto gram
+#         #                 temperature_particle_,
+#         #                 amb_temp_, amb_press_,
+#         #                 amb_sat_, amb_sat_press_,
+#         #                 diffusion_constant_,
+#         #                 thermal_conductivity_air_,
+#         #                 specific_heat_capacity_air_,
+#         #                 adiabatic_index_,
+#         #                 accomodation_coefficient_,
+#         #                 condensation_coefficient_, 
+#         #                 heat_of_vaporization_)
+#         # # masses in femto gram
+#         # mass_rate_derivative = compute_mass_rate_derivative_Szumowski(
+#         #                            mass_water_new, mass_solute_,
+#         #                            temperature_particle_,
+#         #                            amb_temp_, amb_press_,
+#         #                            amb_sat_, amb_sat_press_,
+#         #                            diffusion_constant_,
+#         #                            thermal_conductivity_air_,
+#         #                            specific_heat_capacity_air_,
+#         #                            adiabatic_index_,
+#         #                            accomodation_coefficient_,
+#         #                            condensation_coefficient_, 
+#         #                            heat_of_vaporization_)
+#         mass_rate, mass_rate_derivative\
+#             = compute_mass_rate_and_mass_rate_derivative_Szumowski(
+#                     mass_water_, mass_solute_,
+#                     m_p, w_s, R,
+#                     temperature_particle_, rho,
+#                     amb_temp_, amb_press_,
+#                     amb_sat_, amb_sat_press_,
+#                     diffusion_constant_,
+#                     thermal_conductivity_air_,
+#                     specific_heat_capacity_air_,
+#                     heat_of_vaporization_,
+#                     surface_tension_,
+#                     adiabatic_index_,
+#                     accomodation_coefficient_,
+#                     condensation_coefficient_)
+#         if (verbose):
+#             print('mass_rate, mass_rate_derivative:')
+#             print(mass_rate, mass_rate_derivative)
+#         # safety to avoid (1 - dt/2 * f'(m_n)) going to zero
+#         if mass_rate_derivative * dt_ < 1.0:
+#             dt = dt_left
+#             dt_left = -1.0
+#         else:
+#             dt = 1.0 / mass_rate_derivative
+#             dt_left -= dt
     
-        mass_water_new +=  mass_rate * dt\
-                           / ( 1.0 - 0.5 * mass_rate_derivative * dt )
+#         mass_water_new +=  mass_rate * dt\
+#                            / ( 1.0 - 0.5 * mass_rate_derivative * dt )
         
-        mass_water_effl = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
+#         mass_water_effl = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
         
-#        mass_fraction_solute_new = mass_solute_ / (mass_water_new + mass_solute_)
+# #        mass_fraction_solute_new = mass_solute_ / (mass_water_new + mass_solute_)
         
-#        if (mass_fraction_solute_new > mass_fraction_solute_effl or mass_water_new < 0.0):
-        if (mass_water_new  < mass_water_effl):
-#            mass_water_new = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
-            mass_water_new = mass_water_effl
-            dt_left = -1.0
-#            print('w_s_effl reached')
+# #        if (mass_fraction_solute_new > mass_fraction_solute_effl or mass_water_new < 0.0):
+#         if (mass_water_new  < mass_water_effl):
+# #            mass_water_new = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
+#             mass_water_new = mass_water_effl
+#             dt_left = -1.0
+# #            print('w_s_effl reached')
     
-    return mass_water_new - mass_water_
+#     return mass_water_new - mass_water_
 
-### NEW 23.02.19
-# IN WORK: might return gamma and not gamma0 for particle heat, but this is not important right now
-def compute_delta_water_liquid_and_mass_rate_implicit_Newton(
-        dt_sub_, no_iter_, mass_water_, mass_solute_,
-        mass_particle_, mass_fraction_solute_, radius_particle_,
-        temperature_particle_, density_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        heat_of_vaporization_,
-        surface_tension_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_):
+### NEW 04.05.2019
+# Newton method with no_iter iterations, the derivative is calculated only once
+# IN WORK: might return gamma and not gamma0 for particle heat,
+# but this is not important right now
+def compute_delta_water_liquid_and_mass_rate_implicit_Newton_np(
+        dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
+        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
     
     w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-                             temperature_particle_)
-    m_w_effl = mass_solute_ * (w_s_effl_inv - 1.0)
-    gamma0, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
-                            mass_water_, mass_solute_,
-                            mass_particle_, mass_fraction_solute_, radius_particle_,
-                            temperature_particle_, density_particle_,
-                            amb_temp_, amb_press_,
-                            amb_sat_, amb_sat_press_,
-                            diffusion_constant_,
-                            thermal_conductivity_air_,
-                            specific_heat_capacity_air_,
-                            heat_of_vaporization_,
-                            surface_tension_,
-                            adiabatic_index_,
-                            accomodation_coefficient_,
-                            condensation_coefficient_)
+                             T_p)
+    m_w_effl = m_s * (w_s_effl_inv - 1.0)
+    gamma0, dgamma_dm = compute_mass_rate_and_derivative(
+                            m_w, m_s, w_s, R_p, T_p, rho_p,
+                            T_amb, p_amb, S_amb, e_s_amb,
+                            L_v, K, D_v, sigma_w)
 #    no_iter = 3
-    dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
+    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
     denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
                          1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                         10.0)
+                         np.ones_like(dt_sub_times_dgamma_dm)*10.0)
 #    if (dt_sub_ * dgamma_dm < 0.9):
 #        denom_inv = 
 #    else:
 #        denom_inv = 10.0
      
-    mass_new = np.maximum(m_w_effl, mass_water_ + dt_sub_ * gamma0 * denom_inv)
+    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
     
-    for cnt in range(no_iter_-1):
-        m_p = mass_new + mass_solute_
-        w_s = mass_solute_ / m_p
-        rho = compute_density_particle(w_s, temperature_particle_)
+    for cnt in range(no_iter-1):
+        m_p = mass_new + m_s
+        w_s = m_s / m_p
+        rho = compute_density_particle(w_s, T_p)
         R = compute_radius_from_mass(m_p, rho)
-        gamma = compute_mass_rate_Szumowski(mass_new, mass_solute_,
-                                              w_s, R,
-                                              rho,
-                                              amb_temp_, amb_press_,
-                                              amb_sat_, amb_sat_press_,
-                                              diffusion_constant_,
-                                              thermal_conductivity_air_,
-                                              specific_heat_capacity_air_,
-                                              heat_of_vaporization_,
-                                              surface_tension_,
-                                              adiabatic_index_,
-                                              accomodation_coefficient_,
-                                              condensation_coefficient_)
-        mass_new += ( dt_sub_* gamma + mass_water_ - mass_new) * denom_inv
+        gamma = compute_mass_rate(
+                    mass_new, m_s, w_s, R, T_p, rho,
+                    T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w)
+                    
+        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
         mass_new = np.maximum( m_w_effl, mass_new )
         
-    return mass_new - mass_water_, gamma0
+    return mass_new - m_w, gamma0
+compute_delta_water_liquid_and_mass_rate_implicit_Newton =\
+njit()(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
+# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)")(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
+compute_delta_water_liquid_and_mass_rate_implicit_Newton_par =\
+njit(parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
+# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)", parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
 
-def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full(
-        dt_sub_, no_iter_, mass_water_, mass_solute_,
-        mass_particle_, mass_fraction_solute_, radius_particle_,
-        temperature_particle_, density_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        heat_of_vaporization_,
-        surface_tension_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_):
+# NEW 04.05.19
+# Full Newton method with no_iter iterations,
+# the derivative is calculated every iteration
+def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np(
+        dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
+        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
     w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-                             temperature_particle_)
-    m_w_effl = mass_solute_ * (w_s_effl_inv - 1.0)
+                             T_p)
+    m_w_effl = m_s * (w_s_effl_inv - 1.0)
     
-    gamma0, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
-                            mass_water_, mass_solute_,
-                            mass_particle_, mass_fraction_solute_,
-                            radius_particle_,
-                            temperature_particle_, density_particle_,
-                            amb_temp_, amb_press_,
-                            amb_sat_, amb_sat_press_,
-                            diffusion_constant_,
-                            thermal_conductivity_air_,
-                            specific_heat_capacity_air_,
-                            heat_of_vaporization_,
-                            surface_tension_,
-                            adiabatic_index_,
-                            accomodation_coefficient_,
-                            condensation_coefficient_)
+    gamma0, dgamma_dm = compute_mass_rate_and_derivative(
+                            m_w, m_s, w_s, R_p, T_p, rho_p,
+                            T_amb, p_amb, S_amb, e_s_amb,
+                            L_v, K, D_v, sigma_w)
 #    no_iter = 3
-    dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
+    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
     denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
                          1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                         10.0)
+                         np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
 #    if (dt_sub_ * dgamma_dm < 0.9):
 #        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
 #    else:
 #        denom_inv = 10.0
      
-    mass_new = np.maximum(m_w_effl, mass_water_ + dt_sub_ * gamma0 * denom_inv)
+    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
     
-    for cnt in range(no_iter_-1):
-        m_p = mass_new + mass_solute_
-        w_s = mass_solute_ / m_p
-        rho = compute_density_particle(w_s, temperature_particle_)
+    for cnt in range(no_iter-1):
+        m_p = mass_new + m_s
+        w_s = m_s / m_p
+        rho = compute_density_particle(w_s, T_p)
         R = compute_radius_from_mass(m_p, rho)
-        gamma, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
-                               mass_new, mass_solute_,
-                               m_p, w_s, R,
-                               temperature_particle_, rho,
-                               amb_temp_, amb_press_,
-                               amb_sat_, amb_sat_press_,
-                               diffusion_constant_,
-                               thermal_conductivity_air_,
-                               specific_heat_capacity_air_,
-                               heat_of_vaporization_,
-                               surface_tension_,
-                               adiabatic_index_,
-                               accomodation_coefficient_,
-                               condensation_coefficient_)
-        dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
+        gamma, dgamma_dm = compute_mass_rate_and_derivative(
+                               mass_new, m_s, w_s, R, T_p, rho,
+                               T_amb, p_amb, S_amb, e_s_amb,
+                               L_v, K, D_v, sigma_w)
+                               
+        dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
         denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
                              1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                     10.0)
+                     np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
 #        if (dt_sub_ * dgamma_dm < 0.9):
 #            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
 #        else:
 #            denom_inv = 10.0
-        mass_new += ( dt_sub_* gamma + mass_water_ - mass_new) * denom_inv
+        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
         mass_new = np.maximum( m_w_effl, mass_new )
         
-    return mass_new - mass_water_, gamma0
+    return mass_new - m_w, gamma0
+compute_delta_water_liquid_and_mass_rate_implicit_Newton_full =\
+njit()(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
+# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)")(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
+compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_par =\
+njit(parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
+# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)", parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
 
-def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_const_l(
-        dt_sub_, no_iter_, mass_water_, mass_solute_,
-        mass_particle_, mass_fraction_solute_, radius_particle_,
-        temperature_particle_, density_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        heat_of_vaporization_,
-        surface_tension_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_):
-    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-                             temperature_particle_)
-    m_w_effl = mass_solute_ * (w_s_effl_inv - 1.0)
+
+# NOT UPDATED WITH NUMBA
+# def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_const_l(
+#         dt_sub_, no_iter_, mass_water_, mass_solute_,
+#         mass_particle_, mass_fraction_solute_, radius_particle_,
+#         temperature_particle_, density_particle_,
+#         amb_temp_, amb_press_,
+#         amb_sat_, amb_sat_press_,
+#         diffusion_constant_,
+#         thermal_conductivity_air_,
+#         specific_heat_capacity_air_,
+#         heat_of_vaporization_,
+#         surface_tension_,
+#         adiabatic_index_,
+#         accomodation_coefficient_,
+#         condensation_coefficient_):
+#     w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
+#                              temperature_particle_)
+#     m_w_effl = mass_solute_ * (w_s_effl_inv - 1.0)
     
-    gamma0, dgamma_dm =\
-        compute_mass_rate_and_mass_rate_derivative_Szumowski_const_l(
-            mass_water_, mass_solute_,
-            mass_particle_, mass_fraction_solute_, radius_particle_,
-            temperature_particle_, density_particle_,
-            amb_temp_, amb_press_,
-            amb_sat_, amb_sat_press_,
-            diffusion_constant_,
-            thermal_conductivity_air_,
-            specific_heat_capacity_air_,
-            heat_of_vaporization_,
-            surface_tension_,
-            adiabatic_index_,
-            accomodation_coefficient_,
-            condensation_coefficient_)
-#    no_iter = 3
-    dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
-    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                         10.0)
-#    if (dt_sub_ * dgamma_dm < 0.9):
-#        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
-#    else:
-#        denom_inv = 10.0
+#     gamma0, dgamma_dm =\
+#         compute_mass_rate_and_mass_rate_derivative_Szumowski_const_l(
+#             mass_water_, mass_solute_,
+#             mass_particle_, mass_fraction_solute_, radius_particle_,
+#             temperature_particle_, density_particle_,
+#             amb_temp_, amb_press_,
+#             amb_sat_, amb_sat_press_,
+#             diffusion_constant_,
+#             thermal_conductivity_air_,
+#             specific_heat_capacity_air_,
+#             heat_of_vaporization_,
+#             surface_tension_,
+#             adiabatic_index_,
+#             accomodation_coefficient_,
+#             condensation_coefficient_)
+# #    no_iter = 3
+#     dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
+#     denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+#                          1.0 / (1.0 - dt_sub_times_dgamma_dm),
+#                          10.0)
+# #    if (dt_sub_ * dgamma_dm < 0.9):
+# #        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
+# #    else:
+# #        denom_inv = 10.0
      
-    mass_new = np.maximum(m_w_effl, mass_water_ + dt_sub_ * gamma0 * denom_inv)
+#     mass_new = np.maximum(m_w_effl, mass_water_ + dt_sub_ * gamma0 * denom_inv)
     
-    for cnt in range(no_iter_-1):
-        m_p = mass_new + mass_solute_
-        w_s = mass_solute_ / m_p
-        rho = compute_density_particle(w_s, temperature_particle_)
-        R = compute_radius_from_mass(m_p, rho)
-        gamma, dgamma_dm =\
-            compute_mass_rate_and_mass_rate_derivative_Szumowski_const_l(
-                mass_new, mass_solute_,
-                m_p, w_s, R,
-                temperature_particle_, rho,
-                amb_temp_, amb_press_,
-                amb_sat_, amb_sat_press_,
-                diffusion_constant_,
-                thermal_conductivity_air_,
-                specific_heat_capacity_air_,
-                heat_of_vaporization_,
-                surface_tension_,
-                adiabatic_index_,
-                accomodation_coefficient_,
-                condensation_coefficient_)
-        dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
-        denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                             1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                     10.0)
-#        if (dt_sub_ * dgamma_dm < 0.9):
-#            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
-#        else:
-#            denom_inv = 10.0
-        mass_new += ( dt_sub_* gamma + mass_water_ - mass_new) * denom_inv
-        mass_new = np.maximum( m_w_effl, mass_new )
+#     for cnt in range(no_iter_-1):
+#         m_p = mass_new + mass_solute_
+#         w_s = mass_solute_ / m_p
+#         rho = compute_density_particle(w_s, temperature_particle_)
+#         R = compute_radius_from_mass(m_p, rho)
+#         gamma, dgamma_dm =\
+#             compute_mass_rate_and_mass_rate_derivative_Szumowski_const_l(
+#                 mass_new, mass_solute_,
+#                 m_p, w_s, R,
+#                 temperature_particle_, rho,
+#                 amb_temp_, amb_press_,
+#                 amb_sat_, amb_sat_press_,
+#                 diffusion_constant_,
+#                 thermal_conductivity_air_,
+#                 specific_heat_capacity_air_,
+#                 heat_of_vaporization_,
+#                 surface_tension_,
+#                 adiabatic_index_,
+#                 accomodation_coefficient_,
+#                 condensation_coefficient_)
+#         dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
+#         denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+#                              1.0 / (1.0 - dt_sub_times_dgamma_dm),
+#                      10.0)
+# #        if (dt_sub_ * dgamma_dm < 0.9):
+# #            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
+# #        else:
+# #            denom_inv = 10.0
+#         mass_new += ( dt_sub_* gamma + mass_water_ - mass_new) * denom_inv
+#         mass_new = np.maximum( m_w_effl, mass_new )
         
-    return mass_new - mass_water_, gamma0
+#     return mass_new - mass_water_, gamma0
 
-def compute_delta_water_liquid_and_mass_rate_implicit_Newton_inverse_full(
-        dt_sub_, no_iter_, mass_water_, mass_solute_,
-        mass_particle_, mass_fraction_solute_, radius_particle_,
-        temperature_particle_, density_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        heat_of_vaporization_,
-        surface_tension_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_):
-    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-                             temperature_particle_)
-    m_w_effl = mass_solute_ * (w_s_effl_inv - 1.0)
+# NOT UPDATED WITH NUMBA
+# def compute_delta_water_liquid_and_mass_rate_implicit_Newton_inverse_full(
+#         dt_sub_, no_iter_, mass_water_, mass_solute_,
+#         mass_particle_, mass_fraction_solute_, radius_particle_,
+#         temperature_particle_, density_particle_,
+#         amb_temp_, amb_press_,
+#         amb_sat_, amb_sat_press_,
+#         diffusion_constant_,
+#         thermal_conductivity_air_,
+#         specific_heat_capacity_air_,
+#         heat_of_vaporization_,
+#         surface_tension_,
+#         adiabatic_index_,
+#         accomodation_coefficient_,
+#         condensation_coefficient_):
+#     w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
+#                              temperature_particle_)
+#     m_w_effl = mass_solute_ * (w_s_effl_inv - 1.0)
     
-    gamma0, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
-                            mass_water_, mass_solute_,
-                            mass_particle_, mass_fraction_solute_,
-                            radius_particle_,
-                            temperature_particle_, density_particle_,
-                            amb_temp_, amb_press_,
-                            amb_sat_, amb_sat_press_,
-                            diffusion_constant_,
-                            thermal_conductivity_air_,
-                            specific_heat_capacity_air_,
-                            heat_of_vaporization_,
-                            surface_tension_,
-                            adiabatic_index_,
-                            accomodation_coefficient_,
-                            condensation_coefficient_)
-#    mass_new = mass_water_
-#    no_iter = 3
-    dgamma_factor = dt_sub_ * dgamma_dm
-    # dgamma_factor = dt_sub * F'(m) * m
-    dgamma_factor = np.where(dgamma_factor < 0.9,
-                             mass_water_ * (1.0 - dgamma_factor),
-                             mass_water_ * 0.1)
-#    if (dt_sub_ * dgamma_dm < 0.9):
-#        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
-#    else:
-#        denom_inv = 10.0
+#     gamma0, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
+#                             mass_water_, mass_solute_,
+#                             mass_particle_, mass_fraction_solute_,
+#                             radius_particle_,
+#                             temperature_particle_, density_particle_,
+#                             amb_temp_, amb_press_,
+#                             amb_sat_, amb_sat_press_,
+#                             diffusion_constant_,
+#                             thermal_conductivity_air_,
+#                             specific_heat_capacity_air_,
+#                             heat_of_vaporization_,
+#                             surface_tension_,
+#                             adiabatic_index_,
+#                             accomodation_coefficient_,
+#                             condensation_coefficient_)
+# #    mass_new = mass_water_
+# #    no_iter = 3
+#     dgamma_factor = dt_sub_ * dgamma_dm
+#     # dgamma_factor = dt_sub * F'(m) * m
+#     dgamma_factor = np.where(dgamma_factor < 0.9,
+#                              mass_water_ * (1.0 - dgamma_factor),
+#                              mass_water_ * 0.1)
+# #    if (dt_sub_ * dgamma_dm < 0.9):
+# #        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
+# #    else:
+# #        denom_inv = 10.0
     
-    print("iter = 1",
-          mass_water_ * dgamma_factor / (dgamma_factor - gamma0 * dt_sub_))
-    mass_new = np.maximum( m_w_effl,
-                           mass_water_ * dgamma_factor\
-                           / (dgamma_factor - gamma0 * dt_sub_) )
-    print("iter = 1", mass_new)
+#     print("iter = 1",
+#           mass_water_ * dgamma_factor / (dgamma_factor - gamma0 * dt_sub_))
+#     mass_new = np.maximum( m_w_effl,
+#                            mass_water_ * dgamma_factor\
+#                            / (dgamma_factor - gamma0 * dt_sub_) )
+#     print("iter = 1", mass_new)
     
-    for cnt in range(no_iter_-1):
-        m_p = mass_new + mass_solute_
-        w_s = mass_solute_ / m_p
-        rho = compute_density_particle(w_s, temperature_particle_)
-        R = compute_radius_from_mass(m_p, rho)
-        gamma, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
-                               mass_new, mass_solute_,
-                               m_p, w_s, R,
-                               temperature_particle_, rho,
-                               amb_temp_, amb_press_,
-                               amb_sat_, amb_sat_press_,
-                               diffusion_constant_,
-                               thermal_conductivity_air_,
-                               specific_heat_capacity_air_,
-                               heat_of_vaporization_,
-                               surface_tension_,
-                               adiabatic_index_,
-                               accomodation_coefficient_,
-                               condensation_coefficient_)
-        dgamma_factor = dt_sub_ * dgamma_dm
-        # dgamma_factor = dt_sub * F'(m) * m
-        dgamma_factor = np.where(dgamma_factor < 0.9,
-                                 mass_new * (1.0 - dgamma_factor),
-                                 mass_new * 0.1)
-#        mass_new *= ( dt_sub_* gamma + mass_water_ - mass_new) * denom_inv
-        print("iter = ", cnt + 2 ,
-              mass_new * dgamma_factor\
-              / ( dgamma_factor - gamma * dt_sub_ + mass_new - mass_water_ ))
-        mass_new = np.maximum( m_w_effl,
-                               mass_new * dgamma_factor\
-                               / ( dgamma_factor - gamma * dt_sub_
-                                   + mass_new - mass_water_ ) )
-        print("iter = ", cnt+2, mass_new)
-    return mass_new - mass_water_, gamma0
+#     for cnt in range(no_iter_-1):
+#         m_p = mass_new + mass_solute_
+#         w_s = mass_solute_ / m_p
+#         rho = compute_density_particle(w_s, temperature_particle_)
+#         R = compute_radius_from_mass(m_p, rho)
+#         gamma, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
+#                                mass_new, mass_solute_,
+#                                m_p, w_s, R,
+#                                temperature_particle_, rho,
+#                                amb_temp_, amb_press_,
+#                                amb_sat_, amb_sat_press_,
+#                                diffusion_constant_,
+#                                thermal_conductivity_air_,
+#                                specific_heat_capacity_air_,
+#                                heat_of_vaporization_,
+#                                surface_tension_,
+#                                adiabatic_index_,
+#                                accomodation_coefficient_,
+#                                condensation_coefficient_)
+#         dgamma_factor = dt_sub_ * dgamma_dm
+#         # dgamma_factor = dt_sub * F'(m) * m
+#         dgamma_factor = np.where(dgamma_factor < 0.9,
+#                                  mass_new * (1.0 - dgamma_factor),
+#                                  mass_new * 0.1)
+# #        mass_new *= ( dt_sub_* gamma + mass_water_ - mass_new) * denom_inv
+#         print("iter = ", cnt + 2 ,
+#               mass_new * dgamma_factor\
+#               / ( dgamma_factor - gamma * dt_sub_ + mass_new - mass_water_ ))
+#         mass_new = np.maximum( m_w_effl,
+#                                mass_new * dgamma_factor\
+#                                / ( dgamma_factor - gamma * dt_sub_
+#                                    + mass_new - mass_water_ ) )
+#         print("iter = ", cnt+2, mass_new)
+#     return mass_new - mass_water_, gamma0
     
 # returns the difference dm_w = m_w_n+1 - m_w_n
 # during condensation/evaporation
 # during one timestep using linear implicit explicit euler
 # also: returns mass_rate
-def compute_delta_water_liquid_and_mass_rate_imex_linear(
-        dt_, mass_water_, mass_solute_, #  in femto gram
-        temperature_particle_,
-        amb_temp_, amb_press_,
-        amb_sat_, amb_sat_press_,
-        diffusion_constant_,
-        thermal_conductivity_air_,
-        specific_heat_capacity_air_,
-        adiabatic_index_,
-        accomodation_coefficient_,
-        condensation_coefficient_, 
-        heat_of_vaporization_,
-        verbose = False):
+# NOT UPDATED WITH NUMBA
+# def compute_delta_water_liquid_and_mass_rate_imex_linear(
+#         dt_, mass_water_, mass_solute_, #  in femto gram
+#         temperature_particle_,
+#         amb_temp_, amb_press_,
+#         amb_sat_, amb_sat_press_,
+#         diffusion_constant_,
+#         thermal_conductivity_air_,
+#         specific_heat_capacity_air_,
+#         adiabatic_index_,
+#         accomodation_coefficient_,
+#         condensation_coefficient_, 
+#         heat_of_vaporization_,
+#         verbose = False):
 
-    dt_left = dt_
-#    dt = dt_
-    mass_water_new = mass_water_
+#     dt_left = dt_
+# #    dt = dt_
+#     mass_water_new = mass_water_
     
-    mass_fraction_solute_effl = compute_efflorescence_mass_fraction_NaCl(
-                                    temperature_particle_)
+#     mass_fraction_solute_effl = compute_efflorescence_mass_fraction_NaCl(
+#                                     temperature_particle_)
     
-    while (dt_left > 0.0):
-        mass_rate = compute_mass_rate_from_water_mass_Szumowski(
-                        mass_water_new, mass_solute_, #  in femto gram
-                        temperature_particle_,
-                        amb_temp_, amb_press_,
-                        amb_sat_, amb_sat_press_,
-                        diffusion_constant_,
-                        thermal_conductivity_air_,
-                        specific_heat_capacity_air_,
-                        adiabatic_index_,
-                        accomodation_coefficient_,
-                        condensation_coefficient_, 
-                        heat_of_vaporization_)
-        mass_rate_derivative = compute_mass_rate_derivative_Szumowski_numerical(
-                                                  mass_water_new, mass_solute_, #  in femto gram
-                                                  temperature_particle_,
-                                                  amb_temp_, amb_press_,
-                                                  amb_sat_, amb_sat_press_,
-                                                  diffusion_constant_,
-                                                  thermal_conductivity_air_,
-                                                  specific_heat_capacity_air_,
-                                                  adiabatic_index_,
-                                                  accomodation_coefficient_,
-                                                  condensation_coefficient_, 
-                                                  heat_of_vaporization_
-                                                  )
-        if (verbose):
-            print('mass_rate, mass_rate_derivative:')
-            print(mass_rate, mass_rate_derivative)
-        # safety to avoid (1 - dt/2 * f'(m_n)) going to zero
-        if mass_rate_derivative * dt_ < 1.0:
-            dt = dt_left
-            dt_left = -1.0
-        else:
-            dt = 1.0 / mass_rate_derivative
-            dt_left -= dt
+#     while (dt_left > 0.0):
+#         mass_rate = compute_mass_rate_from_water_mass_Szumowski(
+#                         mass_water_new, mass_solute_, #  in femto gram
+#                         temperature_particle_,
+#                         amb_temp_, amb_press_,
+#                         amb_sat_, amb_sat_press_,
+#                         diffusion_constant_,
+#                         thermal_conductivity_air_,
+#                         specific_heat_capacity_air_,
+#                         adiabatic_index_,
+#                         accomodation_coefficient_,
+#                         condensation_coefficient_, 
+#                         heat_of_vaporization_)
+#         mass_rate_derivative = compute_mass_rate_derivative_Szumowski_numerical(
+#                                                   mass_water_new, mass_solute_, #  in femto gram
+#                                                   temperature_particle_,
+#                                                   amb_temp_, amb_press_,
+#                                                   amb_sat_, amb_sat_press_,
+#                                                   diffusion_constant_,
+#                                                   thermal_conductivity_air_,
+#                                                   specific_heat_capacity_air_,
+#                                                   adiabatic_index_,
+#                                                   accomodation_coefficient_,
+#                                                   condensation_coefficient_, 
+#                                                   heat_of_vaporization_
+#                                                   )
+#         if (verbose):
+#             print('mass_rate, mass_rate_derivative:')
+#             print(mass_rate, mass_rate_derivative)
+#         # safety to avoid (1 - dt/2 * f'(m_n)) going to zero
+#         if mass_rate_derivative * dt_ < 1.0:
+#             dt = dt_left
+#             dt_left = -1.0
+#         else:
+#             dt = 1.0 / mass_rate_derivative
+#             dt_left -= dt
     
-        mass_water_new += mass_rate * dt\
-                          / ( 1.0 - 0.5 * mass_rate_derivative * dt )
+#         mass_water_new += mass_rate * dt\
+#                           / ( 1.0 - 0.5 * mass_rate_derivative * dt )
         
-        mass_water_effl = mass_solute_\
-                          * (1.0 / mass_fraction_solute_effl - 1.0)
+#         mass_water_effl = mass_solute_\
+#                           * (1.0 / mass_fraction_solute_effl - 1.0)
         
-#        mass_fraction_solute_new = mass_solute_\
-#           / (mass_water_new + mass_solute_)
+# #        mass_fraction_solute_new = mass_solute_\
+# #           / (mass_water_new + mass_solute_)
         
-#        if (mass_fraction_solute_new >
-#             mass_fraction_solute_effl or mass_water_new < 0.0):
-        if (mass_water_new  < mass_water_effl):
-# mass_water_new = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
-            mass_water_new = mass_water_effl
-            dt_left = -1.0
-#            print('w_s_effl reached')
+# #        if (mass_fraction_solute_new >
+# #             mass_fraction_solute_effl or mass_water_new < 0.0):
+#         if (mass_water_new  < mass_water_effl):
+# # mass_water_new = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
+#             mass_water_new = mass_water_effl
+#             dt_left = -1.0
+# #            print('w_s_effl reached')
     
-    return mass_water_new - mass_water_, mass_rate
+#     return mass_water_new - mass_water_, mass_rate
 
 # returns the difference dm_w = m_w_n+1 - m_w_n
 # during condensation/evaporation
 # during one timestep using linear implicit euler
 # masses in femto gram
-def compute_delta_water_liquid_implicit_linear( dt_, mass_water_, mass_solute_,
-                                                temperature_particle_,
-                                                amb_temp_, amb_press_,
-                                                amb_sat_, amb_sat_press_,
-                                                diffusion_constant_,
-                                                thermal_conductivity_air_,
-                                                specific_heat_capacity_air_,
-                                                adiabatic_index_,
-                                                accomodation_coefficient_,
-                                                condensation_coefficient_, 
-                                                heat_of_vaporization_,
-                                                verbose = False):
+# NOT UPDATED WITH NUMBA
+# def compute_delta_water_liquid_implicit_linear( dt_, mass_water_, mass_solute_,
+#                                                 temperature_particle_,
+#                                                 amb_temp_, amb_press_,
+#                                                 amb_sat_, amb_sat_press_,
+#                                                 diffusion_constant_,
+#                                                 thermal_conductivity_air_,
+#                                                 specific_heat_capacity_air_,
+#                                                 adiabatic_index_,
+#                                                 accomodation_coefficient_,
+#                                                 condensation_coefficient_, 
+#                                                 heat_of_vaporization_,
+#                                                 verbose = False):
 
-    dt_left = dt_
-#    dt = dt_
-    mass_water_new = mass_water_
+#     dt_left = dt_
+# #    dt = dt_
+#     mass_water_new = mass_water_
     
-    mass_fraction_solute_effl = compute_efflorescence_mass_fraction_NaCl(
-                                    temperature_particle_)
+#     mass_fraction_solute_effl = compute_efflorescence_mass_fraction_NaCl(
+#                                     temperature_particle_)
     
-    surface_tension_ = compute_surface_tension_water(temperature_particle_)
+#     surface_tension_ = compute_surface_tension_water(temperature_particle_)
     
-    while (dt_left > 0.0):
-#        mass_rate = compute_mass_rate_from_water_mass_Szumowski(
-#                                mass_water_new, mass_solute_, #  in femto gram
-#                                                  temperature_particle_,
-#                                                  amb_temp_, amb_press_,
-#                                                  amb_sat_, amb_sat_press_,
-#                                                  diffusion_constant_,
-#                                                  thermal_conductivity_air_,
-#                                                  specific_heat_capacity_air_,
-#                                                  adiabatic_index_,
-#                                                  accomodation_coefficient_,
-#                                                  condensation_coefficient_, 
-#                                                  heat_of_vaporization_
-#                                                      )
-        m_p = mass_water_new + mass_solute_
-        w_s = mass_solute_ / m_p
-        rho = compute_density_particle(w_s, temperature_particle_)
-        R = compute_radius_from_mass(m_p, rho)
-        mass_rate, mass_rate_derivative =\
-            compute_mass_rate_and_mass_rate_derivative_Szumowski(
-                mass_water_new, mass_solute_,
-                m_p, w_s, R,
-                temperature_particle_, rho,
-                amb_temp_, amb_press_,
-                amb_sat_, amb_sat_press_,
-                diffusion_constant_,
-                thermal_conductivity_air_,
-                specific_heat_capacity_air_,
-                heat_of_vaporization_,
-                surface_tension_,
-                adiabatic_index_,
-                accomodation_coefficient_,
-                condensation_coefficient_)
-        if (verbose):
-            print('mass_rate, mass_rate_derivative:')
-            print(mass_rate, mass_rate_derivative)
-        if mass_rate_derivative * dt_ < 0.5:
-            dt = dt_left
-            dt_left = -1.0
-        else:
-            dt = 0.5 / mass_rate_derivative
-            dt_left -= dt
+#     while (dt_left > 0.0):
+# #        mass_rate = compute_mass_rate_from_water_mass_Szumowski(
+# #                                mass_water_new, mass_solute_, #  in femto gram
+# #                                                  temperature_particle_,
+# #                                                  amb_temp_, amb_press_,
+# #                                                  amb_sat_, amb_sat_press_,
+# #                                                  diffusion_constant_,
+# #                                                  thermal_conductivity_air_,
+# #                                                  specific_heat_capacity_air_,
+# #                                                  adiabatic_index_,
+# #                                                  accomodation_coefficient_,
+# #                                                  condensation_coefficient_, 
+# #                                                  heat_of_vaporization_
+# #                                                      )
+#         m_p = mass_water_new + mass_solute_
+#         w_s = mass_solute_ / m_p
+#         rho = compute_density_particle(w_s, temperature_particle_)
+#         R = compute_radius_from_mass(m_p, rho)
+#         mass_rate, mass_rate_derivative =\
+#             compute_mass_rate_and_mass_rate_derivative_Szumowski(
+#                 mass_water_new, mass_solute_,
+#                 m_p, w_s, R,
+#                 temperature_particle_, rho,
+#                 amb_temp_, amb_press_,
+#                 amb_sat_, amb_sat_press_,
+#                 diffusion_constant_,
+#                 thermal_conductivity_air_,
+#                 specific_heat_capacity_air_,
+#                 heat_of_vaporization_,
+#                 surface_tension_,
+#                 adiabatic_index_,
+#                 accomodation_coefficient_,
+#                 condensation_coefficient_)
+#         if (verbose):
+#             print('mass_rate, mass_rate_derivative:')
+#             print(mass_rate, mass_rate_derivative)
+#         if mass_rate_derivative * dt_ < 0.5:
+#             dt = dt_left
+#             dt_left = -1.0
+#         else:
+#             dt = 0.5 / mass_rate_derivative
+#             dt_left -= dt
     
-        mass_water_new += mass_rate * dt\
-                          / ( 1.0 - mass_rate_derivative * dt )
+#         mass_water_new += mass_rate * dt\
+#                           / ( 1.0 - mass_rate_derivative * dt )
         
-        mass_water_effl = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
+#         mass_water_effl = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
         
-#        mass_fraction_solute_new =\
-#  mass_solute_ / (mass_water_new + mass_solute_)
+# #        mass_fraction_solute_new =\
+# #  mass_solute_ / (mass_water_new + mass_solute_)
         
-#        if (mass_fraction_solute_new
-#            > mass_fraction_solute_effl or mass_water_new < 0.0):
-        if (mass_water_new  < mass_water_effl):
-#            mass_water_new = mass_solute_\
-#                             * (1.0 / mass_fraction_solute_effl - 1.0)
-            mass_water_new = mass_water_effl
-            dt_left = -1.0
-#            print('w_s_effl reached')
+# #        if (mass_fraction_solute_new
+# #            > mass_fraction_solute_effl or mass_water_new < 0.0):
+#         if (mass_water_new  < mass_water_effl):
+# #            mass_water_new = mass_solute_\
+# #                             * (1.0 / mass_fraction_solute_effl - 1.0)
+#             mass_water_new = mass_water_effl
+#             dt_left = -1.0
+# #            print('w_s_effl reached')
     
-    return mass_water_new - mass_water_
+#     return mass_water_new - mass_water_
 
-def compute_mass_rate_from_surface_partial_pressure(  amb_temp_,
-                                                      amb_sat_, amb_sat_press_,
-                                                      diffusion_constant_,
-                                                      radius_,
-                                                      surface_partial_pressure_,
-                                                      particle_temperature_,
-                                                      ):
-    return 4.0E12 * np.pi * radius_ * diffusion_constant_\
-           / c.specific_gas_constant_water_vapor \
-           * ( amb_sat_ * amb_sat_press_ / amb_temp_
-               - surface_partial_pressure_ / particle_temperature_ )
-           
+########################
+# NOT UPDATED WITH NUMBA
+# def compute_mass_rate_from_surface_partial_pressure(  amb_temp_,
+#                                                       amb_sat_, amb_sat_press_,
+#                                                       diffusion_constant_,
+#                                                       radius_,
+#                                                       surface_partial_pressure_,
+#                                                       particle_temperature_,
+#                                                       ):
+#     return 4.0E12 * np.pi * radius_ * diffusion_constant_\
+#            / c.specific_gas_constant_water_vapor \
+#            * ( amb_sat_ * amb_sat_press_ / amb_temp_
+#                - surface_partial_pressure_ / particle_temperature_ )
+   ########################        
            
 
 

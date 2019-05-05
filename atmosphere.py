@@ -8,6 +8,7 @@ Created on Wed May  1 12:33:07 2019
 
 import numpy as np
 import constants as c
+from numba import vectorize
 
 # J/(kg K)
 def compute_specific_gas_constant_air_moist(specific_humidity_):
@@ -77,21 +78,31 @@ def compute_pressure_vapor( density_vapor_, temperature_ ):
     return compute_pressure_ideal_gas( density_vapor_,
                                       temperature_,
                                       c.specific_gas_constant_water_vapor )
-
+@vectorize("float64(float64, float64)") 
 def compute_density_air_dry(temperature_, pressure_):
     return pressure_ / ( c.specific_gas_constant_air_dry * temperature_ )
+@vectorize("float64(float64, float64)", target="parallel") 
+def compute_density_air_dry_par(temperature_, pressure_):
+    return pressure_ / ( c.specific_gas_constant_air_dry * temperature_ )
+
 
 # IN WORK:
 # thermal conductivity in air dependent on ambient temperature in Kelvin 
 # empirical formula from Beard and Pruppacher 1971 (in Lohmann, p. 191)
 # K_air in W/(m K)
+@vectorize("float64(float64)")
 def compute_thermal_conductivity_air(temperature_):
     return 4.1868E-3 * ( 5.69 + 0.017 * ( temperature_ - 273.15 ) )
 
 # Formula from Pruppacher 1997
 # m^2 / s
+@vectorize("float64(float64, float64)")
 def compute_diffusion_constant(ambient_temperature_ = 293.15,
                                ambient_pressure_ = 101325 ):
+    return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
+@vectorize("float64(float64, float64)", target="parallel") 
+def compute_diffusion_constant_par(ambient_temperature_,
+                               ambient_pressure_):
     return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
 
 # dynamic viscosity "\mu" in Pa * s
@@ -101,15 +112,21 @@ def compute_diffusion_constant(ambient_temperature_ = 293.15,
 #    return 1.0E-6 * (18.56 + 0.0484 * (T_ - 300))
 # ISO ISA 1975: "formula based on kinetic theory..."
 # "with Sutherland's empirical coeff.
+@vectorize("float64(float64)")
 def compute_viscosity_air(T_):
     return 1.458E-6 * T_**(1.5) / (T_ + 110.4)
+@vectorize("float64(float64)", target="parallel") 
+def compute_viscosity_air_par(T_):
+    return 1.458E-6 * T_**(1.5) / (T_ + 110.4)
 
+# IN WORK: shift to microphysics??
 #    surface tension in N/m = J/m^2
 #    depends on T and not significantly on pressure (see Massoudi 1974)
 #    formula from IAPWS 2014
 #    note that the surface tension is in gen. dep. on 
 #    the mass fraction of the solution (kg solute/ kg solution)
 #    which is not considered!
+@vectorize("float64(float64)") 
 def compute_surface_tension_water(temperature_):
     tau = 1 - temperature_ / 647.096
     return 0.2358 * tau**(1.256) * (1 - 0.625 * tau)
@@ -120,6 +137,7 @@ def compute_surface_tension_water(temperature_):
 # (HS has better formula but with division -> numerical slow) )
 # formula valid for 0 °C to 35 °C
 # At NTP: 2.452E6 # J/kg
+@vectorize("float64(float64)")
 def compute_heat_of_vaporization(temperature_):
     return 1.0E3 * ( 2500.82 - 2.358 * (temperature_ - 273.0) ) 
 
@@ -128,9 +146,12 @@ def compute_heat_of_vaporization(temperature_):
 # Approximation by Rogers and Yau 1989 (in Lohmann p.50)
 # returns pressure in Pa = N/m^2
 # from XX ? in Lohmann 2016
+@vectorize("float64(float64)")
 def compute_saturation_pressure_vapor_liquid(temperature_):
     return 2.53E11 * np.exp( -5420.0 / temperature_ )
-
+@vectorize("float64(float64)", target="parallel") 
+def compute_saturation_pressure_vapor_liquid_par(temperature_):
+    return 2.53E11 * np.exp( -5420.0 / temperature_ )
 
 ### conversion dry potential temperature
 c_pv_over_c_pd = c.specific_heat_capacity_water_vapor_20C \
