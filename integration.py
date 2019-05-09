@@ -7,7 +7,7 @@ Created on Wed May  1 14:28:39 2019
 """
 
 import numpy as np
-from numba import jit
+from numba import njit,jit
 
 import constants as c
 from atmosphere import compute_Theta_over_T, c_pv_over_c_pd,\
@@ -18,7 +18,7 @@ from atmosphere import compute_Theta_over_T, c_pv_over_c_pd,\
                        compute_pressure_vapor
 
 ################################################################
-## ADVECTION
+#%% ADVECTION
             
 def compute_limiter( r_, delta_ = 2.0 ):
     K = (1.0 + 2.0 * r_) * c.one_third
@@ -336,3 +336,321 @@ def propagate_grid_subloop(grid, delta_Theta_ad, delta_r_v_ad,
 # we can try this with njit (!!??) -> then to paralize the numpy functions ?
 # OK, then we cant use grid.update... function, hmmm
 propagate_grid_subloop_par = jit(parallel=True)(propagate_grid_subloop)
+
+#%% PARTICLE PROPAGATION
+
+@njit()
+def update_cells_and_rel_pos(pos, cells, rel_pos, grid_ranges, grid_steps):
+    x = pos[0]
+    y = pos[1]
+    # cells = np.empty( (2,len(x)) , dtype = np.int64)
+    # rel_pos = np.empty( (2,len(x)) , dtype = np.float64 )
+    rel_pos[0] = x - grid_ranges[0,0] # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+    rel_pos[1] = y - grid_ranges[1,0]
+    cells[0] = np.floor(x/grid_steps[0]).astype(np.int64)
+    cells[1] = np.floor(y/grid_steps[1]).astype(np.int64)
+    
+    rel_pos[0] = rel_pos[0] / grid_steps[0] - cells[0]
+    rel_pos[1] = rel_pos[1] / grid_steps[1] - cells[1]
+    # return cells, rel_pos
+
+#   update location by one euler step (timestep of the euler step = dt)
+#   using BC: periodic in x, solid in z (BC = PS)
+#   if particle hits bottom, its xi value it set to 0 (int)
+#   requires "vel" to be right
+# TESTS:
+# no_spt = 400
+# update_particle_locations_from_velocities_BC_PS_np:
+# update_particle_locations_from_velocities_BC_PS:
+# update_particle_locations_from_velocities_BC_PS_par:
+# best =  124.1 us; worst =  161.5 us; mean = 134.7 +- 13.7 us
+# best =  4.704 us; worst =  5.287 us; mean = 4.986 +- 0.222 us
+# best =  17.74 us; worst =  29.68 us; mean = 21.34 +- 5.3 us
+# no_spt = 112500
+# update_particle_locations_from_velocities_BC_PS_np:
+# update_particle_locations_from_velocities_BC_PS:
+# update_particle_locations_from_velocities_BC_PS_par:
+# best =  3.021e+04 us; worst =  3.136e+04 us; mean = 3.064e+04 +- 3.5e+02 us
+# best =  1.071e+03 us; worst =  1.082e+03 us; mean = 1.076e+03 +- 4.62 us
+# best =  641.5 us; worst =  743.3 us; mean = 699.8 +- 33.3 us
+def update_pos_from_vel_BC_PS_np(pos, vel, xi, grid_ranges, dt):
+    z_min = grid_ranges[1,0]
+    # removed = False
+    pos += dt * vel
+    # periodic BC
+    # works only if x_min_grid =  0.0
+    # there might be trouble if x is exactly = 1500.0,
+    # because then x will stay 1500.0 and the calc. cell will be 75, i.e. one too large for eg.g grid.centers
+    pos[0] = pos[0] % grid_ranges[0,1]
+    pos[1] = np.minimum(pos[1], grid_ranges[1,1]*0.999999)
+    # if particle hits ground, set xi = 0
+    # this is the indicator that the particle has "vanished"
+    # also to use for collision later
+    for ID,xi_ in enumerate(xi):
+        if xi_ != 0:
+            if pos[1,ID] <= z_min:
+                xi[ID] = 0
+                pos[1,ID] = z_min
+                vel[0,ID] = 0.0
+                vel[1,ID] = 0.0
+
+#            removed_ids.append(ID)
+#            active_ids.remove(ID)
+update_pos_from_vel_BC_PS =\
+    njit()(update_pos_from_vel_BC_PS_np)
+update_pos_from_vel_BC_PS_par =\
+    njit(parallel = True)(update_pos_from_vel_BC_PS_np)
+
+from microphysics import compute_R_p_w_s_rho_p,\
+                         compute_dml_and_gamma_impl_Newton_full,\
+                         compute_particle_reynolds_number
+from grid import interpolate_velocity_from_cell_bilinear
+import math
+
+# g_set >= 0 !!
+def update_vel_impl(vel, cells, rel_pos, xi, R_p, rho_p,
+                    grid_vel, grid_viscosity, grid_mass_density_fluid, 
+                    grid_no_cells, grav, dt):
+    vel_f = interpolate_velocity_from_cell_bilinear(cells, rel_pos,
+                                                    grid_vel, grid_no_cells)
+    for ID, xi_ in enumerate(xi):
+        if xi_ != 0:
+            R_p_ = R_p[ID]
+            cell = (cells[0,ID], cells[1,ID])
+            mu_f = grid_viscosity[cell]
+            rho_f_amb = grid_mass_density_fluid[cell]
+            dv = vel_f[:,ID] - vel[:,ID]
+            vel_dev = math.sqrt(dv[0]*dv[0] + dv[1]*dv[1])
+            
+            Re_p = compute_particle_reynolds_number(R_p_, vel_dev, rho_f_amb,
+                                     mu_f )
+            k_dt = 4.5E12 * dt * mu_f / ( rho_p[ID] * R_p_ * R_p_)
+            
+            if Re_p > 0.5:
+                if Re_p < 1000.0:
+                    k_dt *= (1 + 0.15 * Re_p**0.687)
+                # 0.018333333  = 0.44/24
+                else: k_dt *= 0.0183333333333 * Re_p
+            vel[0,ID] = (vel[0,ID] + k_dt * vel_f[0,ID]) / (1.0 + k_dt)
+            vel[1,ID] = (vel[1,ID] + k_dt * vel_f[1,ID] - dt * grav) / (1.0 + k_dt)
+
+def update_m_w_and_delta_m_l_impl_Newton(
+        grid_temperature, grid_pressure, grid_saturation,
+        grid_saturation_pressure, grid_thermal_conductivity, 
+        grid_diffusion_constant, grid_heat_of_vaporization,
+        grid_surface_tension, cells, m_w, m_s, xi, R_p, w_s, rho_p, T_p,
+        delta_m_l, delta_Q_p, dt_sub,  Newton_iter):
+    delta_m_l.fill(0.0)
+    ### ACTIVATE
+    # delta_Q_p.fill(0.0)
+    for ID, xi_ in enumerate(xi):
+        if xi_ != 0:
+            cell = (cells[0,ID], cells[1,ID])
+            T_amb = grid_temperature[cell]
+            p_amb = grid_pressure[cell]
+            S_amb = grid_saturation[cell]
+            e_s_amb = grid_saturation_pressure[cell]
+            # rho_f_amb = grid.mass_density_fluid[cell]
+            L_v = grid_heat_of_vaporization[cell]
+            K = grid_thermal_conductivity[cell]
+            D_v = grid_diffusion_constant[cell]
+            # sigma w is right now calc. with the ambient temperature... can be changed to the particle temp, if tracked
+            sigma_w = grid_surface_tension[cell]
+            # c_p_f = grid.specific_heat_capacity[cell]
+            # mu_f = grid.viscosity[cell]
+            
+            # req. w_s, R_p, rho_p, T_p (check)
+            dm, gamma = compute_dml_and_gamma_impl_Newton_full(
+                            dt_sub, Newton_iter, m_w[ID], m_s[ID], w_s[ID], R_p[ID],
+                            T_p[ID], rho_p[ID],
+                            T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w)
+            # ### 3.
+            # ### ACTIVATE
+            # T_eq_old = particle.equilibrium_temperature
+    
+            # ### 4.
+            # # T_eq_new req. radius, which req. density, which req. self.temperature, self.mass_fraction_solute
+            # ### ACTIVATE
+            # particle.equilibrium_temperature = T_amb + L_v * mass_rate * 1.0E-12 / (4.0 * np.pi * particle.radius * K)
+    
+            # ### 5.
+            # ### ACTIVATE
+            # delta_Q_p[cell] += particle.compute_heat_capacity() * particle.multiplicity \
+            #                   * particle.mass * (particle.equilibrium_temperature - T_eq_old)
+
+            ### 6.
+            m_w[ID] += dm
+    
+            ### 7. 
+            delta_m_l[cell] += dm * xi_
+            
+            ### 8.
+            ### ACTIVATE
+            # delta_Q_p[cell] += particle.compute_heat_capacity() * delta_m * particle.multiplicity\
+            #                    * (particle.equilibrium_temperature - T_amb)    
+    delta_m_l *= 1.0E-18
+
+# dt_sub_pos is ONLY for the particle location step x_new = x_old + v * dt_sub_loc
+# -->> give the opportunity to adjust this step, usually dt_sub_pos = dt_sub
+# at the end of subloop 2: dt_sub_pos = dt_sub_half
+# UPDATE 25.02.19: use full Newton implicit for delta_m
+# UPDATE 26.02: use one step implicit for velocity and mass, for velocity use m_(n+1) and v_n in |u-v_n| for calcing the Reynolds number
+# IN WORK: NOTE THAT dt_sub_half is not used anymore...
+def propagate_particles_subloop_step(grid,
+                                     pos, vel, cells, rel_pos, m_w, m_s, xi,
+                                     delta_m_l, delta_Q_p,
+                                     dt_sub, dt_sub_half, dt_sub_pos,
+                                     Newton_iter, g_set):
+    # removed_ids_step = []
+    # delta_m_l.fill(0.0)
+    ### 1. T_p = T_f
+    # use this in vectorized version, because the subfunction compute_radius ...
+    # in compute_R_p_w_s_rho_p (below) is defined by vectorize() and not by jit
+    T_p = grid.temperature[cells[0],cells[1]]
+    ### 2. to 9. compute mass rate and delta_m and update m_w
+    # use this in vectorized version, because the subfunction compute_radius ...
+    # is defined by vectorize() and not by jit
+    R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s, T_p)
+    update_m_w_and_delta_m_l_impl_Newton(
+        grid.temperature, grid.pressure, grid.saturation,
+        grid.saturation_pressure, grid.thermal_conductivity, 
+        grid.diffusion_constant, grid.heat_of_vaporization,
+        grid.surface_tension, cells, m_w, m_s, xi, R_p, w_s, rho_p, T_p,
+        delta_m_l, delta_Q_p, dt_sub, Newton_iter)
+    
+    ### 9. v_n -> v_n+1  (CHANGED TO FULL TIMESTEP WITH k_d(m_(n+1), x_(n+1/2), |u_n+1/2 - v_n|) )
+    # req. R_p -> self.density + m_p (changed) -> mass_fraction (changed) + temperature (changed)
+    # req. cell (check, unchanged) + location (check, unchanged)
+    # use this in vectorized version, because the subfunction compute_radius ...
+    # is defined by vectorize() and not by jit
+    R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s, T_p)
+    ### ACTIVATE
+    # particle.temperature = particle.equilibrium_temperature
+    # g_set >= 0 !!
+    update_vel_impl(vel, cells, rel_pos, xi, R_p, rho_p,
+                    grid.velocity, grid.viscosity, grid.mass_density_fluid, 
+                    grid.no_cells, g_set, dt_sub)
+    ### 10.
+    
+    removed = particle.update_location_from_velocity_BC_PS(dt_sub_loc)
+        # multiply by 1.0E-18 in the end
+    if removed:
+        removed_ids_step.append(ID)
+        removed_ids.append(ID)
+#             active_ids.remove(ID)
+#             water_removed += particle.mass_water * particle.multiplicity
+    ### 11.
+    particle.update_cell_and_relative_location()
+######
+######            
+######            
+        particle = particle_list_by_id[ID]
+        cell = tuple(particle.cell)
+        
+        T_amb = grid.temperature[cell]
+        p_amb = grid.pressure[cell]
+        S_amb = grid.saturation[cell]
+        e_s_amb = grid.saturation_pressure[cell]
+        rho_f_amb = grid.mass_density_fluid[cell]
+        K = grid.thermal_conductivity[cell]
+        D_v = grid.diffusion_constant[cell]
+        L_v = grid.heat_of_vaporization[cell]
+        # sigma w is right now calc. with the ambient temperature... can be changed to the particle temp, if tracked
+        sigma_w = grid.surface_tension[cell]
+        c_p_f = grid.specific_heat_capacity[cell]
+        mu_f = grid.viscosity[cell]
+   
+        ### 1. T_p = T_f
+        particle.temperature = T_amb
+
+        ### 2. compute mass rate and delta_m
+        # inserted Newton implicit with "Newton_iter" iterations here
+        # req. self.density + m_p (check) -> mass_fraction (check) + temperature (changed right above)
+        # req. cell (check) + location (check)   
+        particle.density = particle.compute_density()
+        particle.radius = particle.compute_radius_from_mass()
+        delta_m, mass_rate = \
+            compute_delta_water_liquid_and_mass_rate_implicit_Newton_full(dt_sub, Newton_iter,
+                                                                          particle.mass_water, particle.mass_solute,
+                                                                          particle.mass, particle.mass_fraction_solute, particle.radius,
+                                                                          particle.temperature, particle.density,
+                                                                          T_amb, p_amb,
+                                                                          S_amb, e_s_amb,
+                                                                          D_v,
+                                                                          K,
+                                                                          c_p_f,
+                                                                          L_v,
+                                                                          sigma_w,
+                                                                          adiabatic_index,
+                                                                          accomodation_coefficient,
+                                                                          condensation_coefficient)
+######################################### check
+         # replaced by full Newton method
+#        delta_m, mass_rate = \
+#            compute_delta_water_liquid_and_mass_rate_imex_linear( dt_sub,
+#                                                                  particle.mass_water, # in femto gram
+#                                                                  particle.mass_solute, 
+#                                                                  particle.temperature,
+#                                                                  T_amb, p_amb,
+#                                                                  S_amb, e_s_amb,
+#                                                                  D_v, K, c_p_f,
+#                                                                  adiabatic_index,
+#                                                                  accomodation_coefficient,
+#                                                                  condensation_coefficient, 
+#                                                                  L_v )
+
+        ### 3.
+        ### ACTIVATE
+#        T_eq_old = particle.equilibrium_temperature
+
+        ### 4.
+        # T_eq_new req. radius, which req. density, which req. self.temperature, self.mass_fraction_solute
+        ### ACTIVATE
+#        particle.equilibrium_temperature = T_amb + L_v * mass_rate * 1.0E-12 / (4.0 * np.pi * particle.radius * K)
+
+        ### 5.
+        ### ACTIVATE
+#        delta_Q_p[cell] += particle.compute_heat_capacity() * particle.multiplicity \
+#                           * particle.mass * (particle.equilibrium_temperature - T_eq_old)
+
+        ### 6. 
+        particle.mass_water += delta_m
+        particle.mass += delta_m
+        particle.mass_fraction_solute = particle.mass_solute / particle.mass
+
+        ### 7. 
+        delta_m_l[cell] += delta_m * particle.multiplicity
+####################### check
+        ### 8.
+        ### ACTIVATE
+#        delta_Q_p[cell] += particle.compute_heat_capacity() * delta_m * particle.multiplicity\
+#                           * (particle.equilibrium_temperature - T_amb)
+
+        ### 9. v_n -> v_n+1  (CHANGED TO FULL TIMESTEP WITH k_d(m_(n+1), x_(n+1/2), |u_n+1/2 - v_n|) )
+        # req. R_p -> self.density + m_p (changed) -> mass_fraction (changed) + temperature (changed)
+        # req. cell (check, unchanged) + location (check, unchanged)   
+        ### ACTIVATE
+#             particle.temperature = particle.equilibrium_temperature
+        particle.density = particle.compute_density()
+        particle.radius = particle.compute_radius_from_mass()
+        particle.velocity = particle.compute_velocity_new_implicit(dt_sub, rho_f_amb, mu_f, g_set)
+        
+        ### 10.
+        removed = particle.update_location_from_velocity_BC_PS(dt_sub_loc)
+            # multiply by 1.0E-18 in the end
+        if removed:
+            removed_ids_step.append(ID)
+            removed_ids.append(ID)
+#             active_ids.remove(ID)
+#             water_removed += particle.mass_water * particle.multiplicity
+        ### 11.
+        particle.update_cell_and_relative_location()
+    
+    for ID in removed_ids_step:
+        active_ids.remove(ID)
+            
+    delta_m_l *= 1.0E-18
+    ### ACTIVATE
+#    delta_Q_p *= 1.0E-18
+propagate_particles_subloop_par = jit(parallel=True)(propagate_particles_subloop)
+

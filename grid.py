@@ -45,7 +45,7 @@ def pressure_field_exponential(x_, y_):
 #     return i, j
 
 @njit()
-def compute_cell_and_relative_position_jit(pos, grid_ranges, grid_steps):
+def compute_cell_and_relative_position(pos, grid_ranges, grid_steps):
     x = pos[0]
     y = pos[1]
     cells = np.empty( (2,len(x)) , dtype = np.int64)
@@ -91,8 +91,8 @@ def bilinear_weight(i, j, a, b, f):
 # NOTE: this is adjusted for PBC in x and solid BC in z
 # function was tested versus the grid.interpol... function            
 @njit()
-def interpolate_velocity_from_cell_bilinear_jit(cells, rel_pos,
-        grid_vel, grid_no_cells ):
+def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
+        grid_vel, grid_no_cells):
     no_pt = len(rel_pos[0])
     vel_ipol = np.empty( (2, no_pt), dtype = np.float64 )
     # vel_x = np.empty(len(x_rel), dtype = np.float64)
@@ -166,13 +166,42 @@ def interpolate_velocity_from_cell_bilinear_jit(cells, rel_pos,
 
 # function was tested versus the grid.interpol.. function
 @njit()
-def interpolate_velocity_from_position_bilinear_jit(pos,
+def interpolate_velocity_from_position_bilinear(pos,
         grid_vel, grid_no_cells, grid_ranges, grid_steps):
-    cells, rel_pos = compute_cell_and_relative_position_jit(pos,grid_ranges,
+    cells, rel_pos = compute_cell_and_relative_position(pos,grid_ranges,
                                                             grid_steps)
     # return cells, rel_pos
-    return interpolate_velocity_from_cell_bilinear_jit(cells, rel_pos,
+    return interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                 grid_vel, grid_no_cells)
+
+
+def compute_r_l_grid_field_np(m_w, xi, cells, grid_r_l, grid_mass_dry_inv):
+    no_sp = len(m_w)
+    grid_r_l.fill(0.0)
+    for ID in range(no_sp):
+        # cell = tuple(cells[0,ID], cells[1,ID])
+        grid_r_l[cells[0,ID], cells[1,ID]] += m_w[ID] * xi[ID]
+    grid_r_l *= 1.0E-18 * grid_mass_dry_inv
+
+# from tests: the pure njit version (without parallel) is much faster
+# than vanilla python (loop) and faster than njit parallel:
+# for 112500 super particles: python, njit, njit_para
+# 99.8 ms ± 775 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
+# 233 µs ± 3.3 µs per loop (mean ± std. dev. of 5 runs, 1000 loops each)
+# 339 µs ± 6.9 µs per loop (mean ± std. dev. of 5 runs, 1000 loops each)
+# 98886.20279962197
+# 229.0452829984133
+# 329.4672499978333
+# for 22500 particles: python, njit, njit_para
+# 19.2 ms ± 91.7 µs per loop (mean ± std. dev. of 5 runs, 10 loops each)
+# 45.4 µs ± 438 ns per loop (mean ± std. dev. of 5 runs, 1000 loops each)
+# 80.9 µs ± 5.1 µs per loop (mean ± std. dev. of 5 runs, 1000 loops each)
+# 19015.197699627606
+# 44.7909360009362
+# 73.54685899917968
+compute_r_l_grid_field = njit()(compute_r_l_grid_field_np)
+compute_r_l_grid_field_par = njit(parallel = True)(compute_r_l_grid_field_np)
+        
 
 def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
     no_cells = []
@@ -1245,7 +1274,13 @@ def save_grid_arrays_to_npy_file(grid, filename1, filename2):
                      grid.mass_flux_air_dry[0], grid.mass_flux_air_dry[1]])
     np.save(filename1, arr1)
     np.save(filename2, arr2)
-    
+
+def save_grid_scalar_fields(t, grid, path):
+    filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
+    np.save( filename, (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
+         grid.potential_temperature, grid.temperature,
+         grid.pressure, grid.saturation) )
+   
 def save_grid_to_files(grid, t_, basics_file, arr_file1, arr_file2):
     save_grid_basics_to_textfile(grid, t_, basics_file)
     save_grid_arrays_to_npy_file(grid, arr_file1, arr_file2)

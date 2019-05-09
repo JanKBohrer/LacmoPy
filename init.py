@@ -9,17 +9,18 @@ Created on Mon Apr 29 11:31:49 2019
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import sys
 
 import constants as c
 from grid import Grid
-from grid import interpolate_velocity_from_cell_bilinear_jit,\
+from grid import interpolate_velocity_from_cell_bilinear,\
                  interpolate_velocity_from_position_bilinear_jit,\
                  compute_cell_and_relative_position_jit
 from microphysics import compute_mass_from_radius,\
                          compute_initial_mass_fraction_solute_NaCl,\
                          compute_radius_from_mass,\
                          compute_density_particle,\
-                 compute_delta_water_liquid_and_mass_rate_implicit_Newton_full,\
+                         compute_dml_and_gamma_impl_Newton_full_np,\
                          compute_R_p_w_s_rho_p
                          
 from atmosphere import compute_kappa_air_moist,\
@@ -34,7 +35,6 @@ from atmosphere import compute_kappa_air_moist,\
                        kappa_air_dry,\
                        compute_beta_without_liquid,\
                        compute_temperature_from_potential_temperature_moist
-                       
 from file_handling import save_particles_to_files,\
                           save_grid_and_particles_full,\
                           load_grid_and_particles_full
@@ -190,6 +190,37 @@ def generate_random_radii_monomodal(grid, dst, par, no_spc, p_min, p_max,
     
     return rnd, weights #, bins
 
+# no_spc = super particles per cell
+# creates no_spc random radii per cell and the no_spc weights per cell
+# where sum(weight_i) = 1.0
+# the weights are drawn from a normal distribution with mu = 1.0, sigma = 0.2
+# and rejected if weight < 0. The weights are then normalized such that sum = 1
+# par = (mu*, ln(sigma*)), where mu* and sigma* are the
+# GEOMETRIC expectation value and standard dev. of the lognormal distr. resp.
+def generate_random_radii_monomodal_lognorm(grid, par, no_spc,
+                                            seed, setseed = True):
+    if setseed: np.random.seed(seed)
+    
+    no_spt = grid.no_cells_tot * no_spc
+    
+    # draw random numbers from log normal distr. by this procedure
+    Rs = np.random.normal(0.0, par[1], no_spt)
+    Rs = np.exp(Rs)
+    Rs *= par[0]
+    # draw random weights
+    weights = np.abs(np.random.normal(1.0, 0.2, no_spt))
+    
+    # bring to shape Rs[i,j,k], where Rs[i,j] = arr[k] k = 0...no_spc-1
+    shape = np.hstack( [np.array(np.shape(grid.centers)[1:]), [no_spc]] )
+    Rs = np.reshape(Rs, shape)
+    weights = np.reshape(weights, shape)
+    
+    for p_row in weights:
+        for p_cell in p_row:
+            p_cell /= np.sum(p_cell)
+    
+    return Rs, weights #, bins
+
 # no_spcm MUST be a list/array with [no_1, no_2, .., no_N], N = number of modes
 # no_spcm[k] = 0 is possible for some mode k. Then no particles are generated
 # for this mode...
@@ -231,6 +262,32 @@ def generate_random_radii_multimodal(grid, dst, par, no_spcm, p_min, p_max,
             r, w = generate_random_radii_monomodal(
                        grid, dst[k], par[k], no_spcm[k], p_min[k], p_max[k],
                        r0[k], r1[k], dr[k], seed[k], setseed)
+            rad.append( r )
+            weights.append( w )
+            setseed = reseed
+    # we need the different modes separately, because they 
+    # are weighted with different total concentrations
+    # if len(rad)>1:
+    #     rad = np.concatenate(rad, axis = 2)
+    #     weights = np.concatenate(weights, axis = 2)
+    
+    return np.array(rad), np.array(weights)
+
+# 
+def generate_random_radii_multimodal_lognorm(grid, par, no_spcm,
+                                             seed, reseed = False):
+    no_modes = len(no_spcm)
+    if not isinstance(seed, (list, tuple, np.ndarray)):
+        seed = [seed] * no_modes       
+        
+    rad = []
+    weights = []
+    # set seed always once
+    setseed = True
+    for k in range(no_modes):
+        if no_spcm[k] > 0:
+            r, w = generate_random_radii_monomodal_lognorm(
+                       grid, par[k], no_spcm[k], seed[k], setseed)
             rad.append( r )
             weights.append( w )
             setseed = reseed
@@ -366,7 +423,8 @@ def initialize_grid_and_particles(
         p_0, p_ref, r_tot_0, Theta_l,
         n_p, no_spcm, dst, dst_par, 
         P_min, P_max, r0, r1, dr, rnd_seed, reseed,
-        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path):
+        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path,
+        logfile = False):
     # VERSION WITH PARTICLE PROPERTIES IN ARRAYS, not particle class
     ##############################################
     # 1. set base grid
@@ -376,6 +434,11 @@ def initialize_grid_and_particles(
     # The grid dimensions will be adjusted such that they are
     # AT LEAST x_max - x_min, etc... but may also be larger,
     # if the sizes are no integer multiples of the step sizes
+    if logfile:
+        log_file = path + "log_grid.txt"
+        log_handle = open(log_file, "w")
+        sys.stdout = log_handle
+        
     grid_ranges = [ [x_min, x_max],
     #                 [y_min, y_max], 
                     [z_min, z_max] ]
@@ -383,6 +446,24 @@ def initialize_grid_and_particles(
 
     grid = Grid( grid_ranges, grid_steps, dy )
     grid.print_info()
+    ###
+    paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
+             Theta_l, n_p,
+             no_spcm,
+             dst_par, rnd_seed, S_init_max, dt_init, iter_cnt_limit]
+    para_names = 'x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0, \
+    Theta_l, n_p, no_super_particles_cell, \
+    par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit'
+    
+    grid_para_file = path + "grid_paras.txt"
+    with open(grid_para_file, "w") as f:
+        f.write( para_names + '\n' )
+        for item in paras:
+            if type(item) is list or type(item) is np.ndarray:
+                for el in item:
+                    f.write( f'{el} ' )
+            else: f.write( f'{item} ' )    
+    ###
     
     ##############################################
     # 2. Set initial profiles without liquid water
@@ -469,9 +550,8 @@ def initialize_grid_and_particles(
     no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
     
     ### generate particle radii and weights for the whole grid
-    R_s, weights_R_s = generate_random_radii_multimodal(
-                               grid, dst, dst_par, no_spcm, P_min, P_max, 
-                               r0, r1, dr, rnd_seed, reseed)
+    R_s, weights_R_s = generate_random_radii_multimodal_lognorm(
+                               grid, dst_par, no_spcm, rnd_seed, reseed)
     # convert to dry masses
 #    print()
 #    print("type(R_s)")
@@ -495,7 +575,8 @@ def initialize_grid_and_particles(
     iter_cnt_max_level = 0
     # maximal allowed iter counts
     # iter_cnt_limit = 500
-    rho_dry_0 = p_0 / (c.specific_gas_constant_air_dry * 293)
+    rho_dry_0 = p_0 / (c.specific_gas_constant_air_dry * 293.0)
+    no_rpt_should = np.zeros_like(no_rpcm_0)
     for j in range(grid.no_cells[1]):
     #     print('next j')
     #     we are now in column 'j', fixed z-level
@@ -564,7 +645,7 @@ def initialize_grid_and_particles(
         ########################################################
     #     print(mass_water_vapor_level)
         no_rpcm = np.rint( no_rpcm_0 * rho_dry_avg / rho_dry_0 ).astype(int)
-        
+        no_rpt_should += no_rpcm * grid.no_cells[0]
         # multiplicities in level j:
         
         
@@ -576,7 +657,7 @@ def initialize_grid_and_particles(
             # print("no_rpcm[l]")
             # print(weights_R_s[l][:,j])
             # print(no_rpcm[l])
-            xi[l][:,j] = np.rint(weights_R_s[l][:,j] * no_rpcm[l]).astype(int)
+            xi[l][:,j] = np.rint(weights_R_s[l][:,j] * no_rpcm[np.nonzero(no_spcm)][l]).astype(int)
             # print("xi[l][:,j]")
             # print(xi[l][:,j])
             # initial weight fraction of this level dependent on S_amb
@@ -837,7 +918,7 @@ def initialize_grid_and_particles(
                         compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_avg)
                     
                     dm_l, gamma_ =\
-                    compute_delta_water_liquid_and_mass_rate_implicit_Newton_full(
+                    compute_dml_and_gamma_impl_Newton_full_np(
                         dt_init, Newton_iterations, m_w_cell,
                         m_s_cell, w_s_cell, R_p_cell, T_avg,
                         rho_p_cell,
@@ -1107,6 +1188,29 @@ def initialize_grid_and_particles(
                    0.5 * ( 3.0 * rho_dry_env_init_center[-1]
                            - rho_dry_env_init_center[-2] ) )
     
+    print()
+    print("placed ", len(m_w.flatten()), "super particles" )
+    print("representing ", np.sum(xi.flatten()), "real particles:" )
+    print("mode real_part_placed real_part_should diff_real_should:")
+    l_ = 0
+    for l, N_l in enumerate( no_spcm ):
+        if l in np.nonzero(no_spcm)[0]:
+            print( l, np.sum(xi[l_]), no_rpt_should[l],
+                   np.sum(xi[l_]) - no_rpt_should[l])
+            l_ += 1
+        else:
+            print( l, 0, no_rpt_should[l], -no_rpt_should[l])
+    # print("real particles should be placed: ", no_rpt_should)
+    # print("difference:")
+    # for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+    #     print(np.nonzero(no_spcm)[0][l], np.sum(xi[l]) - no_rpt_should[np.nonzero(no_spcm)][l])
+    # for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+    #     print( np.nonzero(no_spcm)[0][l], np.sum(xi[l]) )
+    # print("real particles should be placed: ", no_rpt_should)
+    # print("difference:")
+    # for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+    #     print(np.nonzero(no_spcm)[0][l], np.sum(xi[l]) - no_rpt_should[np.nonzero(no_spcm)][l])
+    
     ########################################################
     # 4. 
     # set mass flux and velocity grid
@@ -1204,7 +1308,7 @@ def initialize_grid_and_particles(
                     xi_flat[ID] = xi[l][i,j]
                     ID += 1
     
-    vel = interpolate_velocity_from_cell_bilinear_jit(cell_list, rel_pos,
+    vel = interpolate_velocity_from_cell_bilinear(cell_list, rel_pos,
                                                       grid.velocity,
                                                       grid.no_cells)
     
@@ -1238,173 +1342,12 @@ def initialize_grid_and_particles(
                                  m_w_flat, m_s_flat, xi_flat,
                                  active_ids, removed_ids, path)
     
+    if logfile:
+        sys.stdout = sys.__stdout__
+        log_handle.close()
+    
     return grid, pos, cell_list, vel, m_w_flat, m_s_flat, xi_flat, active_ids, removed_ids
 
-#%%
-
-### storage directories -> need to assign "simdata_path" and "fig_path"
-# my_OS = "Linux_desk"
-my_OS = "Mac"
-
-if(my_OS == "Linux_desk"):
-    home_path = '/home/jdesk/'
-    simdata_path = home_path + "OneDrive/python/sim_data/"
-    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
-elif (my_OS == "Mac"):
-    home_path = "/Users/bohrer/"
-    simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
-    fig_path = home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
-
-#simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-
-# domain size
-x_min = 0.0
-x_max = 1500.0
-z_min = 0.0
-z_max = 1500.0
-
-# grid steps
-dx = 20.0
-dy = 1.0
-dz = 20.0
-
-p_0 = 101500 # surface pressure in Pa
-p_ref = 1.0E5 # ref pressure for potential temperature in Pa
-r_tot_0 = 7.5E-3 # kg water / kg dry air
-# r_tot_0 = 22.5E-3 # kg water / kg dry air
-# r_tot_0 = 7.5E-3 # kg water / kg dry air
-Theta_l = 289.0 # K
-# number density of particles mode 1 and mode 2:
-n_p = np.array([60.0E6, 100.0E6]) # m^3
-# n_p = np.array([60.0E6, 40.0E6]) # m^3
-
-# no_super_particles_cell = [N1,N2] is a list with N1 = no super part. per cell in mode 1 etc.
-no_spcm = np.array([10, 10])
-# no_super_particles_cell = [0, 4]
-
-
-# parameters of log-normal distribution:
-dst = dst_log_normal
-# in log(mu)
-par_sigma = np.log( [1.4,1.6] )
-# par_sigma = np.log( [1.0,1.0] )
-# in mu
-par_r0 = 0.5 * np.array( [0.04, 0.15] )
-dst_par = []
-for i,sig in enumerate(par_sigma):
-    dst_par.append([par_r0[0],sig])
-
-P_min = 0.01
-P_max = 0.99
-
-dr = 1E-4
-r0 = dr
-r1 = 10 * par_sigma
-
-reseed = False
-rnd_seed = 4711
-
-## for initialization phase
-S_init_max = 1.05
-dt_init = 0.1 # s
-# number of iterations for the root finding (full) Newton algorithm in the implicit method
-Newton_iterations = 1
-# maximal allowed iter counts in initial particle water take up to equilibrium
-iter_cnt_limit = 800
-
-##### save sim data to files
-
-folder = "190506/test1/"
-path = simdata_path + folder
-# path = folder1 + folder2
-#####
-
-grid_para_file = path + "grid_paras.txt"
-paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
-         Theta_l, n_p,
-         no_spcm,
-         par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit]
-para_names = 'x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0, \
-Theta_l, n_p, no_super_particles_cell, \
-par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit'
-
-with open(grid_para_file, "w") as f:
-    f.write( para_names + '\n' )
-    for item in paras:
-        if type(item) is list or type(item) is np.ndarray:
-            for el in item:
-                f.write( f'{el} ' )
-        else: f.write( f'{item} ' )
-
-grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids =\
-    initialize_grid_and_particles(
-        x_min, x_max, z_min, z_max, dx, dy, dz,
-        p_0, p_ref, r_tot_0, Theta_l,
-        n_p, no_spcm, dst, dst_par, 
-        P_min, P_max, r0, r1, dr, rnd_seed, reseed,
-        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path)
-
-
-#%%
-
-from file_handling import load_grid_and_particles_full
-    
-grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids = \
-    load_grid_and_particles_full(0, path)
-
-# mapping from temperature grid -> list of temperatures with dimension of m_w
-
-#%%
-
-cells = cells.astype(int)
-print(cells)
-
-#%%
-print(grid.temperature[cells])
-
-
-#%%
-R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s, )
-
-#%%
-    
-def plot_pos_vel_pt(pos, vel, grid,
-                    figsize=(8,8), no_ticks = [6,6],
-                    MS = 1.0, ARRSCALE=2):
-    u_g = 0.5 * ( grid.velocity[0,0:-1] + grid.velocity[0,1:] )
-    v_g = 0.5 * ( grid.velocity[1,:,0:-1] + grid.velocity[1,:,1:] )
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.plot(grid.corners[0], grid.corners[1], "x", color="red", markersize=MS)
-    ax.plot(pos[0],pos[1], "o", color="k", markersize=2*MS)
-    # ax.quiver(*pos, *vel, scale=ARRSCALE, pivot="mid")
-    # ax.quiver(*grid.centers, u_g[:,0:-1], v_g[0:-1],
-              # scale=ARRSCALE, pivot="mid", color="red")
-    # ax.quiver(grid.corners[0], grid.corners[1] + 0.5*grid.steps[1],
-    #           grid.velocity[0], np.zeros_like(grid.velocity[0]),
-    #           scale=0.5, pivot="mid", color="red")
-    # ax.quiver(grid.corners[0] + 0.5*grid.steps[0], grid.corners[1],
-    #           np.zeros_like(grid.velocity[1]), grid.velocity[1],
-    #           scale=0.5, pivot="mid", color="blue")
-    x_min = grid.ranges[0,0]
-    x_max = grid.ranges[0,1]
-    y_min = grid.ranges[1,0]
-    y_max = grid.ranges[1,1]
-    ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
-    ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
-    # ax.set_xticks(grid.corners[0][:,0])
-    # ax.set_yticks(grid.corners[1][0,:])
-    ax.set_xticks(grid.corners[0][:,0], minor = True)
-    ax.set_yticks(grid.corners[1][0,:], minor = True)
-    # plt.minorticks_off()
-    # plt.minorticks_on()
-    ax.grid()
-    # ax.grid(which="minor")
-    plt.show()
-    
-plot_pos_vel_pt(pos, vel, grid, no_ticks=[11,11], MS = 0.1, ARRSCALE=50)
-
-# grid.plot_thermodynamic_scalar_fields_grid()
-  
 
 #%%
 # particles: pos, vel, masses, multi,

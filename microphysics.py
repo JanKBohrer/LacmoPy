@@ -838,8 +838,8 @@ njit(parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_n
 # NEW 04.05.19
 # Full Newton method with no_iter iterations,
 # the derivative is calculated every iteration
-def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np(
-        dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
+def compute_dml_and_gamma_impl_Newton_full_np(
+        dt_sub, Newton_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
     w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
                              T_p)
@@ -849,7 +849,7 @@ def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np(
                             m_w, m_s, w_s, R_p, T_p, rho_p,
                             T_amb, p_amb, S_amb, e_s_amb,
                             L_v, K, D_v, sigma_w)
-#    no_iter = 3
+#    Newton_iter = 3
     dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
     denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
                          1.0 / (1.0 - dt_sub_times_dgamma_dm),
@@ -861,7 +861,7 @@ def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np(
      
     mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
     
-    for cnt in range(no_iter-1):
+    for cnt in range(Newton_iter-1):
         m_p = mass_new + m_s
         w_s = m_s / m_p
         rho = compute_density_particle(w_s, T_p)
@@ -883,17 +883,17 @@ def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np(
         mass_new = np.maximum( m_w_effl, mass_new )
         
     return mass_new - m_w, gamma0
-compute_delta_water_liquid_and_mass_rate_implicit_Newton_full =\
-njit()(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
+compute_dml_and_gamma_impl_Newton_full =\
+njit()(compute_dml_and_gamma_impl_Newton_full_np)
 # njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)")(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
-compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_par =\
-njit(parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
+compute_dml_and_gamma_impl_Newton_full_par =\
+njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
 # njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)", parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
 
 
 # NOT UPDATED WITH NUMBA
 # def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_const_l(
-#         dt_sub_, no_iter_, mass_water_, mass_solute_,
+#         dt_sub_, Newton_iter_, mass_water_, mass_solute_,
 #         mass_particle_, mass_fraction_solute_, radius_particle_,
 #         temperature_particle_, density_particle_,
 #         amb_temp_, amb_press_,
@@ -925,7 +925,7 @@ njit(parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_f
 #             adiabatic_index_,
 #             accomodation_coefficient_,
 #             condensation_coefficient_)
-# #    no_iter = 3
+# #    Newton_iter = 3
 #     dt_sub_times_dgamma_dm = dt_sub_ * dgamma_dm
 #     denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
 #                          1.0 / (1.0 - dt_sub_times_dgamma_dm),

@@ -24,7 +24,8 @@ def save_object(obj, filename):
 # active_ids: list of integers
 def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
                             active_ids, removed_ids,
-                            vector_filename, scalar_filename, cells_filename,
+                            vector_filename, scalar_filename, cells_filename, 
+                            xi_filename,
                             active_ids_filename, removed_ids_filename):
 #     with open(pt_filename, "w") as f:
 #         for p in p_list:
@@ -33,9 +34,19 @@ def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
 #             f.write(string1)
     np.save(vector_filename, [pos, vel] )
     np.save(cells_filename, cells )
-    np.save(scalar_filename, [m_w, m_s, xi] )
+    np.save(scalar_filename, [m_w, m_s] )
+    np.save(xi_filename, xi )
     np.save(active_ids_filename, active_ids)
     np.save(removed_ids_filename, removed_ids)
+
+def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):
+    filename_pt_vec = path + "particle_vector_data_" + str(int(t)) + ".npy"
+    filename_pt_scal = path + "particle_scalar_data_" + str(int(t)) + ".npy"
+    filename_grid = path + "grid_T_rv_" + str(int(t)) + ".npy"
+    np.save(filename_pt_vec, (pos, vel) )
+    np.save(filename_pt_scal, (m_w, m_s, xi) )
+    np.save(filename_grid, (T_grid, rv_grid) )
+    
         
 def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                                  active_ids, removed_ids,
@@ -65,11 +76,12 @@ def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
     grid_file_list = [path + s for s in grid_file_list  ]
     vector_filename = "particle_vectors_" + str(int(t)) + ".npy"
     vector_filename = path + vector_filename
+    cells_filename = "particle_cells_" + str(int(t)) + ".npy"
+    cells_filename = path + cells_filename
     scalar_filename = "particle_scalars_" + str(int(t)) + ".npy"
     scalar_filename = path + scalar_filename    
-    cells_filename = "particle_cells_" + str(int(t)) + ".npy"
-    cells_filename = path + cells_filename    
-    
+    xi_filename = "multiplicity_" + str(int(t)) + ".npy"
+    xi_filename = path + xi_filename    
     active_ids_file = "active_ids_" + str(int(t)) + ".npy"
     active_ids_file = path + active_ids_file
     rem_ids_file = "removed_ids_" + str(int(t)) + ".npy"
@@ -80,7 +92,8 @@ def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
     
     save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
                             active_ids, removed_ids,
-                            vector_filename, scalar_filename, cells_filename,
+                            vector_filename, scalar_filename,
+                            cells_filename, xi_filename,
                             active_ids_file, rem_ids_file)
     
 def load_grid_and_particles_full(t, path):
@@ -90,20 +103,24 @@ def load_grid_and_particles_full(t, path):
     vector_filename = "particle_vectors_" + str(int(t)) + ".npy"
     vector_filename = path + vector_filename
     scalar_filename = "particle_scalars_" + str(int(t)) + ".npy"
-    scalar_filename = path + scalar_filename  
+    scalar_filename = path + scalar_filename
+    cells_filename = "particle_cells_" + str(int(t)) + ".npy"
+    cells_filename = path + cells_filename  
+    xi_filename = "multiplicity_" + str(int(t)) + ".npy"
+    xi_filename = path + xi_filename    
     active_ids_file = "active_ids_" + str(int(t)) + ".npy"
     active_ids_file = path + active_ids_file
     rem_ids_file = "removed_ids_" + str(int(t)) + ".npy"
     rem_ids_file = path + rem_ids_file
     grid = load_grid_from_files(*grid_file_list)
     vectors = np.load(vector_filename)
-    scalars = np.load(scalar_filename)
     pos = vectors[0]
-    cells = vectors[1]
-    vel = vectors[2]
+    vel = vectors[1]
+    cells = np.load(cells_filename)
+    scalars = np.load(scalar_filename)
     m_w = scalars[0]
     m_s = scalars[1]
-    xi = scalars[2]
+    xi = np.load(xi_filename)
     active_ids = np.load(active_ids_file)
     removed_ids = np.load(rem_ids_file)
     # pt_lst, act_ids, rem_ids = load_particle_list_from_files(grid, particle_file, active_ids_file, rem_ids_file)

@@ -26,6 +26,15 @@ from atmosphere import\
 # import atmosphere as atm
 
 #%%
+import numpy as np
+
+n_p = np.array([2,2])
+
+idx = np.nonzero(n_p)
+print(np.nonzero(n_p))
+print(idx[0][0])
+
+#%%
 R_s = np.array( [0.01,0.02,0.03] )
 m_s = compute_mass_from_radius(R_s, c.mass_density_NaCl_dry)
 w_s = np.array( [0.1,0.05,0.02] )
@@ -116,10 +125,55 @@ print(A[cell2])
 
 #%%
 
-from numba import njit
+from numba import njit, jit
 import numpy as np
+from timeit import timeit
 
-@njit()
+
+def func1(x,targ):
+    
+    res = []
+    
+    for x_ in x:
+        if x_ in targ:
+            res.append(x_)
+            # print(x_)
+    return res
+
+@njit
+def func2(x):
+    rng = [2,4]
+    # rng = range(2,4)
+    for x_ in x:
+        if x_ in rng:
+            print(x_)
+    pass
+            
+
+
+func1_njit = njit()(func1)
+func1_jit = jit()(func1)
+
+x = np.array((1,2,3,4,5))        
+targ = (2,3,4)
+
+print()
+print(func2(x))
+print()
+
+# print(func1(x,targ))
+tt = %timeit -r 5 -n 1000 -o func1(x,targ)
+tt2 = %timeit -r 5 -n 1000 -o func1_njit(x,targ)
+tt3 = %timeit -r 5 -n 1000 -o func1_jit(x,targ)
+
+print(tt.best*1E6)
+print(tt2.best*1E6)
+print(tt3.best*1E6)
+
+#%%
+
+
+
 def func1(x,y):
     arr = np.empty((2,len(x)), dtype=np.float64)
     for i,x_ in enumerate(x):
@@ -128,10 +182,32 @@ def func1(x,y):
     # arr = np.array( (x,y) )
     return arr
 
+func1_njit = njit()(func1)
+
 x = np.arange(10)
 y = np.arange(10)
 
-print(func1(x,y))
+
+
+
+#%%
+
+# map arrays:
+# T[i,j]  i = 0, .. Nx-1, j = 0, .. , Nz - 1-> T[ID] ID = 0, ... no_spt
+
+T = np.reshape( np.linspace(1.0, 12.0, 12), (3,4) )
+
+i = np.array([0,1,2])
+j = np.array([0,1,2,3])
+
+i,j = np.meshgrid(i,j, indexing = "xy")
+
+i = i.flatten()
+j = j.flatten()
+
+cells = np.array((i,j))
+
+# print(T[i,j])
 
 
 #%%
