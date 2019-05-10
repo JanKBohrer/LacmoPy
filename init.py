@@ -334,7 +334,7 @@ def generate_random_positions(grid, no_spc, seed):
     
 #     return pos, rad, weights
 
-#%%
+#%% COMPUTE VERTICAL PROFILES WITHOUT LIQUID
 def compute_profiles_T_p_rhod_S_without_liquid(z_, z_0_, p_0_, p_ref_, Theta_l_, r_tot_, SCALE_FACTOR_ = 1.0 ):
 
 #    dz = grid_.steps[1] * SCALE_FACTOR_
@@ -387,7 +387,7 @@ def compute_profiles_T_p_rhod_S_without_liquid(z_, z_0_, p_0_, p_ref_, Theta_l_,
             
     return T, p, rho_dry, S
 ###############################################################################
-#%%
+#%% INITIALIZE: GENERATE INIT GRID AND SUPER-PARTICLES
 # p_0 = 101500 # surface pressure in Pa
 # p_ref = 1.0E5 # ref pressure for potential temperature in Pa
 # r_tot_0 = 7.5E-3 # kg water / kg dry air, r_tot = r_v + r_l (spatially const)
@@ -424,7 +424,10 @@ def initialize_grid_and_particles(
         n_p, no_spcm, dst, dst_par, 
         P_min, P_max, r0, r1, dr, rnd_seed, reseed,
         S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path,
-        logfile = False):
+        logfile = None):
+    import os
+    if not os.path.exists(path):
+        os.makedirs(path)
     # VERSION WITH PARTICLE PROPERTIES IN ARRAYS, not particle class
     ##############################################
     # 1. set base grid
@@ -434,7 +437,7 @@ def initialize_grid_and_particles(
     # The grid dimensions will be adjusted such that they are
     # AT LEAST x_max - x_min, etc... but may also be larger,
     # if the sizes are no integer multiples of the step sizes
-    if logfile:
+    if logfile is not None:
         log_file = path + "log_grid.txt"
         log_handle = open(log_file, "w")
         sys.stdout = log_handle
@@ -471,10 +474,8 @@ def initialize_grid_and_particles(
     
     # INITIAL PROFILES
     
-    # z_0 = grid.ranges[1,0]
     levels_z = grid.corners[1][0]
     centers_z = grid.centers[1][0]
-    # Nz = grid.no_cells[1] + 1
     
     # for testing on a smaller grid: r_tot as array in centers
     r_tot_centers = np.ones_like( centers_z ) * r_tot_0
@@ -503,11 +504,14 @@ def initialize_grid_and_particles(
     # S_env_init = np.zeros_like(levels_z)
     
     # T_env_init[0], p_env_init[0], rho_dry_env_init[0], S_env_init[0] =\
-    #     compute_profiles_T_p_rhod_S_without_liquid(z_0, z_0, p_0, p_ref, Theta_l, r_tot )
+    #     compute_profiles_T_p_rhod_S_without_liquid(
+    #         z_0, z_0, p_0, p_ref, Theta_l, r_tot )
     
     ##############################################
     # 3. Go through levels from the ground and place particles 
     ##############################################
+    print("\n### particle placement and saturation adjustment for each z-level ###")
+    print('timestep for sat. adj.: dt_init = ', dt_init)
     
     # start at level 0 (from surface!)
     
@@ -629,35 +633,27 @@ def initialize_grid_and_particles(
         # => m_s = dx dy / (g*(1+r_tot)) * (p(z_1)-p(z_2))
         mass_air_dry_level = grid.sizes[0] * dy * (p_bot - p_top )\
                              / ( c.earth_gravity * (1 + r_tot) )
-    #     mass_air_dry_level = rho_dry_avg * grid.sizes[0] * dy * dz # in kg !!!
         mass_water_vapor_level = r_v_avg * mass_air_dry_level # in kg
-    #     mass_water_vapor = 1.0E18*r_v_avg * rho_dry_avg\
-    #                        * grid.sizes[0] * dy * dz # in 10^-18 kg !!!
-        
         mass_water_liquid_level = 0.0
         mass_particles_level = 0.0
         dm_l_level = 0.0
         dm_p_level = 0.0
         
-        print('\nlevel ', j, ', S_env_init0 = ', S_avg)
+        print('\n### level', j, "###")
+        print('S_env_init0 = ', S_avg)
         ########################################################
         # 3a. (first initialization setting S_eq = S_amb if possible)
         ########################################################
-    #     print(mass_water_vapor_level)
         no_rpcm = np.rint( no_rpcm_0 * rho_dry_avg / rho_dry_0 ).astype(int)
         no_rpt_should += no_rpcm * grid.no_cells[0]
-        # multiplicities in level j:
-        
-        
-        # for level j: set mass_fraction, particle mass, water mass for each pt
-
                                  
         for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
             # print("weights_R_s[l][:,j]")
             # print("no_rpcm[l]")
             # print(weights_R_s[l][:,j])
             # print(no_rpcm[l])
-            xi[l][:,j] = np.rint(weights_R_s[l][:,j] * no_rpcm[np.nonzero(no_spcm)][l]).astype(int)
+            xi[l][:,j] = np.rint(weights_R_s[l][:,j]
+                                 * no_rpcm[np.nonzero(no_spcm)][l]).astype(int)
             # print("xi[l][:,j]")
             # print(xi[l][:,j])
             # initial weight fraction of this level dependent on S_amb
@@ -670,104 +666,9 @@ def initialize_grid_and_particles(
             m_w[l][:,j] = m_p[l][:,j] - m_s[l][:,j]
             dm_l_level += np.sum(m_w[l][:,j] * xi[l][:,j])
             dm_p_level += np.sum(m_p[l][:,j] * xi[l][:,j])
+            print("placed", len(xi[l][:,j]), "particles in a mode")
         
-        # if j == 9:
-            # print()
-            # print("xi at lvl 9:")
-            # print(xi)
-            # print()
-        # no_sub_particles_per_particle = np.rint(  * rho_dry_avg / rho_dry_0).astype(int)
-        print('level = ', j)
-        # print('no_sub_particles_per_particle = ')
-        # print(f'{no_sub_particles_per_particle[0]:.2e} {no_sub_particles_per_particle[1]:.2e}')
-        
-        
-    #     for i in range(grid.no_cells[0]):
-    # #         print('next i')
-    #         # cell [i,j]
-    #         # cell numbers is sorted as [ [0,0], [1,0], [2,0] ]  
-    #         # i.e. keeping z- level fixed and run through x-range
-    #         cell_numbers.append ( [i,j] )
-            
-    #         # take average values for cell [i,j]
-    # #         T_amb = T_init0[j+1] - T_init0[j]
-    # #         p_amb = p_init0[j+1] - p_init0[j]
-    # #         S_amb = S_init0[j+1] - S_init0[j]
-    # #         rv_amb = r_v T_init0[j+1] - T_init0[j]
-    # #         p_amb = grid.pressure[i,j]
-    # #         S_amb = grid.saturation[i,j]
-    # #         rv_amb = grid.mixing_ratio_water_vapor[i,j]
-    # #         T_amb = grid.temperature[i,j]
-    # #         p_amb = grid.pressure[i,j]
-    # #         S_amb = grid.saturation[i,j]
-    # #         rv_amb = grid.mixing_ratio_water_vapor[i,j]
-            
-    #     # N_sp =  number of super particles in the modes = [N_1, N_2]
-    #         for k, N_k in enumerate(no_super_particles_cell):
-    # #         for k, N_k in enumerate(N_p_cell):
-    # #             print('next k = ', k)
-    #             # cell [i,j] mode k
-    #             sigma = par_sigma[k]
-    #             r0 = par_r0[k]
-                
-    #             # produce array of arrays with N_k entries of arrays dim 2 with random numbers in [0.0,1.0)   [open, closed)
-    #             relative_locations = np.random.rand(N_k,2)
-                
-    #             # compute from distribution: ln(r(r_i)) is normal distributed with mu = 0, sigma = sigma_i for i = 1,2
-    #             # see Arabas 2015
-    #             # produce array with N_k entries of random numbers drawn 
-    #             # from normal distribution with mu = 0.0, std_dev  = sigma
-    #             radii_solute_dry = np.random.normal(0.0, sigma, N_k)
-    # #             print( radii_solute_dry )
-    #             radii_solute_dry = np.exp( radii_solute_dry )
-    #             radii_solute_dry *= r0
-    #             # now we have N_k values for the dry radii
-                
-    #             # loop through N_k:
-    #             for n_k in range(N_k):
-    # #                 print('next n_k = ', n_k)
-    #                 # cell [i,j], mode k, particle number n_k in mode k
-    #                 relative_location = relative_locations[n_k]
-    #                 location = grid.compute_location(i,j,*relative_location)
-    #                 velocity = grid.interpolate_velocity_from_cell_bilinear(i,j,*relative_location )
-    #                 radius_solute_dry = radii_solute_dry[n_k]
-    
-    # #                 droplet = Particle(ID, location, velocity, grid,
-    # #                    T_amb, p_amb, S_amb,
-    # #                    diffusion_constant, thermal_conductivity_air,
-    # #                    specific_heat_capacity_air, adiabatic_index,
-    # #                    accomodation_coefficient, condensation_coefficient,
-    # #                    radius_solute_dry)
-    # #                 print (i,j,k, n_k, ID, len(particle_list_by_id))
-                    
-    #                 particle = Particle(ID, no_sub_particles_per_particle[k], location, velocity, grid,
-    #                                                T_avg, p_avg, S_avg,
-    #                                                diffusion_constant, thermal_conductivity_air,
-    #                                                specific_heat_capacity_air, adiabatic_index,
-    #                                                accomodation_coefficient, condensation_coefficient,
-    #                                                radius_solute_dry)
-    # #                 particle_list_by_id.append( Particle(ID, location, velocity, grid,
-    # #                                                T_avg, p_avg, S_avg,
-    # #                                                diffusion_constant, thermal_conductivity_air,
-    # #                                                specific_heat_capacity_air, adiabatic_index,
-    # #                                                accomodation_coefficient, condensation_coefficient,
-    # #                                                radius_solute_dry) )
-    #                 particle_list_by_id.append( particle )
-    # #                 print('assigned ID', ID)
-    #                 ids_in_cell[i][j].append(ID)
-    #                 ids_in_level[j].append(ID)
-    # #                 dm_l_level += particle_list_by_id[ID].mass_water
-    # #                 dm_p_level += particle_list_by_id[ID].mass
-    #                 multiplicity_ID = particle.multiplicity
-    #                 dm_l_level += particle.mass_water * multiplicity_ID
-    #                 dm_p_level += particle.mass * multiplicity_ID
-                    
-    # #                 print (i,j,k, n_k, ID, len(particle_list_by_id))
-    # #                 about the ID increase bug: the origin was from overuse of ID: 
-    # #                 once as stored variable increasing during looping and once as loop index below..
-    #                 ID += 1
-    # #                 print('ID increases to', ID)
-    # #                 print (i,j,k, n_k, ID, len(particle_list_by_id))
+        # print('level = ', j)
     
         # convert from 10^-18 kg to kg
         dm_l_level *= 1.0E-18 
@@ -776,7 +677,8 @@ def initialize_grid_and_particles(
         mass_particles_level += dm_p_level
         
         # now we distributed the particles between levels 0 and 1
-        # thereby sampling liquid water, i.e. the mass of water vapor has dropped
+        # thereby sampling liquid water,
+        # i.e. the mass of water vapor has dropped
         mass_water_vapor_level -= dm_l_level
         
         # and the ambient fluid is heated by Q = m_l * L_v = C_p dT
@@ -847,35 +749,19 @@ def initialize_grid_and_particles(
         # particle placement step
         ########################################################
     
-        # adjust material properties etc. in level due to new T and p:
-        D_v = compute_diffusion_constant( T_avg, p_avg )
-        K = compute_thermal_conductivity_air(T_avg)
-        # c_p = compute_specific_heat_capacity_air_moist(r_v_avg)
-        L_v = compute_heat_of_vaporization(T_avg)
-        sigma_w = compute_surface_tension_water(T_avg)
-        # diffusion_constant = compute_diffusion_constant( T_avg, p_avg )
-        # thermal_conductivity_air = compute_thermal_conductivity_air(T_avg)
-        # specific_heat_capacity_air = compute_specific_heat_capacity_air_moist(r_v_avg)
-        # heat_of_vaporization = compute_heat_of_vaporization(T_avg)
-        
-        
-        # adiabatic_index = 1.4
-        # accomodation_coefficient = 1.0
-        # condensation_coefficient = 0.0415
-        
+        # initialize for saturation adjustment loop
         # loop until the change in dm_l_level is sufficiently small:
-        # need to define criterium -> use relative change in liquid water
-        dm_l_level = mass_water_liquid_level
-        print('dt_init = ', dt_init)
-        print('level ', j, ', S_env_init = ', S_avg)
-        iter_cnt = 0
-        
-        ### NEW
         grid.mixing_ratio_water_vapor[:,j] = r_v_avg
         grid.mixing_ratio_water_liquid[:,j] = r_l_avg
         grid.saturation_pressure[:,j] = e_s_avg
         grid.saturation[:,j] = S_avg
     
+        dm_l_level = mass_water_liquid_level
+        iter_cnt = 0
+        
+        print('S_env_init after placement =', S_avg)
+        print("sat. adj. start")
+        # need to define criterium -> use relative change in liquid water
         while ( np.abs(dm_l_level/mass_water_liquid_level) > 1e-5
                 and iter_cnt < iter_cnt_limit ):
     #         print('level ', j, ', iter_cnt = ', iter_cnt,
@@ -925,104 +811,14 @@ def initialize_grid_and_particles(
                         T_avg, p_avg, S_avg2, e_s_avg, L_v, K, D_v, sigma_w)
                     
                     m_w[l][cell] += dm_l
-                    # m_p[l][cell] += dm_l
                     
-                    # particle_list_by_id[ID_j].mass_water += dm_l
-                    # particle_list_by_id[ID_j].mass += dm_l
-                    # if (particle_list_by_id[ID_j].mass_water < 0.0):
-                    #     print('ID = ', ID_j, ', mass_water = ', particle_list_by_id[ID_j].mass_water )
-                    # multiplicity_ID = particle_list_by_id[ID_j].multiplicity
-                
-#                grid.mixing_ratio_water_liquid[cell] 
-                
                     dm_l_level += np.sum(dm_l * xi[l][cell])
                     dm_p_level += np.sum(dm_l * xi[l][cell])
-                    # dm_l_level += dm_l * multiplicity_ID
-                    # dm_p_level += dm_l * multiplicity_ID
                 
-    #         for ID_j in ids_in_level[j]:
-    #             # implicit mass growth with fixed ambient values
-    #             particle = particle_list_by_id[ID_j]
-    #             cell = tuple(particle.cell)
-    #             e_s_avg = grid.saturation_pressure[cell]
-    #             S_avg = grid.saturation[cell]
-    #             S_avg2 = np.min([S_avg, S_init_max ])
-    #             mass_water = particle_list_by_id[ID_j].mass_water
-    #             mass_solute = particle_list_by_id[ID_j].mass_solute            
-    #             particle_list_by_id[ID_j].temperature = T_avg
-    #             mass_particle = particle_list_by_id[ID_j].mass
-    #             mass_fraction_solute = mass_solute / mass_particle
-    #             density_particle = compute_density_particle(mass_fraction_solute, T_avg)
-    #             radius_particle = compute_radius_from_mass(mass_particle, density_particle)
-    #             surface_tension = compute_surface_tension_water(T_avg)
-    # #             if (j==46 and ID_j == 17252):
-    # #                 print(mass_water)
-    # #                 print(mass_solute)
-    # #                 print(T_avg)
-    # #                 print(p_avg)
-    # #                 print(S_avg)
-    # #                 print(e_s_avg)
-    
-    #             # condensation step:
-    #             # mass change liquid water dm_l in femtogram during timestep dt_init
-    #             # particles are held fixed at position
-    # #             if (j==46 and ID_j == 17252):
-    # #                 dm_l = compute_delta_water_liquid_implicit_linear( 
-    # #                                                       dt_init, mass_water, mass_solute, #  in femto gram
-    # #                                                       T_avg, # this is the particle temperature, here equal to T_amb
-    # #                                                       T_avg, p_avg,
-    # #                                                       S_avg2, e_s_avg,
-    # #                                                       diffusion_constant,
-    # #                                                       thermal_conductivity_air,
-    # #                                                       specific_heat_capacity_air,
-    # #                                                       adiabatic_index,
-    # #                                                       accomodation_coefficient,
-    # #                                                       condensation_coefficient, 
-    # #                                                       heat_of_vaporization, True)
-    # #             else:
-    # #             dm_l = compute_delta_water_liquid_imex_linear( 
-    #             # we use implicit here, because it takes much less iterations
-    #             # for the low levels, because there we have small S and m_w and in that
-    #             # region a LARGE NEGATIVE d/dm (dmdt) leading to oscillations 
-    #             # IN WORK: further tests with adjusted dt_init ???
-    #             # IN WORK: also test with explicit euler only ??
-    #             # IN WORK: INSERTED NEWTON IMPLICIT HERE -> TESTING with 6 iterations
-    #             dm_l, gamma_ = compute_delta_water_liquid_and_mass_rate_implicit_Newton_full(dt_init, Newton_iterations, mass_water, mass_solute,
-    #                                                               mass_particle, mass_fraction_solute, radius_particle,
-    #                                                               T_avg, density_particle,
-    #                                                               T_avg, p_avg,
-    #                                                               S_avg2, e_s_avg,
-    #                                                               diffusion_constant,
-    #                                                               thermal_conductivity_air,
-    #                                                               specific_heat_capacity_air,
-    #                                                               heat_of_vaporization,
-    #                                                               surface_tension,
-    #                                                               adiabatic_index,
-    #                                                               accomodation_coefficient,
-    #                                                               condensation_coefficient)
-                
-#                initialize_profiles_and_write_to_file_kinematic_2D_ICMW_2012_case1_with_droplets(
-#        x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0, Theta_l,
-#        n_p, no_super_particles_cell, par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit,
-#        grid_file_list, particle_file, active_ids_file, removed_ids_file)
-                
-                 # REPLACED BY NEW IMPLICIT NEWTON METHOD
-#                dm_l = compute_delta_water_liquid_implicit_linear( 
-#                                                          dt_init, mass_water, mass_solute, #  in femto gram
-#                                                          T_avg, # this is the particle temperature, here equal to T_amb
-#                                                          T_avg, p_avg,
-#                                                          S_avg2, e_s_avg,
-#                                                          diffusion_constant,
-#                                                          thermal_conductivity_air,
-#                                                          specific_heat_capacity_air,
-#                                                          adiabatic_index,
-#                                                          accomodation_coefficient,
-#                                                          condensation_coefficient, 
-#                                                          heat_of_vaporization)
-    
-            # IN WORK: check if the temperature, pressure etc is right BEFORE the level starts and check the addition to these values!
+            # IN WORK: check if the temperature, pressure etc is right
+            # BEFORE the level starts and check the addition to these values!
             # after 'sampling' water from all particles: heat the cell volume:
-                # convert from 10^-18 kg to kg
+            # convert from 10^-18 kg to kg
             dm_l_level *= 1.0E-18 
             dm_p_level *= 1.0E-18 
             mass_water_liquid_level += dm_l_level
@@ -1037,22 +833,22 @@ def initialize_grid_and_particles(
             # C_p = m_dry_end*c_p_dry + m_v*c_p_v + m_p_end*c_p_p
             heat_capacity_level =\
                 mass_air_dry_level * c.specific_heat_capacity_air_dry_NTP \
-                + mass_water_vapor_level * c.specific_heat_capacity_water_vapor_20C \
+                + mass_water_vapor_level\
+                  * c.specific_heat_capacity_water_vapor_20C \
                 + mass_particles_level * c.specific_heat_capacity_water_NTP
             heat_of_vaporization = compute_heat_of_vaporization(T_avg)
     
             dT_avg = dm_l_level * heat_of_vaporization / heat_capacity_level
     
             # assume homogeneous heating: bottom, mid and top are heated equally
-            # i.e. the slope (lapse rate) of the temperature in the level remains constant,
+            # i.e. the slope (lapse rate) of the temperature in the level
+            # remains constant,
             # but the whole (linear) T-curve is shifted by dT_avg
             T_avg += dT_avg
             T_bot += dT_avg
             T_top += dT_avg
     
             r_v_avg = mass_water_vapor_level / mass_air_dry_level
-    
-        #     R_m_avg = compute_specific_gas_constant_air_moist(r_v_avg)
     
             # EVEN BETTER:
             # assume linear T-profile
@@ -1066,15 +862,18 @@ def initialize_grid_and_particles(
             # chi = ( 1 + r_tot / (1 + r_v_avg ) )
             # this is equal to expo above up to order 2 in taylor!
     
-            # IN WORK: check if kappa_tot_inv is right or it should be kappa(r_v)
-            # -> should be right, because the lapse rate dT/dt ~ beta_tot is not altered!
+            # IN WORK: check if kappa_tot_inv is right or should be kappa(r_v)
+            # -> should be right,
+            # because the lapse rate dT/dt ~ beta_tot is not altered!
             # the T curve is shifted upwards in total
-            p_top = p_bot * (T_top/T_bot)**( kappa_tot_inv * ( epsilon_gc + r_tot ) / (epsilon_gc + r_v_avg) )
-    
+            p_top = p_bot * (T_top/T_bot)**( kappa_tot_inv
+                                             * ( epsilon_gc + r_tot )
+                                             / ( epsilon_gc + r_v_avg ) )
             p_avg = 0.5 * (p_bot + p_top)
     
             # from integration of dp/dz = - (1 + r_tot) * g * rho_dry
-            rho_dry_avg = (p_bot - p_top) / ( dz * (1 + r_tot) * c.earth_gravity )
+            rho_dry_avg = (p_bot - p_top)\
+                          / ( dz * (1 + r_tot) * c.earth_gravity )
             mass_air_dry_level = grid.sizes[0] * dy * dz * rho_dry_avg
             mass_air_dry_cell = dx * dy * dz * rho_dry_avg
             
@@ -1087,11 +886,6 @@ def initialize_grid_and_particles(
                 for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
                     grid.mixing_ratio_water_liquid[cell] +=\
                         np.sum(m_w[l][cell] * xi[l][cell])
-                    
-            # for ID_ in ids_in_level[j]:
-            #     par = particle_list_by_id[ID_]
-            #     cell = tuple(par.cell)
-            #     grid.mixing_ratio_water_liquid[cell] += par.mass_water * par.multiplicity
     
             grid.mixing_ratio_water_liquid[:,j] *= 1.0E-18 / mass_air_dry_cell
             grid.mixing_ratio_water_vapor[:,j] =\
@@ -1110,10 +904,6 @@ def initialize_grid_and_particles(
     
             S_avg = compute_pressure_vapor( rho_dry_avg * r_v_avg, T_avg ) \
                     / e_s_avg
-            # diffusion_constant = compute_diffusion_constant(T_avg, p_avg)
-            # thermal_conductivity_air = compute_thermal_conductivity_air(T_avg)
-            # specific_heat_capacity_air = compute_specific_heat_capacity_air_moist(r_v_avg)
-            # heat_of_vaporization = compute_heat_of_vaporization(T_avg)
             
             iter_cnt += 1
         
@@ -1121,10 +911,10 @@ def initialize_grid_and_particles(
             iter_cnt_max = iter_cnt
             iter_cnt_max_level = j
     #     print('iter_cnt_max: ', iter_cnt_max)
-        print('level ', j, ', iter_cnt = ', iter_cnt,
-              ', S_avg = ', S_avg,
+        print('sat. adj. end: iter_cnt = ', iter_cnt,
+              ', S_avg_end = ', S_avg,
               '\ndm_l_level = ', dm_l_level,
-              ',m_l_level = ', mass_water_liquid_level,
+              ', m_l_level = ', mass_water_liquid_level,
               '\ndm_l_level/mass_water_liquid_level = ',
               dm_l_level/mass_water_liquid_level)
     #     print('level ', j, ', iter_cnt = ', iter_cnt,
@@ -1200,30 +990,11 @@ def initialize_grid_and_particles(
             l_ += 1
         else:
             print( l, 0, no_rpt_should[l], -no_rpt_should[l])
-    # print("real particles should be placed: ", no_rpt_should)
-    # print("difference:")
-    # for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
-    #     print(np.nonzero(no_spcm)[0][l], np.sum(xi[l]) - no_rpt_should[np.nonzero(no_spcm)][l])
-    # for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
-    #     print( np.nonzero(no_spcm)[0][l], np.sum(xi[l]) )
-    # print("real particles should be placed: ", no_rpt_should)
-    # print("difference:")
-    # for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
-    #     print(np.nonzero(no_spcm)[0][l], np.sum(xi[l]) - no_rpt_should[np.nonzero(no_spcm)][l])
     
     ########################################################
     # 4. 
     # set mass flux and velocity grid
     ######################################################## 
-    
-#    print()
-#    print()
-#    print()
-#    print("xi")
-#    print(xi)
-#    print()
-#    print()
-#    print()
     
     j_max = 0.6 * np.sqrt(grid.sizes[0] * grid.sizes[0] +
                           grid.sizes[1] * grid.sizes[1])\
@@ -1349,7 +1120,7 @@ def initialize_grid_and_particles(
     return grid, pos, cell_list, vel, m_w_flat, m_s_flat, xi_flat, active_ids, removed_ids
 
 
-#%%
+#%% testing (commented)
 # particles: pos, vel, masses, multi,
 
 # base grid without THD or flow values

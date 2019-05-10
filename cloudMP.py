@@ -119,8 +119,8 @@ def plot_pos_vel_pt(pos, vel, grid,
 
 
 ### storage directories -> need to assign "simdata_path" and "fig_path"
-# my_OS = "Linux_desk"
-my_OS = "Mac"
+my_OS = "Linux_desk"
+# my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -132,7 +132,7 @@ elif (my_OS == "Mac"):
     fig_path = home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 
 #%% I. GENERATE GRID AND PARTICLES
-
+from init import initialize_grid_and_particles
 # 1a. generate grid and particles + save initial to file
 # domain size
 x_min = 0.0
@@ -141,9 +141,9 @@ z_min = 0.0
 z_max = 1500.0
 
 # grid steps
-dx = 20.0
+dx = 100.0
 dy = 1.0
-dz = 20.0
+dz = 100.0
 
 p_0 = 101500 # surface pressure in Pa
 p_ref = 1.0E5 # ref pressure for potential temperature in Pa
@@ -156,7 +156,7 @@ Theta_l = 289.0 # K
 n_p = np.array([60.0E6, 40.0E6]) # m^3
 
 # no_super_particles_cell = [N1,N2] is a list with N1 = no super part. per cell in mode 1 etc.
-no_spcm = np.array([10, 10])
+no_spcm = np.array([4, 4])
 # no_spcm = np.array([0, 4])
 
 ### creating random particles
@@ -178,7 +178,7 @@ dr = 1E-4
 r0 = dr
 r1 = 10 * par_sigma
 reseed = False
-rnd_seed = 4711
+rnd_seed = 4713
 
 ### for saturation adjustment phase
 S_init_max = 1.05
@@ -188,31 +188,10 @@ Newton_iterations = 2
 # maximal allowed iter counts in initial particle water take up to equilibrium
 iter_cnt_limit = 800
 
-### save initial profile/particles to files
-
-folder = "190508/grid_75_75_spct_20/"
+folder = "190510/grid_15_15_spcm_4_4/"
 path = simdata_path + folder
 if not os.path.exists(path):
     os.makedirs(path)
-# path = folder1 + folder2
-#####
-
-# grid_para_file = path + "grid_paras.txt"
-# paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
-#          Theta_l, n_p,
-#          no_spcm,
-#          par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit]
-# para_names = 'x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0, \
-# Theta_l, n_p, no_super_particles_cell, \
-# par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit'
-
-# with open(grid_para_file, "w") as f:
-#     f.write( para_names + '\n' )
-#     for item in paras:
-#         if type(item) is list or type(item) is np.ndarray:
-#             for el in item:
-#                 f.write( f'{el} ' )
-#         else: f.write( f'{item} ' )
 
 grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids =\
     initialize_grid_and_particles(
@@ -222,10 +201,15 @@ grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids =\
         P_min, P_max, r0, r1, dr, rnd_seed, reseed,
         S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path)
 
+#%% simple plots
+# IN WORK: ADD AUTOMATIC CREATION OF DRY SIZE SPECTRA COMPARED WITH EXPECTED PDF
+# FRO ALL MODES AND SAVE AS FILE 
+grid.plot_thermodynamic_scalar_fields_grid()
+
 #%% III. SIMULATION
 ### 3. simulation
 # 3a. load grid from file
-folder_load = "190508/grid_10_10_spct_4/"
+folder_load = "190510/grid_15_15_spcm_4_4/"
 # folder_load = "190507/test1/"
 # folder_load = "190508/grid_75_75_spct_20/"
 path = simdata_path + folder_load
@@ -236,7 +220,6 @@ grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids = \
 R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s,
                                         grid.temperature[tuple(cells)] )
 R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
-
 
 # #%% SET SIMULATION PARAMETERS
 
@@ -473,11 +456,13 @@ from integration import update_pos_from_vel_BC_PS,\
 ####################################
 ### SET
 # load grid and particle list from directory
-folder_load = "190508/grid_10_10_spct_4/"
-folder_save = "190508/grid_10_10_spct_4/"
+# folder_load = "190508/grid_10_10_spct_4/"
+folder_load = "190510/grid_15_15_spcm_4_4/"
+# folder_save = "190508/grid_10_10_spct_4/"
+folder_save = folder_load
 
 t_start = 0.0
-t_end = 1800.0 # s
+t_end = 2000.0 # s
 # timestep of advection
 dt = 5.0 # s
 
@@ -485,7 +470,7 @@ dt = 5.0 # s
 # with implicit Newton:
 # from experience: dt_sub <= 0.1 s => N_h = dt/(2 h)
 # dt_sub = 0.1 -> N = 1.0/(0.2) = 5 OR N = 5.0/(0.2) = 25 OR N = 10.0/(0.2) = 50
-scale_dt = 50
+scale_dt = 25
 
 # Newton implicit root finding number of iterations
 Newton_iter = 3
@@ -580,8 +565,6 @@ update_cells_and_rel_pos(pos, cells, rel_pos, grid.ranges, grid.steps)
 #################################### INIT end
 
 #%% MAIN SIMULATION LOOP
-
-
 
 ####################################
 # MAIN SIMULATION LOOP:
