@@ -295,7 +295,7 @@ def compute_new_Theta_and_r_v_advection_and_condensation(
 #                 * (1 + r_v) * grid.volume_cell ) ) / grid.mass_density_air_dry
     return T, r_v
 
-def propagate_grid_subloop(grid, delta_Theta_ad, delta_r_v_ad,
+def propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
                            delta_m_l, delta_Q_p):
     # iv) and v)
     grid.potential_temperature += delta_Theta_ad
@@ -335,7 +335,7 @@ def propagate_grid_subloop(grid, delta_Theta_ad, delta_r_v_ad,
 # IN WORK: if function takes only np arrays as arguments, like Theta, rv,...
 # we can try this with njit (!!??) -> then to paralize the numpy functions ?
 # OK, then we cant use grid.update... function, hmmm
-propagate_grid_subloop_par = jit(parallel=True)(propagate_grid_subloop)
+propagate_grid_subloop_step_par = jit(parallel=True)(propagate_grid_subloop_step)
 
 #%% PARTICLE PROPAGATION
 
@@ -531,126 +531,127 @@ def propagate_particles_subloop_step(grid,
                     grid.velocity, grid.viscosity, grid.mass_density_fluid, 
                     grid.no_cells, g_set, dt_sub)
     ### 10.
-    
-    removed = particle.update_location_from_velocity_BC_PS(dt_sub_loc)
+    update_pos_from_vel_BC_PS(pos, vel, xi, grid.ranges, dt_sub_pos)
+    # removed = particle.update_location_from_velocity_BC_PS(dt_sub_loc)
         # multiply by 1.0E-18 in the end
-    if removed:
-        removed_ids_step.append(ID)
-        removed_ids.append(ID)
+    # if removed:
+        # removed_ids_step.append(ID)
+        # removed_ids.append(ID)
 #             active_ids.remove(ID)
 #             water_removed += particle.mass_water * particle.multiplicity
     ### 11.
-    particle.update_cell_and_relative_location()
+    update_cells_and_rel_pos(pos, cells, rel_pos, grid.ranges, grid.steps)
+    # particle.update_cell_and_relative_location()
 ######
 ######            
 ######            
-        particle = particle_list_by_id[ID]
-        cell = tuple(particle.cell)
+#         particle = particle_list_by_id[ID]
+#         cell = tuple(particle.cell)
         
-        T_amb = grid.temperature[cell]
-        p_amb = grid.pressure[cell]
-        S_amb = grid.saturation[cell]
-        e_s_amb = grid.saturation_pressure[cell]
-        rho_f_amb = grid.mass_density_fluid[cell]
-        K = grid.thermal_conductivity[cell]
-        D_v = grid.diffusion_constant[cell]
-        L_v = grid.heat_of_vaporization[cell]
-        # sigma w is right now calc. with the ambient temperature... can be changed to the particle temp, if tracked
-        sigma_w = grid.surface_tension[cell]
-        c_p_f = grid.specific_heat_capacity[cell]
-        mu_f = grid.viscosity[cell]
+#         T_amb = grid.temperature[cell]
+#         p_amb = grid.pressure[cell]
+#         S_amb = grid.saturation[cell]
+#         e_s_amb = grid.saturation_pressure[cell]
+#         rho_f_amb = grid.mass_density_fluid[cell]
+#         K = grid.thermal_conductivity[cell]
+#         D_v = grid.diffusion_constant[cell]
+#         L_v = grid.heat_of_vaporization[cell]
+#         # sigma w is right now calc. with the ambient temperature... can be changed to the particle temp, if tracked
+#         sigma_w = grid.surface_tension[cell]
+#         c_p_f = grid.specific_heat_capacity[cell]
+#         mu_f = grid.viscosity[cell]
    
-        ### 1. T_p = T_f
-        particle.temperature = T_amb
+#         ### 1. T_p = T_f
+#         particle.temperature = T_amb
 
-        ### 2. compute mass rate and delta_m
-        # inserted Newton implicit with "Newton_iter" iterations here
-        # req. self.density + m_p (check) -> mass_fraction (check) + temperature (changed right above)
-        # req. cell (check) + location (check)   
-        particle.density = particle.compute_density()
-        particle.radius = particle.compute_radius_from_mass()
-        delta_m, mass_rate = \
-            compute_delta_water_liquid_and_mass_rate_implicit_Newton_full(dt_sub, Newton_iter,
-                                                                          particle.mass_water, particle.mass_solute,
-                                                                          particle.mass, particle.mass_fraction_solute, particle.radius,
-                                                                          particle.temperature, particle.density,
-                                                                          T_amb, p_amb,
-                                                                          S_amb, e_s_amb,
-                                                                          D_v,
-                                                                          K,
-                                                                          c_p_f,
-                                                                          L_v,
-                                                                          sigma_w,
-                                                                          adiabatic_index,
-                                                                          accomodation_coefficient,
-                                                                          condensation_coefficient)
-######################################### check
-         # replaced by full Newton method
-#        delta_m, mass_rate = \
-#            compute_delta_water_liquid_and_mass_rate_imex_linear( dt_sub,
-#                                                                  particle.mass_water, # in femto gram
-#                                                                  particle.mass_solute, 
-#                                                                  particle.temperature,
-#                                                                  T_amb, p_amb,
-#                                                                  S_amb, e_s_amb,
-#                                                                  D_v, K, c_p_f,
-#                                                                  adiabatic_index,
-#                                                                  accomodation_coefficient,
-#                                                                  condensation_coefficient, 
-#                                                                  L_v )
+#         ### 2. compute mass rate and delta_m
+#         # inserted Newton implicit with "Newton_iter" iterations here
+#         # req. self.density + m_p (check) -> mass_fraction (check) + temperature (changed right above)
+#         # req. cell (check) + location (check)   
+#         particle.density = particle.compute_density()
+#         particle.radius = particle.compute_radius_from_mass()
+#         delta_m, mass_rate = \
+#             compute_delta_water_liquid_and_mass_rate_implicit_Newton_full(dt_sub, Newton_iter,
+#                                                                           particle.mass_water, particle.mass_solute,
+#                                                                           particle.mass, particle.mass_fraction_solute, particle.radius,
+#                                                                           particle.temperature, particle.density,
+#                                                                           T_amb, p_amb,
+#                                                                           S_amb, e_s_amb,
+#                                                                           D_v,
+#                                                                           K,
+#                                                                           c_p_f,
+#                                                                           L_v,
+#                                                                           sigma_w,
+#                                                                           adiabatic_index,
+#                                                                           accomodation_coefficient,
+#                                                                           condensation_coefficient)
+# ######################################### check
+#          # replaced by full Newton method
+# #        delta_m, mass_rate = \
+# #            compute_delta_water_liquid_and_mass_rate_imex_linear( dt_sub,
+# #                                                                  particle.mass_water, # in femto gram
+# #                                                                  particle.mass_solute, 
+# #                                                                  particle.temperature,
+# #                                                                  T_amb, p_amb,
+# #                                                                  S_amb, e_s_amb,
+# #                                                                  D_v, K, c_p_f,
+# #                                                                  adiabatic_index,
+# #                                                                  accomodation_coefficient,
+# #                                                                  condensation_coefficient, 
+# #                                                                  L_v )
 
-        ### 3.
-        ### ACTIVATE
-#        T_eq_old = particle.equilibrium_temperature
+#         ### 3.
+#         ### ACTIVATE
+# #        T_eq_old = particle.equilibrium_temperature
 
-        ### 4.
-        # T_eq_new req. radius, which req. density, which req. self.temperature, self.mass_fraction_solute
-        ### ACTIVATE
-#        particle.equilibrium_temperature = T_amb + L_v * mass_rate * 1.0E-12 / (4.0 * np.pi * particle.radius * K)
+#         ### 4.
+#         # T_eq_new req. radius, which req. density, which req. self.temperature, self.mass_fraction_solute
+#         ### ACTIVATE
+# #        particle.equilibrium_temperature = T_amb + L_v * mass_rate * 1.0E-12 / (4.0 * np.pi * particle.radius * K)
 
-        ### 5.
-        ### ACTIVATE
-#        delta_Q_p[cell] += particle.compute_heat_capacity() * particle.multiplicity \
-#                           * particle.mass * (particle.equilibrium_temperature - T_eq_old)
+#         ### 5.
+#         ### ACTIVATE
+# #        delta_Q_p[cell] += particle.compute_heat_capacity() * particle.multiplicity \
+# #                           * particle.mass * (particle.equilibrium_temperature - T_eq_old)
 
-        ### 6. 
-        particle.mass_water += delta_m
-        particle.mass += delta_m
-        particle.mass_fraction_solute = particle.mass_solute / particle.mass
+#         ### 6. 
+#         particle.mass_water += delta_m
+#         particle.mass += delta_m
+#         particle.mass_fraction_solute = particle.mass_solute / particle.mass
 
-        ### 7. 
-        delta_m_l[cell] += delta_m * particle.multiplicity
-####################### check
-        ### 8.
-        ### ACTIVATE
-#        delta_Q_p[cell] += particle.compute_heat_capacity() * delta_m * particle.multiplicity\
-#                           * (particle.equilibrium_temperature - T_amb)
+#         ### 7. 
+#         delta_m_l[cell] += delta_m * particle.multiplicity
+# ####################### check
+#         ### 8.
+#         ### ACTIVATE
+# #        delta_Q_p[cell] += particle.compute_heat_capacity() * delta_m * particle.multiplicity\
+# #                           * (particle.equilibrium_temperature - T_amb)
 
-        ### 9. v_n -> v_n+1  (CHANGED TO FULL TIMESTEP WITH k_d(m_(n+1), x_(n+1/2), |u_n+1/2 - v_n|) )
-        # req. R_p -> self.density + m_p (changed) -> mass_fraction (changed) + temperature (changed)
-        # req. cell (check, unchanged) + location (check, unchanged)   
-        ### ACTIVATE
-#             particle.temperature = particle.equilibrium_temperature
-        particle.density = particle.compute_density()
-        particle.radius = particle.compute_radius_from_mass()
-        particle.velocity = particle.compute_velocity_new_implicit(dt_sub, rho_f_amb, mu_f, g_set)
+#         ### 9. v_n -> v_n+1  (CHANGED TO FULL TIMESTEP WITH k_d(m_(n+1), x_(n+1/2), |u_n+1/2 - v_n|) )
+#         # req. R_p -> self.density + m_p (changed) -> mass_fraction (changed) + temperature (changed)
+#         # req. cell (check, unchanged) + location (check, unchanged)   
+#         ### ACTIVATE
+# #             particle.temperature = particle.equilibrium_temperature
+#         particle.density = particle.compute_density()
+#         particle.radius = particle.compute_radius_from_mass()
+#         particle.velocity = particle.compute_velocity_new_implicit(dt_sub, rho_f_amb, mu_f, g_set)
         
-        ### 10.
-        removed = particle.update_location_from_velocity_BC_PS(dt_sub_loc)
-            # multiply by 1.0E-18 in the end
-        if removed:
-            removed_ids_step.append(ID)
-            removed_ids.append(ID)
-#             active_ids.remove(ID)
-#             water_removed += particle.mass_water * particle.multiplicity
-        ### 11.
-        particle.update_cell_and_relative_location()
+#         ### 10.
+#         removed = particle.update_location_from_velocity_BC_PS(dt_sub_loc)
+#             # multiply by 1.0E-18 in the end
+#         if removed:
+#             removed_ids_step.append(ID)
+#             removed_ids.append(ID)
+# #             active_ids.remove(ID)
+# #             water_removed += particle.mass_water * particle.multiplicity
+#         ### 11.
+#         particle.update_cell_and_relative_location()
     
-    for ID in removed_ids_step:
-        active_ids.remove(ID)
+#     for ID in removed_ids_step:
+#         active_ids.remove(ID)
             
-    delta_m_l *= 1.0E-18
-    ### ACTIVATE
-#    delta_Q_p *= 1.0E-18
-propagate_particles_subloop_par = jit(parallel=True)(propagate_particles_subloop)
+#     delta_m_l *= 1.0E-18
+#     ### ACTIVATE
+# #    delta_Q_p *= 1.0E-18
+propagate_particles_subloop_step_par = jit(parallel=True)(propagate_particles_subloop_step)
 

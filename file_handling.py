@@ -8,9 +8,10 @@ Created on Wed May  1 14:43:19 2019
 
 import pickle
 import numpy as np
+from grid import Grid
 
-from grid import save_grid_to_files
-from grid import load_grid_from_files
+# from grid import save_grid_to_files
+# from grid import load_grid_from_files
 # from particle_class import save_particle_list_to_files
 # from particle_class import load_particle_list_from_files
 from datetime import datetime
@@ -46,7 +47,59 @@ def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):
     np.save(filename_pt_vec, (pos, vel) )
     np.save(filename_pt_scal, (m_w, m_s, xi) )
     np.save(filename_grid, (T_grid, rv_grid) )
+    print("particle data saved at t = ", t)
     
+# t_ = current time
+def save_grid_basics_to_textfile(grid_, t_, filename):
+    with open(filename, "w") as f:
+        f.write(f'\
+{grid_.ranges[0][0]} {grid_.ranges[0][1]} \
+{grid_.ranges[1][0]} {grid_.ranges[1][1]} \
+{grid_.steps[0]} {grid_.steps[1]} {grid_.step_y} {t_}')
+        
+def save_grid_arrays_to_npy_file(grid, filename1, filename2):
+    arr1 = np.array([grid.pressure, grid.temperature, grid.mass_density_air_dry,
+                     grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
+                     grid.saturation_pressure, grid.saturation, grid.potential_temperature])
+    arr2 = np.array([grid.velocity[0], grid.velocity[1], 
+                     grid.mass_flux_air_dry[0], grid.mass_flux_air_dry[1]])
+    np.save(filename1, arr1)
+    np.save(filename2, arr2)
+
+def save_grid_scalar_fields(t, grid, path):
+    filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
+    np.save( filename, (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
+         grid.potential_temperature, grid.temperature,
+         grid.pressure, grid.saturation) )
+    print("grid fields saved at t = ", t)
+   
+def save_grid_to_files(grid, t_, basics_file, arr_file1, arr_file2):
+    save_grid_basics_to_textfile(grid, t_, basics_file)
+    save_grid_arrays_to_npy_file(grid, arr_file1, arr_file2)
+    
+def load_grid_from_files(basics_file, arr_file1, arr_file2):
+    basics = np.loadtxt(basics_file)
+    scalars = np.load(arr_file1)
+    vectors = np.load(arr_file2)
+    grid = Grid( [ [ basics[0], basics[1] ], [ basics[2], basics[3] ] ], [ basics[4], basics[5] ], basics[6] )
+    
+    grid.pressure = scalars[0]
+    grid.temperature = scalars[1]
+    grid.mass_density_air_dry = scalars[2]
+    grid.mixing_ratio_water_vapor = scalars[3]
+    grid.mixing_ratio_water_liquid = scalars[4]
+    grid.saturation_pressure = scalars[5]
+    grid.saturation = scalars[6]
+    grid.potential_temperature = scalars[7]
+    
+    grid.update_material_properties()
+    V0_inv = 1.0 / grid.volume_cell
+    grid.rho_dry_inv = np.ones_like(grid.mass_density_air_dry) / grid.mass_density_air_dry
+    grid.mass_dry_inv = V0_inv * grid.rho_dry_inv
+    
+    grid.velocity = np.array( [vectors[0], vectors[1]] )
+    grid.mass_flux_air_dry = np.array( [vectors[2], vectors[3]] )
+    return grid
         
 def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                                  active_ids, removed_ids,

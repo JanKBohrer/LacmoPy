@@ -57,14 +57,14 @@ import timeit
 import constants as c
 from init import initialize_grid_and_particles, dst_log_normal
 from grid import Grid
-from grid import interpolate_velocity_from_cell_bilinear_jit,\
-                 interpolate_velocity_from_position_bilinear_jit,\
+from grid import interpolate_velocity_from_cell_bilinear,\
+                 interpolate_velocity_from_position_bilinear,\
                  compute_cell_and_relative_position
 from microphysics import compute_mass_from_radius,\
                          compute_initial_mass_fraction_solute_NaCl,\
                          compute_radius_from_mass,\
                          compute_density_particle,\
-                 compute_delta_water_liquid_and_mass_rate_implicit_Newton_full,\
+                         compute_dml_and_gamma_impl_Newton_full,\
                          compute_R_p_w_s_rho_p
                          
 from atmosphere import compute_kappa_air_moist,\
@@ -119,8 +119,8 @@ def plot_pos_vel_pt(pos, vel, grid,
 
 
 ### storage directories -> need to assign "simdata_path" and "fig_path"
-my_OS = "Linux_desk"
-# my_OS = "Mac"
+# my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -351,11 +351,11 @@ R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
 
 #%% update_particle_locations_from_velocities_BC_PS
 from evaluation import compare_functions_run_time
-from grid import compute_r_l_grid_field, save_grid_scalar_fields 
-from file_handling import dump_particle_data
-from integration import update_particle_locations_from_velocities_BC_PS,\
-                        update_particle_locations_from_velocities_BC_PS_np,\
-                        update_particle_locations_from_velocities_BC_PS_par
+from grid import update_grid_r_l 
+from file_handling import dump_particle_data, save_grid_scalar_fields
+from integration import update_pos_from_vel_BC_PS,\
+                        update_pos_from_vel_BC_PS_np,\
+                        update_pos_from_vel_BC_PS_par
 
 folder_load = "190508/grid_10_10_spct_4/"
 # folder_load = "190507/test1/"
@@ -376,9 +376,9 @@ dt_sub = 0.1 # s
 dt_sub_half = 0.5 * dt_sub
 # pos_bef = np.copy(pos)
 
-funcs = ["update_particle_locations_from_velocities_BC_PS_np",
-         "update_particle_locations_from_velocities_BC_PS",
-         "update_particle_locations_from_velocities_BC_PS_par"]
+funcs = ["update_pos_from_vel_BC_PS_np",
+         "update_pos_from_vel_BC_PS",
+         "update_pos_from_vel_BC_PS_par"]
 pars = "pos,vel,xi,grid.ranges,dt_sub_half"
 rs = [7,7,7]
 ns = [10,1000,1000]
@@ -387,11 +387,11 @@ compare_functions_run_time(funcs, pars, rs, ns, globals_ = globals())
 
 #%% dump_particle_data
 from evaluation import compare_functions_run_time
-from grid import compute_r_l_grid_field, save_grid_scalar_fields 
-from file_handling import dump_particle_data
-from integration import update_particle_locations_from_velocities_BC_PS,\
-                        update_particle_locations_from_velocities_BC_PS_np,\
-                        update_particle_locations_from_velocities_BC_PS_par
+from grid import update_grid_r_l
+from file_handling import dump_particle_data, save_grid_scalar_fields
+# from integration import update_particle_locations_from_velocities_BC_PS,\
+#                         update_particle_locations_from_velocities_BC_PS_np,\
+#                         update_particle_locations_from_velocities_BC_PS_par
 
 folder_load = "190508/grid_10_10_spct_4/"
 # folder_load = "190507/test1/"
@@ -420,7 +420,7 @@ print(grd_data.shape)
 
 #%% update_cells_and_rel_pos
 from evaluation import compare_functions_run_time
-from grid import compute_r_l_grid_field, save_grid_scalar_fields 
+from grid import update_grid_r_l, compute_cell_and_relative_position
 from file_handling import dump_particle_data
 from integration import update_pos_from_vel_BC_PS,\
                         update_cells_and_rel_pos,\
@@ -437,7 +437,7 @@ R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s,
                                         grid.temperature[tuple(cells)] )
 R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
 
-c2, rel_pos = compute_cell_and_relative_position_jit(pos, grid.ranges, grid.steps)
+c2, rel_pos = compute_cell_and_relative_position(pos, grid.ranges, grid.steps)
 
 t = 0.0
 dt_sub = 0.1 # s
@@ -461,6 +461,15 @@ print(dif_rp[dif_rp>1E-10])
 
 #%% SET SIMULATION PARAMETERS
 
+from evaluation import compare_functions_run_time
+from grid import update_grid_r_l
+from file_handling import dump_particle_data, save_grid_scalar_fields
+from integration import update_pos_from_vel_BC_PS,\
+                        update_cells_and_rel_pos,\
+                        compute_divergence_upwind,\
+                        propagate_particles_subloop_step,\
+                        propagate_grid_subloop_step
+
 ####################################
 ### SET
 # load grid and particle list from directory
@@ -476,7 +485,7 @@ dt = 5.0 # s
 # with implicit Newton:
 # from experience: dt_sub <= 0.1 s => N_h = dt/(2 h)
 # dt_sub = 0.1 -> N = 1.0/(0.2) = 5 OR N = 5.0/(0.2) = 25 OR N = 10.0/(0.2) = 50
-scale_dt = 25
+scale_dt = 50
 
 # Newton implicit root finding number of iterations
 Newton_iter = 3
@@ -486,7 +495,7 @@ Newton_iter = 3
 # spin_up_time = 7200.0 # s 
 
 # no of frames of grid properties T, p, Theta, r_v, r_l, S
-no_frames = 3
+no_frames = 40
 
 # full save of grid and particles in time intervals
 full_save_time_interval = 600 # s
@@ -553,7 +562,8 @@ with open(sim_para_file, "w") as f:
 # init grid properties
 grid.update_material_properties()
 V0_inv = 1.0 / grid.volume_cell
-grid.rho_dry_inv = np.ones_like(grid.mass_density_air_dry) / grid.mass_density_air_dry
+grid.rho_dry_inv =\
+    np.ones_like(grid.mass_density_air_dry) / grid.mass_density_air_dry
 grid.mass_dry_inv = V0_inv * grid.rho_dry_inv
 
 tau = t_start
@@ -571,19 +581,14 @@ update_cells_and_rel_pos(pos, cells, rel_pos, grid.ranges, grid.steps)
 
 #%% MAIN SIMULATION LOOP
 
-from evaluation import compare_functions_run_time
-from grid import compute_r_l_grid_field, save_grid_scalar_fields, propagate_grid_subloop
-from file_handling import dump_particle_data
-from integration import update_pos_from_vel_BC_PS,\
-                        update_cells_and_rel_pos,\
-                        compute_divergence_upwind,\
-                        propagate_particles_subloop_step
+
 
 ####################################
 # MAIN SIMULATION LOOP:
-start_time = datetime.now()
+path = simdata_path + folder_save
 # dt = dt_advection
-
+grid_save_times = []
+start_time = datetime.now()
 for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
     # trace particles in trace_ids every "trace_every" steps (dt_adv-steps)
     if cnt % dump_every == 0:
@@ -594,11 +599,11 @@ for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
     # append "frame" of grid fields every "frame_every" steps,
     # which is calc. from "no_frames"
     if cnt % frame_every == 0:
-        compute_r_l_grid_field(m_w, xi, cells,
+        update_grid_r_l(m_w, xi, cells,
                                grid.mixing_ratio_water_liquid,
                                grid.mass_dry_inv)
         save_grid_scalar_fields(t, grid, path)
-        
+        grid_save_times.append(int(t))
 
         # append_frame_to_arrays(t, grid, times, temps, Thetas, press,
         #                        r_vs, r_ls, sats,
@@ -665,12 +670,12 @@ for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
         #                             condensation_coefficient)
 
         # ii) to vii)
-        propagate_grid_subloop(grid, delta_Theta_ad, delta_r_v_ad,
+        propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
                                delta_m_l, delta_Q_p)
 
         # viii) to ix) included in "propagate_particles_subloop"
-#         delta_Q_p.fill(0.0)
-#         delta_m_l.fill(0.0)
+        # delta_Q_p.fill(0.0)
+        # delta_m_l.fill(0.0)
         
         tau += dt_sub
     # subloop 1 end
@@ -690,15 +695,14 @@ for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
         
         # i) for all particles
         # updates delta_m_l and delta_Q_p
-        propagate_particles_subloop(grid, particle_list_by_id, active_ids, removed_ids,
-                                    delta_m_l, delta_Q_p,
-                                    dt_sub, dt_sub_half, dt_sub, Newton_iter, g_set,
-                                    adiabatic_index,
-                                    accomodation_coefficient,
-                                    condensation_coefficient)
+        propagate_particles_subloop_step(grid,
+                                         pos, vel, cells, rel_pos, m_w, m_s, xi,
+                                         delta_m_l, delta_Q_p,
+                                         dt_sub, dt_sub_half, dt_sub,
+                                         Newton_iter, g_set)
 
         # ii) to vii)
-        propagate_grid_subloop(grid, delta_Theta_ad, delta_r_v_ad,
+        propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
                                delta_m_l, delta_Q_p)
         
         # viii) to ix) included in "propagate_particles_subloop"
@@ -711,16 +715,14 @@ for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
     # need to add x_n+1/2 -> x_n
     # i) for all particles -> only one for now
     # updates delta_m_l and delta_Q_p
-    propagate_particles_subloop(grid, particle_list_by_id, active_ids, removed_ids,
-                                delta_m_l, delta_Q_p,
-                                dt_sub, dt_sub_half, dt_sub_loc=dt_sub_half,Newton_iter=Newton_iter,
-                                g_set=g_set,
-                                adiabatic_index= adiabatic_index,
-                                accomodation_coefficient = accomodation_coefficient,
-                                condensation_coefficient = condensation_coefficient)
+    propagate_particles_subloop_step(grid,
+                                         pos, vel, cells, rel_pos, m_w, m_s, xi,
+                                         delta_m_l, delta_Q_p,
+                                         dt_sub, dt_sub_half, dt_sub_half,
+                                         Newton_iter, g_set)
 
     # ii) to vii)
-    propagate_grid_subloop(grid, delta_Theta_ad, delta_r_v_ad,
+    propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
                            delta_m_l, delta_Q_p)
     
     # viii) to ix) included in "propagate_particles_subloop"
@@ -731,38 +733,99 @@ for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
     taus.append(tau)
     
 t += dt
-append_frame_to_arrays(t, grid, times,temps,Thetas,press,r_vs,r_ls,sats,
-                           particle_list_by_id, active_ids, trace_ids,
-                           trace_times, locations, velocities,
-                           path, start_time, save_to_file = True)
+update_grid_r_l(m_w, xi, cells,
+               grid.mixing_ratio_water_liquid,
+               grid.mass_dry_inv)
+save_grid_scalar_fields(t, grid, path)
+# append_frame_to_arrays(t, grid, times,temps,Thetas,press,r_vs,r_ls,sats,
+#                            particle_list_by_id, active_ids, trace_ids,
+#                            trace_times, locations, velocities,
+#                            path, start_time, save_to_file = True)
 # MAIN SIMULATION LOOP END
 
 # convert to arrays for plotting
-r_vs = np.array(r_vs)
-r_ls = np.array(r_ls)
-temps = np.array(temps)
-Thetas = np.array(Thetas)
-press = np.array(press)
-sats = np.array(sats)
-fields = [r_vs, r_ls, Thetas, temps, press, sats]
+# r_vs = np.array(r_vs)
+# r_ls = np.array(r_ls)
+# temps = np.array(temps)
+# Thetas = np.array(Thetas)
+# press = np.array(press)
+# sats = np.array(sats)
+# fields = [r_vs, r_ls, Thetas, temps, press, sats]
 
-locations = np.array(locations)
-velocities = np.array(velocities)
+# locations = np.array(locations)
+# velocities = np.array(velocities)
 
 # full save at t_end
-save_grid_and_particles_full(t, grid, particle_list_by_id, active_ids, removed_ids, path)
-
+save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
+                                 active_ids, removed_ids,
+                                 path)
 # total water removed by hitting the ground
 # convert to kg
 # water_removed *= 1.0E-18
 
-lh = [ np.amax(r_v) for r_v in r_vs ]
-print('')
-print('time \t sum(rho_dry * r_v) \t sum(rho_dry * r_l) \t sum(rho_dry * (r_l+r_v)) \t  sum(rho_dry * T)')
-for i,rv in enumerate(r_vs):
-    print( times[i],'\t',
-          np.sum(rv*grid.mass_density_air_dry), '\t',
-          np.sum(r_ls[i]*grid.mass_density_air_dry), '\t',
-          np.sum(rv*grid.mass_density_air_dry) + np.sum(r_ls[i]*grid.mass_density_air_dry), '\t',
-          np.sum(Thetas[i]*grid.mass_density_air_dry), '\t',
-          )
+print("simuation ended:")
+print("t_start = ", t_start)
+print("t_end = ", t_end)
+print("dt = ", dt, "; dt_sub = ", dt_sub)
+
+# lh = [ np.amax(r_v) for r_v in r_vs ]
+# print('')
+# print('time \t sum(rho_dry * r_v) \t sum(rho_dry * r_l) \t sum(rho_dry * (r_l+r_v)) \t  sum(rho_dry * T)')
+# for i,rv in enumerate(r_vs):
+#     print( times[i],'\t',
+#           np.sum(rv*grid.mass_density_air_dry), '\t',
+#           np.sum(r_ls[i]*grid.mass_density_air_dry), '\t',
+#           np.sum(rv*grid.mass_density_air_dry) +
+#           np.sum(r_ls[i]*grid.mass_density_air_dry), '\t',
+#           np.sum(Thetas[i]*grid.mass_density_air_dry), '\t',
+#           )
+
+
+
+#%% PLOTTING
+
+from evaluation import load_grid_scalar_fields, plot_field_frames
+
+folder_load = "190508/grid_10_10_spct_4/"
+# folder_load = "190507/test1/"
+# folder_load = "190508/grid_75_75_spct_20/"
+folder_save = "190508/grid_10_10_spct_4/"
+fig_path = path + "scalar_fields.png"
+
+reload = False
+
+if reload:
+    path = simdata_path + folder_load
+    grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids = \
+        load_grid_and_particles_full(0, path)
+    R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s,
+                                            grid.temperature[tuple(cells)] )
+    R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
+    
+    t_start = 0
+    t_end = 200
+    dt = 5
+
+    grid_save_times = np.arange(t_start, t_end + 0.5 * dt, dt).astype(int)
+
+print(grid_save_times)
+
+path = simdata_path + folder_save
+
+fields = load_grid_scalar_fields(path, grid_save_times)
+
+print(fields.shape)
+
+field_ind = np.arange(6)
+time_ind = np.arange(0, len(grid_save_times), 2)
+print(len(grid_save_times))
+print(time_ind)
+
+for idx_t in time_ind:
+    print(grid_save_times[idx_t])
+
+no_ticks=[6,6]
+
+plot_field_frames(grid, fields, grid_save_times,
+                  field_ind, time_ind, no_ticks, fig_path )
+

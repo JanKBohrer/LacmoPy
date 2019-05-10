@@ -8,7 +8,79 @@ Created on Tue May  7 15:17:55 2019
 
 from numba import njit
 import numpy as np
+import matplotlib.pyplot as plt
 
+
+#%% PLOT GRID SCALAR FIELDS WITH TIME
+### 
+
+
+def load_grid_scalar_fields(path, save_times):
+    fields = []
+    for t_ in save_times:
+        filename = path + "grid_scalar_fields_t_" + str(int(t_)) + ".npy"
+        fields_ = np.load(filename)
+        fields.append(fields_)
+    fields = np.array(fields)
+    return fields
+
+# fields = [fields_t0, fields_t1, ...]
+# fields_ti =
+# (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
+#  grid.potential_temperature, grid.temperature,
+#  grid.pressure, grid.saturation)
+# input:
+# field_indices = (idx1, idx2, ...)  (tuple of int)
+# time_indices = (idx1, idx2, ...)  (tuple of int) 
+def plot_field_frames(grid, fields, save_times, field_indices, time_indices,
+                      no_ticks, fig_path=None):
+    
+    no_rows = len(time_indices)
+    no_cols = len(field_indices)
+    
+    field_names = ["r_v", "r_l", "Theta", "T", "p", "S"]
+    scales = [1000, 1000, 1, 1, 0.01, 1]
+    units = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
+    
+    tick_ranges = grid.ranges
+    
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                           figsize = (4*no_cols, 4*no_rows))
+    for i in range(no_rows):
+        for j in range(no_cols):
+            ax = axes[i,j]
+            idx_t = time_indices[i]
+            idx_f = field_indices[j]
+            # print("idx_t")
+            # print(idx_t)
+            # print("idx_f")
+            # print(idx_f)
+            field = fields[idx_t, idx_f]*scales[idx_f]
+            field_min = field.min()
+            field_max = field.max()
+#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
+#                       field, no_contour_lines_, colors = 'black')
+#                ax[i,j].clabel(contours, inline=True, fontsize=8)
+            CS = ax.pcolorfast(*grid.corners, field, cmap='coolwarm',
+                                    vmin=field_min, vmax=field_max)
+            ax.set_title(
+                field_names[idx_f] + ' (' + units[idx_f] + '), t = '
+                + str(save_times[idx_t]) )
+            ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                             tick_ranges[0,1],
+                                             no_ticks[0] ) )
+            ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                             tick_ranges[1,1],
+                                             no_ticks[1] ) )
+            fig.colorbar(CS, ax=ax)
+          
+    fig.tight_layout()
+    if fig_path is not None:
+        fig.savefig(fig_path)
+    
+
+
+#%%
 # functions is list of strings,
 # e.g. ["compute_r_l_grid_field", "compute_r_l_grid_field_np"]
 # pars is string,

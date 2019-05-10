@@ -14,8 +14,8 @@ import sys
 import constants as c
 from grid import Grid
 from grid import interpolate_velocity_from_cell_bilinear,\
-                 interpolate_velocity_from_position_bilinear_jit,\
-                 compute_cell_and_relative_position_jit
+                 interpolate_velocity_from_position_bilinear,\
+                 compute_cell_and_relative_position
 from microphysics import compute_mass_from_radius,\
                          compute_initial_mass_fraction_solute_NaCl,\
                          compute_radius_from_mass,\
