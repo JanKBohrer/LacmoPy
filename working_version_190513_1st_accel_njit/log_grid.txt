@@ -1,0 +1,150 @@
+
+grid information:
+grid ranges [x_min, x_max] [z_min, z_max]:
+[[   0. 1500.]
+ [   0. 1500.]]
+number of cells: [15 15]
+grid steps: [100. 100.]
+[0.01, 0.01]
+quantile probabilities =  [0.01, 0.99]
+quantile values =  [0.0091, 0.043700000000000225]
+quantile probabilities =  [0.01, 0.99]
+quantile values =  [0.0067000000000000046, 0.05970000000000068]
+
+level  0 , S_env_init0 =  0.6371748018493215
+level =  0
+dt_init =  0.1
+level  0 , S_env_init =  0.6321982476652336
+level  0 , iter_cnt =  3 , S_avg =  0.6321982477269645 
+dm_l_level =  -1.433434306318102e-12 ,m_l_level =  3.8831345069832136e-06 
+dm_l_level/mass_water_liquid_level =  -3.6914361419628735e-07
+
+level  1 , S_env_init0 =  0.6705500669693361
+level =  1
+dt_init =  0.1
+level  1 , S_env_init =  0.6653092781511809
+level  1 , iter_cnt =  3 , S_avg =  0.6653092782288477 
+dm_l_level =  -1.9925902486528255e-12 ,m_l_level =  4.183190360775821e-06 
+dm_l_level/mass_water_liquid_level =  -4.763326735824847e-07
+
+level  2 , S_env_init0 =  0.7059443631579063
+level =  2
+dt_init =  0.1
+level  2 , S_env_init =  0.7004231278629901
+level  2 , iter_cnt =  3 , S_avg =  0.7004231279648416 
+dm_l_level =  -3.531719643245252e-12 ,m_l_level =  4.6123278284887884e-06 
+dm_l_level/mass_water_liquid_level =  -7.65713057391761e-07
+
+level  3 , S_env_init0 =  0.7434951415528688
+level =  3
+dt_init =  0.1
+level  3 , S_env_init =  0.7376761276909466
+level  3 , iter_cnt =  3 , S_avg =  0.7376761278356171 
+dm_l_level =  -5.873172096601343e-12 ,m_l_level =  5.378746101110566e-06 
+dm_l_level/mass_water_liquid_level =  -1.091922166653059e-06
+
+level  4 , S_env_init0 =  0.7833502083618884
+level =  4
+dt_init =  0.1
+level  4 , S_env_init =  0.7772148786905612
+level  4 , iter_cnt =  3 , S_avg =  0.7772148788955269 
+dm_l_level =  -1.0798046100547415e-11 ,m_l_level =  6.060665631988076e-06 
+dm_l_level/mass_water_liquid_level =  -1.7816600941578987e-06
+
+level  5 , S_env_init0 =  0.8256685778578323
+level =  5
+dt_init =  0.1
+level  5 , S_env_init =  0.8191970962876448
+level  5 , iter_cnt =  3 , S_avg =  0.8191970965976602 
+dm_l_level =  -2.605052409715431e-11 ,m_l_level =  6.928519120852114e-06 
+dm_l_level/mass_water_liquid_level =  -3.7598978429246866e-06
+
+level  6 , S_env_init0 =  0.8706214015059657
+level =  6
+dt_init =  0.1
+level  6 , S_env_init =  0.8637925294677873
+level  6 , iter_cnt =  4 , S_avg =  0.8637925301158982 
+dm_l_level =  -4.539778637591218e-12 ,m_l_level =  1.0074137935828778e-05 
+dm_l_level/mass_water_liquid_level =  -4.506369345455801e-07
+
+level  7 , S_env_init0 =  0.9183929805324516
+level =  7
+dt_init =  0.1
+level  7 , S_env_init =  0.9111839751253455
+level  7 , iter_cnt =  4 , S_avg =  0.9111839764727003 
+dm_l_level =  -4.9564916163042335e-11 ,m_l_level =  1.2480179195430198e-05 
+dm_l_level/mass_water_liquid_level =  -3.971490744395021e-06
+
+level  8 , S_env_init0 =  0.9691818700111476
+level =  8
+dt_init =  0.1
+level  8 , S_env_init =  0.9615683453695058
+level  8 , iter_cnt =  7 , S_avg =  0.9615683525793046 
+dm_l_level =  -1.1251084350632017e-10 ,m_l_level =  2.0917627435788526e-05 
+dm_l_level/mass_water_liquid_level =  -5.378757406962052e-06
+
+level  9 , S_env_init0 =  1.0232020833191442
+level =  9
+dt_init =  0.1
+level  9 , S_env_init =  1.015156081153234
+level  9 , iter_cnt =  400 , S_avg =  1.0010770803845024 
+dm_l_level =  0.004625400542334276 ,m_l_level =  7.772907461430168 
+dm_l_level/mass_water_liquid_level =  0.0005950669765832037
+
+level  10 , S_env_init0 =  1.080664859548229
+level =  10
+dt_init =  0.1
+level  10 , S_env_init =  1.0721599213302024
+level  10 , iter_cnt =  400 , S_avg =  1.0002450410240635 
+dm_l_level =  0.0011885050537199925 ,m_l_level =  37.9338842506402 
+dm_l_level/mass_water_liquid_level =  3.133096114985732e-05
+
+level  11 , S_env_init0 =  1.1417541888665415
+level =  11
+dt_init =  0.1
+level  11 , S_env_init =  1.1327614678136926
+level  11 , iter_cnt =  400 , S_avg =  1.0002200196592788 
+dm_l_level =  0.0014237854530058166 ,m_l_level =  66.74609985933454 
+dm_l_level/mass_water_liquid_level =  2.1331365518081253e-05
+
+level  12 , S_env_init0 =  1.2067242973001586
+level =  12
+dt_init =  0.1
+level  12 , S_env_init =  1.1972121541270995
+level  12 , iter_cnt =  400 , S_avg =  1.000305394231982 
+dm_l_level =  0.0030042402981821123 ,m_l_level =  94.61387718970728 
+dm_l_level/mass_water_liquid_level =  3.175263912035235e-05
+
+level  13 , S_env_init0 =  1.275847844071674
+level =  13
+dt_init =  0.1
+level  13 , S_env_init =  1.2657823659157847
+level  13 , iter_cnt =  400 , S_avg =  1.0006599910901242 
+dm_l_level =  0.0088792433116696 ,m_l_level =  121.47399670455965 
+dm_l_level/mass_water_liquid_level =  7.309583575540911e-05
+
+level  14 , S_env_init0 =  1.3494187098196062
+level =  14
+dt_init =  0.1
+level  14 , S_env_init =  1.3387637363075269
+level  14 , iter_cnt =  400 , S_avg =  1.0021545034436299 
+dm_l_level =  0.033890568165855756 ,m_l_level =  146.92151021316323 
+dm_l_level/mass_water_liquid_level =  0.00023067124831949471
+
+iter count max =  400  level =  9
+last particle ID =  899
+no_super_particles_tot placed =  900
+no_cells x N_p_cell_tot = 225000000000000
+
+placed  900 super particles
+representing  212277690281820 real particles:
+mode real_part_placed real_part_should diff:
+0 127366614169080 127366614169080
+1 84911076112740 84911076112740
+real particles should be placed:  [127366614169080  84911076112740]
+difference:
+0 0
+1 0
+
+j_max
+0.6
