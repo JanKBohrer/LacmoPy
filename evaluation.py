@@ -139,7 +139,7 @@ plot_particle_trajectories(vecs[:,0], grid, trace_ids, MS = 1.0)
     
 # folder_load = "190511/grid_75_75_spcm_4_4/"
 folder_load_base = "190512/grid_75_75_spcm_0_4/"
-folder_load = "190512/grid_75_75_spcm_0_4/sim7/"
+folder_load = "190512/grid_75_75_spcm_0_4/sim8/"
 # folder_load = "190507/test1/"
 # folder_load = "190508/grid_75_75_spct_20/"
 # folder_save = "190508/grid_10_10_spct_4/"
@@ -148,10 +148,10 @@ folder_save = folder_load
 
 # reload = False
 t = 0
-save_time_every = 4
+save_time_every = 1
 t_start = 0
-t_end = 3600
-dt_save = 90
+t_end = 10800
+dt_save = 300
 reload = True
 
 if reload:

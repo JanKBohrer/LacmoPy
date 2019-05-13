@@ -82,20 +82,32 @@ def save_grid_basics_to_textfile(grid_, t_, filename):
         
 def save_grid_arrays_to_npy_file(grid, filename1, filename2):
     arr1 = np.array([grid.pressure, grid.temperature, grid.mass_density_air_dry,
-                     grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
-                     grid.saturation_pressure, grid.saturation, grid.potential_temperature])
+                     grid.mixing_ratio_water_vapor,
+                     grid.mixing_ratio_water_liquid,
+                     grid.saturation_pressure, grid.saturation,
+                     grid.potential_temperature])
     arr2 = np.array([grid.velocity[0], grid.velocity[1], 
                      grid.mass_flux_air_dry[0], grid.mass_flux_air_dry[1]])
     np.save(filename1, arr1)
     np.save(filename2, arr2)
 
-
-def save_grid_scalar_fields(t, grid, path, start_time):
+def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
     filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
-    np.save( filename, (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
-         grid.potential_temperature, grid.temperature,
-         grid.pressure, grid.saturation) )
-    print("grid fields saved at t = ", t, "sim time:", datetime.now()-start_time)
+    np.save(filename,
+            (grid_scalar_fields[4],
+             grid_scalar_fields[5],
+             grid_scalar_fields[2],
+             grid_scalar_fields[0],
+             grid_scalar_fields[1],
+             grid_scalar_fields[6]) )
+    print("grid fields saved at t = ", t, "sim time:",
+          datetime.now()-start_time)
+# def save_grid_scalar_fields(t, grid, path, start_time):
+#     filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
+#     np.save( filename, (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
+#           grid.potential_temperature, grid.temperature,
+#           grid.pressure, grid.saturation) )
+#     print("grid fields saved at t = ", t, "sim time:", datetime.now()-start_time)
 
 def load_grid_scalar_fields(path, save_times):
     fields = []

@@ -182,7 +182,6 @@ def update_grid_r_l_np(m_w, xi, cells, grid_r_l, grid_mass_dry_inv):
         # cell = tuple(cells[0,ID], cells[1,ID])
         grid_r_l[cells[0,ID], cells[1,ID]] += m_w[ID] * xi[ID]
     grid_r_l *= 1.0E-18 * grid_mass_dry_inv
-
 # from tests: the pure njit version (without parallel) is much faster
 # than vanilla python (loop) and faster than njit parallel:
 # for 112500 super particles: python, njit, njit_para
@@ -387,8 +386,7 @@ class Grid:
         self.viscosity = compute_viscosity_air(self.temperature)
         self.mass_density_fluid = self.mass_density_air_dry\
                                   * (1 + self.mixing_ratio_water_vapor)
-        
-
+    
 ########################## PLOTTING
         
     def plot_thermodynamic_scalar_profiles_vertical_average(self):

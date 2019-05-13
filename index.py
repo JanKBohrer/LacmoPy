@@ -8,6 +8,26 @@ Created on Sat May 11 11:43:19 2019
 
 # import numba
 import numpy as np
+
+# grid_scalar_fields[0] = grid.temperature
+# grid_scalar_fields[1] = grid.pressure
+# grid_scalar_fields[2] = grid.potential_temperature
+# grid_scalar_fields[3] = grid.mass_density_air_dry
+# grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
+# grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
+# grid_scalar_fields[6] = grid.saturation
+# grid_scalar_fields[7] = grid.saturation_pressure
+# grid_scalar_fields[8] = grid.mass_dry_inv
+# grid_scalar_fields[9] = grid.rho_dry_inv
+
+# grid_mat_prop[0] = grid.thermal_conductivity
+# grid_mat_prop[1] = grid.diffusion_constant
+# grid_mat_prop[2] = grid.heat_of_vaporization
+# grid_mat_prop[3] = grid.surface_tension
+# grid_mat_prop[4] = grid.specific_heat_capacity
+# grid_mat_prop[5] = grid.viscosity
+# grid_mat_prop[6] = grid.mass_density_fluid
+
 index_dtype = np.dtype({"names" : ["T", "p", "Th", "rhod",
                                     "rv", "rl", "S", "es",
                                     "K", "Dv", "L", "sigmaw",
