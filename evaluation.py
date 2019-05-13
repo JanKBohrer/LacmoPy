@@ -80,7 +80,7 @@ def plot_field_frames(grid, fields, save_times, field_indices, time_indices,
     
 
 
-#%%
+#%% RUNTIME OF FUNCTIONS
 # functions is list of strings,
 # e.g. ["compute_r_l_grid_field", "compute_r_l_grid_field_np"]
 # pars is string,
@@ -98,8 +98,8 @@ def compare_functions_run_time(functions, pars, rs, ns, globals_=globals()):
     # import numpy as np
     # print (__name__)
     t = []
-    for func in functions:
-        print(func+":")
+    for i,func in enumerate(functions):
+        print(func + ": repeats =", rs[i], "no reps = ", ns[i])
     for i,func in enumerate(functions):
         statement = func + "(" + pars + ")"
         t_ = timeit.repeat(statement, repeat=rs[i],

@@ -40,14 +40,15 @@ def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
     np.save(active_ids_filename, active_ids)
     np.save(removed_ids_filename, removed_ids)
 
-def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):
+def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path,
+                       start_time):
     filename_pt_vec = path + "particle_vector_data_" + str(int(t)) + ".npy"
     filename_pt_scal = path + "particle_scalar_data_" + str(int(t)) + ".npy"
     filename_grid = path + "grid_T_rv_" + str(int(t)) + ".npy"
     np.save(filename_pt_vec, (pos, vel) )
     np.save(filename_pt_scal, (m_w, m_s, xi) )
     np.save(filename_grid, (T_grid, rv_grid) )
-    print("particle data saved at t = ", t)
+    print("particle data saved at t = ", t, "sim time:", datetime.now()-start_time)
     
 # t_ = current time
 def save_grid_basics_to_textfile(grid_, t_, filename):
@@ -66,12 +67,12 @@ def save_grid_arrays_to_npy_file(grid, filename1, filename2):
     np.save(filename1, arr1)
     np.save(filename2, arr2)
 
-def save_grid_scalar_fields(t, grid, path):
+def save_grid_scalar_fields(t, grid, path, start_time):
     filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
     np.save( filename, (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
          grid.potential_temperature, grid.temperature,
          grid.pressure, grid.saturation) )
-    print("grid fields saved at t = ", t)
+    print("grid fields saved at t = ", t, "sim time:", datetime.now()-start_time)
    
 def save_grid_to_files(grid, t_, basics_file, arr_file1, arr_file2):
     save_grid_basics_to_textfile(grid, t_, basics_file)

@@ -208,6 +208,9 @@ def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
             int(np.ceil( (range_i[1] - range_i[0]) / stepsizes_list_[i] ) ) )
     return no_cells
 
+# grid_scalar_fields = np.array([T, p, Theta, rho_dry, r_v, r_l, S, e_s])
+# grid_mat_prop = np.array([K, D_v, L, sigma_w, c_p_f, mu_f, rho_f])
+
 class Grid:
     ranges = np.array( [ [-10.0, 10.0] , [-10.0,10.0] ] )
 #     sizes = np.array( [ self.ranges[0,1] - self.ranges[0,0],
@@ -371,18 +374,19 @@ class Grid:
 
     # update 
     def update_material_properties(self):
-        self.heat_of_vaporization =\
-            compute_heat_of_vaporization(self.temperature)
         self.thermal_conductivity =\
             compute_thermal_conductivity_air(self.temperature)
         self.diffusion_constant =\
             compute_diffusion_constant(self.temperature, self.pressure)
+        self.heat_of_vaporization =\
+            compute_heat_of_vaporization(self.temperature)
+        self.surface_tension = compute_surface_tension_water(self.temperature)        
         self.specific_heat_capacity = compute_specific_heat_capacity_air_moist(
                                           self.mixing_ratio_water_vapor)
         self.viscosity = compute_viscosity_air(self.temperature)
         self.mass_density_fluid = self.mass_density_air_dry\
                                   * (1 + self.mixing_ratio_water_vapor)
-        self.surface_tension = compute_surface_tension_water(self.temperature)
+        
 
 ########################## PLOTTING
         

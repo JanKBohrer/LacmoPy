@@ -666,7 +666,7 @@ def initialize_grid_and_particles(
             m_w[l][:,j] = m_p[l][:,j] - m_s[l][:,j]
             dm_l_level += np.sum(m_w[l][:,j] * xi[l][:,j])
             dm_p_level += np.sum(m_p[l][:,j] * xi[l][:,j])
-            print("placed", len(xi[l][:,j]), "particles in a mode")
+            print("placed", len(xi[l][:,j].flatten()), "particles in a mode")
         
         # print('level = ', j)
     

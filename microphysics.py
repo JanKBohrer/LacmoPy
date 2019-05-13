@@ -33,6 +33,9 @@ def compute_mass_from_radius(radius_, density_):
 @vectorize("float64(float64,float64)")
 def compute_radius_from_mass(mass_, density_):
     return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
+@njit()
+def compute_radius_from_mass_jit(mass_, density_):
+    return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
 @vectorize("float64(float64,float64)", target="parallel")
 def compute_radius_from_mass_par(mass_, density_):
     return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
@@ -94,6 +97,14 @@ def compute_density_particle(mass_fraction_solute_, temperature_):
             + par_sol_dens[3] * mass_fraction_solute_ * mass_fraction_solute_ \
             + par_sol_dens[4] * mass_fraction_solute_ * temperature_ \
             + par_sol_dens[5] * temperature_ * temperature_
+@njit()
+def compute_density_particle_jit(mass_fraction_solute_, temperature_):
+    return    par_sol_dens[0] \
+            + par_sol_dens[1] * mass_fraction_solute_ \
+            + par_sol_dens[2] * temperature_ \
+            + par_sol_dens[3] * mass_fraction_solute_ * mass_fraction_solute_ \
+            + par_sol_dens[4] * mass_fraction_solute_ * temperature_ \
+            + par_sol_dens[5] * temperature_ * temperature_
 #    return compute_density_NaCl_solution( mass_fraction_solute_, temperature_ )
 #    return compute_density_water(temperature_)
 #    Combine the two density functions
@@ -108,8 +119,13 @@ def compute_density_particle(mass_fraction_solute_, temperature_):
 def compute_R_p_w_s_rho_p(m_w, m_s, T_p):
     m_p = m_w + m_s
     w_s = m_s / m_p
-    rho_p = compute_density_particle(w_s, T_p)
-    return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
+    rho_p = compute_density_particle_jit(w_s, T_p)
+    return compute_radius_from_mass_jit(m_p, rho_p), w_s, rho_p
+# def compute_R_p_w_s_rho_p(m_w, m_s, T_p):
+#     m_p = m_w + m_s
+#     w_s = m_s / m_p
+#     rho_p = compute_density_particle(w_s, T_p)
+#     return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
 
 # @njit("UniTuple(float64[::1], 3)(float64[::1], float64[::1], float64[::1])", parallel = True)
 @njit(parallel = True)
@@ -206,6 +222,7 @@ def compute_dvH_dws(w_s):
 # velocity dev = |u_f-v_p| in m/s
 # density in kg/m^3
 # viscosity in N s/m^2
+@njit()
 def compute_particle_reynolds_number(radius_, velocity_dev_, fluid_density_,
                                      fluid_viscosity_ ):
     return 2.0E-6 * fluid_density_ * radius_ * velocity_dev_ / fluid_viscosity_    
