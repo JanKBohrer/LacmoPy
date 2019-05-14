@@ -9,7 +9,7 @@ Created on Wed May  1 14:43:19 2019
 import pickle
 import numpy as np
 from grid import Grid
-
+from numba import jit, njit
 # from grid import save_grid_to_files
 # from grid import load_grid_from_files
 # from particle_class import save_particle_list_to_files
@@ -39,9 +39,9 @@ def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
     np.save(xi_filename, xi )
     np.save(active_ids_filename, active_ids)
     np.save(removed_ids_filename, removed_ids)
-
-def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path,
-                       start_time):
+@njit()
+def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):#,
+                       #start_time):
     filename_pt_vec = path + "particle_vector_data_" + str(int(t)) + ".npy"
     filename_pt_scal = path + "particle_scalar_data_" + str(int(t)) + ".npy"
     filename_pt_xi = path + "particle_xi_data_" + str(int(t)) + ".npy"
@@ -50,7 +50,7 @@ def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path,
     np.save(filename_pt_scal, (m_w, m_s) )
     np.save(filename_pt_xi, xi )
     np.save(filename_grid, (T_grid, rv_grid) )
-    print("particle data saved at t = ", t, "sim time:", datetime.now()-start_time)
+    # print("particle data saved at t = ", t, "sim time:", datetime.now()-start_time)
 
 def load_particle_data(path, save_times):
     vec_data = []
@@ -91,6 +91,7 @@ def save_grid_arrays_to_npy_file(grid, filename1, filename2):
     np.save(filename1, arr1)
     np.save(filename2, arr2)
 
+@njit()
 def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
     filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
     np.save(filename,

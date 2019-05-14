@@ -53,37 +53,37 @@ import math
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime
-# import timeit
+import timeit
 
 import constants as c
 from init import initialize_grid_and_particles, dst_log_normal
-# from grid import Grid
+from grid import Grid
 from grid import interpolate_velocity_from_cell_bilinear,\
+                 interpolate_velocity_from_position_bilinear,\
                  compute_cell_and_relative_position
-                 # interpolate_velocity_from_position_bilinear,\
-from microphysics import compute_radius_from_mass,\
+from microphysics import compute_mass_from_radius,\
+                         compute_initial_mass_fraction_solute_NaCl,\
+                         compute_radius_from_mass,\
+                         compute_density_particle,\
+                         compute_dml_and_gamma_impl_Newton_full,\
                          compute_R_p_w_s_rho_p
-#                          compute_initial_mass_fraction_solute_NaCl,\
-#                          compute_density_particle,\
-#                          compute_dml_and_gamma_impl_Newton_full,\
                          
-# from atmosphere import compute_kappa_air_moist,\
-#                        compute_pressure_vapor,\
-#                        compute_pressure_ideal_gas,\
-#                        epsilon_gc, compute_surface_tension_water,\
-#                        kappa_air_dry,\
-#                        compute_beta_without_liquid,\
-#                        compute_temperature_from_potential_temperature_moist                
-                       # compute_diffusion_constant,\
-                       # compute_thermal_conductivity_air,\
-                       # compute_specific_heat_capacity_air_moist,\
-                       # compute_heat_of_vaporization,\
-                       # compute_saturation_pressure_vapor_liquid,\
-from file_handling import save_grid_and_particles_full,\
+from atmosphere import compute_kappa_air_moist,\
+                       compute_diffusion_constant,\
+                       compute_thermal_conductivity_air,\
+                       compute_specific_heat_capacity_air_moist,\
+                       compute_heat_of_vaporization,\
+                       compute_saturation_pressure_vapor_liquid,\
+                       compute_pressure_vapor,\
+                       compute_pressure_ideal_gas,\
+                       epsilon_gc, compute_surface_tension_water,\
+                       kappa_air_dry,\
+                       compute_beta_without_liquid,\
+                       compute_temperature_from_potential_temperature_moist                
+from file_handling import save_particles_to_files,\
+                          save_grid_and_particles_full,\
                           load_grid_and_particles_full
-from file_handling import dump_particle_data, save_grid_scalar_fields                          
-#                         save_particles_to_files,\
-from analysis import compare_functions_run_time
+from analysis import sample_masses, sample_radii, compare_functions_run_time
 
 def plot_pos_vel_pt(pos, vel, grid,
                     figsize=(8,8), no_ticks = [6,6],
@@ -131,8 +131,6 @@ elif (my_OS == "Mac"):
     home_path = "/Users/bohrer/"
     simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
     fig_path = home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
-
-
 
 #%% I. GENERATE GRID AND PARTICLES
 # from init import initialize_grid_and_particles
@@ -194,7 +192,7 @@ Newton_iterations = 2
 # maximal allowed iter counts in initial particle water take up to equilibrium
 iter_cnt_limit = 800
 
-folder = "190514/grid_75_75_spcm_0_4/"
+folder = "190514/grid_10_10_spcm_0_4/"
 path = simdata_path + folder
 if not os.path.exists(path):
     os.makedirs(path)
@@ -231,9 +229,9 @@ R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
 #%% TESTS
 
 #%% update_particle_locations_from_velocities_BC_PS
-# from evaluation import compare_functions_run_time
+from evaluation import compare_functions_run_time
 from grid import update_grid_r_l 
-
+from file_handling import dump_particle_data, save_grid_scalar_fields
 from integration import update_pos_from_vel_BC_PS,\
                         update_pos_from_vel_BC_PS_np,\
                         update_pos_from_vel_BC_PS_par
@@ -266,8 +264,8 @@ ns = [10,1000,1000]
 print("no_spt =",len(xi))
 compare_functions_run_time(funcs, pars, rs, ns, globals_ = globals())
 #%% test subploop steps njit
-from analysis import compare_functions_run_time
-# from grid import update_grid_r_l 
+from evaluation import compare_functions_run_time
+from grid import update_grid_r_l 
 from file_handling import dump_particle_data, save_grid_scalar_fields
 from integration import update_pos_from_vel_BC_PS,\
                         update_pos_from_vel_BC_PS_np,\
@@ -465,7 +463,7 @@ print("no_spt =",len(xi))
 compare_functions_run_time(funcs, pars, rs, ns, globals_ = globals())
 
 #%% dump_particle_data
-from analysis import compare_functions_run_time
+from evaluation import compare_functions_run_time
 from grid import update_grid_r_l
 from file_handling import dump_particle_data, save_grid_scalar_fields
 # from integration import update_particle_locations_from_velocities_BC_PS,\
@@ -488,8 +486,7 @@ dt_sub = 0.1 # s
 dt_sub_half = 0.5 * dt_sub
 
 dump_particle_data(t, pos, vel, m_w, m_s, xi,
-                   grid.temperature, grid.mixing_ratio_water_vapor, path)#,
-                   #datetime.now())
+                   grid.temperature, grid.mixing_ratio_water_vapor, path)
 
 pt_data_scalar = np.load(path + "particle_scalar_data_" + str(int(t)) + ".npy")
 pt_data_vector = np.load(path + "particle_vector_data_" + str(int(t)) + ".npy")
@@ -498,7 +495,46 @@ print(np.shape(pt_data_scalar))
 print(np.shape(pt_data_vector))
 print(grd_data.shape)
 
+#%% update_cells_and_rel_pos
+from evaluation import compare_functions_run_time
+from grid import update_grid_r_l, compute_cell_and_relative_position
+from file_handling import dump_particle_data
+from integration import update_pos_from_vel_BC_PS,\
+                        update_cells_and_rel_pos,\
+                        compute_divergence_upwind
 
+folder_load = "190508/grid_10_10_spct_4/"
+# folder_load = "190507/test1/"
+# folder_load = "190508/grid_75_75_spct_20/"
+path = simdata_path + folder_load
+
+grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids = \
+    load_grid_and_particles_full(0, path)
+R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s,
+                                        grid.temperature[tuple(cells)] )
+R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
+
+c2, rel_pos = compute_cell_and_relative_position(pos, grid.ranges, grid.steps)
+
+t = 0.0
+dt_sub = 0.1 # s
+dt_sub_half = 0.5 * dt_sub
+
+cells_bef = np.copy(cells)
+rel_pos_bef = np.copy(rel_pos)
+
+for cnt in range(1000):
+    update_pos_from_vel_BC_PS(pos, vel, xi, grid.ranges, dt_sub_half)
+    update_cells_and_rel_pos(pos, cells, rel_pos, grid.ranges, grid.steps)
+
+dif_c = cells - cells_bef
+dif_rp = rel_pos - rel_pos_bef
+# print(cells - cells_bef)
+# print(rel_pos - rel_pos_bef)
+
+print(dif_c[dif_c>0])
+print(dif_rp[dif_rp>1E-10])
+# print(dif_rp)
 
 #%% SET SIMULATION PARAMETERS
 
@@ -515,17 +551,17 @@ import index
 ####################################
 ### SET
 # load grid and particle list from directory
-folder_load = "190508/grid_10_10_spct_4/"
+# folder_load = "190508/grid_10_10_spct_4/"
 # folder_load = "190510/grid_15_15_spcm_4_4/"
-# folder_load = "190514/grid_75_75_spcm_0_4/"
+folder_load = "190514/grid_75_75_spcm_0_4/"
 
-folder_save = "190508/grid_10_10_spct_4/sim3/"
+# folder_save = "190508/grid_10_10_spct_4/sim2/"
 # folder_save = "190510/grid_15_15_spcm_4_4/sim2/"
 folder_save = "190514/grid_75_75_spcm_0_4/sim1/"
 # folder_save = "190511/grid_75_75_spcm_4_4"
 
 t_start = 0.0
-t_end = 120.0 # s
+t_end = 180.0 # s
 # timestep of advection
 dt = 1.0 # s
 
@@ -709,8 +745,7 @@ grid_mat_prop[6] = grid.mass_density_fluid
 
 #%% MAIN SIMULATION LOOP
 from integration import propagate_particles_subloop_step
-from integration import integrate_subloop, simulate_np, simulate
-
+from integration import integrate_subloop
 ####################################
 # MAIN SIMULATION LOOP:
 path = simdata_path + folder_save
@@ -729,316 +764,302 @@ grid_volume_cell = grid.volume_cell
 p_ref = grid.p_ref
 p_ref_inv = grid.p_ref_inv
 
-simulate(grid_scalar_fields, grid_mat_prop, grid_velocity,
-            grid_mass_flux_air_dry,
-            grid_no_cells, grid_ranges, grid_steps, grid_volume_cell,
-            p_ref, p_ref_inv,
-            pos, vel, cells, rel_pos, m_w, m_s, xi, T_p,
-            delta_m_l, delta_Q_p,
-            dt, dt_sub, scale_dt, t_start, t_end,
-            Newton_iter, g_set,
-            dump_every, frame_every, path, start_time)
+for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
+    # trace particles in trace_ids every "trace_every" steps (dt_adv-steps)
+    if cnt % dump_every == 0:
+        # save also grid.T and grid.r_v
+        dump_particle_data(t, pos, vel, m_w, m_s, xi, grid_scalar_fields[0],
+                           grid_scalar_fields[4], path, start_time)
+    #     append_trace_locations_and_velocities(t, particle_list_by_id, trace_ids,
+    #                                           locations, velocities, trace_times)
+    # append "frame" of grid fields every "frame_every" steps,
+    # which is calc. from "no_frames"
+    if cnt % frame_every == 0:
+        # need grid.r_l, grid.mass_dry_inv
+        update_grid_r_l(m_w, xi, cells,
+                        grid_scalar_fields[5],
+                        grid_scalar_fields[8])
+        save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
+        # grid_save_times.append(int(t))
 
-# for cnt,t in enumerate(np.arange(t_start, t_end, dt)):
-#     # trace particles in trace_ids every "trace_every" steps (dt_adv-steps)
-#     if cnt % dump_every == 0:
-#         # save also grid.T and grid.r_v
-#         dump_particle_data(t, pos, vel, m_w, m_s, xi, grid_scalar_fields[0],
-#                            grid_scalar_fields[4], path, start_time)
-#     #     append_trace_locations_and_velocities(t, particle_list_by_id, trace_ids,
-#     #                                           locations, velocities, trace_times)
-#     # append "frame" of grid fields every "frame_every" steps,
-#     # which is calc. from "no_frames"
-#     if cnt % frame_every == 0:
-#         # need grid.r_l, grid.mass_dry_inv
-#         update_grid_r_l(m_w, xi, cells,
-#                         grid_scalar_fields[5],
-#                         grid_scalar_fields[8])
-#         save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
-#         # grid_save_times.append(int(t))
-
-#     # append a full save of particles and grid every interval full_save_time_interval
-#     # if cnt % full_save_every == 0:
-#     #     save_grid_and_particles_full(t, grid, particle_list_by_id, active_ids, removed_ids, path)
+    # append a full save of particles and grid every interval full_save_time_interval
+    # if cnt % full_save_every == 0:
+    #     save_grid_and_particles_full(t, grid, particle_list_by_id, active_ids, removed_ids, path)
        
-#     ### one timestep dt:
-#     # a) dt_sub is set
+    ### one timestep dt:
+    # a) dt_sub is set
 
-#     # b) for all particles: x_n+1/2 = x_n + h/2 v_n
-#     # removed_ids_step = []
-#     update_pos_from_vel_BC_PS(pos, vel, xi, grid_ranges, dt_sub_half)
-#     update_cells_and_rel_pos(pos, cells, rel_pos, grid_ranges, grid_steps)
-#     # for ID in active_ids:
-#     #     particle = particle_list_by_id[ID]
-#     #     removed = particle.update_location_from_velocity_BC_PS(dt_sub_half)
-#     #         # multiply by 1.0E-18 in the end
-#     #     if removed:
-#     #         removed_ids_step.append(ID)
-#     #         removed_ids.append(ID)
-#     #     particle.update_cell_and_relative_location()
+    # b) for all particles: x_n+1/2 = x_n + h/2 v_n
+    # removed_ids_step = []
+    update_pos_from_vel_BC_PS(pos, vel, xi, grid_ranges, dt_sub_half)
+    update_cells_and_rel_pos(pos, cells, rel_pos, grid_ranges, grid_steps)
+    # for ID in active_ids:
+    #     particle = particle_list_by_id[ID]
+    #     removed = particle.update_location_from_velocity_BC_PS(dt_sub_half)
+    #         # multiply by 1.0E-18 in the end
+    #     if removed:
+    #         removed_ids_step.append(ID)
+    #         removed_ids.append(ID)
+    #     particle.update_cell_and_relative_location()
 
-#     # for ID in removed_ids_step:
-#     #     active_ids.remove(ID)
+    # for ID in removed_ids_step:
+    #     active_ids.remove(ID)
     
-#     # tau += dt_sub_half
-# ################## check
-#     # c) advection change of r_v and T
-#     delta_r_v_ad = -dt_sub\
-#                    * compute_divergence_upwind(
-#                          grid_scalar_fields[4], grid_velocity,
-#                          grid_mass_flux_air_dry,
-#                          grid_no_cells, grid_steps,
-#                          flux_type = 1, boundary_conditions = [0, 1])\
-#                    * grid_scalar_fields[9]
-#                    # * compute_divergence_upwind(grid,
-#                    #                             grid.mixing_ratio_water_vapor,
-#                    #                             flux_type = 1,
-#                    #                             boundary_conditions = [0,1]) \
+    # tau += dt_sub_half
+################## check
+    # c) advection change of r_v and T
+    delta_r_v_ad = -dt_sub\
+                   * compute_divergence_upwind(
+                         grid_scalar_fields[4], grid_velocity,
+                         grid_mass_flux_air_dry,
+                         grid_no_cells, grid_steps,
+                         flux_type = 1, boundary_conditions = [0, 1])\
+                   * grid_scalar_fields[9]
+                   # * compute_divergence_upwind(grid,
+                   #                             grid.mixing_ratio_water_vapor,
+                   #                             flux_type = 1,
+                   #                             boundary_conditions = [0,1]) \
 
-#     delta_Theta_ad = -dt_sub\
-#                    * compute_divergence_upwind(
-#                          grid_scalar_fields[2], grid_velocity,
-#                          grid_mass_flux_air_dry,
-#                          grid_no_cells, grid_steps,
-#                          flux_type = 1, boundary_conditions = [0, 1])\
-#                      * grid_scalar_fields[9]
-#                      # * compute_divergence_upwind(grid,
-#                      #                             grid.potential_temperature,
-#                      #                             flux_type = 1,
-#                      #                             boundary_conditions = [0,1]) \
-#     # d) subloop 1
-#     # for n_h = 0, ..., N_h-1
+    delta_Theta_ad = -dt_sub\
+                   * compute_divergence_upwind(
+                         grid_scalar_fields[2], grid_velocity,
+                         grid_mass_flux_air_dry,
+                         grid_no_cells, grid_steps,
+                         flux_type = 1, boundary_conditions = [0, 1])\
+                     * grid_scalar_fields[9]
+                     # * compute_divergence_upwind(grid,
+                     #                             grid.potential_temperature,
+                     #                             flux_type = 1,
+                     #                             boundary_conditions = [0,1]) \
+    # d) subloop 1
+    # for n_h = 0, ..., N_h-1
     
     
     
-#     integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
-#                       grid_no_cells, grid_ranges, grid_steps, grid_volume_cell,
-#                       p_ref, p_ref_inv,
-#                       pos, vel, cells, rel_pos, m_w, m_s, xi, T_p,
-#                       delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
-#                       dt_sub, dt_sub, scale_dt, Newton_iter, g_set)
+    integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
+                      grid_no_cells, grid_ranges, grid_steps, grid_volume_cell,
+                      p_ref, p_ref_inv,
+                      pos, vel, cells, rel_pos, m_w, m_s, xi, T_p,
+                      delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                      dt_sub, dt_sub, scale_dt, Newton_iter, g_set)
     
-#     # for n_sub in range(scale_dt):
+    # for n_sub in range(scale_dt):
         
-#     #     # i) for all particles
-#     #     # updates delta_m_l and delta_Q_p
-#     #     # propagate_particles_subloop_step(grid,
-#     #     #                              pos, vel, cells, rel_pos, m_w, m_s, xi,
-#     #     #                              delta_m_l, delta_Q_p,
-#     #     #                              dt_sub, dt_sub_pos=dt_sub,
-#     #     #                              Newton_iter=Newton_iter, g_set=g_set)
-#     #     propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
-#     #                                      grid.velocity,
-#     #                                      grid.no_cells, grid.ranges, grid.steps,
-#     #                                      pos, vel, cells, rel_pos, m_w, m_s, xi,
-#     #                                      T_p,
-#     #                                      delta_m_l, delta_Q_p,
-#     #                                      dt_sub, dt_sub,
-#     #                                      Newton_iter, g_set)
+    #     # i) for all particles
+    #     # updates delta_m_l and delta_Q_p
+    #     # propagate_particles_subloop_step(grid,
+    #     #                              pos, vel, cells, rel_pos, m_w, m_s, xi,
+    #     #                              delta_m_l, delta_Q_p,
+    #     #                              dt_sub, dt_sub_pos=dt_sub,
+    #     #                              Newton_iter=Newton_iter, g_set=g_set)
+    #     propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
+    #                                      grid.velocity,
+    #                                      grid.no_cells, grid.ranges, grid.steps,
+    #                                      pos, vel, cells, rel_pos, m_w, m_s, xi,
+    #                                      T_p,
+    #                                      delta_m_l, delta_Q_p,
+    #                                      dt_sub, dt_sub,
+    #                                      Newton_iter, g_set)
         
-#     #     # propagate_particles_subloop(grid, particle_list_by_id, active_ids, removed_ids,
-#     #     #                             delta_m_l, delta_Q_p,
-#     #     #                             dt_sub, dt_sub_half, dt_sub, Newton_iter, g_set,
-#     #     #                             adiabatic_index,
-#     #     #                             accomodation_coefficient,
-#     #     #                             condensation_coefficient)
+    #     # propagate_particles_subloop(grid, particle_list_by_id, active_ids, removed_ids,
+    #     #                             delta_m_l, delta_Q_p,
+    #     #                             dt_sub, dt_sub_half, dt_sub, Newton_iter, g_set,
+    #     #                             adiabatic_index,
+    #     #                             accomodation_coefficient,
+    #     #                             condensation_coefficient)
 
-#     #     # ii) to vii)
-#     #     propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
-#     #                                     p_ref, p_ref_inv,
-#     #                                     delta_Theta_ad, delta_r_v_ad,
-#     #                                     delta_m_l, delta_Q_p,
-#     #                                     grid_volume_cell)
-#     #     # propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
-#     #     #                             delta_m_l, delta_Q_p)
+    #     # ii) to vii)
+    #     propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
+    #                                     p_ref, p_ref_inv,
+    #                                     delta_Theta_ad, delta_r_v_ad,
+    #                                     delta_m_l, delta_Q_p,
+    #                                     grid_volume_cell)
+    #     # propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
+    #     #                             delta_m_l, delta_Q_p)
         
-#     #     # grid_scalar_fields[0] = grid.temperature
-#     #     # grid_scalar_fields[1] = grid.pressure
-#     #     # grid_scalar_fields[2] = grid.potential_temperature
-#     #     # grid_scalar_fields[3] = grid.mass_density_air_dry
-#     #     # grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
-#     #     # grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
-#     #     # grid_scalar_fields[6] = grid.saturation
-#     #     # grid_scalar_fields[7] = grid.saturation_pressure
+    #     # grid_scalar_fields[0] = grid.temperature
+    #     # grid_scalar_fields[1] = grid.pressure
+    #     # grid_scalar_fields[2] = grid.potential_temperature
+    #     # grid_scalar_fields[3] = grid.mass_density_air_dry
+    #     # grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
+    #     # grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
+    #     # grid_scalar_fields[6] = grid.saturation
+    #     # grid_scalar_fields[7] = grid.saturation_pressure
 
-#     #     # grid_mat_prop[0] = grid.thermal_conductivity
-#     #     # grid_mat_prop[1] = grid.diffusion_constant
-#     #     # grid_mat_prop[2] = grid.heat_of_vaporization
-#     #     # grid_mat_prop[3] = grid.surface_tension
-#     #     # grid_mat_prop[4] = grid.specific_heat_capacity
-#     #     # grid_mat_prop[5] = grid.viscosity
-#     #     # grid_mat_prop[6] = grid.mass_density_fluid
-#     #     # viii) to ix) included in "propagate_particles_subloop"
-#     #     # delta_Q_p.fill(0.0)
-#     #     # delta_m_l.fill(0.0)
+    #     # grid_mat_prop[0] = grid.thermal_conductivity
+    #     # grid_mat_prop[1] = grid.diffusion_constant
+    #     # grid_mat_prop[2] = grid.heat_of_vaporization
+    #     # grid_mat_prop[3] = grid.surface_tension
+    #     # grid_mat_prop[4] = grid.specific_heat_capacity
+    #     # grid_mat_prop[5] = grid.viscosity
+    #     # grid_mat_prop[6] = grid.mass_density_fluid
+    #     # viii) to ix) included in "propagate_particles_subloop"
+    #     # delta_Q_p.fill(0.0)
+    #     # delta_m_l.fill(0.0)
         
-#     #     tau += dt_sub
-#     # subloop 1 end
-# ####################### CHECK
-#     # e) advection change of r_v and T for second subloop
-#     delta_r_v_ad = -2.0 * dt_sub\
-#                    * compute_divergence_upwind(
-#                          grid_scalar_fields[4], grid_velocity,
-#                          grid_mass_flux_air_dry,
-#                          grid_no_cells, grid_steps,
-#                          flux_type = 1, boundary_conditions = [0, 1])\
-#                    * grid_scalar_fields[9] - delta_r_v_ad
-#                    # * compute_divergence_upwind(grid,
-#                    #                             grid.mixing_ratio_water_vapor,
-#                    #                             flux_type = 1,
-#                    #                             boundary_conditions = [0,1]) \
+    #     tau += dt_sub
+    # subloop 1 end
+####################### CHECK
+    # e) advection change of r_v and T for second subloop
+    delta_r_v_ad = -2.0 * dt_sub\
+                   * compute_divergence_upwind(
+                         grid_scalar_fields[4], grid_velocity,
+                         grid_mass_flux_air_dry,
+                         grid_no_cells, grid_steps,
+                         flux_type = 1, boundary_conditions = [0, 1])\
+                   * grid_scalar_fields[9] - delta_r_v_ad
+                   # * compute_divergence_upwind(grid,
+                   #                             grid.mixing_ratio_water_vapor,
+                   #                             flux_type = 1,
+                   #                             boundary_conditions = [0,1]) \
 
-#     delta_Theta_ad = -2.0 * dt_sub\
-#                    * compute_divergence_upwind(
-#                          grid_scalar_fields[2], grid_velocity,
-#                          grid_mass_flux_air_dry,
-#                          grid_no_cells, grid_steps,
-#                          flux_type = 1, boundary_conditions = [0, 1])\
-#                      * grid_scalar_fields[9] - delta_Theta_ad
-#                      # * compute_divergence_upwind(grid,
-#                      #                             grid.potential_temperature,
-#                      #                             flux_type = 1,
-#                      #                             boundary_conditions = [0,1]) \
-#     # delta_r_v_ad = -2.0 * dt_sub\
-#     #                * compute_divergence_upwind(grid,
-#     #                                            grid.mixing_ratio_water_vapor,
-#     #                                            flux_type = 1,
-#     #                                            boundary_conditions = [0,1]) \
-#     #                 * grid.rho_dry_inv - delta_r_v_ad
+    delta_Theta_ad = -2.0 * dt_sub\
+                   * compute_divergence_upwind(
+                         grid_scalar_fields[2], grid_velocity,
+                         grid_mass_flux_air_dry,
+                         grid_no_cells, grid_steps,
+                         flux_type = 1, boundary_conditions = [0, 1])\
+                     * grid_scalar_fields[9] - delta_Theta_ad
+                     # * compute_divergence_upwind(grid,
+                     #                             grid.potential_temperature,
+                     #                             flux_type = 1,
+                     #                             boundary_conditions = [0,1]) \
+    # delta_r_v_ad = -2.0 * dt_sub\
+    #                * compute_divergence_upwind(grid,
+    #                                            grid.mixing_ratio_water_vapor,
+    #                                            flux_type = 1,
+    #                                            boundary_conditions = [0,1]) \
+    #                 * grid.rho_dry_inv - delta_r_v_ad
 
-#     # delta_Theta_ad = -2.0 * dt_sub\
-#     #                  * compute_divergence_upwind(grid,
-#     #                                              grid.potential_temperature,
-#     #                                              flux_type = 1,
-#     #                                              boundary_conditions = [0,1]) \
-#     #                 * grid.rho_dry_inv - delta_Theta_ad
+    # delta_Theta_ad = -2.0 * dt_sub\
+    #                  * compute_divergence_upwind(grid,
+    #                                              grid.potential_temperature,
+    #                                              flux_type = 1,
+    #                                              boundary_conditions = [0,1]) \
+    #                 * grid.rho_dry_inv - delta_Theta_ad
 
-#     # f) subloop 2
-#     # for n_h = 0, ..., N_h-2
-#     integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
-#                       grid_no_cells, grid_ranges, grid_steps, grid_volume_cell,
-#                       p_ref, p_ref_inv,
-#                       pos, vel, cells, rel_pos, m_w, m_s, xi, T_p,
-#                       delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
-#                       dt_sub, dt_sub, scale_dt-1, Newton_iter, g_set)
-# #     for n_sub in range(scale_dt - 1):
+    # f) subloop 2
+    # for n_h = 0, ..., N_h-2
+    integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
+                      grid_no_cells, grid_ranges, grid_steps, grid_volume_cell,
+                      p_ref, p_ref_inv,
+                      pos, vel, cells, rel_pos, m_w, m_s, xi, T_p,
+                      delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                      dt_sub, dt_sub, scale_dt-1, Newton_iter, g_set)
+#     for n_sub in range(scale_dt - 1):
         
-# #         # i) for all particles
-# #         # updates delta_m_l and delta_Q_p
-# #         propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
-# #                                             grid.velocity,
-# #                                             grid.no_cells, grid.ranges, grid.steps,
-# #                                             pos, vel, cells, rel_pos, m_w, m_s, xi,
-# #                                             T_p,
-# #                                             delta_m_l, delta_Q_p,
-# #                                             dt_sub, dt_sub,
-# #                                             Newton_iter, g_set)
+#         # i) for all particles
+#         # updates delta_m_l and delta_Q_p
+#         propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
+#                                             grid.velocity,
+#                                             grid.no_cells, grid.ranges, grid.steps,
+#                                             pos, vel, cells, rel_pos, m_w, m_s, xi,
+#                                             T_p,
+#                                             delta_m_l, delta_Q_p,
+#                                             dt_sub, dt_sub,
+#                                             Newton_iter, g_set)
 
-# #         # ii) to vii)
-# #         propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
-# #                                delta_m_l, delta_Q_p)
+#         # ii) to vii)
+#         propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
+#                                delta_m_l, delta_Q_p)
         
-# #         grid_scalar_fields[0] = grid.temperature
-# #         grid_scalar_fields[1] = grid.pressure
-# #         grid_scalar_fields[2] = grid.potential_temperature
-# #         grid_scalar_fields[3] = grid.mass_density_air_dry
-# #         grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
-# #         grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
-# #         grid_scalar_fields[6] = grid.saturation
-# #         grid_scalar_fields[7] = grid.saturation_pressure
+#         grid_scalar_fields[0] = grid.temperature
+#         grid_scalar_fields[1] = grid.pressure
+#         grid_scalar_fields[2] = grid.potential_temperature
+#         grid_scalar_fields[3] = grid.mass_density_air_dry
+#         grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
+#         grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
+#         grid_scalar_fields[6] = grid.saturation
+#         grid_scalar_fields[7] = grid.saturation_pressure
 
-# #         grid_mat_prop[0] = grid.thermal_conductivity
-# #         grid_mat_prop[1] = grid.diffusion_constant
-# #         grid_mat_prop[2] = grid.heat_of_vaporization
-# #         grid_mat_prop[3] = grid.surface_tension
-# #         grid_mat_prop[4] = grid.specific_heat_capacity
-# #         grid_mat_prop[5] = grid.viscosity
-# #         grid_mat_prop[6] = grid.mass_density_fluid
-# #         # viii) to ix) included in "propagate_particles_subloop"
-# # #         delta_Q_p.fill(0.0)
-# # #         delta_m_l.fill(0.0)
+#         grid_mat_prop[0] = grid.thermal_conductivity
+#         grid_mat_prop[1] = grid.diffusion_constant
+#         grid_mat_prop[2] = grid.heat_of_vaporization
+#         grid_mat_prop[3] = grid.surface_tension
+#         grid_mat_prop[4] = grid.specific_heat_capacity
+#         grid_mat_prop[5] = grid.viscosity
+#         grid_mat_prop[6] = grid.mass_density_fluid
+#         # viii) to ix) included in "propagate_particles_subloop"
+# #         delta_Q_p.fill(0.0)
+# #         delta_m_l.fill(0.0)
         
-# #         tau += dt_sub
-#     # subloop 2 end
+#         tau += dt_sub
+    # subloop 2 end
 
-#     # need to add x_n+1/2 -> x_n
-#     # i) for all particles -> only one for now
-#     # updates delta_m_l and delta_Q_p
-#     propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
-#                                      grid_velocity,
-#                                      grid_no_cells, grid_ranges, grid_steps,
-#                                      pos, vel, cells, rel_pos, m_w, m_s, xi,
-#                                      T_p,
-#                                      delta_m_l, delta_Q_p,
-#                                      dt_sub, dt_sub_half,
-#                                      Newton_iter, g_set)
-#     # propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
-#     #                                     grid.velocity,
-#     #                                     grid.no_cells, grid.ranges, grid.steps,
-#     #                                     pos, vel, cells, rel_pos, m_w, m_s, xi,
-#     #                                     T_p,
-#     #                                     delta_m_l, delta_Q_p,
-#     #                                     dt_sub, dt_sub_half,
-#     #                                     Newton_iter, g_set, ind)
+    # need to add x_n+1/2 -> x_n
+    # i) for all particles -> only one for now
+    # updates delta_m_l and delta_Q_p
+    propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                     grid_velocity,
+                                     grid_no_cells, grid_ranges, grid_steps,
+                                     pos, vel, cells, rel_pos, m_w, m_s, xi,
+                                     T_p,
+                                     delta_m_l, delta_Q_p,
+                                     dt_sub, dt_sub_half,
+                                     Newton_iter, g_set)
+    # propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
+    #                                     grid.velocity,
+    #                                     grid.no_cells, grid.ranges, grid.steps,
+    #                                     pos, vel, cells, rel_pos, m_w, m_s, xi,
+    #                                     T_p,
+    #                                     delta_m_l, delta_Q_p,
+    #                                     dt_sub, dt_sub_half,
+    #                                     Newton_iter, g_set, ind)
 
-#     # ii) to vii)
-#     propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
-#                                 p_ref, p_ref_inv,
-#                                 delta_Theta_ad, delta_r_v_ad,
-#                                 delta_m_l, delta_Q_p,
-#                                 grid_volume_cell)
-#     # propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
-#     #                        delta_m_l, delta_Q_p)
+    # ii) to vii)
+    propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                p_ref, p_ref_inv,
+                                delta_Theta_ad, delta_r_v_ad,
+                                delta_m_l, delta_Q_p,
+                                grid_volume_cell)
+    # propagate_grid_subloop_step(grid, delta_Theta_ad, delta_r_v_ad,
+    #                        delta_m_l, delta_Q_p)
 
-#     # grid_scalar_fields[0] = grid.temperature
-#     # grid_scalar_fields[1] = grid.pressure
-#     # grid_scalar_fields[2] = grid.potential_temperature
-#     # grid_scalar_fields[3] = grid.mass_density_air_dry
-#     # grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
-#     # grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
-#     # grid_scalar_fields[6] = grid.saturation
-#     # grid_scalar_fields[7] = grid.saturation_pressure
+    # grid_scalar_fields[0] = grid.temperature
+    # grid_scalar_fields[1] = grid.pressure
+    # grid_scalar_fields[2] = grid.potential_temperature
+    # grid_scalar_fields[3] = grid.mass_density_air_dry
+    # grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
+    # grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
+    # grid_scalar_fields[6] = grid.saturation
+    # grid_scalar_fields[7] = grid.saturation_pressure
 
-#     # grid_mat_prop[0] = grid.thermal_conductivity
-#     # grid_mat_prop[1] = grid.diffusion_constant
-#     # grid_mat_prop[2] = grid.heat_of_vaporization
-#     # grid_mat_prop[3] = grid.surface_tension
-#     # grid_mat_prop[4] = grid.specific_heat_capacity
-#     # grid_mat_prop[5] = grid.viscosity
-#     # grid_mat_prop[6] = grid.mass_density_fluid    
-#     # viii) to ix) included in "propagate_particles_subloop"
-# #    delta_Q_p.fill(0.0)
-# #    delta_m_l.fill(0.0)
+    # grid_mat_prop[0] = grid.thermal_conductivity
+    # grid_mat_prop[1] = grid.diffusion_constant
+    # grid_mat_prop[2] = grid.heat_of_vaporization
+    # grid_mat_prop[3] = grid.surface_tension
+    # grid_mat_prop[4] = grid.specific_heat_capacity
+    # grid_mat_prop[5] = grid.viscosity
+    # grid_mat_prop[6] = grid.mass_density_fluid    
+    # viii) to ix) included in "propagate_particles_subloop"
+#    delta_Q_p.fill(0.0)
+#    delta_m_l.fill(0.0)
     
-#     # tau += dt_sub_half
-#     # taus.append(tau)
+    # tau += dt_sub_half
+    # taus.append(tau)
     
-# t += dt
-# update_grid_r_l(m_w, xi, cells,
-#                grid_scalar_fields[5],
-#                grid_scalar_fields[8])
-# save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
-# # append_frame_to_arrays(t, grid, times,temps,Thetas,press,r_vs,r_ls,sats,
-# #                            particle_list_by_id, active_ids, trace_ids,
-# #                            trace_times, locations, velocities,
-# #                            path, start_time, save_to_file = True)
-# # MAIN SIMULATION LOOP END
+t += dt
+update_grid_r_l(m_w, xi, cells,
+               grid_scalar_fields[5],
+               grid_scalar_fields[8])
+save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
+# append_frame_to_arrays(t, grid, times,temps,Thetas,press,r_vs,r_ls,sats,
+#                            particle_list_by_id, active_ids, trace_ids,
+#                            trace_times, locations, velocities,
+#                            path, start_time, save_to_file = True)
+# MAIN SIMULATION LOOP END
 
-# # convert to arrays for plotting
-# # r_vs = np.array(r_vs)
-# # r_ls = np.array(r_ls)
-# # temps = np.array(temps)
-# # Thetas = np.array(Thetas)
-# # press = np.array(press)
-# # sats = np.array(sats)
-# # fields = [r_vs, r_ls, Thetas, temps, press, sats]
+# convert to arrays for plotting
+# r_vs = np.array(r_vs)
+# r_ls = np.array(r_ls)
+# temps = np.array(temps)
+# Thetas = np.array(Thetas)
+# press = np.array(press)
+# sats = np.array(sats)
+# fields = [r_vs, r_ls, Thetas, temps, press, sats]
 
-# # locations = np.array(locations)
-# # velocities = np.array(velocities)
-
-
-
-#%%
+# locations = np.array(locations)
+# velocities = np.array(velocities)
 
 # full save at t_end
 
@@ -1089,7 +1110,7 @@ print(end_time - start_time)
 
 #%% PLOTTING
 
-from analysis import plot_field_frames
+from evaluation import plot_field_frames
 from file_handling import load_grid_scalar_fields
 
 folder_load = "190512/grid_75_75_spcm_4_4/"

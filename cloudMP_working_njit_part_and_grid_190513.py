@@ -266,7 +266,7 @@ ns = [10,1000,1000]
 print("no_spt =",len(xi))
 compare_functions_run_time(funcs, pars, rs, ns, globals_ = globals())
 #%% test subploop steps njit
-from analysis import compare_functions_run_time
+from evaluation import compare_functions_run_time
 # from grid import update_grid_r_l 
 from file_handling import dump_particle_data, save_grid_scalar_fields
 from integration import update_pos_from_vel_BC_PS,\
@@ -465,7 +465,7 @@ print("no_spt =",len(xi))
 compare_functions_run_time(funcs, pars, rs, ns, globals_ = globals())
 
 #%% dump_particle_data
-from analysis import compare_functions_run_time
+from evaluation import compare_functions_run_time
 from grid import update_grid_r_l
 from file_handling import dump_particle_data, save_grid_scalar_fields
 # from integration import update_particle_locations_from_velocities_BC_PS,\
@@ -488,8 +488,7 @@ dt_sub = 0.1 # s
 dt_sub_half = 0.5 * dt_sub
 
 dump_particle_data(t, pos, vel, m_w, m_s, xi,
-                   grid.temperature, grid.mixing_ratio_water_vapor, path)#,
-                   #datetime.now())
+                   grid.temperature, grid.mixing_ratio_water_vapor, path)
 
 pt_data_scalar = np.load(path + "particle_scalar_data_" + str(int(t)) + ".npy")
 pt_data_vector = np.load(path + "particle_vector_data_" + str(int(t)) + ".npy")
@@ -498,7 +497,46 @@ print(np.shape(pt_data_scalar))
 print(np.shape(pt_data_vector))
 print(grd_data.shape)
 
+#%% update_cells_and_rel_pos
+from evaluation import compare_functions_run_time
+from grid import update_grid_r_l, compute_cell_and_relative_position
+from file_handling import dump_particle_data
+from integration import update_pos_from_vel_BC_PS,\
+                        update_cells_and_rel_pos,\
+                        compute_divergence_upwind
 
+folder_load = "190508/grid_10_10_spct_4/"
+# folder_load = "190507/test1/"
+# folder_load = "190508/grid_75_75_spct_20/"
+path = simdata_path + folder_load
+
+grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids = \
+    load_grid_and_particles_full(0, path)
+R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s,
+                                        grid.temperature[tuple(cells)] )
+R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
+
+c2, rel_pos = compute_cell_and_relative_position(pos, grid.ranges, grid.steps)
+
+t = 0.0
+dt_sub = 0.1 # s
+dt_sub_half = 0.5 * dt_sub
+
+cells_bef = np.copy(cells)
+rel_pos_bef = np.copy(rel_pos)
+
+for cnt in range(1000):
+    update_pos_from_vel_BC_PS(pos, vel, xi, grid.ranges, dt_sub_half)
+    update_cells_and_rel_pos(pos, cells, rel_pos, grid.ranges, grid.steps)
+
+dif_c = cells - cells_bef
+dif_rp = rel_pos - rel_pos_bef
+# print(cells - cells_bef)
+# print(rel_pos - rel_pos_bef)
+
+print(dif_c[dif_c>0])
+print(dif_rp[dif_rp>1E-10])
+# print(dif_rp)
 
 #%% SET SIMULATION PARAMETERS
 
@@ -710,7 +748,6 @@ grid_mat_prop[6] = grid.mass_density_fluid
 #%% MAIN SIMULATION LOOP
 from integration import propagate_particles_subloop_step
 from integration import integrate_subloop, simulate_np, simulate
-
 ####################################
 # MAIN SIMULATION LOOP:
 path = simdata_path + folder_save
@@ -1089,7 +1126,7 @@ print(end_time - start_time)
 
 #%% PLOTTING
 
-from analysis import plot_field_frames
+from evaluation import plot_field_frames
 from file_handling import load_grid_scalar_fields
 
 folder_load = "190512/grid_75_75_spcm_4_4/"
