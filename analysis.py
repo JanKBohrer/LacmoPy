@@ -44,30 +44,34 @@ def compare_functions_run_time(functions, pars, rs, ns, globals_=globals()):
 
 # traj = [ pos0, pos1, pos2, .. ]
 # where pos0 = [pos_x_0, pos_z_0] is pos at time0
-# wher pos_x_0 = [x0, x1, x2, ...]
-# trace_ids = [ID0, ID1, ...]
-        
-def plot_particle_trajectories(traj, grid, trace_ids, no_ticks=[6,6], MS=1.0):
+# where pos_x_0 = [x0, x1, x2, ...]
+# selection = [n1, n2, ...] --> take only these indic. from the list of traj !!!
+def plot_particle_trajectories(traj, grid, selection=None,
+                               no_ticks=[6,6], figsize=(8,8),
+                               MS=1.0, arrow_every=5,
+                               ARROW_SCALE=12,ARROW_WIDTH=0.005, 
+                               TTFS = 10, LFS=10,TKFS=10,fig_name=None,
+                               t_start=0, t_end=3600):
     centered_u_field = ( grid.velocity[0][0:-1,0:-1]
                          + grid.velocity[0][1:,0:-1] ) * 0.5
     centered_w_field = ( grid.velocity[1][0:-1,0:-1]
                          + grid.velocity[1][0:-1,1:] ) * 0.5
     
     # title font size (pt)
-    TTFS = 10
-    # labelsize (pt)
-    LFS = 10
-    # ticksize (pt)
-    TKFS = 10
+    # TTFS = 10
+    # # labelsize (pt)
+    # LFS = 10
+    # # ticksize (pt)
+    # TKFS = 10
     
-    ARROW_SCALE = 12
-    ARROW_WIDTH = 0.005
+    # ARROW_SCALE = 12
+    # ARROW_WIDTH = 0.005
     # no_major_xticks = 6
     # no_major_yticks = 6
     # tick_every_x = grid.no_cells[0] // (no_major_xticks - 1)
     # tick_every_y = grid.no_cells[1] // (no_major_yticks - 1)
     
-    arrow_every = 5
+    # arrow_every = 5
     
     # part_every = 2
     # loc_every = 1
@@ -76,6 +80,7 @@ def plot_particle_trajectories(traj, grid, trace_ids, no_ticks=[6,6], MS=1.0):
                             arrow_every//2::arrow_every]
     pos_z = grid.centers[1][arrow_every//2::arrow_every,
                             arrow_every//2::arrow_every]
+    # print(pos_x)
     # pos_x = grid.centers[0][arrow_every//2::arrow_every,
     #                         arrow_every//2::arrow_every]/1000
     # pos_z = grid.centers[1][arrow_every//2::arrow_every,
@@ -95,8 +100,10 @@ def plot_particle_trajectories(traj, grid, trace_ids, no_ticks=[6,6], MS=1.0):
                              arrow_every//2::arrow_every]
     
     tick_ranges = grid.ranges
-    fig, ax = plt.subplots(figsize=(8,8))
-    for ID in trace_ids:
+    fig, ax = plt.subplots(figsize=figsize)
+    if selection == None: selection=range(len(traj[0,0]))
+    # print(selection)
+    for ID in selection:
         x = traj[:,0,ID]
         z = traj[:,1,ID]
         ax.plot(x,z,"o", markersize = MS)
@@ -108,15 +115,100 @@ def plot_particle_trajectories(traj, grid, trace_ids, no_ticks=[6,6], MS=1.0):
     ax.set_yticks( np.linspace( tick_ranges[1,0], tick_ranges[1,1],
                                 no_ticks[1] ) )
     ax.tick_params(axis='both', which='major', labelsize=TKFS)
-    ax.set_xlabel('horizontal position (km)', fontsize = LFS)
-    ax.set_ylabel('vertical position (km)', fontsize = LFS)
+    ax.set_xlabel('horizontal position (m)', fontsize = LFS)
+    ax.set_ylabel('vertical position (m)', fontsize = LFS)
     ax.set_title(
-    'Air velocity field and arbitrary \n particle trajectories ($t = $ 1 h)',
-        fontsize = LFS, y = 1.04)
+    'Air velocity field and arbitrary particle trajectories\nfrom $t = $'\
+    + str(t_start) + " s to " + str(t_end) + " s",
+        fontsize = TTFS, y = 1.04)
     ax.grid(color='gray', linestyle='dashed', zorder = 0)    
     # ax.grid()
+    fig.tight_layout()
+    if fig_name is not None:
+        fig.savefig(fig_name)
 
 #%% PARTICLE SIZE SPECTRA
+
+def plot_pos_vel_pt(pos, vel, grid,
+                    figsize=(8,8), no_ticks = [6,6],
+                    MS = 1.0, ARRSCALE=2, fig_name=None):
+    # u_g = 0.5 * ( grid.velocity[0,0:-1] + grid.velocity[0,1:] )
+    # v_g = 0.5 * ( grid.velocity[1,:,0:-1] + grid.velocity[1,:,1:] )
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.plot(grid.corners[0], grid.corners[1], "x", color="red", markersize=MS)
+    ax.plot(pos[0],pos[1], "o", color="k", markersize=2*MS)
+    ax.quiver(*pos, *vel, scale=ARRSCALE, pivot="mid")
+    # ax.quiver(*grid.centers, u_g[:,0:-1], v_g[0:-1],
+              # scale=ARRSCALE, pivot="mid", color="red")
+    # ax.quiver(grid.corners[0], grid.corners[1] + 0.5*grid.steps[1],
+    #           grid.velocity[0], np.zeros_like(grid.velocity[0]),
+    #           scale=0.5, pivot="mid", color="red")
+    # ax.quiver(grid.corners[0] + 0.5*grid.steps[0], grid.corners[1],
+    #           np.zeros_like(grid.velocity[1]), grid.velocity[1],
+    #           scale=0.5, pivot="mid", color="blue")
+    x_min = grid.ranges[0,0]
+    x_max = grid.ranges[0,1]
+    y_min = grid.ranges[1,0]
+    y_max = grid.ranges[1,1]
+    ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
+    ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
+    # ax.set_xticks(grid.corners[0][:,0])
+    # ax.set_yticks(grid.corners[1][0,:])
+    ax.set_xticks(grid.corners[0][:,0], minor = True)
+    ax.set_yticks(grid.corners[1][0,:], minor = True)
+    # plt.minorticks_off()
+    # plt.minorticks_on()
+    ax.grid()
+    fig.tight_layout()
+    # ax.grid(which="minor")
+    # plt.show()
+    if fig_name is not None:
+        fig.savefig(fig_name)
+        
+# pos = [pos0, pos1, pos2, ..] where pos0[0] = [x0, x1, x2, x3, ..] etc
+def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
+                    figsize=(8,8), no_ticks = [6,6],
+                    MS = 1.0, ARRSCALE=2, fig_name=None):
+    # u_g = 0.5 * ( grid.velocity[0,0:-1] + grid.velocity[0,1:] )
+    # v_g = 0.5 * ( grid.velocity[1,:,0:-1] + grid.velocity[1,:,1:] )
+    no_rows = len(pos_data)
+    fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
+    for i,ax in enumerate(axes):
+        pos = pos_data[i]
+        vel = vel_data[i]
+        ax.plot(grid.corners[0], grid.corners[1], "x", color="red",
+                markersize=MS)
+        ax.plot(pos[0],pos[1], "o", color="k", markersize=2*MS)
+        ax.quiver(*pos, *vel, scale=ARRSCALE, pivot="mid")
+        # ax.quiver(*grid.centers, u_g[:,0:-1], v_g[0:-1],
+                  # scale=ARRSCALE, pivot="mid", color="red")
+        # ax.quiver(grid.corners[0], grid.corners[1] + 0.5*grid.steps[1],
+        #           grid.velocity[0], np.zeros_like(grid.velocity[0]),
+        #           scale=0.5, pivot="mid", color="red")
+        # ax.quiver(grid.corners[0] + 0.5*grid.steps[0], grid.corners[1],
+        #           np.zeros_like(grid.velocity[1]), grid.velocity[1],
+        #           scale=0.5, pivot="mid", color="blue")
+        x_min = grid.ranges[0,0]
+        x_max = grid.ranges[0,1]
+        y_min = grid.ranges[1,0]
+        y_max = grid.ranges[1,1]
+        ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
+        ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
+        # ax.set_xticks(grid.corners[0][:,0])
+        # ax.set_yticks(grid.corners[1][0,:])
+        ax.set_xticks(grid.corners[0][:,0], minor = True)
+        ax.set_yticks(grid.corners[1][0,:], minor = True)
+        # plt.minorticks_off()
+        # plt.minorticks_on()
+        ax.grid()
+        ax.set_title("t = " + str(save_times[i]) + " s")
+        ax.set_xlabel('x (m)')
+        ax.set_xlabel('z (m)')
+    fig.tight_layout()
+    # ax.grid(which="minor")
+    # plt.show()
+    if fig_name is not None:
+        fig.savefig(fig_name)
         
 # @njit()
 def sample_masses(m_w, m_s, xi, cells, target_cell, no_cells_x, no_cells_z):
@@ -217,7 +309,8 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
     if no_cells_z % 2 == 0: no_cells_z += 1
     
     V_an = no_cells_x * no_cells_z * grid.volume_cell * 1.0E6
-    # V_an = (no_neighbors_x * 2 + 1) * (no_neighbors_z * 2 + 1) * grid.volume_cell * 1.0E6
+    # V_an = (no_neighbors_x * 2 + 1) * (no_neighbors_z * 2 + 1)
+    # * grid.volume_cell * 1.0E6
     
     no_bins = 40
     no_bins_s = 30
@@ -238,8 +331,11 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
     
     h1, bins1 = np.histogram( log_R, bins=no_bins,  weights=multi/V_an )
     h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,  weights=multi/V_an )
-    # h1, bins1 = np.histogram( log_R, bins=no_bins, range=(R_min_log,R_max_log), weights=multi/V_an )
-    # h2, bins2 = np.histogram( log_Rs, bins=no_bins_s, range=(R_min_log, Rs_max_log), weights=multi/V_an )
+    # h1, bins1 = np.histogram(log_R, bins=no_bins,
+    #                          range=(R_min_log,R_max_log), weights=multi/V_an)
+    # h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,
+    #                           range=(R_min_log, Rs_max_log),
+    #                           weights=multi/V_an )
     bins1 = 10 ** bins1
     bins2 = 10 ** bins2
     d_bins1 = np.diff(bins1)
@@ -270,7 +366,7 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
     
     fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
                            figsize = cm2inch(10.8,9.3),
-                           # figsize = (figsize_x * no_cols, figsize_y * no_rows),
+                           # figsize = (figsize_x*no_cols, figsize_y*no_rows),
     #                        sharey=True,
     #                        sharex=True,
                              )
@@ -296,10 +392,12 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
     #        edgecolor = (1,0,0,1.0),
           )
     LW = 2
-    ax.plot(np.repeat(bins1,2)[:], np.hstack( [[0.001], np.repeat(h1,2)[:], [0.001] ] ),
+    ax.plot(np.repeat(bins1,2)[:],
+            np.hstack( [[0.001], np.repeat(h1,2)[:], [0.001] ] ),
             linewidth = LW, zorder = 6, label = "wet")
-    ax.plot(np.repeat(bins2,2)[:], np.hstack( [[0.001], np.repeat(h2,2)[:], [0.001] ] ), linewidth = LW,
-           label = "dry")
+    ax.plot(np.repeat(bins2,2)[:],
+            np.hstack( [[0.001], np.repeat(h2,2)[:], [0.001] ] ),
+            linewidth = LW, label = "dry")
     
     
     ax.tick_params(axis='both', which='major', labelsize=TKFS, length = 5)

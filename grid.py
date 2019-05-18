@@ -37,8 +37,6 @@ p_ref = 101325.0 # Pa
 def pressure_field_exponential(x_, y_):
     return p_ref * np.exp( -y_ * c.earth_gravity * c.molar_mass_air_dry\
                            / ( T_ref * c.universal_gas_constant ) )
-# @njit()
-# @vectorize( "(int64,int64,float64,float64)(float64,float64,float64,float64,float64,float64)" )
 # @vectorize()
 # def compute_cell(x, y, dx, dy):
 #     i = int(math.floor(x/dx))
@@ -51,7 +49,8 @@ def compute_cell_and_relative_position(pos, grid_ranges, grid_steps):
     y = pos[1]
     cells = np.empty( (2,len(x)) , dtype = np.int64)
     rel_pos = np.empty( (2,len(x)) , dtype = np.float64 )
-    rel_pos[0] = x - grid_ranges[0,0] # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+    # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+    rel_pos[0] = x - grid_ranges[0,0]
     rel_pos[1] = y - grid_ranges[1,0]
     cells[0] = np.floor(x/grid_steps[0]).astype(np.int64)
     cells[1] = np.floor(y/grid_steps[1]).astype(np.int64)
@@ -292,15 +291,16 @@ class Grid:
 #     For now, we have a rect. grid with constant gridsteps step_x, step_y
 #     for all cells, i.e. the cell number can be calc. from a position (x,y)
     def compute_cell(self, x, y):
-        
-        x = x - self.ranges[0,0] # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+        # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+        x = x - self.ranges[0,0]
         y = y - self.ranges[1,0]
 
         return np.array(
             [math.floor(x/self.steps[0]) , math.floor(y/self.steps[1])])
     
     def compute_cell_and_relative_location(self, x, y):
-        x = x - self.ranges[0,0] # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+        # gridranges = arr [[x_min, x_max], [y_min, y_max]]
+        x = x - self.ranges[0,0] 
         y = y - self.ranges[1,0]
         i = np.floor(x/self.steps[0]).astype(int)
         j = np.floor(y/self.steps[1]).astype(int)
@@ -336,8 +336,8 @@ class Grid:
     def set_analytic_velocity_field_and_discretize(self, u_field_, v_field_):
         self.analytic_velocity_field = [u_field_, v_field_]
         self.velocity =\
-            np.array([ self.analytic_velocity_field[0](*self.surface_centers[0]),
-              self.analytic_velocity_field[1](*self.surface_centers[1]) ])
+            np.array([self.analytic_velocity_field[0](*self.surface_centers[0]),
+              self.analytic_velocity_field[1](*self.surface_centers[1])])
     
     def interpolate_velocity_from_location_linear(self, x, y):
         n, rloc = self.compute_cell_and_relative_location(x, y)
@@ -350,9 +350,11 @@ class Grid:
 # NOTE: this is adjusted for PBC in x and solid BC in z
     def interpolate_velocity_from_cell_bilinear(self, i, j, weight_x, weight_y):
         if ( j == 0 and weight_y <= 0.5):
-            u, v = self.interpolate_velocity_from_cell_linear(i, j, weight_x, weight_y)
+            u, v = self.interpolate_velocity_from_cell_linear(
+                            i, j, weight_x, weight_y)
         elif ( j == (self.no_cells[1] - 1) and weight_y >= 0.5):
-            u, v = self.interpolate_velocity_from_cell_linear(i, j, weight_x, weight_y)
+            u, v = self.interpolate_velocity_from_cell_linear(
+                            i, j, weight_x, weight_y)
         else:
             if weight_y > 0.5:
                 u = bilinear_weight(i, j,
@@ -543,9 +545,10 @@ class Grid:
     
     
     # velocity = [ velocity_x[i,j], velocity_z[i,j] ] for 2D
-    def plot_velocity_field_at_cell_surface(self, no_major_xticks=10, no_major_yticks=10, 
-                            no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0,
-                            ARROW_WIDTH= 0.002, gridopt = 'minor'):
+    def plot_velocity_field_at_cell_surface(
+            self, no_major_xticks=10, no_major_yticks=10, 
+            no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0,
+            ARROW_WIDTH= 0.002, gridopt = 'minor'):
         # FILL IN START
 
         # say the x-grid ranges from x_min to x_max and x_range = x_max-x_min
@@ -564,11 +567,13 @@ class Grid:
         # FILL IN END
 
         # assume we have 21 cells and we want about 10 labeled x-ticks
-        # i.e. we will label cell the left corner of cell 0,2,4,6,8,10,12,14,16,18,20,22
+        # i.e. we will label cell the left corner
+        # of cell 0,2,4,6,8,10,12,14,16,18,20,22
         # for 20 cells, we will label "-" of 0,2,4,6,8,10,12,14,16,18,20
 
         if no_major_xticks < self.no_cells[0]:
-            # take no_major_xticks - 1 to get the right spacing in dimension of full cells widths
+            # take no_major_xticks - 1 to get the right spacing
+            # in dimension of full cells widths
             tick_every_x = self.no_cells[0] // (no_major_xticks - 1)
         else:
             tick_every_x = 1
@@ -655,17 +660,22 @@ class Grid:
         
 ######################################################################
 
-    def plot_velocity_field_centered(self, no_major_xticks=10, no_major_yticks=10, 
-                            no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0, ARROW_WIDTH= 0.002, gridopt = 'minor'):
+    def plot_velocity_field_centered(
+            self, no_major_xticks=10, no_major_yticks=10, 
+            no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0,
+            ARROW_WIDTH= 0.002, gridopt = 'minor'):
         
-        centered_u_field = ( self.velocity[0][0:-1,0:-1] + self.velocity[0][1:,0:-1] ) * 0.5
-        centered_w_field = ( self.velocity[1][0:-1,0:-1] + self.velocity[1][0:-1,1:] ) * 0.5
+        centered_u_field = ( self.velocity[0][0:-1,0:-1]\
+                             + self.velocity[0][1:,0:-1] ) * 0.5
+        centered_w_field = ( self.velocity[1][0:-1,0:-1]\
+                             + self.velocity[1][0:-1,1:] ) * 0.5
         
 #        centered_velocity_field = [cent ]
         
-        self.plot_external_field_list_output_centered( [centered_u_field, centered_w_field],
-                                                       no_major_xticks, no_major_yticks,
-                                                       no_arrows_u, no_arrows_v, ARROW_SCALE, ARROW_WIDTH, gridopt)       
+        self.plot_external_field_list_output_centered(
+                 [centered_u_field, centered_w_field],
+                 no_major_xticks, no_major_yticks,
+                 no_arrows_u, no_arrows_v, ARROW_SCALE, ARROW_WIDTH, gridopt)       
 
     def plot_mass_flux_field_centered(self, no_major_xticks=10,
                                       no_major_yticks=10, 
@@ -1139,7 +1149,6 @@ class Grid:
         ax.set_xlabel('horiz. pos. [m]')
         ax.set_ylabel('vert. pos. [m]')
 
-
     def plot_field_and_trajectories_with_particle_size(self,
             f_x, f_y, trajectories, particle_sizes,
             no_major_xticks=10, no_major_yticks=10, 
@@ -1247,7 +1256,6 @@ class Grid:
         ax.set_ylabel('vert. pos. [m]')
         ax.set_title(fig_title, fontsize = 9)
         fig.savefig(fig_name)
-
     
     def print_info(self):
         print('')
@@ -1256,8 +1264,3 @@ class Grid:
         print(self.ranges)
         print('number of cells:', self.no_cells)
         print('grid steps:', self.steps)
-
-      
-
-
-

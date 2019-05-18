@@ -112,7 +112,8 @@ def compute_density_particle_jit(mass_fraction_solute_, temperature_):
 #   then rel dev of the two density functions is < 0.1 %
 #    return np.where( mass_fraction_solute_ < w_s_rho_p,
 #                    compute_density_water(temperature_),
-#                    compute_density_NaCl_solution(mass_fraction_solute_, temperature_))
+#                    compute_density_NaCl_solution(mass_fraction_solute_,
+#                                                  temperature_))
 
 # @njit("UniTuple(float64[::1], 3)(float64[::1], float64[::1], float64[::1])")
 @njit()
@@ -127,7 +128,8 @@ def compute_R_p_w_s_rho_p(m_w, m_s, T_p):
 #     rho_p = compute_density_particle(w_s, T_p)
 #     return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
 
-# @njit("UniTuple(float64[::1], 3)(float64[::1], float64[::1], float64[::1])", parallel = True)
+# @njit("UniTuple(float64[::1], 3)(float64[::1], float64[::1], float64[::1])",
+#       parallel = True)
 @njit(parallel = True)
 def compute_R_p_w_s_rho_p_par(m_w, m_s, T_p):
     m_p = m_w + m_s
@@ -206,7 +208,8 @@ def compute_vant_Hoff_factor_NaCl_np(mass_fraction_solute_):
 #    return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
 #    return vant_Hoff_factor_NaCl_const
     return np.where(mass_fraction_solute_ < mf_cross_NaCl,
-                    vant_Hoff_factor_NaCl_const * np.ones_like(mass_fraction_solute_),
+                    vant_Hoff_factor_NaCl_const\
+                    * np.ones_like(mass_fraction_solute_),
                     compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_))
 
 @vectorize("float64(float64)")
@@ -243,11 +246,14 @@ def compute_particle_reynolds_number(radius_, velocity_dev_, fluid_density_,
 
 # use continuous version for now...  
 def compute_water_activity_mf(mass_fraction_solute_, vant_Hoff_):
-#    vant_Hoff = np.where( mass_fraction_solute_ < mf_cross,
-#                          2.0,
-#                          self.compute_vant_Hoff_factor_fit_init(mass_fraction_solute_))
-#    return (1 - mass_fraction_solute_)\
-#         / ( 1 - ( 1 - molar_mass_ratio_w_NaCl * compute_vant_Hoff_factor_NaCl(mass_fraction_solute_) ) * mass_fraction_solute_ )
+#    vant_Hoff =\
+#        np.where(mass_fraction_solute_ < mf_cross,
+#                 2.0,
+#                 self.compute_vant_Hoff_factor_fit_init(mass_fraction_solute_))
+#    return ( 1 - mass_fraction_solute_ )\
+#           / ( 1 - (1 - molar_mass_ratio_w_NaCl\
+#                       * compute_vant_Hoff_factor_NaCl(mass_fraction_solute_))\
+#                   * mass_fraction_solute_ )
     return (1 - mass_fraction_solute_)\
          / ( 1 - ( 1 - molar_mass_ratio_w_NaCl * vant_Hoff_ )
                  * mass_fraction_solute_ )
@@ -482,7 +488,7 @@ def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
 #     #     w_s_act, S_act, flag, nofc  = \
 #     #         fminbound(lambda w: -compute_kelvin_raoult_term_NaCl_mf(
 #     #                                 w, ambient_temperature_, m_s),
-#     #                   x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
+#     #                 x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
 #     #     S_act = -S_act
 #     #     return w_s_init, w_s_act, S_act
 #     # else:
@@ -502,7 +508,8 @@ def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
 ### mass rate
     
 # Size corrections Fukuta (both in mu!)
-# size corrections in droplet growth equation of Fukuta 1970 used in Szumowski 1998 
+# size corrections in droplet growth equation of Fukuta 1970
+# used in Szumowski 1998 
 # we use adiabatic index = 1.4 = 7/5 -> 1/1.4 = 5/7 = 0.7142857142857143
 # also accommodation coeff = 1.0
 # and c_v_air = c_v_air_dry_NTP
@@ -542,9 +549,11 @@ def compute_l_beta_lin(T_amb, D_v):
 # result without unit -> conversion from mu 
 @vectorize("float64(float64,float64,float64,float64)")
 def compute_kelvin_argument(R_p, T_p, rho_p, sigma_w):
-    return 2.0E6 * sigma_w / ( c.specific_gas_constant_water_vapor * T_p * rho_p * R_p )
+    return 2.0E6 * sigma_w\
+                   / ( c.specific_gas_constant_water_vapor * T_p * rho_p * R_p )
 
-#@vectorize( "float64[::1](float64[::1], float64[::1], float64[::1], float64[::1])")
+#@vectorize(
+#   "float64[::1](float64[::1], float64[::1], float64[::1], float64[::1])")
 @vectorize( "float64(float64, float64, float64, float64)")
 def compute_kelvin_term(R_p, T_p, rho_p, sigma_w):
     return np.exp(compute_kelvin_argument(R_p, T_p, rho_p, sigma_w))
@@ -555,63 +564,95 @@ def compute_kelvin_term_par(R_p, T_p, rho_p, sigma_w):
 
 @vectorize( "float64(float64, float64, float64)")
 def compute_water_activity(m_w, m_s, w_s):
-    return m_w / ( m_w + molar_mass_ratio_w_NaCl * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
+    return m_w / ( m_w + molar_mass_ratio_w_NaCl\
+                   * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
 
-@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64)")
+@vectorize(
+    "float64(float64, float64, float64, float64, float64, float64, float64)")
 def compute_equilibrium_saturation(m_w, m_s, w_s, R_p, rho_p, T, sigma_w):
-    return compute_water_activity(m_w, m_s, w_s) * compute_kelvin_term(R_p, rho_p, T, sigma_w)
+    return compute_water_activity(m_w, m_s, w_s)\
+           * compute_kelvin_term(R_p, rho_p, T, sigma_w)
 
-# @vectorize( "float64(float64, float64, float64, float64, float64, float64, float64)", target = "parallel")
+# @vectorize(
+#   "float64(float64, float64, float64, float64, float64, float64, float64)",
+#   target = "parallel")
 # def compute_equilibrium_saturation_par(m_w, m_s, w_s, R_p, rho_p, T, sigma_w):
-    # return compute_water_activity(m_w, m_s, w_s) * compute_kelvin_term(R_p, rho_p, T, sigma_w)
+    # return compute_water_activity(m_w, m_s, w_s)\
+    #        * compute_kelvin_term(R_p, rho_p, T, sigma_w)
 
 # in SI
-@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64)")
+@vectorize(
+"float64(\
+float64, float64, float64, float64, float64, float64, float64, float64)")
 def compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v  ):
-    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb  )
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb)
     c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
     l_alpha = compute_l_alpha_lin(T_amb, p_amb, K)
     l_beta = compute_l_beta_lin(T_amb, D_v)
     return 1.0E-6 * ( c1 * S_eq * (R_p + l_alpha) + c2 * (R_p + l_beta) )
 
-@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64)", target = "parallel")
+@vectorize(
+"float64(\
+float64, float64, float64, float64, float64, float64, float64, float64)",
+target = "parallel")
 def compute_gamma_denom_par(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v  ):
-    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb  )
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb)
     c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
     l_alpha = compute_l_alpha_lin(T_amb, p_amb, K)
     l_beta = compute_l_beta_lin(T_amb, D_v)
     return 1.0E-6 * ( c1 * S_eq * (R_p + l_alpha) + c2 * (R_p + l_beta) )
 
-### the functions mass_rate, mass_rate_deriv and mass_rate_and_deriv are checked with the old versions.. -> rel err 1E-12 (numeric I guess)
-### the linearization of l_alpha, l_beta has small effects for small radii, but the coefficients are somewhat arbitrary anyways.
+### the functions mass_rate, mass_rate_deriv and mass_rate_and_deriv
+# were checked with the old versions.. -> rel err 1E-12 (numeric I guess)
+### the linearization of l_alpha, l_beta has small effects
+# for small radii, but the coefficients are somewhat arbitrary anyways.
 # in fg/s = 1.0E-18 kg/s
-@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64)")
+@vectorize(
+"float64(\
+float64, float64, float64, float64, float64, float64, float64, float64,\
+float64, float64, float64, float64, float64, float64)")
 def compute_mass_rate(m_w, m_s, w_s, R_p, T_p, rho_p,
                       T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
-    S_eq = compute_equilibrium_saturation(m_w, m_s, w_s, R_p, T_p, rho_p, sigma_w)
-    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq) / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
+    S_eq = compute_equilibrium_saturation(m_w, m_s, w_s, R_p,
+                                          T_p, rho_p, sigma_w)
+    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq)\
+           / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
 
-@vectorize("float64(float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64)",
-           target = "parallel")
-def compute_mass_rate_par(m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
-    S_eq = compute_equilibrium_saturation(m_w, m_s, w_s, R_p, T_p, rho_p, sigma_w)
-    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq) / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
+@vectorize(
+"float64(float64, float64, float64, float64, float64, float64, float64,\
+float64, float64, float64, float64, float64, float64, float64)",
+target = "parallel")
+def compute_mass_rate_par(m_w, m_s, w_s, R_p, T_p, rho_p,
+                          T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
+    S_eq = compute_equilibrium_saturation(m_w, m_s, w_s, R_p,
+                                          T_p, rho_p, sigma_w)
+    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq)\
+           / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
 
-#@vectorize( "float64(float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64)")
-def compute_mass_rate_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
+#@vectorize(
+# "float64(float64, float64, float64, float64, float64, float64, float64,\
+# float64, float64, float64, float64, float64, float64, float64)")
+def compute_mass_rate_derivative_np(
+        m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb, S_amb, e_s_amb,
+        L_v, K, D_v, sigma_w):
     R_p_SI = 1.0E-6 * R_p # in SI: meter   
     
     # thermal size correction in SI
     l_alpha_plus_R_p = 1.0E-6 * (R_p + compute_l_alpha_lin(T_amb, p_amb, K))
-#    l_alpha_plus_R_p = 1.0E-6 * (R_p + ( c_alpha_1 + c_alpha_2 * (T_amb - T_alpha_0) ) * K / p_amb)
+#    l_alpha_plus_R_p =\
+#        1.0E-6 * (R_p + ( c_alpha_1 + c_alpha_2 * (T_amb - T_alpha_0) )\
+#                        * K / p_amb)
     # diffusive size correction in SI
     l_beta_plus_R_p = 1.0E-6 * (R_p + compute_l_beta_lin(T_amb, D_v) )
-#    l_beta_plus_R_p = 1.0E-6 * (R_p + c_beta_1 * ( 1.0 + c_beta_2 * (T_amb - T_alpha_0) ) * D_v )
+#    l_beta_plus_R_p =\
+#        1.0E-6 * (R_p + c_beta_1\
+#                        * ( 1.0 + c_beta_2 * (T_amb - T_alpha_0) ) * D_v )
        
     m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
     # dont use piecewise for now to avoid discontinuity in density...
     drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
-                       * (par_sol_dens[1] + 2.0 * par_sol_dens[3] * w_s + par_sol_dens[4] * T_p )
+                       * (par_sol_dens[1] + 2.0 * par_sol_dens[3] * w_s\
+                          + par_sol_dens[4] * T_p )
 
     dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
     dR_p_dm = dR_p_dm_over_R_p * R_p_SI
@@ -629,24 +670,27 @@ def compute_mass_rate_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb
         
     S_eq = m_w * h1_inv * np.exp(eps_k)
     
-    dSeq_dm = S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho ) \
-                      - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s) * h1_inv * 1.0E18)
+    dSeq_dm =\
+        S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho )\
+                - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
+                  * h1_inv * 1.0E18)
     
-    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb  )
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb)
     c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
-    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) # in SI : m^2 s / kg
+    # in SI : m^2 s / kg
+    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) 
     
     f1f3 = 4.0 * np.pi * R_p_SI * R_p_SI * f3 # SI
     
-    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm * c2
+    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1\
+             + dR_p_dm * c2
 #    f2 = S_amb - S_eq
-    return f1f3 * ( ( S_amb - S_eq ) * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+    return f1f3 * ( ( S_amb - S_eq )\
+                    * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
 compute_mass_rate_derivative =\
 njit()(compute_mass_rate_derivative_np)
-# njit("float64[::1](float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])")(compute_mass_rate_derivative_np)
 compute_mass_rate_derivative_par =\
 njit(parallel = True)(compute_mass_rate_derivative_np)
-# njit("float64[::1](float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])", parallel = True)(compute_mass_rate_derivative_np)
 
 # return mass rate in fg/s and mass rate deriv in SI: 1/s
 def compute_mass_rate_and_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p,
@@ -662,7 +706,8 @@ def compute_mass_rate_and_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p,
     m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
     # dont use piecewise for now to avoid discontinuity in density...
     drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
-                       * (par_sol_dens[1] + 2.0 * par_sol_dens[3] * w_s + par_sol_dens[4] * T_p )
+                       * (par_sol_dens[1] + 2.0 * par_sol_dens[3] * w_s\
+                          + par_sol_dens[4] * T_p )
 
     dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
     dR_p_dm = 1.0E-6 * dR_p_dm_over_R_p * R_p
@@ -671,39 +716,42 @@ def compute_mass_rate_and_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p,
     
     vH = compute_vant_Hoff_factor_NaCl(w_s)
     dvH_dws = compute_dvH_dws(w_s)
-#    dvH_dws = np.where(w_s < mf_cross_NaCl, np.zeros_like(w_s), np.ones_like(w_s) * par_vH_NaCl[1])
+#    dvH_dws = np.where(w_s < mf_cross_NaCl, np.zeros_like(w_s),
+#                       np.ones_like(w_s) * par_vH_NaCl[1])
     # dont convert masses here
     h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
         
     S_eq = m_w * h1_inv * np.exp(eps_k)
     
-    dSeq_dm = S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho ) \
-                      - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s) * h1_inv * 1.0E18)
+    dSeq_dm =\
+        S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho )\
+                - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
+                  * h1_inv * 1.0E18)
     
     c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb )
     c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
-    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) # in SI : m^2 s / kg
+    # in SI : m^2 s / kg
+    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) 
     
     f1f3 = 4.0 * np.pi * R_p * R_p * f3 # in 1E-12
     
-    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm * c2
+    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm*c2
     # use name S_eq = f2
     S_eq = S_amb - S_eq
 #    f2 = S_amb - S_eq
     # NOTE: here S_eq = f2 = S_amb - S_eq
-#    return 1.0E-12 * f1f3 * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
-    return 1.0E6 * f1f3 * S_eq, 1.0E-12 * f1f3 * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
-#    return 1.0E6 * f1f3 * f2, 1.0E-12 * f1f3 * ( f2 * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+#    return 1.0E-12 * f1f3\
+#           * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+    return 1.0E6 * f1f3 * S_eq,\
+           1.0E-12 * f1f3\
+           * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+#    return 1.0E6 * f1f3 * f2,\
+#           1.0E-12 * f1f3\
+#           * ( f2 * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
 compute_mass_rate_and_derivative =\
 njit()(compute_mass_rate_and_derivative_np)
-# njit("UniTuple(float64[::1], 2)(float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])")(compute_mass_rate_and_derivative_np)
 compute_mass_rate_and_derivative_par =\
 njit(parallel = True)(compute_mass_rate_and_derivative_np)
-# njit("UniTuple(float64[::1], 2)(float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1])", parallel = True)(compute_mass_rate_and_derivative_np)
-
-
-
-
  
 ##############################################################################
 ### integration
@@ -792,13 +840,17 @@ njit(parallel = True)(compute_mass_rate_and_derivative_np)
 #         mass_water_new +=  mass_rate * dt\
 #                            / ( 1.0 - 0.5 * mass_rate_derivative * dt )
         
-#         mass_water_effl = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
+#         mass_water_effl = mass_solute_\
+#                               * (1.0 / mass_fraction_solute_effl - 1.0)
         
-# #        mass_fraction_solute_new = mass_solute_ / (mass_water_new + mass_solute_)
+# #        mass_fraction_solute_new =\
+# #            mass_solute_ / (mass_water_new + mass_solute_)
         
-# #        if (mass_fraction_solute_new > mass_fraction_solute_effl or mass_water_new < 0.0):
+# #        if (mass_fraction_solute_new > mass_fraction_solute_effl
+# #            or mass_water_new < 0.0):
 #         if (mass_water_new  < mass_water_effl):
-# #            mass_water_new = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
+# #            mass_water_new = mass_solute_\
+# #                             * (1.0 / mass_fraction_solute_effl - 1.0)
 #             mass_water_new = mass_water_effl
 #             dt_left = -1.0
 # #            print('w_s_effl reached')
@@ -809,7 +861,7 @@ njit(parallel = True)(compute_mass_rate_and_derivative_np)
 # Newton method with no_iter iterations, the derivative is calculated only once
 # IN WORK: might return gamma and not gamma0 for particle heat,
 # but this is not important right now
-def compute_delta_water_liquid_and_mass_rate_implicit_Newton_np(
+def compute_dml_and_gamma_impl_Newton_lin_np(
         dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
     
@@ -845,12 +897,10 @@ def compute_delta_water_liquid_and_mass_rate_implicit_Newton_np(
         mass_new = np.maximum( m_w_effl, mass_new )
         
     return mass_new - m_w, gamma0
-compute_delta_water_liquid_and_mass_rate_implicit_Newton =\
-njit()(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
-# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)")(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
-compute_delta_water_liquid_and_mass_rate_implicit_Newton_par =\
-njit(parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
-# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)", parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_np)
+compute_dml_and_gamma_impl_Newton_lin =\
+    njit()(compute_dml_and_gamma_impl_Newton_lin_np)
+compute_dml_and_gamma_impl_Newton_lin_par =\
+njit(parallel = True)(compute_dml_and_gamma_impl_Newton_lin_np)
 
 # NEW 04.05.19
 # Full Newton method with no_iter iterations,
@@ -902,12 +952,10 @@ def compute_dml_and_gamma_impl_Newton_full_np(
     return mass_new - m_w, gamma0
 compute_dml_and_gamma_impl_Newton_full =\
 njit()(compute_dml_and_gamma_impl_Newton_full_np)
-# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)")(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
 compute_dml_and_gamma_impl_Newton_full_par =\
 njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
-# njit("UniTuple(float64[::1], 2)(float64, int64, float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64[::1], float64, float64, float64, float64, float64, float64, float64, float64)", parallel = True)(compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_np)
 
-
+#%% NOT UPDATED WITH NUMBA
 # NOT UPDATED WITH NUMBA
 # def compute_delta_water_liquid_and_mass_rate_implicit_Newton_full_const_l(
 #         dt_sub_, Newton_iter_, mass_water_, mass_solute_,
@@ -952,7 +1000,8 @@ njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
 # #    else:
 # #        denom_inv = 10.0
      
-#     mass_new = np.maximum(m_w_effl, mass_water_ + dt_sub_ * gamma0 * denom_inv)
+#     mass_new = np.maximum(m_w_effl,
+#                           mass_water_ + dt_sub_ * gamma0 * denom_inv)
     
 #     for cnt in range(no_iter_-1):
 #         m_p = mass_new + mass_solute_
@@ -1045,7 +1094,8 @@ njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
 #         w_s = mass_solute_ / m_p
 #         rho = compute_density_particle(w_s, temperature_particle_)
 #         R = compute_radius_from_mass(m_p, rho)
-#         gamma, dgamma_dm = compute_mass_rate_and_mass_rate_derivative_Szumowski(
+#         gamma, dgamma_dm =\
+#             compute_mass_rate_and_mass_rate_derivative_Szumowski(
 #                                mass_new, mass_solute_,
 #                                m_p, w_s, R,
 #                                temperature_particle_, rho,
@@ -1114,19 +1164,21 @@ njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
 #                         accomodation_coefficient_,
 #                         condensation_coefficient_, 
 #                         heat_of_vaporization_)
-#         mass_rate_derivative = compute_mass_rate_derivative_Szumowski_numerical(
-#                                                   mass_water_new, mass_solute_, #  in femto gram
-#                                                   temperature_particle_,
-#                                                   amb_temp_, amb_press_,
-#                                                   amb_sat_, amb_sat_press_,
-#                                                   diffusion_constant_,
-#                                                   thermal_conductivity_air_,
-#                                                   specific_heat_capacity_air_,
-#                                                   adiabatic_index_,
-#                                                   accomodation_coefficient_,
-#                                                   condensation_coefficient_, 
-#                                                   heat_of_vaporization_
-#                                                   )
+#         mass_rate_derivative =\
+#             compute_mass_rate_derivative_Szumowski_numerical(
+                  # in femto gram
+                  # mass_water_new, mass_solute_,
+                  # temperature_particle_,
+                  # amb_temp_, amb_press_,
+                  # amb_sat_, amb_sat_press_,
+                  # diffusion_constant_,
+                  # thermal_conductivity_air_,
+                  # specific_heat_capacity_air_,
+                  # adiabatic_index_,
+                  # accomodation_coefficient_,
+                  # condensation_coefficient_, 
+                  # heat_of_vaporization_
+                  # )
 #         if (verbose):
 #             print('mass_rate, mass_rate_derivative:')
 #             print(mass_rate, mass_rate_derivative)
@@ -1162,7 +1214,8 @@ njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
 # during one timestep using linear implicit euler
 # masses in femto gram
 # NOT UPDATED WITH NUMBA
-# def compute_delta_water_liquid_implicit_linear( dt_, mass_water_, mass_solute_,
+# def compute_delta_water_liquid_implicit_linear( dt_, mass_water_,
+#                                                 mass_solute_,
 #                                                 temperature_particle_,
 #                                                 amb_temp_, amb_press_,
 #                                                 amb_sat_, amb_sat_press_,
@@ -1185,19 +1238,19 @@ njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
 #     surface_tension_ = compute_surface_tension_water(temperature_particle_)
     
 #     while (dt_left > 0.0):
-# #        mass_rate = compute_mass_rate_from_water_mass_Szumowski(
-# #                                mass_water_new, mass_solute_, #  in femto gram
-# #                                                  temperature_particle_,
-# #                                                  amb_temp_, amb_press_,
-# #                                                  amb_sat_, amb_sat_press_,
-# #                                                  diffusion_constant_,
-# #                                                  thermal_conductivity_air_,
-# #                                                  specific_heat_capacity_air_,
-# #                                                  adiabatic_index_,
-# #                                                  accomodation_coefficient_,
-# #                                                  condensation_coefficient_, 
-# #                                                  heat_of_vaporization_
-# #                                                      )
+# #        mass_rate =\
+# #            compute_mass_rate_from_water_mass_Szumowski(
+                    # mass_water_new, mass_solute_, #  in femto gram
+                    #                   temperature_particle_,
+                    #                   amb_temp_, amb_press_,
+                    #                   amb_sat_, amb_sat_press_,
+                    #                   diffusion_constant_,
+                    #                   thermal_conductivity_air_,
+                    #                   specific_heat_capacity_air_,
+                    #                   adiabatic_index_,
+                    #                   accomodation_coefficient_,
+                    #                   condensation_coefficient_, 
+                    #                   heat_of_vaporization_)
 #         m_p = mass_water_new + mass_solute_
 #         w_s = mass_solute_ / m_p
 #         rho = compute_density_particle(w_s, temperature_particle_)
@@ -1230,7 +1283,8 @@ njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
 #         mass_water_new += mass_rate * dt\
 #                           / ( 1.0 - mass_rate_derivative * dt )
         
-#         mass_water_effl = mass_solute_ * (1.0 / mass_fraction_solute_effl - 1.0)
+#         mass_water_effl = mass_solute_\
+#                           * (1.0 / mass_fraction_solute_effl - 1.0)
         
 # #        mass_fraction_solute_new =\
 # #  mass_solute_ / (mass_water_new + mass_solute_)
@@ -1246,20 +1300,17 @@ njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
     
 #     return mass_water_new - mass_water_
 
-########################
-# NOT UPDATED WITH NUMBA
-# def compute_mass_rate_from_surface_partial_pressure(  amb_temp_,
-#                                                       amb_sat_, amb_sat_press_,
-#                                                       diffusion_constant_,
-#                                                       radius_,
-#                                                       surface_partial_pressure_,
-#                                                       particle_temperature_,
-#                                                       ):
+# def compute_mass_rate_from_surface_partial_pressure(amb_temp_,
+#                                                     amb_sat_, amb_sat_press_,
+#                                                     diffusion_constant_,
+#                                                     radius_,
+#                                                     surface_partial_pressure_,
+#                                                     particle_temperature_,
+#                                                     ):
 #     return 4.0E12 * np.pi * radius_ * diffusion_constant_\
 #            / c.specific_gas_constant_water_vapor \
 #            * ( amb_sat_ * amb_sat_press_ / amb_temp_
 #                - surface_partial_pressure_ / particle_temperature_ )
-   ########################        
            
 
 

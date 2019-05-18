@@ -8,14 +8,12 @@ Created on Mon Apr 29 11:31:49 2019
 
 import numpy as np
 import math
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import sys
 
 import constants as c
 from grid import Grid
-from grid import interpolate_velocity_from_cell_bilinear,\
-                 interpolate_velocity_from_position_bilinear,\
-                 compute_cell_and_relative_position
+from grid import interpolate_velocity_from_cell_bilinear
 from microphysics import compute_mass_from_radius,\
                          compute_initial_mass_fraction_solute_NaCl,\
                          compute_radius_from_mass,\
@@ -26,18 +24,13 @@ from microphysics import compute_mass_from_radius,\
 from atmosphere import compute_kappa_air_moist,\
                        compute_diffusion_constant,\
                        compute_thermal_conductivity_air,\
-                       compute_specific_heat_capacity_air_moist,\
                        compute_heat_of_vaporization,\
                        compute_saturation_pressure_vapor_liquid,\
                        compute_pressure_vapor,\
-                       compute_pressure_ideal_gas,\
                        epsilon_gc, compute_surface_tension_water,\
                        kappa_air_dry,\
-                       compute_beta_without_liquid,\
-                       compute_temperature_from_potential_temperature_moist
-from file_handling import save_particles_to_files,\
-                          save_grid_and_particles_full,\
-                          load_grid_and_particles_full
+                       compute_beta_without_liquid
+from file_handling import save_grid_and_particles_full
     
 # IN WORK: what do you need from grid.py?
 # from grid import *
@@ -335,7 +328,8 @@ def generate_random_positions(grid, no_spc, seed):
 #     return pos, rad, weights
 
 #%% COMPUTE VERTICAL PROFILES WITHOUT LIQUID
-def compute_profiles_T_p_rhod_S_without_liquid(z_, z_0_, p_0_, p_ref_, Theta_l_, r_tot_, SCALE_FACTOR_ = 1.0 ):
+def compute_profiles_T_p_rhod_S_without_liquid(
+        z_, z_0_, p_0_, p_ref_, Theta_l_, r_tot_, SCALE_FACTOR_ = 1.0 ):
 
 #    dz = grid_.steps[1] * SCALE_FACTOR_
 #    z_0 = grid_.ranges[1,0]
@@ -358,19 +352,22 @@ def compute_profiles_T_p_rhod_S_without_liquid(z_, z_0_, p_0_, p_ref_, Theta_l_,
     beta_tot = compute_beta_without_liquid(r_tot, Theta_l) # 1/m
 
     # in K
-    T_0 = compute_temperature_from_potential_temperature_moist(Theta_l, p_0, p_ref, r_tot)
+    # T_0 = compute_temperature_from_potential_temperature_moist(
+    #           Theta_l, p_0, p_ref, r_tot)
 
     #################################################
 
     # analytically integrated profiles
-    # for hydrostatic system with constant water vapor mixing ration r_v = r_tot and r_l = 0
+    # for hydrostatic system with constant water vapor mixing ratio
+    # r_v = r_tot and r_l = 0
     T_over_Theta_l = p_0_over_p_ref_to_kappa_tot - beta_tot * (z_ - z_0)
     T = T_over_Theta_l * Theta_l
     p_over_p_ref = T_over_Theta_l**(kappa_tot_inv)
     p = p_over_p_ref * p_ref
     rho_dry = p * beta_tot \
             / (T_over_Theta_l * c.earth_gravity * kappa_tot )
-    S = compute_pressure_vapor( rho_dry * r_tot, T ) / compute_saturation_pressure_vapor_liquid(T)
+    S = compute_pressure_vapor( rho_dry * r_tot, T )\
+        / compute_saturation_pressure_vapor_liquid(T)
             
 #    def compute_T_over_Theta_l_init( z_ ):
 #        return p_0_over_p_ref_to_kappa_tot - beta_tot * (z_ - z_0)
@@ -378,7 +375,7 @@ def compute_profiles_T_p_rhod_S_without_liquid(z_, z_0_, p_0_, p_ref_, Theta_l_,
 #        return compute_T_over_Theta_l_init(z_)**(kappa_tot_inv)
 #    def compute_density_dry_init( z_ ):
 #        return compute_p_over_p_ref_init(z_) * p_ref * beta_tot \
-#                / (compute_T_over_Theta_l_init( z_ ) * earth_gravity * kappa_tot )
+#                / (compute_T_over_Theta_l_init( z_ )*earth_gravity*kappa_tot)
 #    def compute_saturation_init( z_ ):
 #        T = compute_T_over_Theta_l_init( z_ ) * Theta_l
 #        return \
@@ -510,7 +507,8 @@ def initialize_grid_and_particles(
     ##############################################
     # 3. Go through levels from the ground and place particles 
     ##############################################
-    print("\n### particle placement and saturation adjustment for each z-level ###")
+    print(
+      "\n### particle placement and saturation adjustment for each z-level ###")
     print('timestep for sat. adj.: dt_init = ', dt_init)
     
     # start at level 0 (from surface!)
@@ -551,7 +549,7 @@ def initialize_grid_and_particles(
     # number of super particles
     no_spcm = np.array(no_spcm) # input: no super part. per cell and mode
     no_spct = np.sum(no_spcm) # no super part. per cell (total)
-    no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
+    # no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
     
     ### generate particle radii and weights for the whole grid
     R_s, weights_R_s = generate_random_radii_multimodal_lognorm(
@@ -602,7 +600,8 @@ def initialize_grid_and_particles(
     #     S_prev = S_env_init[n_prev]
     #     r_v_prev = r_v_env_init[n_prev]
     
-        # initial guess at borders of new level from analytical integration without liquid: r_v = r_tot
+        # initial guess at borders of new level from analytical
+        # integration without liquid: r_v = r_tot
         # with boundary condition P(z_bot) = p_bot is set
         # calc values for bottom of level
         T_bot, p_bot, rho_dry_bot, S_bot = \
@@ -622,7 +621,8 @@ def initialize_grid_and_particles(
         # ambient properties for this level
         # diffusion_constant = compute_diffusion_constant( T_avg, p_avg )
         # thermal_conductivity_air = compute_thermal_conductivity_air(T_avg)
-        # specific_heat_capacity_air = compute_specific_heat_capacity_air_moist(r_v_avg)
+        # specific_heat_capacity_air =\
+        # compute_specific_heat_capacity_air_moist(r_v_avg)
         # adiabatic_index = 1.4
         # accomodation_coefficient = 1.0
         # condensation_coefficient = 0.0415
@@ -764,12 +764,6 @@ def initialize_grid_and_particles(
         # need to define criterium -> use relative change in liquid water
         while ( np.abs(dm_l_level/mass_water_liquid_level) > 1e-5
                 and iter_cnt < iter_cnt_limit ):
-    #         print('level ', j, ', iter_cnt = ', iter_cnt,
-    #               ', S_avg = ', S_avg,
-    #               '\ndm_l_level = ', dm_l_level, ', m_l_level = ', mass_water_liquid_level,
-    #               '\ndm_l_level/mass_water_liquid_level = ', dm_l_level/mass_water_liquid_level)
-    #         print('level ', j, ', iter_cnt = ', iter_cnt, '\nabs(dm_l_level/mass_water_liquid_level) = ', np.abs(dm_l_level/mass_water_liquid_level))
-            #         print('np.abs(dm_l_level/mass_water_liquid_level) = ', np.abs(dm_l_level/mass_water_liquid_level))
             ## loop over particles in level:
             dm_l_level = 0.0
             dm_p_level = 0.0
@@ -780,18 +774,12 @@ def initialize_grid_and_particles(
             L_v = compute_heat_of_vaporization(T_avg)
             sigma_w = compute_surface_tension_water(T_avg)
     
-            # set arbitrary maximum saturation during spin up to avoid overshoot at 
-            # high saturations, since S > 1.05 can happen initially
-#            S_avg2 = np.min([S_avg, S_init_max ])
-    #         print('S_avg2 = ', S_avg2, '\n')
-            # VERY IMPORTANT: use 'ID_j' (or similar) NOT 'ID' as loop variable,
-            # because ID is still a running counter in the outer 'j' loop
-            
-            # we have m_s, m_p, 
-            
             for i in range(grid.no_cells[0]):
                 cell = (i,j)
                 e_s_avg = grid.saturation_pressure[cell]
+                # set arbitrary maximum saturation during spin up to
+                # avoid overshoot
+                # at high saturations, since S > 1.05 can happen initially
                 S_avg = grid.saturation[cell]
                 S_avg2 = np.min([S_avg, S_init_max ])
 
@@ -917,8 +905,6 @@ def initialize_grid_and_particles(
               ', m_l_level = ', mass_water_liquid_level,
               '\ndm_l_level/mass_water_liquid_level = ',
               dm_l_level/mass_water_liquid_level)
-    #     print('level ', j, ', iter_cnt = ', iter_cnt,
-    #           '\ndm_l_level/mass_water_liquid_level = ', dm_l_level/mass_water_liquid_level)
         
         mass_water_liquid_levels.append(mass_water_liquid_level)
         mass_water_vapor_levels.append( mass_water_vapor_level )
@@ -945,20 +931,9 @@ def initialize_grid_and_particles(
         grid.pressure[i] = p_env_init_center
         grid.temperature[i] = T_env_init_center
         grid.mass_density_air_dry[i] = rho_dry_env_init_center
-#        grid.mixing_ratio_water_vapor[i] = r_v_env_init_center
-    #     grid.mixing_ratio_water_liquid[i] = r_l_env_init_center # see below
-#        grid.saturation[i] = S_env_init_center
         
-    # we need a special treatment for r_l because, the atmosphere is generated 
-    # as z-profile only, but the particle sizes vary also in x-direction 
-#    for par in particle_list_by_id:
-#        cell = tuple(par.cell)
-#        grid.mixing_ratio_water_liquid[cell] += par.mass_water * par.multiplicity
-#    
-#    grid.mixing_ratio_water_liquid *= 1.0E-18 / (grid.volume_cell * grid.mass_density_air_dry)
     p_dry = grid.mass_density_air_dry * c.specific_gas_constant_air_dry\
             * grid.temperature
-            
     
     grid.potential_temperature = grid.temperature\
                                  * ( 1.0E5 / p_dry )**kappa_air_dry
@@ -1024,8 +999,9 @@ def initialize_grid_and_particles(
     # and rho_dry_env_init_bottom is a 1D array of shape (Nz,)
     # each element of mass_flux_air_dry[0] (which is itself an array of dim Nz)
     # is divided BY THE FULL ARRAY 'rho_dry_env_init_bottom' BUT
-    # we need to add a dummy density for the center in a cell above the highest cell,
-    # because velocity has the same dimensions as grid.corners and not grid.centers
+    # we need to add a dummy density for the center in a cell above
+    # the highest cell, because velocity has
+    # the same dimensions as grid.corners and not grid.centers
     grid.velocity[0] = grid.mass_flux_air_dry[0] / rho_dry_env_init_bottom
     grid.velocity[1] =\
         grid.mass_flux_air_dry[1]\
@@ -1083,31 +1059,9 @@ def initialize_grid_and_particles(
                                                       grid.velocity,
                                                       grid.no_cells)
     
-    # for particle_ in particle_list_by_id:
-    #     cell = tuple(particle_.cell)
-    #     particle_.velocity = np.array(grid.interpolate_velocity_from_cell_bilinear(*particle_.cell, *particle_.relative_location ))
-    #     particle_.temperature = grid.temperature[cell]
-    #     particle_.mass_fraction_solute = particle_.mass_solute / particle_.mass
-    #     particle_.update_physical_properties()
-    #     particle_.radius = compute_radius_from_mass(particle_.mass, particle_.density)
-    #     particle_.equilibrium_temperature = particle_.temperature
-        
-#    grid_file_list = ["grid_basics.txt", "arr_file1.npy", "arr_file2.npy"]
-#    grid_file_list = [path + s for s in grid_file_list  ]
-#    particle_file = "stored_particles.txt"
-#    particle_file = path + particle_file
-    
     active_ids = list(range(len(m_s_flat)))
     removed_ids = []
     
-#    print(grid_file_list)
-#    print(particle_file)
-#    
-#    save_grid_to_files(grid, 0.0, *grid_file_list)
-#    # grid = load_grid_from_files(*grid_file_list)
-#    save_particle_list_to_files(particle_list_by_id, active_ids, removed_ids, particle_file, active_ids_file, removed_ids_file)
-    # print("active_ids")
-    # print(active_ids)
     t = 0
     save_grid_and_particles_full(t, grid, pos, cell_list, vel,
                                  m_w_flat, m_s_flat, xi_flat,
@@ -1117,8 +1071,8 @@ def initialize_grid_and_particles(
         sys.stdout = sys.__stdout__
         log_handle.close()
     
-    return grid, pos, cell_list, vel, m_w_flat, m_s_flat, xi_flat, active_ids, removed_ids
-
+    return grid, pos, cell_list, vel, m_w_flat, m_s_flat, xi_flat,\
+           active_ids, removed_ids
 
 #%% testing (commented)
 # particles: pos, vel, masses, multi,
@@ -1150,7 +1104,7 @@ def initialize_grid_and_particles(
 # j_max = 0.6
 # j_max = compute_j_max(j_max, grid)
 # grid.mass_flux_air_dry = np.array(
-#     compute_initial_mass_flux_air_dry_kinematic_2D_ICMW_2012_case1(grid, j_max))
+#   compute_initial_mass_flux_air_dry_kinematic_2D_ICMW_2012_case1(grid, j_max))
 # grid.velocity = grid.mass_flux_air_dry / c.mass_density_air_dry_NTP
 
 

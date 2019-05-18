@@ -28,7 +28,8 @@ kappa_air_dry = c.specific_gas_constant_air_dry\
 def compute_kappa_air_moist(mixing_ratio_vapor_):
     return kappa_air_dry * ( 1 - 0.289 * mixing_ratio_vapor_ )
 
-epsilon_gc = c.specific_gas_constant_air_dry / c.specific_gas_constant_water_vapor
+epsilon_gc = c.specific_gas_constant_air_dry\
+             / c.specific_gas_constant_water_vapor
 
 epsilon_gc_prime = 1.0 / epsilon_gc - 1
 
@@ -169,7 +170,7 @@ def compute_p_dry_over_p_ref(grid_mass_density_air_dry,
              * c.specific_gas_constant_air_dry * p_ref_inv )**kappa_factor
 # def compute_p_dry_over_p_ref(grid):
 #     return ( grid.mass_density_air_dry * grid.potential_temperature \
-#              * c.specific_gas_constant_air_dry * grid.p_ref_inv )**kappa_factor
+#              * c.specific_gas_constant_air_dry*grid.p_ref_inv )**kappa_factor
 
 # Theta/T from Theta and rho_dry 
 # NOTE THAT kappa factor 2 is negative

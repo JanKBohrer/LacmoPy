@@ -8,6 +8,92 @@ Created on Sat May 11 17:24:41 2019
 # import index
 import numpy as np
 from numba import njit
+
+#%%
+a = 20
+print(type(a))
+
+#%%
+
+A = np.reshape( np.arange(12) , (3,4))
+
+print(A)
+print(A[1,np.newaxis])
+
+print(np.vstack((A[0],A))) 
+print(np.vstack((A[0, np.newaxis],A))) 
+print(np.vstack( (A[0],A[1]) ) ) 
+
+#%%
+
+@njit()
+def divide(arr, div):
+    return A / div
+
+print(divide(A,2))
+
+#%%
+def stack_arr(A):
+    return np.vstack( (A[0],A[1]) )
+
+print(A)
+print(stack_arr(A))
+
+
+#%%
+
+A = np.arange(10)
+B = np.arange(10,20)
+C = np.arange(20,30)
+
+ind = np.array((1,4,5))
+
+D = np.array((A[ind],B[ind],C[ind]))
+
+print(D)
+
+D[0] = A[ind]
+print(D)
+A[1] = 20
+print(A)
+print(D)
+
+pos = np.array([[0,1,2,3,4,5],[6,7,8,9,10,11]])
+print(pos)
+print(pos[:,ind])
+
+#%%
+
+print(A)
+print(A[np.array([1,4,8])])
+
+As = A[np.array([1,4,8])]
+
+print(A)
+print(As)
+
+As[0] = 20
+
+print(A)
+print(As)
+
+#%%
+ind = np.array((1,4,8))
+
+@njit()
+def return_slice(arr, ind):
+    return arr[ind]
+
+As = return_slice(A,ind)
+
+print(A)
+print(As)
+print(type(As))
+
+As[0] = 20
+print(A)
+print(As)
+
 #%%
 
 A = np.arange(10)
