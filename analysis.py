@@ -490,7 +490,9 @@ def plot_scalar_field_frames(grid, fields,
                                     vmin=field_min, vmax=field_max,
                                     edgecolor="face", zorder=1)
             CS.cmap.set_under("white")
-            cbar = fig.colorbar(CS, ax=ax)
+            if idx_f == 1:
+                cbar = fig.colorbar(CS, ax=ax, extend = "min")
+            else: cbar = fig.colorbar(CS, ax=ax)
             cbar.ax.tick_params(labelsize=TKFS)
             ax.set_title(
                 field_names[idx_f] + ' (' + units[idx_f] + '), t = '

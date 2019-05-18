@@ -1078,8 +1078,8 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi,
     grid.viscosity = grid_mat_prop[5]
     grid.mass_density_fluid = grid_mat_prop[6]
     
-    active_ids = np.where(xi == 0)[0]
-    removed_ids = np.nonzero(xi)
+    active_ids = np.nonzero(xi)[0]
+    removed_ids = np.where(xi == 0)[0]
     
     save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                                      active_ids, removed_ids,

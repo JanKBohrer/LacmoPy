@@ -510,13 +510,25 @@ class Grid:
         for i in range(nrows):
             for j in range(ncols):
                 field = fields[n]
-                field_min = field.min()
+                if n == 7:
+                    field_min = 0.001
+                else:
+                    field_min = field.min()
                 field_max = field.max()
+                if n in [0,1,2,3,5]:
+                    cmap = "coolwarm"
+                    alpha = None
+                else:
+                    cmap = "rainbow"
+                    alpha = 0.7
+                    
 #                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
 #                       field, no_contour_lines_, colors = 'black')
 #                ax[i,j].clabel(contours, inline=True, fontsize=8)
-                CS = ax[i,j].pcolorfast(*self.corners, field, cmap='coolwarm',
+                CS = ax[i,j].pcolorfast(*self.corners, field, cmap=cmap,
+                                        alpha=alpha, edgecolor="face",
                                         vmin=field_min, vmax=field_max)
+                CS.cmap.set_under("white")
                 ax[i,j].set_title( field_names[n] + ' (' + unit_names[n] + ')' )
                 ax[i,j].set_xticks( np.linspace( tick_ranges_[0,0],
                                                  tick_ranges_[0,1],
@@ -524,7 +536,9 @@ class Grid:
                 ax[i,j].set_yticks( np.linspace( tick_ranges_[1,0],
                                                  tick_ranges_[1,1],
                                                  no_ticks_[1] ) )
-                fig.colorbar(CS, ax=ax[i,j])
+                if n == 7:
+                    cbar = fig.colorbar(CS, ax=ax[i,j], extend = "min")
+                else: cbar = fig.colorbar(CS, ax=ax[i,j])
                 n += 1
               
         fig.tight_layout()

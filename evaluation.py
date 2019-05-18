@@ -42,17 +42,19 @@ elif (my_OS == "Mac"):
 # folder_load = "190512/grid_75_75_spcm_0_4/sim8/"
 # folder_load_base = "190508/grid_10_10_spct_4/sim4/"
 # folder_load = "190508/grid_10_10_spct_4/sim4/"
-folder_load_base = "grid_75_75_spcm_20_20/"
-folder_load = "grid_75_75_spcm_20_20/"
+# folder_load_base = "grid_75_75_spcm_20_20/"
+# folder_load = "grid_75_75_spcm_20_20/"
+folder_load_base = "grid_75_75_spcm_20_20/spinup/"
+folder_load = "grid_75_75_spcm_20_20/spinup/"
 # folder_load = "grid_75_75_spcm_0_4/sim5/"
 # folder_load = "190507/test1/"
 # folder_load = "190508/grid_75_75_spct_20/"
 # folder_save = "190508/grid_10_10_spct_4/"
 # folder_save = folder_load
 path = simdata_path + folder_load
-t = 0
+t = 7200
 t_start = 0
-t_end = 10800
+t_end = 7200
 reload = True
 
 if reload:
@@ -62,8 +64,11 @@ if reload:
                                             grid.temperature[tuple(cells)] )
     R_s = compute_radius_from_mass(m_s, c.mass_density_NaCl_dry)
 
-#%%
+#%% GRID THERMODYNAMIC FIELDS
 
+grid.plot_thermodynamic_scalar_fields_grid()
+
+#%% PARTICLE TRAJECTORIES
 frame_every, no_grid_frames, dump_every = np.load(path+"data_saving_paras.npy")
 pt_dumps_per_grid_frame = frame_every // dump_every
 grid_save_times = np.load(path+"grid_save_times.npy")
@@ -73,7 +78,6 @@ grid_save_times = np.load(path+"grid_save_times.npy")
 print("grid_save_times")
 print(grid_save_times)
 
-#%% PARTICLE TRAJECTORIES
 from file_handling import load_particle_data_from_blocks
 vecs, scals, xis = load_particle_data_from_blocks(path, grid_save_times,
                                                   pt_dumps_per_grid_frame)
@@ -88,6 +92,18 @@ plot_particle_trajectories(vecs[:,0], grid, MS=2.0, arrow_every=5,
 from file_handling import load_particle_data_all
 from analysis import plot_pos_vel_pt_with_time
 
+frame_every, no_grid_frames, dump_every = np.load(path+"data_saving_paras.npy")
+pt_dumps_per_grid_frame = frame_every // dump_every
+grid_save_times = np.load(path+"grid_save_times.npy")
+
+# grid_save_times =\
+#     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
+print("grid_save_times")
+print(grid_save_times)
+
+# plot only every x IDs
+ID_every = 16
+
 # vec_data, scal_data, xi_data = load_particle_data_all(path, grid_save_times)
 
 # pos_data = vec_data[:,0]
@@ -96,8 +112,8 @@ from analysis import plot_pos_vel_pt_with_time
 # pos2 = pos_data[:,:,::4]
 # vel2 = vel_data[:,:,::4]
 
-pos2 = pos[:,::8]
-vel2 = vel[:,::8]
+pos2 = pos[:,::ID_every]
+vel2 = vel[:,::ID_every]
 
 fig_name = path + "particle_density.png"
 plot_pos_vel_pt(pos2, vel2, grid,
@@ -109,23 +125,29 @@ plot_pos_vel_pt(pos2, vel2, grid,
 #                     figsize=(8,8*len(pos2)), no_ticks = [6,6],
 #                     MS = 1.0, ARRSCALE=20, fig_name=fig_name)
 
-
-#%% GRID THERMODYNAMIC FIELDS
-grid.plot_thermodynamic_scalar_fields_grid()
     
 #%% PLOT GRID SCALAR FIELD FRAMES OVER TIME
 
 path = simdata_path + folder_load
-plot_frame_every = 2
+plot_frame_every = 1
+
+# field_ind = np.arange(6)
+field_ind = np.array((0,1,2,5))
+time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
 
 fields = load_grid_scalar_fields(path, grid_save_times)
 
 print("fields.shape")
 print(fields.shape)
 
-# field_ind = np.arange(6)
-field_ind = np.array((0,1,2,5))
-time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
+frame_every, no_grid_frames, dump_every = np.load(path+"data_saving_paras.npy")
+pt_dumps_per_grid_frame = frame_every // dump_every
+grid_save_times = np.load(path+"grid_save_times.npy")
+
+# grid_save_times =\
+#     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
+print("grid_save_times")
+print(grid_save_times)
 
 print("grid_save_times indices and times chosen:")
 for idx_t in time_ind:
@@ -137,4 +159,4 @@ fig_name = path + "scalar_fields.png"
 # fig_name = None
 
 plot_scalar_field_frames(grid, fields, grid_save_times,
-                  field_ind, time_ind, no_ticks, fig_name)
+                         field_ind, time_ind, no_ticks, fig_name)
