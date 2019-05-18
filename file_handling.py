@@ -66,9 +66,9 @@ def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):#,
     
 def dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path):
                        #start_time):
-    filename_pt_vec = path + "particle_vector_data_all" + str(int(t)) + ".npy"
-    filename_pt_scal = path + "particle_scalar_data_all" + str(int(t)) + ".npy"
-    filename_pt_xi = path + "particle_xi_data_all" + str(int(t)) + ".npy"
+    filename_pt_vec = path + "particle_vector_data_all_" + str(int(t)) + ".npy"
+    filename_pt_scal = path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
+    filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
     # filename_grid = path + "grid_T_rv_" + str(int(t)) + ".npy"
     np.save(filename_pt_vec, (pos, vel) )
     np.save(filename_pt_scal, (m_w, m_s) )
@@ -134,10 +134,10 @@ def load_particle_data_all(path, save_times):
     xi_data = []
     for t in save_times:
         filename_pt_vec =\
-            path + "particle_vector_data_all" + str(int(t)) + ".npy"
+            path + "particle_vector_data_all_" + str(int(t)) + ".npy"
         filename_pt_scal =\
-            path + "particle_scalar_data_all" + str(int(t)) + ".npy"
-        filename_pt_xi = path + "particle_xi_data_all" + str(int(t)) + ".npy"
+            path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
+        filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
         # filename = path + "grid_scalar_fields_t_" + str(int(t_)) + ".npy"
         vec = np.load(filename_pt_vec)
         scal = np.load(filename_pt_scal)
@@ -221,8 +221,8 @@ def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
              grid_scalar_fields[0],
              grid_scalar_fields[1],
              grid_scalar_fields[6]) )
-    print("grid fields saved at t =", t, ", sim time:",
-          datetime.now()-start_time)
+    print("grid fields saved at t =", t,
+          ", sim time:", datetime.now()-start_time)
 # def save_grid_scalar_fields(t, grid, path, start_time):
 #     filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
 #     np.save( filename, (grid.mixing_ratio_water_vapor,

@@ -91,7 +91,7 @@ folder_load = "grid_75_75_spcm_20_20/spinup/"
 # folder_save = "190508/grid_10_10_spct_4/sim5/"
 # folder_save = "190510/grid_15_15_spcm_4_4/sim2/"
 # folder_save = "190514/grid_75_75_spcm_0_4/sim5/"
-folder_save = "grid_75_75_spcm_20_20/after_spinup/"
+folder_save = "grid_75_75_spcm_20_20/after_spinup_2/"
 # folder_save = "190511/grid_75_75_spcm_4_4"
 
 t_start = 7200.0
@@ -124,9 +124,9 @@ trace_ids = 40
 # dump_every must be <= frame_every and frame_every/dump_every must be integer
 dump_every = 10
 
-# g must be positive (9.8...) or 0.0 for spin up
-g_set = 0.0
-# g_set = c.earth_gravity
+# g must be positive (9.8...) or 0.0 (for spin up)
+# g_set = 0.0
+g_set = c.earth_gravity
 ### SET END
 ####################################
 
