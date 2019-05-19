@@ -45,7 +45,8 @@ elif (my_OS == "Mac"):
 # folder_load_base = "grid_75_75_spcm_20_20/"
 # folder_load = "grid_75_75_spcm_20_20/"
 # folder_load_base = "grid_75_75_spcm_20_20/spinup/"
-folder_load = "grid_75_75_spcm_20_20/spinup/"
+# folder_load = "grid_75_75_spcm_20_20/spinup/"
+folder_load = "grid_75_75_spcm_20_20/after_spinup_2/"
 # folder_load = "grid_75_75_spcm_20_20/after_spinup/"
 # folder_load_base = "grid_75_75_spcm_20_20/spinup/"
 # folder_load = "grid_75_75_spcm_0_4/sim5/"
@@ -56,12 +57,13 @@ folder_load = "grid_75_75_spcm_20_20/spinup/"
 
 path = simdata_path + folder_load
 # path = simdata_path + folder_load_base
-t = 7200
+t = 14400
 # t = 10800
-t_start = 0
-# t_start = 7200
-t_end = 7200
+# t_start = 0
+t_start = 7200
+# t_end = 7200
 # t_end = 10800
+t_end = 14400
 reload = True
 
 if reload:

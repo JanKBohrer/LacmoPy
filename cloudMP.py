@@ -95,7 +95,7 @@ folder_save = "grid_75_75_spcm_20_20/after_spinup_2/"
 # folder_save = "190511/grid_75_75_spcm_4_4"
 
 t_start = 7200.0
-t_end = 10800.0 # s
+t_end = 14400.0 # s
 # t_end = 3600.0 # s
 
 dt = 1.0 # s # timestep of advection
