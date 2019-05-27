@@ -127,7 +127,7 @@ n_p = np.array([60.0E6, 40.0E6]) # m^3
 
 # no_super_particles_cell = [N1,N2] is a list with
 # N1 = no super part. per cell in mode 1 etc.
-no_spcm = np.array([20, 20])
+no_spcm = np.array([4, 4])
 # no_spcm = np.array([0, 4])
 
 ### creating random particles
@@ -160,7 +160,8 @@ Newton_iterations = 2
 # maximal allowed iter counts in initial particle water take up to equilibrium
 iter_cnt_limit = 800
 
-folder = "grid_75_75_spcm_20_20/"
+folder = "grid_75_75_spcm_4_4/"
+# folder = "grid_75_75_spcm_20_20/"
 path = simdata_path + folder
 if not os.path.exists(path):
     os.makedirs(path)

@@ -87,14 +87,16 @@ elif (my_OS == "Mac"):
 # folder_load = "190508/grid_10_10_spct_4/"
 # folder_load = "190510/grid_15_15_spcm_4_4/"
 # folder_load = "190514/grid_75_75_spcm_0_4/"
-folder_load = "grid_75_75_spcm_20_20/spinup/"
+# folder_load = "grid_75_75_spcm_20_20/spinup/"
+folder_load = "grid_75_75_spcm_4_4/"
+folder_save = "grid_75_75_spcm_4_4/grav_from_start/"
 # folder_save = "190508/grid_10_10_spct_4/sim5/"
 # folder_save = "190510/grid_15_15_spcm_4_4/sim2/"
 # folder_save = "190514/grid_75_75_spcm_0_4/sim5/"
-folder_save = "grid_75_75_spcm_20_20/after_spinup_2/"
+# folder_save = "grid_75_75_spcm_20_20/after_spinup_2/"
 # folder_save = "190511/grid_75_75_spcm_4_4"
 
-t_start = 7200.0
+t_start = 0.0
 t_end = 14400.0 # s
 # t_end = 3600.0 # s
 
@@ -107,13 +109,13 @@ dt = 1.0 # s # timestep of advection
 # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR N = 10.0/0.2 = 50
 scale_dt = 5
 
-Newton_iter = 3 # root finding number of iterations for implic. mass integration
+Newton_iter = 2 # number of root finding iterations for impl. mass integration
 
 # save grid properties T, p, Theta, r_v, r_l, S every "frame_every" steps dt
 # MUST be >= than dump_every and an integer multiple of dump every
 # grid frames are taken at
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
-frame_every = 600
+frame_every = 1200
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
