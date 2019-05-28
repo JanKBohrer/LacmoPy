@@ -6,6 +6,12 @@ Created on Wed May  1 14:07:21 2019
 @author: jdesk
 """
 
+### IN WORK: make main file, which can be executed with "python cloudMP.py"
+# give textfile to program, with type of simulation:
+# generate grid and particles = yes, no; spinup = yes, no; 
+# simulation: include gravity, condensation, collision, which type of collision
+#
+
 # 1. init()
 # 2. spinup()
 # 3. simulate()
