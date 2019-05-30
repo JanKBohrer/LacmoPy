@@ -132,10 +132,10 @@ def compute_quantiles(func, par, x0, x1, dx, prob, no_q=None):
             intl += dx * f(x)
             x += dx
             cnt += 1
-        # the quantile value is somewhere between x - dx and x -> choose middle
+        # the quantile value is somewhere between x - dx and x
         # q.append(x)    
         # q.append(x - 0.5 * dx)    
-        q.append(x - dx)    
+        q.append(max(x - dx,x0))    
     
     print ("quantile values = ", q)
     return q, prob

@@ -22,14 +22,19 @@ import matplotlib.pyplot as plt
 # pars = "m_w, xi, cells, grid.mixing_ratio_water_liquid, grid.mass_dry_inv"
 # rs = [5,5,5]
 # ns = [100,10000,1000]
-# compare_functions_run_time(funcs, pars, rs, ns)
-def compare_functions_run_time(functions, pars, rs, ns, globals_=globals()):
+# compare_functions_run_time(funcs, pars, rs, ns, globals_=globals())
+# NOTE that we need to call with globals_=globals() explicitly
+# a default argument for globals_ cannot be given in the function definition..
+# because in that case, the globals are taken from module "analysis.py" and
+# not from the environment of the executed program
+def compare_functions_run_time(functions, pars, rs, ns, globals_):
     import timeit
     # import numpy as np
     # print (__name__)
     t = []
     for i,func in enumerate(functions):
         print(func + ": repeats =", rs[i], "no reps = ", ns[i])
+    # print(globals_)
     for i,func in enumerate(functions):
         statement = func + "(" + pars + ")"
         t_ = timeit.repeat(statement, repeat=rs[i],
