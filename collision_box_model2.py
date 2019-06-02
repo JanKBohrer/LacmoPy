@@ -55,14 +55,14 @@ import constants as c
 from microphysics import compute_radius_from_mass
 # from collision import simulate_collisions_np
 from collision import simulate_collisions
-from collision import dst_expo
-from collision import generate_SIP_ensemble
+from init import dst_expo
+from init import generate_SIP_ensemble
 # from collision import generate_permutation
 # from collision import simulate_collisions
 
 #%% INIT
 simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_02/"
+folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
 path = simdata_path + folder
 if not os.path.exists(path):
     os.makedirs(path)
@@ -124,9 +124,12 @@ total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
 
 no_sims = 50
 seed_list = np.arange(4711, 4711+no_sims*2, 2)
+# seed_list = np.arange(4711+38, 4711+38+no_sims*2, 2)
 
 p_min = 0
-p_max = 0.99999
+p_max = 0.9999999
+# bin linear spreading parameter
+eps = 200
 dm = mu*1.0E-5
 m0 = 0.0
 m1 = 100*mu
@@ -137,17 +140,20 @@ for sim_n in range(no_sims):
     dst = dst_expo
     par = 1/mu
     
-    masses, xi, m_low, m_high = generate_SIP_ensemble(dst, par, no_spc,
-                                                        no_rpc,
-                                        total_mass_in_cell,
-                                        p_min, p_max,
-                                        m0, m1, dm, seed, setseed = True)
+    masses, xi, m_low, m_high =\
+        generate_SIP_ensemble(dst, par, no_spc, no_rpc,
+                              total_mass_in_cell,
+                              p_min, p_max, eps,
+                              m0, m1, dm, seed, setseed = True)
     
     # masses = np.random.exponential(mu, no_rpc) # in mu
     # xi = np.ones(no_rpc, dtype = np.int64)
     
     m_max = np.amax(masses)
-    print("sim_n", sim_n, "; masses.shape=", masses.shape, "; m_max=", m_max)
+    print("sim_n", sim_n, "; masses.shape=", masses.shape, "; m_max=", m_max,
+          "m_true-m_sys=", total_mass_in_cell-np.sum(masses*xi),
+          "no_pt_true-no_sys=", no_rpc - np.sum(xi) )
+    print("m_high=", f"{m_high:.2e}", "m_low=", m_low)
     
     ###
 #     fig_name = f"mass_distribution_init_{sim_n}.png"
@@ -156,7 +162,7 @@ for sim_n in range(no_sims):
 #     no_bins = 50
 #     # ax.hist(masses, density=True, bins=50)
 #     bins = ax.hist(masses, bins=no_bins)[1]
-#     ax.plot(m_, (bins[-1]-bins[0])/no_bins*masses.shape[0]*dst_expo(m_, 1.0/mu))
+#     ax.plot(m_, (bins[-1]-bins[0])/no_bins*masses.shape[0]*dst_expo(m_,1.0/mu))
 #     # ax.plot(m_, dst_expo(m_, 1.0/mu))
 #     ax.set_yscale("log")
 #     ax.set_xlabel("particle mass (fg)")
@@ -189,6 +195,7 @@ for sim_n in range(no_sims):
     # ax.plot(m_, no_rpc*np.exp(-m_/mu)\
     #             *(np.exp(0.5*bin_size/mu)-np.exp(-0.5*bin_size/mu)))
     ax.plot(m_, no_rpc*bin_size*dst_expo(m_,1.0/mu))
+    ax.set_xscale("log")
     ax.set_yscale("log")
     ###
     
@@ -218,3 +225,10 @@ for sim_n in range(no_sims):
 # rs = [5,5]
 # ns = [10,10]
 # compare_functions_run_time(funcs, pars, rs, ns, globals_ = globals())
+
+# ll = [0,1,2,34,837,23]
+
+# ll2 = np.array(ll)
+
+# print(ll2)
+# print(ll2.dtype)

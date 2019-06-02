@@ -14,10 +14,8 @@ from numba import njit
 import math
 
 
-#%% DISTRIBUTIONS
 
-def dst_expo(x,k):
-    return np.exp(-x*k) * k
+
 
 # returns a permutation of the list of integers [0,1,2,..,N-1] by Shima method
 @njit()
@@ -172,7 +170,7 @@ def simulate_collisions_np(xi, masses, dV, dt, t_end, store_every):
     masses_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
                               dtype = np.float64)
     xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
-                              dtype = np.float64)
+                              dtype = np.int64)
     cnt_c = 0 
 
     for cnt, t in enumerate(np.arange(0.0,t_end,dt)):
@@ -193,147 +191,7 @@ def simulate_collisions_np(xi, masses, dV, dt, t_end, store_every):
     return times, concentrations, masses_vs_time, xis_vs_time
 simulate_collisions = njit()(simulate_collisions_np)
 
-#%% GENERATE SIP ENSEMBLE
 
-# no_spc is the intended number of super particles per cell,
-# this will right on average, but will vary due to the random assigning 
-# process of the xi_i
-# m0, m1, dm: parameters for the numerical integration to find the cutoffs
-# and for the numerical integration of integrals
-# dV = volume size of the cell (in m^3)
-# n0: initial particle number distribution (in 1/m^3)
-# IN WORK: make the bin size smaller for low masses to get
-# finer resolution here...
-# -> "steer against" the expo PDF for low m -> something in between
-# we need higher resolution in very small radii (Unterstrasser has
-# R_min = 0.8 mu
-# at least need to go down to 1 mu (resolution there...)
-from init import compute_quantiles
-def generate_SIP_ensemble(dst, par, no_spc, no_rpc, total_mass_in_cell,
-                          p_min, p_max,
-                          m0, m1, dm, seed, setseed = True):
-    if setseed: np.random.seed(seed)
-    
-    if par is not None:
-        func = lambda x : dst(x, par)
-    else: func = dst
-    
-    # define m_low, m_high by probability threshold p_min
-    # m_thresh = [m_low, m_high] 
-    (m_low, m_high), Ps = compute_quantiles(func, None, m0, m1, dm,
-                                     [p_min, p_max], None)
-    # if p_min == 0:
-    #     m_low = 0.0
-    # estimate value for dm, which is the bin size of the hypothetical
-    # bin assignment, which is approximated by the random process:
-    
-    bin_size = (m_high - m_low) / no_spc
-    
-    # no of real particle cell
-    # no_rpc = dV*n0
-    
-    # the current position of the left bin border
-    m_left = m_low
-    
-    # generate list of masses and multiplicities
-    masses = []
-    xis = []
-    
-    # no of particles placed:
-    no_pt = 0
-    
-    # let f(m) be the PDF!! (m can be the mass or the radius, depending,
-    # which distr. is given), NOTE that f(m) is not the number concentration..
-    
-    pt_n = 0
-    while no_pt < no_rpc:
-        ### i) determine the next xi_mean by
-        # integrating xi_mean = no_rpc * int_(m_left)^(m_left+dm) dm f(m)
-        print(pt_n, "m_left=", m_left)
-        m = m_left
-        m_right = m_left + bin_size
-        intl = 0.0
-        cnt = 0
-        while (m < m_right and cnt < 1E6):
-            intl += dm * func(m)
-            m += dm
-            cnt += 1
-            if cnt == 1E6:
-                print(pt_n, "cnt=1E6")            
-        xi_mean = no_rpc * intl
-        print(pt_n, "xi_mean=", xi_mean)
-        ### ii) draw xi from distribution: 
-        # try here normal distribution if xi_mean > 10
-        # else Poisson
-        # with parms: mu = xi_mean, sigma = sqrt(xi_mean)
-        if xi_mean > 10:
-            # xi = np.random.normal(xi_mean, np.sqrt(xi_mean))
-            xi = np.random.normal(xi_mean, 0.2*xi_mean)
-        else:
-            xi = np.random.poisson(xi_mean)
-        xi = int(math.ceil(xi))
-        if xi <= 0: xi = 1
-        if no_pt + xi >= no_rpc:
-            print("no_pt + xi=", no_pt + xi, "no_rpc =", no_rpc )
-            xi = no_rpc - no_pt
-            # last = True
-            M = np.sum( np.array(xis)*np.array(masses) )
-            # M = p_max * total_mass_in_cell - M
-            M = total_mass_in_cell - M
-            # mu = max(p_max*M/xi,m_left)
-            mu = M/xi
-            masses.append(mu)
-        else:            
-            ### iii) set the right right bin border
-            # by no_rpc * int_(m_left)^m_right dm f(m) = xi
-            m = m_left
-            intl = 0.0
-            cnt = 0
-            while (intl < xi/no_rpc and cnt < 1E7):
-                intl += dm * func(m)
-                m += dm
-                cnt += 1
-                if cnt == 1E7:
-                    print(pt_n, "cnt=", cnt)
-            m_right = m
-            # if m_right >= m_high:
-                
-            print(pt_n, "new m_right=", m_right)
-            # iv) set SIP mass mu by mu=M/xi (M = total mass in the bin)
-            intl = 0.0
-            m = m_left
-            cnt = 0
-            while (m < m_right and cnt < 1E7):
-                intl += dm * func(m) * m
-                m += dm
-                cnt += 1         
-                if cnt == 1E7:
-                    print(pt_n, "cnt=", cnt)                
-            mu = intl * no_rpc / xi
-            masses.append(mu)
-        xis.append(xi)
-        no_pt += xi
-        print(pt_n, xi, mu, no_pt)
-        pt_n += 1
-        m_left = m_right
-        
-        if m_left >= m_high:
-            print("m_left =", m_left, "m_left - m_high =", m_left-m_high)
-            # print("no_pt + xi=", no_pt + xi, "no_rpc =", no_rpc )
-            xi = no_rpc - no_pt
-            # last = True
-            M = np.sum( np.array(xis)*np.array(masses) )
-            # M = p_max * total_mass_in_cell - M
-            M = total_mass_in_cell - M
-            # mu = max(p_max*M/xi,m_left)
-            mu = M/xi
-            masses.append(mu)    
-            xis.append(xi)
-            no_pt += xi
-            print(pt_n, xi, mu, no_pt)
-            pt_n += 1
-    
-    return np.array(masses), np.array(xis), m_low, m_high
 
 #%% SHIMA ALGORITHM
 # @njit()

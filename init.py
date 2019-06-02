@@ -10,6 +10,7 @@ import numpy as np
 import math
 # import matplotlib.pyplot as plt
 import sys
+from numba import njit
 
 import constants as c
 from grid import Grid
@@ -90,6 +91,9 @@ def compute_j_max(j_max_base, grid):
            / np.sqrt(2.0 * 1500.0 * 1500.0)
 
 ####
+           
+#%% DISTRIBUTIONS
+           
 # par[0] = mu
 # par[1] = sigma
 two_pi_sqrt = math.sqrt(2.0 * math.pi)
@@ -104,6 +108,136 @@ def dst_log_normal(x, par):
     f = np.exp( -0.5 * ( np.log( x / par[0] ) / par[1] )**2 ) \
         / ( x * math.sqrt(2 * math.pi) * par[1] )
     return f
+
+@njit()
+def dst_expo(x,k):
+    return np.exp(-x*k) * k
+
+def num_int_np(func, x0, x1, steps=1E5):
+    dx = (x1 - x0) / steps
+    x = x0
+    intl = 0.0
+    # cnt = 0
+    while (x < x1):
+        intl += dx * func(x)
+        x += dx
+        # cnt += 1
+    return intl
+# num_int = njit()(num_int_np)
+
+def num_int_expo_np(x0, x1, k, steps=1E5):
+    dx = (x1 - x0) / steps
+    x = x0
+    intl = 0.0
+    f1 = dst_expo(x,k)
+    # cnt = 0
+    while (x < x1):
+        f2 = dst_expo(x + 0.5*dx, k)
+        f3 = dst_expo(x + dx, k)
+        # intl_bef = intl        
+        intl += 0.1666666666667 * dx * (f1 + 4 * f2 + f3)
+        x += dx
+        f1 = f3
+        # cnt += 1        
+        # intl += dx * x * dst_expo(x,k)
+        # x += dx
+        # cnt += 1
+    return intl
+num_int_expo = njit()(num_int_expo_np)
+
+# def num_int_expo_np(x0, x1, k, steps=1.0E5):
+#     dx = (x1 - x0) / steps
+#     x = x0
+#     intl = 0.0
+#     # cnt = 0
+#     while (x < x1):
+#         intl += dx * dst_expo(x,k)
+#         x += dx
+#         # cnt += 1
+#     return intl
+# num_int_expo = njit()(num_int_expo_np)
+
+def num_int_expo_mean_np(x0, x1, k, steps=1E5):
+    dx = (x1 - x0) / steps
+    x = x0
+    intl = 0.0
+    f1 = dst_expo(x,k) * x
+    # cnt = 0
+    while (x < x1):
+        f2 = dst_expo(x + 0.5*dx, k) * (x + 0.5*dx)
+        f3 = dst_expo(x + dx, k) * (x + dx)
+        # intl_bef = intl        
+        intl += 0.1666666666667 * dx * (f1 + 4 * f2 + f3)
+        x += dx
+        f1 = f3
+        # cnt += 1        
+        # intl += dx * x * dst_expo(x,k)
+        # x += dx
+        # cnt += 1
+    return intl
+num_int_expo_mean = njit()(num_int_expo_mean_np)
+
+def num_int_impl_right_border(func, x0, intl_value, dx, cnt_lim=1E7):
+    dx0 = dx
+    x = x0
+    intl = 0.0
+    cnt = 0
+    f1 = func(x)
+    print("dx0 =", dx0)
+    while (intl < intl_value and cnt < cnt_lim):
+        # if cnt % 100 == 0:
+        #     dx = dx0
+        #     while (np.abs((func(x0+dx)-func(x0))/func(x0)) < 1.0E-6) :
+        #         dx *= 2.0
+        #     while (np.abs((func(x0+dx)-func(x0))/func(x0)) > 1.0E-6) :
+        #         dx *= 0.5
+        # dp_lim = 1.0E-5
+        # if cnt % 100 == 0:
+        #     dx = dx0
+        #     if f1*dx > dp_lim:
+        #         dx = dp_lim/f1
+        #         print("cnt=",cnt,"dx=",dx)
+        f2 = func(x + 0.5*dx)
+        f3 = func(x + dx)
+        intl_bef = intl        
+        intl += 0.1666666666667 * dx * (f1 + 4 * f2 + f3)
+        x += dx
+        f1 = f3
+        cnt += 1
+    # print(f"{cnt:.2e}")
+    # if x > dx: 
+    #     x = x - dx
+    # elif x > 0.5 * dx:
+    #     x = x - 0.5 * dx
+    # else: x = 0.0        
+    # return x + 0.5 *dx    
+    return x - dx + dx * (intl_value - intl_bef)/(intl - intl_bef)
+    
+def num_int_expo_impl_right_border_np(x0, intl_value, dx, k, cnt_lim=1E7):
+    # dx0 = dx
+    x = x0
+    intl = 0.0
+    cnt = 0
+    f1 = dst_expo(x,k)
+    # print("dx0 =", dx0)
+    while (intl < intl_value and cnt < cnt_lim):
+        f2 = dst_expo(x + 0.5*dx, k)
+        f3 = dst_expo(x + dx, k)
+        intl_bef = intl        
+        intl += 0.1666666666667 * dx * (f1 + 4 * f2 + f3)
+        x += dx
+        f1 = f3
+        cnt += 1
+    return x - dx + dx * (intl_value - intl_bef)/(intl - intl_bef)
+num_int_expo_impl_right_border = njit()(num_int_expo_impl_right_border_np)
+
+def prob_exp(x,k):
+    return 1.0 - np.exp(-k*x)
+
+def compute_right_border_impl_exp(x0, intl_value, k):
+    return -1.0/k * np.log( np.exp(-k * x0) - intl_value )
+
+#%% STOCHASTICS
 
 # input: prob = [p1, p2, p3, ...] = quantile probab. -> need to set no_q = None
 # OR (if prob = None)
@@ -316,6 +450,398 @@ def generate_random_positions(grid, no_spc, seed):
     pos = np.array([x, z])
     rel_pos = np.array([rnd_x, rnd_z])
     return pos, rel_pos
+
+#%% GENERATE SIP ENSEMBLE
+
+# par = "rate" parameter "k" of the expo distr: k*exp(-k*m) (in 10^18 kg)
+# no_rpc = number of real particles in cell
+def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
+        par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40, eta=1.0E-9,
+        seed=4711, setseed = True):
+    
+    if setseed: np.random.seed(seed)
+    m_low = compute_mass_from_radius(r_critmin, c.mass_density_NaCl_dry)
+    # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
+    #                                            cnt_lim=1E8)
+    m_high = m_low * m_high_by_m_low
+    # since we consider only particles with m > m_low, the distribution has
+    # to be adjusted. We have two possibilities:
+    # 1. decrease the total number of particles and thereby the total pt conc.
+    # 2. keep the total number of particles, and thus increase the PDF
+    # in the interval [m_low, m_high]
+    # I choose 1.: decrease the total number of particles by multiplication 
+    # with factor num_int_expo_np(m_low, m_high, par, steps=1.0E6)
+    print(no_rpc)
+    no_rpc *= num_int_expo(m_low, m_high, par, steps=1.0E6)
+    # for 2.:
+    # increase the total number of
+    # real particle "no_rpc" by 1.0 / int_(m_low)^(m_high)
+    # no_rpc *= 1.0/num_int_expo(m_low, m_high, par, steps=1.0E6)
+    
+    kappa_inv = 1.0/kappa
+    
+    masses = []
+    xis = []
+    
+    no_rp_set = 0
+    no_sp_set = 0
+    bin_n = 0
+    
+    m_left = m_low
+    m = 0.0
+    
+    print("no_rpc =", no_rpc)
+    while(no_rp_set < no_rpc and m < m_high):
+        m_right = m_left * 10**kappa_inv
+        print("missing particles =", no_rpc - no_rp_set)
+        print("m_left, m_right")
+        print(bin_n, m_left, m_right)
+        m = np.random.uniform(m_left, m_right)
+        print("m =", m)
+        # we do not round to integer here, because of the weak threshold below
+        # the rounding is done afterwards
+        xi = dst_expo(m,par) * (m_right - m_left) * no_rpc
+        # xi = int((dst_expo(m,par) * (m_right - m_left) * no_rpc))
+        # if xi < 1 : xi = 1
+        if no_rp_set + xi > no_rpc:
+            xi = no_rpc - no_rp_set
+        print("xi =", xi)
+        masses.append(m)
+        xis.append(xi)
+        no_rp_set += xi
+        no_sp_set += 1
+        m_left = m_right
+        bin_n += 1
+    
+    xis = np.array(xis)
+    masses = np.array(masses)
+    
+    xi_max = xis.max()
+    print("xi_max =", xi_max)
+    xi_critmin = int(xi_max * eta)
+    
+    for bin_n, xi in enumerate(xis):
+        if xi < xi_critmin:
+            # print("")
+            p = xi / xi_critmin
+            if np.random.rand() >= p:
+                xis[bin_n] = 0
+            else: xis[bin_n] = xi_critmin
+    
+    ind = np.nonzero(xis)
+    xis = xis[ind].astype(np.int64)
+    masses = masses[ind]
+    
+    # now, some bins are empty, thus the total number sum(xis) is not right
+    # moreover, the total mass sum(masses*xis) is not right ...
+    # FIRST: test, how badly the total number and total mass of the cell
+    # is violated, if this is bad:
+    # -> create a number of particles, such that the total number is right
+    # and assign the average mass to it
+    # then reweight all of the masses such that the total mass is right.
+    
+    return xis, masses
+
+dV = 1.0
+# dV = 1.0E-6
+dt = 1.0
+# dt = 1.0
+store_every = 600
+t_end = 3600.0
+
+no_spc = 80
+
+# droplet concentration
+#n = 100 # cm^(-3)
+n0 = 297.0 # cm^(-3)
+# liquid water content (per volume)
+LWC0 = 1.0E-6 # g/cm^3
+# total number of droplets
+no_rpc = int(n0 * dV * 1.0E6)
+print("no_rpc=", no_rpc)
+
+# we start with a monomodal exponential distribution
+# mean droplet mass
+mu = 1.0E15*LWC0 / n0
+print("mu_m=", mu)
+mu_R = compute_radius_from_mass(mu, c.mass_density_water_liquid_NTP)
+print("mu_R=", mu_R)
+total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
+
+r_critmin = 0.6
+kappa = 40
+eta = 1.0E-9
+seed = 4711
+   
+xis, masses = generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
+                  1.0/mu, no_rpc)
+
+print(xis.shape)
+print(masses.shape)
+print((xis.sum()-no_rpc)/no_rpc)
+print((np.sum(masses*xis)-total_mass_in_cell)/total_mass_in_cell)
+
+import matplotlib.pyplot as plt
+Rs = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
+plt.plot()
+    
+#%%  
+
+
+# no_spc is the intended number of super particles per cell,
+# this will right on average, but will vary due to the random assigning 
+# process of the xi_i
+# m0, m1, dm: parameters for the numerical integration to find the cutoffs
+# and for the numerical integration of integrals
+# dV = volume size of the cell (in m^3)
+# n0: initial particle number distribution (in 1/m^3)
+# IN WORK: make the bin size smaller for low masses to get
+# finer resolution here...
+# -> "steer against" the expo PDF for low m -> something in between
+# we need higher resolution in very small radii (Unterstrasser has
+# R_min = 0.8 mu
+# at least need to go down to 1 mu (resolution there...)
+# eps = parameter for the bin linear spreading:
+# bin_size(m = m_high) = eps * bin_size(m = m_low)
+def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
+                                         total_mass_in_cell,
+                                         p_min, p_max, eps,
+                                         m0, m1, dm, seed, setseed = True):
+    if setseed: np.random.seed(seed)
+    
+    # if par is not None:
+    #     func = lambda x : dst(x, par)
+    # else: func = dst
+    
+    # define m_low, m_high by probability threshold p_min
+    # m_thresh = [m_low, m_high] 
+    
+    # (m_low, m_high), Ps = compute_quantiles(func, None, m0, m1, dm,
+    #                                  [p_min, p_max], None)
+    m_low = 0.0
+    m_high = num_int_expo_impl_right_border_np(m_low,p_max, dm, par, 1.0E8)
+    
+    # if p_min == 0:
+    #     m_low = 0.0
+    # estimate value for dm, which is the bin size of the hypothetical
+    # bin assignment, which is approximated by the random process:
+    
+    # the bin mean size must be adjusted by ~np.log10(eps)
+    # to get to a SIP number in the cell of about the intended number
+    # if the reweighting is not done, the SIP number will be much larger
+    # due to small bins for low masses
+    bin_size_mean = (m_high - m_low) / no_spc * np.log10(eps)
+    
+    # eps = 10
+    a = bin_size_mean * (eps - 1) / (m_high * 0.5 * (eps + 1))
+    b = bin_size_mean / (0.5 * (eps + 1))
+    
+    # no of real particle cell
+    # no_rpc = dV*n0
+    
+    # the current position of the left bin border
+    m_left = m_low
+    
+    # generate list of masses and multiplicities
+    masses = []
+    xis = []
+    
+    # no of particles placed:
+    no_pt = 0
+    
+    # let f(m) be the PDF!! (m can be the mass or the radius, depending,
+    # which distr. is given), NOTE that f(m) is not the number concentration..
+    
+    pt_n = 0
+    while no_pt < no_rpc:
+        ### i) determine the next xi_mean by
+        # integrating xi_mean = no_rpc * int_(m_left)^(m_left+dm) dm f(m)
+        # print(pt_n, "m_left=", m_left)
+        # m = m_left
+        bin_size = a * m_left + b
+        m_right = m_left + bin_size
+        
+        intl = num_int_expo(m_left, m_right, par, steps=1.0E5)
+        
+        # intl = 0.0
+        # cnt = 0
+        # while (m < m_right and cnt < 1E6):
+        #     intl += dm * func(m)
+        #     m += dm
+        #     cnt += 1
+        #     if cnt == 1E6:
+        #         print(pt_n, "cnt=1E6")  
+                
+        xi_mean = no_rpc * intl
+        # print(pt_n, "xi_mean=", xi_mean)
+        ### ii) draw xi from distribution: 
+        # try here normal distribution if xi_mean > 10
+        # else Poisson
+        # with parms: mu = xi_mean, sigma = sqrt(xi_mean)
+        if xi_mean > 10:
+            # xi = np.random.normal(xi_mean, np.sqrt(xi_mean))
+            xi = np.random.normal(xi_mean, 0.2*xi_mean)
+        else:
+            xi = np.random.poisson(xi_mean)
+        xi = int(math.ceil(xi))
+        if xi <= 0: xi = 1
+        if no_pt + xi >= no_rpc:
+            xi = no_rpc - no_pt
+            # last = True
+            M_sys = np.sum( np.array(xis)*np.array(masses) )
+            M_should = no_rpc * num_int_expo_mean_np(0.0,m_left,par,1.0E7)
+            masses = [m * M_should / M_sys for m in masses]
+            # M = p_max * total_mass_in_cell - M
+            M_diff = total_mass_in_cell - M_should
+            if M_diff <= 0.0:
+                M_diff = 1.0/par                
+            # if M_diff <= 0.0:
+            #     M_diff = total_mass_in_cell - M_should
+                # xis = np.array(xis, dtype=np.int64)
+                # masses = np.array(masses)
+                # masses *= p_max*total_mass_in_cell/M_sys
+                # masses = [m*p_max*total_mass_in_cell/M_sys for m in masses]
+                # M_sys = p_max*total_mass_in_cell
+                # M_diff = total_mass_in_cell * (1 - p_max)
+            # else:
+            # mu = max(p_max*M/xi,m_left)
+            mu = M_diff/xi
+            if mu <= 1.02*masses[pt_n-1]:
+                xi_sum = xi + xis[pt_n-1]
+                m_sum = xi*mu + xis[pt_n-1] * masses[pt_n-1]
+                xis[pt_n-1] = xi_sum
+                masses[pt_n-1] = m_sum / xi_sum
+                no_pt += xi
+                print(pt_n, xi, mu, no_pt)
+            else:                
+                masses.append(mu)    
+                xis.append(xi)
+                no_pt += xi
+                print(pt_n, xi, mu, no_pt)
+                pt_n += 1            
+            # masses.append(mu)    
+            # xis.append(xi)
+            # no_pt += xi
+            # print(pt_n, xi, mu, no_pt)
+            # pt_n += 1
+            
+            # xi = no_rpc - no_pt
+            # # last = True
+            # M_sys = np.sum( np.array(xis)*np.array(masses) )
+            # # M = p_max * total_mass_in_cell - M
+            # M_diff = total_mass_in_cell - M_sys
+            # if M_diff <= 0.0:
+            #     # xis = np.array(xis, dtype=np.int64)
+            #     masses = [m*p_max*total_mass_in_cell/M_sys for m in masses]
+            #     # masses = np.array(masses)
+            #     # masses *= p_max*total_mass_in_cell/M_sys
+            # else:
+            #     # mu = max(p_max*M/xi,m_left)
+            #     mu = M_diff/xi
+            #     masses.append(mu)    
+            #     xis.append(xi)
+            #     no_pt += xi
+            #     print(pt_n, xi, mu, no_pt)
+            #     pt_n += 1
+            # print("no_pt + xi=", no_pt + xi, "no_rpc =", no_rpc )
+            # xi = no_rpc - no_pt
+            # last = True
+            # M = np.sum( np.array(xis)*np.array(masses) )
+            # M = p_max * total_mass_in_cell - M
+            # M = total_mass_in_cell - M
+            # mu = max(p_max*M/xi,m_left)
+            # mu = M/xi
+            # masses.append(mu)
+        else:            
+            ### iii) set the right right bin border
+            # by no_rpc * int_(m_left)^m_right dm f(m) = xi
+            
+            m_right = num_int_expo_impl_right_border(m_left, xi/no_rpc,
+                                                        dm, par)
+            
+            # m = m_left
+            # intl = 0.0
+            # cnt = 0
+            # while (intl < xi/no_rpc and cnt < 1E7):
+            #     intl += dm * func(m)
+            #     m += dm
+            #     cnt += 1
+            #     if cnt == 1E7:
+            #         print(pt_n, "cnt=", cnt)
+            # m_right = m
+            # if m_right >= m_high:
+                
+            # print(pt_n, "new m_right=", m_right)
+            # iv) set SIP mass mu by mu=M/xi (M = total mass in the bin)
+            
+            intl = num_int_expo_mean(m_left, m_right, par)
+            
+            # intl = 0.0
+            # m = m_left
+            # cnt = 0
+            # while (m < m_right and cnt < 1E7):
+            #     intl += dm * func(m) * m
+            #     m += dm
+            #     cnt += 1         
+            #     if cnt == 1E7:
+            #         print(pt_n, "cnt=", cnt)                
+            
+            mu = intl * no_rpc / xi
+            masses.append(mu)
+            xis.append(xi)
+            no_pt += xi
+            print(pt_n, xi, mu, no_pt, f"{m_left:.2e}", f"{m_right:.2e}")
+            pt_n += 1
+            m_left = m_right
+        
+        if m_left >= m_high and no_pt < no_rpc:
+
+            xi = no_rpc - no_pt
+            # last = True
+            M_sys = np.sum( np.array(xis)*np.array(masses) )
+            M_should = no_rpc * num_int_expo_mean_np(0.0,m_left,par,1.0E7)
+            masses = [m * M_should / M_sys for m in masses]
+            # M = p_max * total_mass_in_cell - M
+            M_diff = total_mass_in_cell - M_should
+            if M_diff <= 0.0:
+                M_diff = 1.0/par
+            
+            # print("m_left =", m_left, "m_left - m_high =", m_left-m_high)
+            # print("no_pt + xi=", no_pt + xi, "no_rpc =", no_rpc )
+            # xi = no_rpc - no_pt
+            # last = True
+            # M_sys = np.sum( np.array(xis)*np.array(masses) )
+            # M = p_max * total_mass_in_cell - M
+            # M_diff = total_mass_in_cell - M_sys
+
+            # if M_diff <= 0.0:
+                # M_should = no_rpc * num_int_expo_mean_np(0.0,m_left,par,1.0E7)
+                # masses = [m * M_should / M_sys for m in masses]
+                # M_diff = total_mass_in_cell - M_should
+                # xis = np.array(xis, dtype=np.int64)
+                # masses = np.array(masses)
+                # masses *= p_max*total_mass_in_cell/M_sys
+                # masses = [m*p_max*total_mass_in_cell/M_sys for m in masses]
+                # # M_sys = p_max*total_mass_in_cell
+                # M_diff = total_mass_in_cell * (1 - p_max)
+            # else:
+            # mu = max(p_max*M/xi,m_left)
+            mu = M_diff/xi
+            if mu <= 1.02*masses[pt_n-1]:
+                xi_sum = xi + xis[pt_n-1]
+                m_sum = xi*mu + xis[pt_n-1] * masses[pt_n-1]
+                xis[pt_n-1] = xi_sum
+                masses[pt_n-1] = m_sum / xi_sum
+                no_pt += xi
+                print(pt_n, xi, mu, no_pt)
+            else:                
+                masses.append(mu)    
+                xis.append(xi)
+                no_pt += xi
+                print(pt_n, xi, mu, no_pt)
+                pt_n += 1
+    
+    return np.array(masses), np.array(xis, dtype=np.int64), m_low, m_high
 
 # # c "per cell", t "tot"
 # # rad and weights are (Nx,Ny,no_spc) array
