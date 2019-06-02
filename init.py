@@ -451,28 +451,31 @@ def generate_random_positions(grid, no_spc, seed):
     rel_pos = np.array([rnd_x, rnd_z])
     return pos, rel_pos
 
-#%% GENERATE SIP ENSEMBLE
+#%% GENERATE SIP ENSEMBLES
 
 # par = "rate" parameter "k" of the expo distr: k*exp(-k*m) (in 10^18 kg)
 # no_rpc = number of real particles in cell
 def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
-        par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40, eta=1.0E-9,
-        seed=4711, setseed = True):
+        par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40,
+        eta=1.0E-9, seed=4711, setseed = True):
     
     if setseed: np.random.seed(seed)
     m_low = compute_mass_from_radius(r_critmin, c.mass_density_NaCl_dry)
     # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
     #                                            cnt_lim=1E8)
     m_high = m_low * m_high_by_m_low
-    # since we consider only particles with m > m_low, the distribution has
-    # to be adjusted. We have two possibilities:
+    # since we consider only particles with m > m_low, the total number of
+    # placed particles and the total placed mass will be underestimated
+    # to fix this, we could adjust the PDF
+    # by e.g. one of the two possibilities:
     # 1. decrease the total number of particles and thereby the total pt conc.
     # 2. keep the total number of particles, and thus increase the PDF
     # in the interval [m_low, m_high]
-    # I choose 1.: decrease the total number of particles by multiplication 
-    # with factor num_int_expo_np(m_low, m_high, par, steps=1.0E6)
-    print(no_rpc)
-    no_rpc *= num_int_expo(m_low, m_high, par, steps=1.0E6)
+    # # For 1.: decrease the total number of particles by multiplication 
+    # # with factor num_int_expo_np(m_low, m_high, par, steps=1.0E6)
+    # print(no_rpc)
+    # no_rpc *= num_int_expo(m_low, m_high, par, steps=1.0E6)
+    
     # for 2.:
     # increase the total number of
     # real particle "no_rpc" by 1.0 / int_(m_low)^(m_high)
@@ -490,14 +493,15 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
     m_left = m_low
     m = 0.0
     
-    print("no_rpc =", no_rpc)
-    while(no_rp_set < no_rpc and m < m_high):
+    # print("no_rpc =", no_rpc)
+    # while(no_rp_set < no_rpc and m < m_high):
+    while(m < m_high):
         m_right = m_left * 10**kappa_inv
-        print("missing particles =", no_rpc - no_rp_set)
-        print("m_left, m_right")
-        print(bin_n, m_left, m_right)
+        # print("missing particles =", no_rpc - no_rp_set)
+        # print("m_left, m_right, m_high")
+        # print(bin_n, m_left, m_right, m_high)
         m = np.random.uniform(m_left, m_right)
-        print("m =", m)
+        # print("m =", m)
         # we do not round to integer here, because of the weak threshold below
         # the rounding is done afterwards
         xi = dst_expo(m,par) * (m_right - m_left) * no_rpc
@@ -505,7 +509,8 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
         # if xi < 1 : xi = 1
         if no_rp_set + xi > no_rpc:
             xi = no_rpc - no_rp_set
-        print("xi =", xi)
+            # print("no_rpc reached")
+        # print("xi =", xi)
         masses.append(m)
         xis.append(xi)
         no_rp_set += xi
@@ -517,8 +522,11 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
     masses = np.array(masses)
     
     xi_max = xis.max()
-    print("xi_max =", xi_max)
+    # print("xi_max =", f"{xi_max:.2e}")
+    
     xi_critmin = int(xi_max * eta)
+    if xi_critmin < 1: xi_critmin = 1
+    # print("xi_critmin =", xi_critmin)
     
     for bin_n, xi in enumerate(xis):
         if xi < xi_critmin:
@@ -540,54 +548,8 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
     # and assign the average mass to it
     # then reweight all of the masses such that the total mass is right.
     
-    return xis, masses
-
-dV = 1.0
-# dV = 1.0E-6
-dt = 1.0
-# dt = 1.0
-store_every = 600
-t_end = 3600.0
-
-no_spc = 80
-
-# droplet concentration
-#n = 100 # cm^(-3)
-n0 = 297.0 # cm^(-3)
-# liquid water content (per volume)
-LWC0 = 1.0E-6 # g/cm^3
-# total number of droplets
-no_rpc = int(n0 * dV * 1.0E6)
-print("no_rpc=", no_rpc)
-
-# we start with a monomodal exponential distribution
-# mean droplet mass
-mu = 1.0E15*LWC0 / n0
-print("mu_m=", mu)
-mu_R = compute_radius_from_mass(mu, c.mass_density_water_liquid_NTP)
-print("mu_R=", mu_R)
-total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
-
-r_critmin = 0.6
-kappa = 40
-eta = 1.0E-9
-seed = 4711
-   
-xis, masses = generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
-                  1.0/mu, no_rpc)
-
-print(xis.shape)
-print(masses.shape)
-print((xis.sum()-no_rpc)/no_rpc)
-print((np.sum(masses*xis)-total_mass_in_cell)/total_mass_in_cell)
-
-import matplotlib.pyplot as plt
-Rs = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
-plt.plot()
+    return masses, xis, m_low, m_high
     
-#%%  
-
-
 # no_spc is the intended number of super particles per cell,
 # this will right on average, but will vary due to the random assigning 
 # process of the xi_i

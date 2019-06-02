@@ -53,19 +53,16 @@ import os
 import constants as c
 # from microphysics import compute_mass_from_radius
 from microphysics import compute_radius_from_mass
-# from collision import simulate_collisions_np
-from collision import simulate_collisions
+from collision import simulate_collisions_np
+# from collision import simulate_collisions
 from init import dst_expo
-from init import generate_SIP_ensemble
+from init import generate_SIP_ensemble_expo_my_xi_rnd
+from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold
 # from collision import generate_permutation
 # from collision import simulate_collisions
 
 #%% INIT
-simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
-path = simdata_path + folder
-if not os.path.exists(path):
-    os.makedirs(path)
+
 
 #dx = 1 # m
 #dy = 1 # m
@@ -93,7 +90,35 @@ dt = 1.0
 store_every = 600
 t_end = 3600.0
 
-no_spc = 80
+no_spc = 40
+
+kernel = "long"
+init = "SingleSIP"
+
+no_sims = 50
+seed_list = np.arange(4711, 4711+no_sims*2, 2)
+# seed_list = np.arange(4711+38, 4711+38+no_sims*2, 2)
+
+p_min = 0
+p_max = 0.9999999
+# bin linear spreading parameter
+eps = 200
+
+# for SingleSIP random
+kappa = 40
+
+simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
+# folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
+# folder = "collision_box_model_multi_sim/dV_1E0_kappa_40_no_sim_50/"
+if init == "SingleSIP":
+    folder =\
+f"collision_box_model/kernels/{kernel}/init_{init}_dV_{dV}_kappa_{kappa}_no_sims_{no_sims}/"
+elif init == "xi_random":
+    folder =\
+f"collision_box_model/kernels/{kernel}/init_{init}_dV_{dV}_no_spc_{no_spc}_eps_{eps}no_sims_{no_sims}/"
+path = simdata_path + folder
+if not os.path.exists(path):
+    os.makedirs(path)
 
 # droplet concentration
 #n = 100 # cm^(-3)
@@ -122,14 +147,7 @@ total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
 # mu = compute_mass_from_radius(mu_R, c.mass_density_water_liquid_NTP)
 # print(mu)
 
-no_sims = 50
-seed_list = np.arange(4711, 4711+no_sims*2, 2)
-# seed_list = np.arange(4711+38, 4711+38+no_sims*2, 2)
 
-p_min = 0
-p_max = 0.9999999
-# bin linear spreading parameter
-eps = 200
 dm = mu*1.0E-5
 m0 = 0.0
 m1 = 100*mu
@@ -140,20 +158,26 @@ for sim_n in range(no_sims):
     dst = dst_expo
     par = 1/mu
     
-    masses, xi, m_low, m_high =\
-        generate_SIP_ensemble(dst, par, no_spc, no_rpc,
-                              total_mass_in_cell,
-                              p_min, p_max, eps,
-                              m0, m1, dm, seed, setseed = True)
+    masses, xis, m_low, m_high =\
+        generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
+                              1.0/mu, no_rpc, kappa=kappa, seed = seed)    
+        # generate_SIP_ensemble_expo_my_xi_rnd(dst, par, no_spc, no_rpc,
+        #                       total_mass_in_cell,
+        #                       p_min, p_max, eps,
+        #                       m0, m1, dm, seed, setseed = True)
     
     # masses = np.random.exponential(mu, no_rpc) # in mu
     # xi = np.ones(no_rpc, dtype = np.int64)
     
+    
     m_max = np.amax(masses)
     print("sim_n", sim_n, "; masses.shape=", masses.shape, "; m_max=", m_max,
-          "m_true-m_sys=", total_mass_in_cell-np.sum(masses*xi),
-          "no_pt_true-no_sys=", no_rpc - np.sum(xi) )
+          "m_true-m_sys (%)=",
+          (total_mass_in_cell-np.sum(masses*xis))/total_mass_in_cell*100,
+          "no_pt_true-no_sys (%)=", (no_rpc - np.sum(xis))/no_rpc*100 )
     print("m_high=", f"{m_high:.2e}", "m_low=", m_low)
+    
+    radii = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
     
     ###
 #     fig_name = f"mass_distribution_init_{sim_n}.png"
@@ -179,22 +203,28 @@ for sim_n in range(no_sims):
     ###
     
     ###
-    fig_name = f"SIP_ensemble_dV_{dV}_no_spc_aim_{no_spc}_sim_no_{sim_n}.png"
+    # fig_name = f"SIP_ensemble_dV_{dV}_no_spc_aim_{no_spc}_sim_no_{sim_n}.png"
+    fig_name = f"SIP_ensemble_dV_{dV}_kappa_{kappa}_sim_no_{sim_n}.png"
     fig, ax = plt.subplots(figsize=(8,8))
-    ax.plot(masses, xi, "o")
-    m_max = np.amax(masses)
-    m_ = np.linspace(0.0,m_max, 10000)
+    # ax.plot(masses, xi, "o")
+    ax.plot(radii, xis, "x-")
+    # m_max = np.amax(masses)
+    # m_ = np.linspace(0.0,m_max, 10000)
     # m_max = masses[-2]
-    m_min = np.amin(masses)
+    # m_min = np.amin(masses)
     # no_spc = len(masses)
-    no_rpc = xi.sum()
+    # no_rpc = xi.sum()
     # m_ges = np.sum(masses*xis)
     # bin_size = m_max/no_spc
     # bin_size = m_max/(no_spc-1)
-    bin_size = (m_high - m_low)/(no_spc)
+    
+    # bin_size = (m_high - m_low)/(no_spc)
+    
     # ax.plot(m_, no_rpc*np.exp(-m_/mu)\
     #             *(np.exp(0.5*bin_size/mu)-np.exp(-0.5*bin_size/mu)))
-    ax.plot(m_, no_rpc*bin_size*dst_expo(m_,1.0/mu))
+    
+    # ax.plot(m_, no_rpc*bin_size*dst_expo(m_,1.0/mu))
+    
     ax.set_xscale("log")
     ax.set_yscale("log")
     ###
@@ -205,8 +235,9 @@ for sim_n in range(no_sims):
     # print("start sim here")
 
     times, concentrations, masses_vs_time, xis_vs_time =\
-        simulate_collisions(xi, masses, dV, dt, t_end, store_every)
-        # simulate_collisions_np(xi, masses, dV, dt, t_end, store_every)
+        simulate_collisions_np(xis, masses, dV, dt, t_end, store_every,
+                               kernel=kernel)
+        # simulate_collisions(xi, masses, dV, dt, t_end, store_every)
     
     np.save(path + f"conc_{sim_n}.npy",concentrations)
     np.save(path + f"times_{sim_n}.npy",times)
