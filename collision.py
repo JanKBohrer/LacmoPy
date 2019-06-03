@@ -31,6 +31,14 @@ def generate_permutation(N):
             permutation[q] = n_next
     return permutation
 
+#%% COLLECTION, COLLISION, COALESCENCES EFFICIENCIES
+# E_collection = E_collision * E_coalescence
+
+### Hall 1980: Collision Efficiency table
+
+# row =  collector drop radius:
+
+
 #%% GOLOVIN KERNEL
 
 # P_ij = dt/dV K_ij
