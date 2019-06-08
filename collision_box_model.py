@@ -47,61 +47,100 @@ P = m^3/s * s/m^3 = 1
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from numba import njit
+# from numba import njit
 import os
 
 import constants as c
-from microphysics import compute_mass_from_radius
+# from microphysics import compute_mass_from_radius
 from microphysics import compute_radius_from_mass
-
+from collision import simulate_collisions_np
+from collision import compute_E_col_Hall
+# from collision import simulate_collisions
+from init import dst_expo
+from init import generate_SIP_ensemble_expo_my_xi_rnd
+from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold
 # from collision import generate_permutation
 # from collision import simulate_collisions
 
-def dst_expo(x,k):
-    return np.exp(-x*k) * k
+#Hall_E_col = np.load("Hall_collision_efficiency.npy")
+#Hall_R_col = np.load("Hall_collector_radius.npy")
+#Hall_R_col_ratio = np.load("Hall_radius_ratio.npy")
+#
+#for i1 in range(0,31):
+#    for j1 in range(21):
+#        R1 = Hall_R_col[i1]
+#        R2 = Hall_R_col_ratio[j1] * R1        
+#        print(i1,j1,Hall_E_col[i1,j1]-compute_E_col_Hall(R1,R2))
+
 
 #%% INIT
-simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-folder = "collision_box_model/"
+
+dV = 1.0
+# dV = 1.0E-6
+dt = 1.0
+# dt = 1.0
+t_end = 3600.0
+dt_store = 600.0
+store_every = int(math.ceil(dt_store/dt))
+
+
+#kernel = "hall"
+kernel = "long"
+#kernel = "golovin"
+
+init = "SingleSIP"
+
+no_sims = 500
+seed_list = np.arange(4711, 4711+no_sims*2, 2)
+# seed_list = np.arange(4711+38, 4711+38+no_sims*2, 2)
+
+p_min = 0
+p_max = 0.9999999
+
+
+# for my xi random initialization:
+# intended number of SIP:
+no_spc = 40
+# bin linear spreading parameter
+eps = 200
+
+# for SingleSIP random:
+# bin exponential scaling factor
+kappa = 40
+
+#simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
+simdata_path = "/Users/bohrer/OneDrive - bwedu/python/sim_data/"
+
+# folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
+# folder = "collision_box_model_multi_sim/dV_1E0_kappa_40_no_sim_50/"
+if init == "SingleSIP":
+    folder =\
+f"collision_box_model/kernels/{kernel}/init/{init}/\
+dV_{dV:.2}_dt_{dt:.2}_kappa_{kappa}_no_sims_{no_sims}/"
+elif init == "my_xi_random":
+    folder =\
+f"collision_box_model/kernels/{kernel}/init/{init}/\
+dV_{dV:.2}_dt_{dt:.2}_no_spc_{no_spc}_eps_{eps}_no_sims_{no_sims}/"
 path = simdata_path + folder
 if not os.path.exists(path):
     os.makedirs(path)
 
-#dx = 1 # m
-#dy = 1 # m
-#dz = 1 # m
-
-# dx = 0.02 # m
-# dy = 0.02 # m
-# dz = 0.02 # m
-
-dx = 0.1 # m
-# dy = 0.002 # m
-dy = 0.1 # m
-dz = 0.1 # m
-
-dt = 1.0
-# dt = 1.0
-store_every = 600
-t_end = 3600.0
-
-dV = dx * dy * dz
-
-# we start with a monomodal exponential distribution
 # droplet concentration
 #n = 100 # cm^(-3)
 n0 = 297.0 # cm^(-3)
 # liquid water content (per volume)
 LWC0 = 1.0E-6 # g/cm^3
 # total number of droplets
-no_spct = int(n0 * dV * 1.0E6)
-print("no_spct=", no_spct)
+no_rpc = int(n0 * dV * 1.0E6)
+print("no_rpc=", no_rpc)
 
+# we start with a monomodal exponential distribution
 # mean droplet mass
 mu = 1.0E15*LWC0 / n0
 print("mu_m=", mu)
 mu_R = compute_radius_from_mass(mu, c.mass_density_water_liquid_NTP)
 print("mu_R=", mu_R)
+total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
 
 # we need an initial distribution for wet droplets:
 # here just for the water mass m
@@ -113,40 +152,102 @@ print("mu_R=", mu_R)
 # mu = compute_mass_from_radius(mu_R, c.mass_density_water_liquid_NTP)
 # print(mu)
 
-seed = 4713
-np.random.seed(seed)
-masses = np.random.exponential(mu, no_spct) # in mu
-print("masses.shape=", masses.shape)
-m_max = np.amax(masses)
-print("m_max=", m_max)
-xi = np.ones(no_spct, dtype = np.int64)
 
-fig_name = "mass_distribution_init.png"
-fig, ax = plt.subplots(figsize=(8,8))
-m_ = np.linspace(0.0,m_max, 10000)
-ax.hist(masses, density=True, bins=50)
-ax.plot(m_, dst_expo(m_, 1.0/mu))
-ax.set_yscale("log")
-ax.set_xlabel("particle mass (fg)")
-ax.set_ylabel("normalized counts")
-ax.set_title(
-f"n0={n0:.3} cm^-3, LWC0={LWC0} g/cm^3, # SIP={no_spct:.2e}", pad=20)
-fig.tight_layout()
-fig.savefig(path + fig_name)
+dm = mu*1.0E-5
+m0 = 0.0
+m1 = 100*mu
 
-#%% SIMULATION
+for sim_n in range(no_sims):
+    seed = seed_list[sim_n]
+    np.random.seed(seed)
+    dst = dst_expo
+    par = 1/mu
+    
+    masses, xis, m_low, m_high =\
+        generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
+                              1.0/mu, no_rpc, kappa=kappa, seed = seed)    
+        # generate_SIP_ensemble_expo_my_xi_rnd(dst, par, no_spc, no_rpc,
+        #                       total_mass_in_cell,
+        #                       p_min, p_max, eps,
+        #                       m0, m1, dm, seed, setseed = True)
+    
+    # masses = np.random.exponential(mu, no_rpc) # in mu
+    # xi = np.ones(no_rpc, dtype = np.int64)
+    
+    
+    m_max = np.amax(masses)
+    print("sim_n", sim_n, "; masses.shape=", masses.shape, "; m_max=", m_max,
+          "m_true-m_sys (%)=",
+          (total_mass_in_cell-np.sum(masses*xis))/total_mass_in_cell*100,
+          "no_pt_true-no_sys (%)=", (no_rpc - np.sum(xis))/no_rpc*100 )
+    print("m_high=", f"{m_high:.2e}", "m_low=", m_low)
+    
+    radii = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
+    
+    ###
+#     fig_name = f"mass_distribution_init_{sim_n}.png"
+#     fig, ax = plt.subplots(figsize=(8,8))
+#     m_ = np.linspace(0.0,m_max, 10000)
+#     no_bins = 50
+#     # ax.hist(masses, density=True, bins=50)
+#     bins = ax.hist(masses, bins=no_bins)[1]
+#     ax.plot(m_, (bins[-1]-bins[0])/no_bins*masses.shape[0]*dst_expo(m_,1.0/mu))
+#     # ax.plot(m_, dst_expo(m_, 1.0/mu))
+#     ax.set_yscale("log")
+#     ax.set_xlabel("particle mass (fg)")
+#     ax.set_ylabel("counts")
+#     # ax.set_ylabel("normalized counts")
+#     ax.set_title(
+# f"sim#={sim_n}, n0={n0:.3} cm^-3, LWC0={LWC0} g/cm^3, dV={dV} \
+# #SIP={len(xi)}, seed={seed}",
+#     pad=20)
+#     ax.set_title(
+# f"sim#={sim_n}, n0={n0:.3} cm^-3, LWC0={LWC0} g/cm^3, dV={dV} \
+# #SIP={no_rpc:.2e}, seed={seed}",
+#     pad=20)
+    ###
+    
+    ###
+    # fig_name = f"SIP_ensemble_dV_{dV}_no_spc_aim_{no_spc}_sim_no_{sim_n}.png"
+    fig_name = f"SIP_ensemble_dV_{dV}_kappa_{kappa}_sim_no_{sim_n}.png"
+    fig, ax = plt.subplots(figsize=(8,8))
+    # ax.plot(masses, xi, "o")
+    ax.plot(radii, xis, "x-")
+    # m_max = np.amax(masses)
+    # m_ = np.linspace(0.0,m_max, 10000)
+    # m_max = masses[-2]
+    # m_min = np.amin(masses)
+    # no_spc = len(masses)
+    # no_rpc = xi.sum()
+    # m_ges = np.sum(masses*xis)
+    # bin_size = m_max/no_spc
+    # bin_size = m_max/(no_spc-1)
+    
+    # bin_size = (m_high - m_low)/(no_spc)
+    
+    # ax.plot(m_, no_rpc*np.exp(-m_/mu)\
+    #             *(np.exp(0.5*bin_size/mu)-np.exp(-0.5*bin_size/mu)))
+    
+    # ax.plot(m_, no_rpc*bin_size*dst_expo(m_,1.0/mu))
+    
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ###
+    
+    fig.tight_layout()
+    fig.savefig(path + fig_name)
+    plt.close()
+    # print("start sim here")
 
-print("start sim here")
-from collision import simulate_collisions_np
-from collision import simulate_collisions
-times, concentrations, masses_vs_time, xis_vs_time =\
-    simulate_collisions(xi, masses, dV, dt, t_end, store_every)
-    # simulate_collisions_np(xi, masses, dV, dt, t_end, store_every)
-
-np.save(path + "conc.npy",concentrations)
-np.save(path + "times.npy",times)
-np.save(path + "masses_vs_time.npy",masses_vs_time)
-np.save(path + "xis_vs_time.npy",xis_vs_time)
+    times, concentrations, masses_vs_time, xis_vs_time =\
+        simulate_collisions_np(xis, masses, dV, dt, t_end, store_every,
+                               kernel=kernel)
+        # simulate_collisions(xi, masses, dV, dt, t_end, store_every)
+    
+    np.save(path + f"conc_{sim_n}.npy",concentrations)
+    np.save(path + f"times_{sim_n}.npy",times)
+    np.save(path + f"masses_vs_time_{sim_n}.npy",masses_vs_time)
+    np.save(path + f"xis_vs_time_{sim_n}.npy",xis_vs_time)
 
 # print(xi)
 # print(masses)
@@ -160,3 +261,10 @@ np.save(path + "xis_vs_time.npy",xis_vs_time)
 # rs = [5,5]
 # ns = [10,10]
 # compare_functions_run_time(funcs, pars, rs, ns, globals_ = globals())
+
+# ll = [0,1,2,34,837,23]
+
+# ll2 = np.array(ll)
+
+# print(ll2)
+# print(ll2.dtype)
