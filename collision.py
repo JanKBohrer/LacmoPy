@@ -16,8 +16,10 @@ import math
 import constants as c
 from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_mass_from_radius
+from grid import bilinear_weight
 
 
+#%% PERMUTATION
 # returns a permutation of the list of integers [0,1,2,..,N-1] by Shima method
 @njit()
 def generate_permutation(N):
@@ -34,12 +36,156 @@ def generate_permutation(N):
 #%% COLLECTION, COLLISION, COALESCENCES EFFICIENCIES
 # E_collection = E_collision * E_coalescence
 
-### Hall 1980: Collision Efficiency table
+### Hall 1980: Collision Efficiency table -> assume E_coalescence = 1.0 f.a. R
 
-# row =  collector drop radius:
+# in Hall_E_col:
+# row =  collector drop radius (radius of larger drop)
+# column = ratio of R_small/R_large "collector ratio"  
+Hall_E_col = np.load("Hall_collision_efficiency.npy")
+Hall_R_col = np.load("Hall_collector_radius.npy")
+Hall_R_col_ratio = np.load("Hall_radius_ratio.npy")
+@njit()
+def linear_weight(i, weight, f):
+    return f[i+1]*weight + f[i]*(1.0-weight)
+@njit()
+def compute_E_col_Hall(R_i, R_j):
+    if R_i <= 0.0 or R_j <= 0.0:
+        return 0.0
+    if R_i < R_j:
+        R_col = R_j
+        R_ratio = R_i/R_j
+    else:
+        R_col = R_i
+        R_ratio = R_j/R_i
+    if R_col > 300.0:
+        return 1.0
+    else:
+        # NOTE that ind_col is for index of R_collection,
+        # which indicates the row of Hall_E_col, and NOT the coloumn
+        ind_col = int(R_col/10.0)
+        ind_ratio = int(R_ratio/0.05)
+        if ind_col == Hall_R_col.shape[0]-1:
+            if ind_ratio == Hall_R_col_ratio.shape[0]-1:
+                return 1.0
+            else:
+                weight = (R_ratio - ind_ratio * 0.05) / 0.05
+                return linear_weight(ind_ratio, weight, Hall_E_col[ind_col])
+        elif ind_ratio == Hall_R_col_ratio.shape[0]-1:
+            weight = (R_col - ind_col * 10.0) / 10.0
+            return linear_weight(ind_col, weight, Hall_E_col[:,ind_ratio])
+        else:
+            weight_1 = (R_col - ind_col * 10.0) / 10.0
+            weight_2 = (R_ratio - ind_ratio * 0.05) / 0.05
+#        print(R_col, R_ratio)
+#        print(ind_col, ind_ratio, weight_1, weight_2)
+            return bilinear_weight(ind_col, ind_ratio,
+                                   weight_1, weight_2, Hall_E_col)
+        # E_col = bilinear_weight(ind_1, ind_2, weight_1, weight_2, Hall_E_col)
 
+#%% COLLECTION KERNELS
 
-#%% GOLOVIN KERNEL
+from atmosphere import compute_viscosity_air
+viscosity_air_NTP = compute_viscosity_air(300.0)
+
+### terminal velocity dependent on the droplet radius 
+# (under some assumptions for the environment variables (T, p) and density of
+# water for the droplets)
+# radius R in mu       
+#def compute_terminal_velocity(R):
+#    k_0 = 4.5 * viscosity_air_NTP / (c.mass_density_water_liquid_NTP * R * R)
+fac_Cd_Re_sq = 32.0\
+           * (c.mass_density_water_liquid_NTP - c.mass_density_air_dry_NTP)\
+           * c.mass_density_air_dry_NTP * c.earth_gravity\
+           / (3.0 * viscosity_air_NTP * viscosity_air_NTP)
+def compute_Cd_Re_sq(R):
+    return fac_Cd_Re_sq * R * R * R
+fac_v_from_Re = viscosity_air_NTP/(2.0*c.mass_density_water_liquid_NTP)
+# for intermediate 35 mu <= R < 300 mu
+def solve_v_iteratively_long(R):
+    if R <= 100:
+        Re = 10
+    else:
+        Re = 100
+    R *= 1.0E-6    
+    Cd_Re_sq = compute_Cd_Re_sq(R)
+    Cd_Re_sq_star = 100.0 * Cd_Re_sq
+    
+    while abs(Cd_Re_sq_star - Cd_Re_sq) / Cd_Re_sq > 1.0E-3:
+        ln_Re = math.log(Re)
+        y = -2.44461E-2 * ln_Re - 6.98404E-3 * ln_Re*ln_Re\
+            + 8.88634E-4 * ln_Re**3
+        bracket_term = 24.0 * (1.0 + 0.10229 * Re**(0.94015 + y))
+        Cd_Re_sq_star = Re * bracket_term
+        Re = Re - (Cd_Re_sq_star - Cd_Re_sq) / bracket_term
+    print(Re)
+    return 1.0E2 * fac_v_from_Re * Re / R 
+
+# par[0] belongs to the largest exponential x^(n-1) for par[i], i = 0, .., n 
+@njit()
+def compute_polynom(par,x):
+    res = par[0] * x + par[1]
+    for a in par[2:]:
+        res = res * x + a
+    return res
+
+# terminal velocity as fct of R by Long 1974b
+# "five sections":
+# junction points = 15, 35, 300, 800
+# NOTE: "assumes p = 1013 mb, T = 20 C, RH = 100 %
+v_35 = 13.721114748125
+v_300 = 244.10941058000004
+fac_vT_1 = 2.0 * c.earth_gravity\
+            * (c.mass_density_water_liquid_NTP - c.mass_density_air_dry_NTP) \
+            / (9.0 * viscosity_air_NTP)
+@njit()
+def compute_terminal_velocity_long(R):
+    if R < 15:
+        R *= 1.0E-6
+        v = fac_vT_1 * R * R * 1.0E2
+    elif R < 35:
+        R *= 1.0E-4
+        v = compute_polynom((-1.917038E13,
+                        2.432383E11,
+                        -1.263519E9,
+                        4.243126E6,
+                        -3.417072E3,
+                        1.443646), R)
+#        v = np.polyval((-1.917038E13,
+#                        2.432383E11,
+#                        -1.263519E9,
+#                        4.243126E6,
+#                        -3.417072E3,
+#                        1.443646), R)
+    elif R < 300:
+#        v = solve_v_iteratively_Long(R)
+        v = (v_300 - v_35) / (300 - 35) * (R-35) + v_35
+    elif R < 800:
+        R *=1.0E-4
+        v = compute_polynom( (-1.135044E8, 3.971905E7, -5.064069E6,
+                         2.559450E5, 2.865716E3, 3.510302E1), R )
+#        v = np.polyval( (-1.135044E8, 3.971905E7, -5.064069E6,
+#                         2.559450E5, 2.865716E3, 3.510302E1), R )
+    else:
+        R *= 1.0E-4
+        D = compute_polynom( (2.036791E5, -3.815343E4,4.516634E3,
+                         -8.020389E1, 1.44274121E1,1.0), (R-0.045))
+#        D = np.polyval( (2.036791E5, -3.815343E4,4.516634E3,
+#                         -8.020389E1, 1.44274121E1,1.0), (R-0.045))
+        v = -(554.5/D) + 921.5 - (4.0E-3 / (R - 0.021))
+    return v * 0.01
+
+#v_35 = compute_terminal_velocity_Long(35)
+#v_300 = compute_terminal_velocity_Long(300)
+
+#v = []
+##R = np.arange(1,35,1)
+##R = np.arange(1,1200,1)
+#R = np.arange(1,1200,1)
+#for R_ in R:
+#    v.append(compute_terminal_velocity_Long(R_))
+#
+#import matplotlib.pyplot as plt
+#plt.plot(R,v)
 
 # P_ij = dt/dV K_ij
 # K_ij = b * (m_i + m_j)
@@ -47,6 +193,24 @@ def generate_permutation(N):
 @njit()
 def kernel_golovin(m_i, m_j):
     return 1.5E-18 * (m_i + m_j)
+
+# R_i, R_j in mu
+# 1E-12 to get m^3/s for the kernel
+@njit()
+def kernel_hydro(R_i, R_j, E_col, v_dif):
+    return math.pi * (R_i + R_j)**2 * E_col * v_dif * 1.0E-12
+
+# Hall 1980
+# use hydrodynamic kernel with terminal velocity dependent on R_i
+# and tabulated collection efficiencies from the paper
+@njit()
+def kernel_hall(m_i, m_j):
+    R_i = compute_radius_from_mass_jit(m_i, c.mass_density_water_liquid_NTP)
+    R_j = compute_radius_from_mass_jit(m_j, c.mass_density_water_liquid_NTP)
+    E_col = compute_E_col_Hall(R_i, R_j)
+    dv = compute_terminal_velocity_long(R_i)\
+         - compute_terminal_velocity_long(R_j)
+    return kernel_hydro(R_i, R_j, E_col, abs(dv))
 
 # Long 1974 
 # Kernel (two versions (?) he says: might be approx by ... OR ... (?))
@@ -76,42 +240,49 @@ def kernel_long(m_i, m_j):
         # return 9.44E9*1.0E-24*(m_i*m_i + m_j*m_j)\
         #        / (c.mass_density_water_liquid_NTP
         #           * c.mass_density_water_liquid_NTP)
-        return 9.44E9 * 1.0E-24 * four_pi_over_three**2 * (R_i**6 + R_j**6)
+        return 9.44E9 * 1.0E-24 * 1.0E-6 * four_pi_over_three**2 * (R_i**6 + R_j**6)
     else:
         # return 5.78E-9 * (m_i + m_j) / c.mass_density_water_liquid_NTP
         # return 5.78E-12 * (m_i + m_j) / c.mass_density_water_liquid_NTP
         # return 5.78E3 * 1.0E-12 (m_i + m_j) / c.mass_density_water_liquid_NTP
-        return 5.78E3 * 1.0E-12 * four_pi_over_three * (R_i**3 + R_j**3)
+        return 5.78E3 * 1.0E-12 * 1.0E-6 * four_pi_over_three * (R_i**3 + R_j**3)
+
            
-# m_i = 1E6
+#m_i = 1E6
 # # m_j = 1E7
-# R_i = compute_radius_from_mass_jit(m_i, c.mass_density_water_liquid_NTP)
+#R_i = compute_radius_from_mass_jit(m_i, c.mass_density_water_liquid_NTP)
 # # R_j = compute_radius_from_mass_jit(m_j, c.mass_density_water_liquid_NTP)
-# print(R_i)
+#print(R_i)
 # # print(R_j)
-
-# kernel_lon = []
-# kernel_gol = []
-
+#
+#kernel_lon = []
+#kernel_hal = []
+#kernel_gol = []
+#
 # # print(kernel_long(m_i,m_j))
-# R_range = np.arange(10,100,1)
-# m_range = compute_mass_from_radius(R_range, c.mass_density_water_liquid_NTP)
-# for m_j in m_range:
-#     kernel_gol.append(kernel_golovin(m_i, m_j))
-#     kernel_lon.append(kernel_long(m_i, m_j))
-
-# kernel_gol = np.array(kernel_gol)
-# kernel_lon = np.array(kernel_lon)
-
-# import matplotlib.pyplot as plt
-
-# # R_j = np.arange(10,100,10)
-# # R_range
-# plt.plot(m_range, kernel_gol,"o")
-# plt.plot(m_range, kernel_lon,"x")
-# m_50 = compute_mass_from_radius(50, c.mass_density_water_liquid_NTP)
-# plt.vlines(m_50,
-#            0.0, kernel_long(m_i,m_50))
+#R_range = np.arange(10,1000,1)
+#m_range = compute_mass_from_radius(R_range, c.mass_density_water_liquid_NTP)
+#for m_j in m_range:
+#    kernel_gol.append(kernel_golovin(m_i, m_j))
+#    kernel_lon.append(kernel_long(m_i, m_j))
+#    kernel_hal.append(kernel_hall(m_i, m_j))
+#
+#kernel_gol = np.array(kernel_gol)
+#kernel_lon = np.array(kernel_lon)
+#kernel_hal = np.array(kernel_hal)
+#
+#import matplotlib.pyplot as plt
+#
+## R_j = np.arange(10,100,10)
+## R_range
+#plt.plot(m_range, kernel_gol,"o")
+#plt.plot(m_range, kernel_hal,"x")
+#plt.plot(m_range, kernel_lon,"d")
+#plt.xscale("log")
+#plt.yscale("log")
+#m_50 = compute_mass_from_radius(50, c.mass_density_water_liquid_NTP)
+##plt.vlines(m_50,
+##           0.0, kernel_long(m_i,m_50))
 
 #%% SHIMA alg 01 ALPHA
     
@@ -157,6 +328,92 @@ def collision_step_golovin(xi, masses, dV, dt):
         # j_done.append(j)
         pair_kernel =\
             kernel_golovin(masses[i], masses[j])
+        if xi[i] >= xi[j]:
+            xi_max = xi[i]
+            ind_max = i
+            xi_min = xi[j]
+            ind_min = j
+        else:
+            xi_max = xi[j]
+            ind_max = j
+            xi_min = xi[i]
+            ind_min = i
+            
+        # xi_max = max(xi[i], xi[j])
+        # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
+        # where N_s = no_spct and
+        # P_ij,s = max(xi_i, xi_j) P_ij
+        # P_ij = K_ij dt/dV
+        pair_prob = pair_kernel * dt/dV * xi_max\
+                    * 0.5 * no_spct * (no_spct - 1) / no_pairs
+        # then evaluate
+        # beta
+        # = [p] + 1; if rnd01 < p - [p]
+        # = [p]    ; if rnd01 >= p - [p]
+        pair_prob_int = int(pair_prob)
+        if rnd01[pair_n] < pair_prob - pair_prob_int:
+            g = pair_prob_int + 1
+        else: g = pair_prob_int
+        # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
+        if g > 0:
+            # print("collision for pair", i, j)
+            # xi_min = min(xi[i], xi[j])
+            g = min(g,int(xi_max/xi_min))
+            if xi_max - g*xi_min > 0:
+                # print("case 1")
+                xi[ind_max] -= g * xi_min
+                masses[ind_min] += g * masses[ind_max]
+            else:
+                # print("case 2")
+                xi[ind_max] = int(0.5 * xi_min)
+                xi[ind_min] -= int(0.5 * xi_min)
+                masses[ind_min] += g * masses[ind_max]
+                masses[ind_max] = masses[ind_min]
+
+### Coll step for Hall Kernel
+
+@njit()
+def collision_step_hall(xi, masses, dV, dt):
+    # xi is a 1D array of multiplicities
+    # elements of xi can be 0, indicating vanished droplets
+    # look for the indices, which are not zero
+    indices = np.nonzero(xi)[0]
+    # N = no_spct ("number of super particles per cell total")
+    # no_spct = len(indices)
+    no_spct = indices.shape[0]
+    # no_spct = 5940
+    # Let I = [0,1,2,3,...,N-1] be the list of all EXISTING particle indices
+    
+    ### 1. make a random permutation of I by
+    permutation = generate_permutation(no_spct)
+    # print("permutation len")
+    # print(len(permutation))
+    
+    ### 2. make [no_spct/2] candidate pairs [(i1,j1),(i2,j2),(),.]
+    no_pairs = no_spct//2
+    cand_i = permutation[0:no_pairs]
+    cand_j = permutation[no_pairs:2*no_pairs]
+    # map onto the original xi-list, to get the indices for that list
+    
+    cand_i = indices[cand_i]
+    cand_j = indices[cand_j]
+    
+    # print("cand_i len")
+    # print(len(cand_i))
+    # print("cand_j len")
+    # print(len(cand_j))
+    
+    ### 3. for each pair (i,j) generate uniform float random number from [0,1)
+    rnd01 = np.random.rand(no_pairs)
+    # print("len(rnd01)")
+    # print(len(rnd01))
+    for pair_n in range(no_pairs):
+        i = cand_i[pair_n]
+        j = cand_j[pair_n]
+        # i_done.append(i)
+        # j_done.append(j)
+        pair_kernel =\
+            kernel_hall(masses[i], masses[j])
         if xi[i] >= xi[j]:
             xi_max = xi[i]
             ind_max = i
@@ -325,6 +582,7 @@ def simulate_collisions_np(xi, masses, dV, dt, t_end, store_every,
                            kernel="golovin"):
     if kernel == "long": collision_step = collision_step_long
     elif kernel == "golovin": collision_step = collision_step_golovin
+    elif kernel == "hall": collision_step = collision_step_hall
     times = np.zeros(1+int(t_end/(store_every * dt)), dtype = np.float64)
     concentrations = np.zeros(1+int( math.ceil(t_end / (store_every * dt)) ),
                               dtype = np.float64)

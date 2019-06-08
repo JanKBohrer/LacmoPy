@@ -6,6 +6,7 @@ Created on Wed May 29 13:04:09 2019
 @author: jdesk
 """
 
+#import math
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -24,12 +25,24 @@ dV = 1.0
 # dV = 1.0E-6
 dt = 1.0
 # dt = 1.0
-store_every = 600
-t_end = 3600.0
+#t_end = 3600.0
+#dt_store = 600.0
+#store_every = int(math.ceil(dt_store/dt))
 
+
+# droplet concentration
+#n = 100 # cm^(-3)
+n0 = 297.0 # cm^(-3)
+# liquid water content (per volume)
+LWC0 = 1.0E-6 # g/cm^3
+
+# for my xi random init: intended number of SIP
 no_spc = 40
 
-kernel = "long"
+#kernel = "hall"
+#kernel = "long"
+kernel = "golovin"
+
 init = "SingleSIP"
 
 no_sims = 50
@@ -38,38 +51,36 @@ seed_list = np.arange(4711, 4711+no_sims*2, 2)
 
 p_min = 0
 p_max = 0.9999999
+
+# for my xi random initialization:
+# intended number of SIP:
+no_spc = 40
 # bin linear spreading parameter
 eps = 200
 
-# for SingleSIP random
+# for SingleSIP random:
+# bin exponential scaling factor
 kappa = 40
 
-# droplet concentration
-#n = 100 # cm^(-3)
-n0 = 297.0 # cm^(-3)
-# liquid water content (per volume)
-LWC0 = 1.0E-6 # g/cm^3
-# total number of droplets
-no_rpc = int(n0 * dV * 1.0E6)
-print("no_rpc=", no_rpc)
+# for plotting:
+# log-bin plotting:
+no_bins = 30
+# for my auto_binning method
+xi_min = 1
 
-# we start with a monomodal exponential distribution
-# mean droplet mass
-mu = 1.0E15*LWC0 / n0
-print("mu_m=", mu)
-mu_R = compute_radius_from_mass(mu, c.mass_density_water_liquid_NTP)
-print("mu_R=", mu_R)
-total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
+#simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
+simdata_path = "/Users/bohrer/OneDrive - bwedu/python/sim_data/"
 
-simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
 # folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
 # folder = "collision_box_model_multi_sim/dV_1E0_kappa_40_no_sim_50/"
 if init == "SingleSIP":
     folder =\
-f"collision_box_model/kernels/{kernel}/init_{init}_dV_{dV}_kappa_{kappa}_no_sims_{no_sims}/"
-elif init == "xi_random":
+f"collision_box_model/kernels/{kernel}/init/{init}/\
+dV_{dV:.2}_dt_{dt:.2}_kappa_{kappa}_no_sims_{no_sims}/"
+elif init == "my_xi_random":
     folder =\
-f"collision_box_model/kernels/{kernel}/init_{init}_dV_{dV}_no_spc_{no_spc}_eps_{eps}no_sims_{no_sims}/"
+f"collision_box_model/kernels/{kernel}/init/{init}/\
+dV_{dV:.2}_dt_{dt:.2}_no_spc_{no_spc}_eps_{eps}_no_sims_{no_sims}/"
 path = simdata_path + folder
 
 
@@ -80,6 +91,7 @@ xis_vs_time = []
 
 tot_pt = 0
 
+#no_sims = 200
 for sim_n in range(no_sims):
     # times_file = path + "times.npy"
     # conc_file = path + "conc.npy"
@@ -127,15 +139,20 @@ ax.grid()
 
 # we need g_ln_R vs R, where g_ln_R = 3 * m^2 * f_m(m)
 # where f_m(m) = 1/dm * 1/dV * sum_(m_a in [m,m+dm]) {xi_a}
-# i.e: for all m_i,x_i:
-# sort particle in histogram with R_i(m_i) and weight with x_i * 3 * m_i^2
+
+# we have two possibilities:
+# 1. sort particles in histogram of radius with log scaled bins,
+# weighting each particle with xi_ * m_i, then divide each bin by
+# log(R_right) - log(R_left)
+# 2. 
+# sort particle in histogram with m_i and weight with x_i * 3 * m_i^2
+# then divide each bin by m_right-m_left and calculate m_bin_center -> R_bin_c
 
 # dV = 0.1**3
 
-no_bins = 25
-xi_min = 1
-
-fig_name = path + f"mass_distr_per_ln_R_vs_time_no_sims_{no_sims}_dV_{dV}.png"
+fig_name = path +\
+f"g_ln_R_vs_time_kernel_{kernel}_init_{init}\
+_dV_{dV}_dt_{dt}_no_sims_{no_sims}.png"
 fig, ax = plt.subplots(figsize=(8,8))
 
 # method = "lin_R"
@@ -193,7 +210,7 @@ for ind_t in range(len(times)):
     # print("no_rpc =", np.sum(xi_bin))        
     ###
     
-    ax.loglog( bins_mid, g_ln_R, "-" )
+    ax.loglog( bins_mid, g_ln_R, "-", label=f"{int(times[ind_t]/60)}" )
     # ax.loglog( bins_mid, g_ln_R, "o", markersize=5.0 )
     
 
@@ -207,26 +224,34 @@ ax.set_ylim([1.0E-4,1.0E1])
 # ax.set_ylim([1.0E-6,1.0E1])
 # ax.set_xscale("log")
 # ax.set_yscale("log")
-ax.set_xlabel("radius (mu)")
-ax.set_ylabel("mass distribution per ln(R) and volume (g/m^3)")
-ax.set_title(
-f"#sims={no_sims}, n0={n0:.3} cm^-3, LWC0={LWC0} g/cm^3, dV={dV} \
-#SIP={no_spc:.2e}", pad = 10)
+ax.set_xlabel("radius ($\mathrm{\mu m}$)")
+ax.set_ylabel("mass distribution per ln(R) and volume (g/m$^3$)")
+pars = f""
+if init == "SingleSIP":
+    pars = f"kappa={kappa}"
+elif init == "my_xi_random":
+    pars = f"no_spc={no_spc}, eps={eps}"
+title = f"kernel={kernel}, init={init}, {pars},\n#sims={no_sims}, \
+dV={dV}, dt={dt}, \
+n0={n0:.3}" +  " cm$^{-3}$," + f" LWC0={LWC0:.2e}" + " g/cm$^3$"
+ax.set_title(title
+, pad = 10)
+ax.legend()
 ax.grid()
 
 fig.savefig(fig_name)
 
 #%% PLOT SIP TOTAL MASSES
-fig, ax = plt.subplots(figsize=(8,8))
-for ind_t in range(len(times)):
-    masses = masses_vs_time[ind_t]
-    rad = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
-    xi = xis_vs_time[ind_t]
-    # ax.plot(masses, xi, "o", markersize=1.5)
-    # ax.plot(rad, xi, "o", markersize=1.5)
-    ax.plot(rad, xi*masses, "o", markersize=1.5)
-    ax.set_xscale("log")
-    ax.set_yscale("log")
+#fig, ax = plt.subplots(figsize=(8,8))
+#for ind_t in range(len(times)):
+#    masses = masses_vs_time[ind_t]
+#    rad = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
+#    xi = xis_vs_time[ind_t]
+#    # ax.plot(masses, xi, "o", markersize=1.5)
+#    # ax.plot(rad, xi, "o", markersize=1.5)
+#    ax.plot(rad, xi*masses, "o", markersize=1.5)
+#    ax.set_xscale("log")
+#    ax.set_yscale("log")
 # masses = masses_vs_time[0]
 # xi = xis_vs_time[0]
 # ax.plot(masses, xi, "o", markersize=1.0)

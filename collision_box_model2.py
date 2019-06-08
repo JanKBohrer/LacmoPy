@@ -44,7 +44,7 @@ P = m^3/s * s/m^3 = 1
 
 #%% MODULE IMPORTS
 
-# import math
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 # from numba import njit
@@ -54,6 +54,7 @@ import constants as c
 # from microphysics import compute_mass_from_radius
 from microphysics import compute_radius_from_mass
 from collision import simulate_collisions_np
+from collision import compute_E_col_Hall
 # from collision import simulate_collisions
 from init import dst_expo
 from init import generate_SIP_ensemble_expo_my_xi_rnd
@@ -61,61 +62,65 @@ from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold
 # from collision import generate_permutation
 # from collision import simulate_collisions
 
+#Hall_E_col = np.load("Hall_collision_efficiency.npy")
+#Hall_R_col = np.load("Hall_collector_radius.npy")
+#Hall_R_col_ratio = np.load("Hall_radius_ratio.npy")
+#
+#for i1 in range(0,31):
+#    for j1 in range(21):
+#        R1 = Hall_R_col[i1]
+#        R2 = Hall_R_col_ratio[j1] * R1        
+#        print(i1,j1,Hall_E_col[i1,j1]-compute_E_col_Hall(R1,R2))
+
+
 #%% INIT
-
-
-#dx = 1 # m
-#dy = 1 # m
-#dz = 1 # m
-
-# dx = 0.02 # m
-# dy = 0.02 # m
-# dz = 0.02 # m
-
-# dx = 0.1 # m
-# # dy = 0.002 # m
-# dy = 0.1 # m
-# dz = 0.1 # m
-
-# dx = 0.01 # m
-# # dy = 0.002 # m
-# dy = 0.01 # m
-# dz = 0.01 # m
-# dV = dx * dy * dz
 
 dV = 1.0
 # dV = 1.0E-6
 dt = 1.0
 # dt = 1.0
-store_every = 600
 t_end = 3600.0
+dt_store = 600.0
+store_every = int(math.ceil(dt_store/dt))
 
-no_spc = 40
 
+#kernel = "hall"
 kernel = "long"
+#kernel = "golovin"
+
 init = "SingleSIP"
 
-no_sims = 50
+no_sims = 500
 seed_list = np.arange(4711, 4711+no_sims*2, 2)
 # seed_list = np.arange(4711+38, 4711+38+no_sims*2, 2)
 
 p_min = 0
 p_max = 0.9999999
+
+
+# for my xi random initialization:
+# intended number of SIP:
+no_spc = 40
 # bin linear spreading parameter
 eps = 200
 
-# for SingleSIP random
+# for SingleSIP random:
+# bin exponential scaling factor
 kappa = 40
 
-simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
+#simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
+simdata_path = "/Users/bohrer/OneDrive - bwedu/python/sim_data/"
+
 # folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
 # folder = "collision_box_model_multi_sim/dV_1E0_kappa_40_no_sim_50/"
 if init == "SingleSIP":
     folder =\
-f"collision_box_model/kernels/{kernel}/init_{init}_dV_{dV}_kappa_{kappa}_no_sims_{no_sims}/"
-elif init == "xi_random":
+f"collision_box_model/kernels/{kernel}/init/{init}/\
+dV_{dV:.2}_dt_{dt:.2}_kappa_{kappa}_no_sims_{no_sims}/"
+elif init == "my_xi_random":
     folder =\
-f"collision_box_model/kernels/{kernel}/init_{init}_dV_{dV}_no_spc_{no_spc}_eps_{eps}no_sims_{no_sims}/"
+f"collision_box_model/kernels/{kernel}/init/{init}/\
+dV_{dV:.2}_dt_{dt:.2}_no_spc_{no_spc}_eps_{eps}_no_sims_{no_sims}/"
 path = simdata_path + folder
 if not os.path.exists(path):
     os.makedirs(path)
