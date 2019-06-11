@@ -128,6 +128,14 @@ def compute_polynom(par,x):
         res = res * x + a
     return res
 
+# import matplotlib.pyplot as plt
+# x = np.linspace(-10.0,10.0,100)
+# par = (0.1,0.2,0.05,0.04)
+# y1 = compute_polynom(par, x)
+# y2 = np.polyval(par,x)
+# plt.plot(x, (y1-y2)/y1*1E25)
+# # plt.plot(x, y2)
+
 # terminal velocity as fct of R by Long 1974b
 # "five sections":
 # junction points = 15, 35, 300, 800
@@ -247,7 +255,6 @@ def kernel_long(m_i, m_j):
         # return 5.78E3 * 1.0E-12 (m_i + m_j) / c.mass_density_water_liquid_NTP
         return 5.78E3 * 1.0E-12 * 1.0E-6 * four_pi_over_three * (R_i**3 + R_j**3)
 
-           
 #m_i = 1E6
 # # m_j = 1E7
 #R_i = compute_radius_from_mass_jit(m_i, c.mass_density_water_liquid_NTP)
@@ -287,11 +294,11 @@ def kernel_long(m_i, m_j):
 #%% SHIMA alg 01 ALPHA
     
 @njit()
-def collision_step_golovin(xi, masses, dV, dt):
-    # xi is a 1D array of multiplicities
-    # elements of xi can be 0, indicating vanished droplets
+def collision_step_golovin(xis, masses, dV, dt):
+    # xis is a 1D array of multiplicities
+    # elements of xis can be 0, indicating vanished droplets
     # look for the indices, which are not zero
-    indices = np.nonzero(xi)[0]
+    indices = np.nonzero(xis)[0]
     # N = no_spct ("number of super particles per cell total")
     # no_spct = len(indices)
     no_spct = indices.shape[0]
@@ -307,7 +314,7 @@ def collision_step_golovin(xi, masses, dV, dt):
     no_pairs = no_spct//2
     cand_i = permutation[0:no_pairs]
     cand_j = permutation[no_pairs:2*no_pairs]
-    # map onto the original xi-list, to get the indices for that list
+    # map onto the original xis-list, to get the indices for that list
     
     cand_i = indices[cand_i]
     cand_j = indices[cand_j]
@@ -328,23 +335,23 @@ def collision_step_golovin(xi, masses, dV, dt):
         # j_done.append(j)
         pair_kernel =\
             kernel_golovin(masses[i], masses[j])
-        if xi[i] >= xi[j]:
-            xi_max = xi[i]
+        if xis[i] >= xis[j]:
+            xis_max = xis[i]
             ind_max = i
-            xi_min = xi[j]
+            xis_min = xis[j]
             ind_min = j
         else:
-            xi_max = xi[j]
+            xis_max = xis[j]
             ind_max = j
-            xi_min = xi[i]
+            xis_min = xis[i]
             ind_min = i
             
-        # xi_max = max(xi[i], xi[j])
+        # xis_max = max(xis[i], xis[j])
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
-        # P_ij,s = max(xi_i, xi_j) P_ij
+        # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xi_max\
+        pair_prob = pair_kernel * dt/dV * xis_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -357,27 +364,26 @@ def collision_step_golovin(xi, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xi_min = min(xi[i], xi[j])
-            g = min(g,int(xi_max/xi_min))
-            if xi_max - g*xi_min > 0:
+            # xis_min = min(xis[i], xis[j])
+            g = min(g,int(xis_max/xis_min))
+            if xis_max - g*xis_min > 0:
                 # print("case 1")
-                xi[ind_max] -= g * xi_min
+                xis[ind_max] -= g * xis_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xi[ind_max] = int(0.5 * xi_min)
-                xi[ind_min] -= int(0.5 * xi_min)
+                xis[ind_max] = int(0.5 * xis_min)
+                xis[ind_min] -= int(0.5 * xis_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
 ### Coll step for Hall Kernel
-
 @njit()
-def collision_step_hall(xi, masses, dV, dt):
-    # xi is a 1D array of multiplicities
-    # elements of xi can be 0, indicating vanished droplets
+def collision_step_hall(xis, masses, dV, dt):
+    # xis is a 1D array of multiplicities
+    # elements of xis can be 0, indicating vanished droplets
     # look for the indices, which are not zero
-    indices = np.nonzero(xi)[0]
+    indices = np.nonzero(xis)[0]
     # N = no_spct ("number of super particles per cell total")
     # no_spct = len(indices)
     no_spct = indices.shape[0]
@@ -393,7 +399,7 @@ def collision_step_hall(xi, masses, dV, dt):
     no_pairs = no_spct//2
     cand_i = permutation[0:no_pairs]
     cand_j = permutation[no_pairs:2*no_pairs]
-    # map onto the original xi-list, to get the indices for that list
+    # map onto the original xis-list, to get the indices for that list
     
     cand_i = indices[cand_i]
     cand_j = indices[cand_j]
@@ -414,23 +420,23 @@ def collision_step_hall(xi, masses, dV, dt):
         # j_done.append(j)
         pair_kernel =\
             kernel_hall(masses[i], masses[j])
-        if xi[i] >= xi[j]:
-            xi_max = xi[i]
+        if xis[i] >= xis[j]:
+            xis_max = xis[i]
             ind_max = i
-            xi_min = xi[j]
+            xis_min = xis[j]
             ind_min = j
         else:
-            xi_max = xi[j]
+            xis_max = xis[j]
             ind_max = j
-            xi_min = xi[i]
+            xis_min = xis[i]
             ind_min = i
             
-        # xi_max = max(xi[i], xi[j])
+        # xis_max = max(xis[i], xis[j])
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
-        # P_ij,s = max(xi_i, xi_j) P_ij
+        # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xi_max\
+        pair_prob = pair_kernel * dt/dV * xis_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -443,25 +449,25 @@ def collision_step_hall(xi, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xi_min = min(xi[i], xi[j])
-            g = min(g,int(xi_max/xi_min))
-            if xi_max - g*xi_min > 0:
+            # xis_min = min(xis[i], xis[j])
+            g = min(g,int(xis_max/xis_min))
+            if xis_max - g*xis_min > 0:
                 # print("case 1")
-                xi[ind_max] -= g * xi_min
+                xis[ind_max] -= g * xis_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xi[ind_max] = int(0.5 * xi_min)
-                xi[ind_min] -= int(0.5 * xi_min)
+                xis[ind_max] = int(0.5 * xis_min)
+                xis[ind_min] -= int(0.5 * xis_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
 @njit()
-def collision_step_long(xi, masses, dV, dt):
-    # xi is a 1D array of multiplicities
-    # elements of xi can be 0, indicating vanished droplets
+def collision_step_long(xis, masses, dV, dt):
+    # xis is a 1D array of multiplicities
+    # elements of xis can be 0, indicating vanished droplets
     # look for the indices, which are not zero
-    indices = np.nonzero(xi)[0]
+    indices = np.nonzero(xis)[0]
     # N = no_spct ("number of super particles per cell total")
     # no_spct = len(indices)
     no_spct = indices.shape[0]
@@ -477,7 +483,7 @@ def collision_step_long(xi, masses, dV, dt):
     no_pairs = no_spct//2
     cand_i = permutation[0:no_pairs]
     cand_j = permutation[no_pairs:2*no_pairs]
-    # map onto the original xi-list, to get the indices for that list
+    # map onto the original xis-list, to get the indices for that list
     
     cand_i = indices[cand_i]
     cand_j = indices[cand_j]
@@ -498,23 +504,23 @@ def collision_step_long(xi, masses, dV, dt):
         # j_done.append(j)
         pair_kernel =\
             kernel_long(masses[i], masses[j])
-        if xi[i] >= xi[j]:
-            xi_max = xi[i]
+        if xis[i] >= xis[j]:
+            xis_max = xis[i]
             ind_max = i
-            xi_min = xi[j]
+            xis_min = xis[j]
             ind_min = j
         else:
-            xi_max = xi[j]
+            xis_max = xis[j]
             ind_max = j
-            xi_min = xi[i]
+            xis_min = xis[i]
             ind_min = i
             
-        # xi_max = max(xi[i], xi[j])
+        # xis_max = max(xis[i], xis[j])
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
-        # P_ij,s = max(xi_i, xi_j) P_ij
+        # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xi_max\
+        pair_prob = pair_kernel * dt/dV * xis_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -527,18 +533,69 @@ def collision_step_long(xi, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xi_min = min(xi[i], xi[j])
-            g = min(g,int(xi_max/xi_min))
-            if xi_max - g*xi_min > 0:
+            # xis_min = min(xis[i], xis[j])
+            g = min(g,int(xis_max/xis_min))
+            if xis_max - g*xis_min > 0:
                 # print("case 1")
-                xi[ind_max] -= g * xi_min
+                xis[ind_max] -= g * xis_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xi[ind_max] = int(0.5 * xi_min)
-                xi[ind_min] -= int(0.5 * xi_min)
+                xis[ind_max] = int(0.5 * xis_min)
+                xis[ind_min] -= int(0.5 * xis_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
+
+
+# coalescence events with wating time distribution:
+# orig. by Gillespie 1972, 1975 for water droplets (direct = all weights = 1)
+# "Efficient algorithm" by Goodson and Kraft 2002 (also direct, no multiplic.)
+# with "stochastic weights": Patterson (WIAS) 2011, 2012
+# IDEA: (Gillespie 1975 J. atm. sci.)
+# joint PDF: P(tau,i,j) = prob, at time t, that the next coalescence will
+# occur in the time interval (t+tau, t+tau+dtau)
+# AND will be between particles "i" and "j":
+# P(\tau,i,j) = C_ij exp [ -\sum_{k=1}^{N-1} \sum_{l=k+1}^N C_kl \tau ]
+# We have int_0^inf dtau \sum_{i=1}^{N-1} \sum_{j=i+1}^N P(tau,i,j) = 1
+# i.e. a discrete prob. in (i,j) and a PDF in tau
+# he defines: C_kl dtau = prob, that particles k and l will coalesce in
+# the next infinit. time interval dtau
+# this is equivalent to
+# the kernel K_kl divided by the cell volume dV C_kl = K_kl / dV
+# using the "Full-conditional method" from Gillespie 1975, p. 1981, sec 4a.
+# (no majorant or other techniques):
+# P(tau,i,j) = P1(tau) * P2(i|tau) * P3(j|tau,i)
+# C_i = sum_{j=i+1}^N C_ij (i = 1,...,N-1)
+# C_0 = sum_{i=1}^{N-1} C_i
+# 1. choose waiting time tau from PDF
+# P1(tau) = C_0 exp(-C_0 tau)
+# 2. generate "i" from discrete PDF P2(i):
+# P2(i) = C_i/C_0
+# 3. generate "j" from discrete PDF P3(j|tau,i) = P3(j|i):
+# P3(j|i) = C_ij/Ci
+
+
+def collision_step_tau_golovin(xis, masses, dV, dt):
+    indices = np.nonzero(xis)[0]
+    # N = no_spct ("number of super particles per cell total")
+    # no_spct = len(indices)
+    no_spct = indices.shape[0]
+    
+    # 2. choose waiting time tau from PDF P1(tau) = C_0 exp(-C_0 tau)
+    # on the way: store all C_i = sum_{j=i+1}^N C_ij (i = 1,...,N-1)
+    # the number of elements in this list is N-1, if N = no_spct
+    C_is = np.zeros(no_spct-1, dtype=np.float64)
+    # this does not work, we need C_0 first
+    # C_ijs = np.zeros(no_spct, dtype=np.float64) # the 0th index is not used
+    for i in range(no_spct-1):
+        ind_i = indices(i)
+        # C_i = 0.0
+        for j in range(i+1, no_spct):
+            ind_j = indices(j)
+            C_is[i] += kernel_golovin(masses[ind_i], masses[ind_j])
+    rnd01 = np.random.rand()
+    # 2. get the first index of the tuple (i,j)
+    
 
 #%%
 
