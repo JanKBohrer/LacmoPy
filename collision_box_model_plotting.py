@@ -13,85 +13,100 @@ import matplotlib.pyplot as plt
 import constants as c
 from microphysics import compute_radius_from_mass
 
+from collision import generate_folder_collision
 from analysis import auto_bin_SIPs
 
+#%%
 
-# simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-# folder = "collision_box_model_multi_sim/dV_1E0_kappa_40_no_sim_50/"
-# path = simdata_path + folder
-# path = "/mnt/D/sim_data/dV_4E-3_no_sim_50/"
+### SET PARAMETERS
+myOS = "Linux"
+# myOS = "MacOS"
 
 dV = 1.0
-# dV = 1.0E-6
-dt = 1.0
 # dt = 1.0
-#t_end = 3600.0
-#dt_store = 600.0
-#store_every = int(math.ceil(dt_store/dt))
+dt = 20.0
+t_end = 3600.0
+dt_store = 600.0
 
+# kernel = "Bott"
+# kernel = "Hall"
+# kernel = "Long"
+kernel = "Long_Bott"
+# kernel = "Golovin"
+
+# kernel = "hall"
+# kernel = "long"
+# kernel = "golovin"
+
+init = "SingleSIP"
+# init == "my_xi_random"
+
+no_sims = 500
+
+# for sampling and plotting:
+# no_bins = 25
+no_bins = 30
+# bin_method = "lin_R"
+bin_method = "log_R"
+# bin_method = "my_auto_bin"
+
+## for SingleSIP random:
+# bin exponential scaling factor
+# kappa = 80
+kappa = 1000
+
+## for my xi random initialization:
+# INTENDED number of SIP:
+no_spc = 40
+# bin linear spreading parameter
+eps = 200
+# area of cumulative PDF that is covered, also determines the bin width
+p_min = 0
+p_max = 0.9999999
 
 # droplet concentration
 #n = 100 # cm^(-3)
 n0 = 297.0 # cm^(-3)
 # liquid water content (per volume)
 LWC0 = 1.0E-6 # g/cm^3
+# total number of droplets
+no_rpc = int(n0 * dV * 1.0E6)
+print("no_rpc=", no_rpc)
 
-# for my xi random init: intended number of SIP
-no_spc = 40
+### DERIVED
+# Unterstrasser 2017 uses monomodal exponential distribution:
+# f = 1/mu exp(m/mu)
+# mean droplet mass
+mu = 1.0E15*LWC0 / n0
+print("mu_m=", mu)
+# mean radius
+# mu_R = 9.3 # mu
+mu_R = compute_radius_from_mass(mu, c.mass_density_water_liquid_NTP)
+print("mu_R=", mu_R)
+total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
 
-#kernel = "hall"
-#kernel = "long"
-kernel = "golovin"
+# numerical integration parameters for my xi random init
+dm = mu*1.0E-5
+m0 = 0.0
+m1 = 100*mu
 
-init = "SingleSIP"
-
-no_sims = 50
-seed_list = np.arange(4711, 4711+no_sims*2, 2)
-# seed_list = np.arange(4711+38, 4711+38+no_sims*2, 2)
-
-p_min = 0
-p_max = 0.9999999
-
-# for my xi random initialization:
-# intended number of SIP:
-no_spc = 40
-# bin linear spreading parameter
-eps = 200
-
-# for SingleSIP random:
-# bin exponential scaling factor
-kappa = 40
-
-# for plotting:
-# log-bin plotting:
-no_bins = 30
-# for my auto_binning method
-xi_min = 1
-
-#simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-simdata_path = "/Users/bohrer/OneDrive - bwedu/python/sim_data/"
-
-# folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
-# folder = "collision_box_model_multi_sim/dV_1E0_kappa_40_no_sim_50/"
 if init == "SingleSIP":
-    folder =\
-f"collision_box_model/kernels/{kernel}/init/{init}/\
-dV_{dV:.2}_dt_{dt:.2}_kappa_{kappa}_no_sims_{no_sims}/"
+    init_pars = [kappa]
 elif init == "my_xi_random":
-    folder =\
-f"collision_box_model/kernels/{kernel}/init/{init}/\
-dV_{dV:.2}_dt_{dt:.2}_no_spc_{no_spc}_eps_{eps}_no_sims_{no_sims}/"
-path = simdata_path + folder
-
+    init_pars = [no_spc, eps]
+simdata_path, path =\
+    generate_folder_collision(myOS, dV, dt, kernel, init, init_pars, no_sims)
 
 times = []
-conc = []
+conc_vs_time = []
+lambda2_vs_time = []
 masses_vs_time = []
 xis_vs_time = []
 
 tot_pt = 0
 
-#no_sims = 200
+### LOAD DATA FROM FILES
+# no_sims=200
 for sim_n in range(no_sims):
     # times_file = path + "times.npy"
     # conc_file = path + "conc.npy"
@@ -103,17 +118,20 @@ for sim_n in range(no_sims):
     xi_file = path + f"xis_vs_time_{sim_n}.npy"
     
     times.append( np.load(times_file))
-    conc.append( np.load(conc_file))
+    conc_vs_time.append( np.load(conc_file))
     mass = np.load(mass_file)
-    print(mass.shape)
+    # print(mass.shape)
+    xi = np.load(xi_file)
+    lam = np.sum(xi * mass * mass * 1E-36, axis=1) / dV
+    lambda2_vs_time.append(lam)
     tot_pt += mass.shape[1]
     masses_vs_time.append( mass )
-    xis_vs_time.append( np.load(xi_file))
+    xis_vs_time.append( xi )
 
 print(tot_pt)
 
 times = np.array(times)[0]
-conc = np.array(conc)
+conc_vs_time = np.array(conc_vs_time)
 # masses_vs_time = np.array(masses_vs_time)
 # xis_vs_time = np.array(xis_vs_time)
 
@@ -127,13 +145,66 @@ print(f"xis shape: {xis_vs_time.shape[0]} {xis_vs_time.shape[1]:.3e}")
 print(
 np.amin(masses_vs_time.flatten())
 )
-#%% PLOT PARTICLE CONCENTRATION WITH TIME
+#%% PLOT MOMENTS OF THE DISTRIBUTION f(m) WITH TIME
 
-fig, ax = plt.subplots()
-ax.semilogy( times//60, conc[0], "o" )
+TTFS, LFS, TKFS = 14,14,12
+
+if kernel == "Hall":
+    ylim0 = [1.0E7,1.0E9]
+    ylim2 = [1.0E-15,5.0E-8]
+elif kernel == "Long" or "Long_Bott":
+    ylim0 = [1.0E6,1.0E9]
+    ylim2 = [1.0E-15,1.0E-7]
+elif kernel == "Bott":
+    ylim0 = [1.0E6,1.0E9]
+    ylim2 = [1.0E-15,1.0E-7]
+elif kernel == "Golovin":
+    ylim0 = [1.0E6,1.0E9]
+    ylim2 = [1.0E-15,1.0E-9]
+
+fig_name = path +\
+f"moments_vs_time_kernel_{kernel}_init_{init}\
+_dV_{dV}_dt_{dt}_no_sims_{no_sims}.png"
+
+fig, axes = plt.subplots(nrows=2, figsize=(8,12))
+
+###
+ax = axes[0]
+ax.semilogy( times//60, np.average(conc_vs_time,axis=0), "o" )
+# ax.semilogy( times//60, conc[0], "o" )
+
 ax.set_xlim([0.0,60.0])
-ax.set_ylim([1.0E6,1.0E9])
+ax.set_ylim(ylim0)
+
+ax.tick_params(axis='both', which='major', labelsize=TKFS)
+# ax.set_xlabel("time (min)", fontsize=LFS)
+ax.set_ylabel(r"$\lambda_0\; (\mathrm{m^{-3}})$ ",fontsize=LFS)
 ax.grid()
+
+###
+ax = axes[1]
+ax.semilogy( times//60, np.average(lambda2_vs_time,axis=0), "o" )
+
+ax.set_xlim([0.0,60.0])
+ax.set_ylim(ylim2)
+
+ax.tick_params(axis='both', which='major', labelsize=TKFS)
+ax.set_xlabel("time (min)", fontsize=LFS)
+ax.set_ylabel(r"$\lambda_2\; (\mathrm{kg^2 \, m^{-3}})$ ",fontsize=LFS)
+ax.grid()
+
+###
+if init == "SingleSIP":
+    pars = f"kappa={kappa}"
+elif init == "my_xi_random":
+    pars = f"no_spc={no_spc}, eps={eps}"
+title = f"kernel={kernel}, init={init}, {pars},\n#sims={no_sims}, \
+dV={dV}, dt={dt}, \
+n0={n0:.3}" +  " cm$^{-3}$," + f" LWC0={LWC0:.2e}" + " g/cm$^3$"
+fig.suptitle(title, fontsize=TTFS)
+
+fig.savefig(fig_name)
+
 
 #%% PLOT MASS DENSITY DISTRIBUTIONS VS RADIUS
 
@@ -150,18 +221,26 @@ ax.grid()
 
 # dV = 0.1**3
 
+TTFS, LFS, TKFS = 14,14,12
+
 fig_name = path +\
 f"g_ln_R_vs_time_kernel_{kernel}_init_{init}\
 _dV_{dV}_dt_{dt}_no_sims_{no_sims}.png"
 fig, ax = plt.subplots(figsize=(8,8))
 
-# method = "lin_R"
-method = "log_R"
+i1 = 153217
+i2 = 141680
 
 # for ind_t in range(1):
+# NOTE that if two droplets with the same xi collide,
+# two droplets are created with [xi/2] and xi - [xi/2]
+# and the same masses
 for ind_t in range(len(times)):
-    masses = masses_vs_time[ind_t]
     xis = xis_vs_time[ind_t]
+    ind1 = np.nonzero(xis)
+    xis = xis[ind1]
+    masses = masses_vs_time[ind_t][ind1]
+    # masses = masses_vs_time[ind_t]
     radii = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
     
     R_min = np.amin(radii)
@@ -171,62 +250,57 @@ for ind_t in range(len(times)):
     # R_min = 0.99*np.amin(radii)
     # R_max = 1.01*np.amax(radii)
     # R_max = 3.0*np.amax(radii)
-    print("R_min=", R_min, "with xi =", xis[ind_min])
-    print("R_max=", R_max, "with xi =", xis[ind_max])
+    print("t=", times[ind_t], "R_min=", R_min, "with xi =", xis[ind_min],
+          "R_max=", R_max, "with index", ind_max, "with xi =", xis[ind_max])
+    print("m_ges =", np.sum(masses*xis), "no_rpc =", np.sum(xis))
     
-    print("m_ges =", np.sum(masses*xis))
-    print("no_rpc =", np.sum(xis))
-    
-    R_min *=0.99
+    R_min *= 0.99
     R_max *= 1.01
     
-    # no_bins = 20
-    if method == "log_R":
-        bins = np.logspace(np.log10(R_min), np.log10(R_max), no_bins)
-    elif method == "lin_R":
-        bins = np.linspace(R_min, R_max, no_bins)
-    # print(bins)
-    
-    # masses in 10^-15 gram
-    mass_per_ln_R, _ = np.histogram(radii, bins, weights=masses*xis)
-    # convert to gram
-    mass_per_ln_R *= 1.0E-15/no_sims
-    # print(mass_per_ln_R)
-    # print(mass_per_ln_R.shape, bins.shape)
-    
-    bins_log = np.log(bins)
-    # bins_mid = np.exp((bins_log[1:] + bins_log[:-1]) * 0.5)
-    bins_mid = (bins[1:] + bins[:-1]) * 0.5
-    
-    g_ln_R = mass_per_ln_R / (bins_log[1:] - bins_log[0:-1]) / dV
-    
-    # print(g_ln_R.shape)
-    # print(np.log(bins_mid[1:])-np.log(bins_mid[0:-1]))
-
-    ###
-    # g_ln_R, bins_mid, bins, xi_bin, mass_bin =\
-    #     auto_bin_SIPs(masses, xis, xi_min, no_bins, dV, no_sims)
-    # print("m_ges after binning=", np.sum(xi_bin*mass_bin))
-    # print("no_rpc =", np.sum(xi_bin))        
-    ###
-    
-    ax.loglog( bins_mid, g_ln_R, "-", label=f"{int(times[ind_t]/60)}" )
+    if bin_method == "my_auto_bin":
+        g_ln_R, bins_mid, bins, xi_bin, mass_bin =\
+            auto_bin_SIPs(masses, xis, no_bins, dV, no_sims)
+        print("m_ges after binning=", np.sum(xi_bin*mass_bin))
+        print("no_rpc =", np.sum(xi_bin)) 
+    else:        
+        if bin_method == "log_R":
+            bins = np.logspace(np.log10(R_min), np.log10(R_max), no_bins)
+        elif bin_method == "lin_R":
+            bins = np.linspace(R_min, R_max, no_bins)
+        # print(bins)
+        
+        # masses in 10^-15 gram
+        mass_per_ln_R, _ = np.histogram(radii, bins, weights=masses*xis)
+        # convert to gram
+        mass_per_ln_R *= 1.0E-15/no_sims
+        # print(mass_per_ln_R)
+        # print(mass_per_ln_R.shape, bins.shape)
+        
+        bins_log = np.log(bins)
+        # bins_mid = np.exp((bins_log[1:] + bins_log[:-1]) * 0.5)
+        bins_mid = (bins[1:] + bins[:-1]) * 0.5
+        
+        g_ln_R = mass_per_ln_R / (bins_log[1:] - bins_log[0:-1]) / dV
+        
+        # print(g_ln_R.shape)
+        # print(np.log(bins_mid[1:])-np.log(bins_mid[0:-1]))
+    ax.loglog( bins_mid, g_ln_R, "-", label=f"{int(times[ind_t]/60):>3}" )
     # ax.loglog( bins_mid, g_ln_R, "o", markersize=5.0 )
     
-
-# ax.loglog( bins_mid, np.ones_like(bins_mid), "o" )
 if kernel == "golovin":
-    ax.set_xlim([1.0,1.0E3])
+    ax.set_xlim([1.0,2.0E3])
 elif kernel == "long":
+    ax.set_xlim([1.0,8.0E3])
+elif kernel == "hall":
     ax.set_xlim([1.0,8.0E3])
 # ax.hist(radii,weights=masses*xi,bins=30)
 ax.set_ylim([1.0E-4,1.0E1])
 # ax.set_ylim([1.0E-6,1.0E1])
 # ax.set_xscale("log")
 # ax.set_yscale("log")
-ax.set_xlabel("radius ($\mathrm{\mu m}$)")
-ax.set_ylabel("mass distribution per ln(R) and volume (g/m$^3$)")
-pars = f""
+ax.tick_params(axis='both', which='major', labelsize=TKFS)
+ax.set_xlabel("radius ($\mathrm{\mu m}$)", fontsize=LFS)
+ax.set_ylabel("mass distribution per ln(R) and volume (g/m$^3$)",fontsize=LFS)
 if init == "SingleSIP":
     pars = f"kappa={kappa}"
 elif init == "my_xi_random":
@@ -235,7 +309,7 @@ title = f"kernel={kernel}, init={init}, {pars},\n#sims={no_sims}, \
 dV={dV}, dt={dt}, \
 n0={n0:.3}" +  " cm$^{-3}$," + f" LWC0={LWC0:.2e}" + " g/cm$^3$"
 ax.set_title(title
-, pad = 10)
+, pad = 10, fontsize=TTFS)
 ax.legend()
 ax.grid()
 

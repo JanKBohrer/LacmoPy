@@ -77,41 +77,6 @@ Hall_R_col = np.load("Hall_collector_radius.npy")
 Hall_R_col_ratio = np.load("Hall_radius_ratio.npy")
 
 from grid import bilinear_weight
-def linear_weight(i, weight, f):
-    return f[i+1]*weight + f[i]*(1.0-weight)
-def compute_E_col_Hall(R_i, R_j):
-    if R_i <= 0.0 or R_j <= 0.0:
-        return 0.0
-    if R_i < R_j:
-        R_col = R_j
-        R_ratio = R_i/R_j
-    else:
-        R_col = R_i
-        R_ratio = R_j/R_i
-    if R_col > 300.0:
-        return 1.0
-    else:
-        # NOTE that ind_col is for index of R_collection,
-        # which indicates the row of Hall_E_col, and NOT the coloumn
-        ind_col = int(R_col/10.0)
-        ind_ratio = int(R_ratio/0.05)
-        if ind_col == Hall_R_col.shape[0]-1:
-            if ind_ratio == Hall_R_col_ratio.shape[0]-1:
-                return 1.0
-            else:
-                weight = (R_ratio - ind_ratio * 0.05) / 0.05
-                return linear_weight(ind_ratio, weight, Hall_E_col[ind_col])
-        elif ind_ratio == Hall_R_col_ratio.shape[0]-1:
-            weight = (R_col - ind_col * 10.0) / 10.0
-            return linear_weight(ind_col, weight, Hall_E_col[:,ind_ratio])
-        else:
-            weight_1 = (R_col - ind_col * 10.0) / 10.0
-            weight_2 = (R_ratio - ind_ratio * 0.05) / 0.05
-#        print(R_col, R_ratio)
-#        print(ind_col, ind_ratio, weight_1, weight_2)
-            return bilinear_weight(ind_col, ind_ratio,
-                                   weight_1, weight_2, Hall_E_col)
-        # E_col = bilinear_weight(ind_1, ind_2, weight_1, weight_2, Hall_E_col)
         
 #i1 = 29
 #j1 = 20
@@ -123,16 +88,71 @@ def compute_E_col_Hall(R_i, R_j):
 #print("Hall_E_col[i1,j1]")
 #print(Hall_E_col[i1,j1])
 #print(compute_E_col_Hall(R1,R2))
-    
-for i1 in range(0,21):
-    for j1 in range(21):
-        R1 = Hall_R_col[i1]
-        R2 = Hall_R_col_ratio[j1] * R1        
-        print(i1,j1,Hall_E_col[i1,j1]-compute_E_col_Hall(R1,R2))
 
-#        dE = Hall_E_col[i1,j1]-compute_E_col_Hall(R1,R2)
-#        if dE > 0.0 or math.isnan(dE):
-#            print(i1,j1, R1, R2, Hall_R_col_ratio[j1], dE)
+#%% COMPARE EFFICIENCIES FROM BOTT AND ME
+fn = "Hall_1980_Collision_eff_Bott2.txt"
+Bott_E_Hall = np.loadtxt(fn, delimiter=",")
+Bott_E_Hall = np.reshape(Bott_E_Hall, (21,15)).transpose()[:,:]
+E = Bott_E_Hall
+ind1 = np.arange(6,15)
+ind1 = np.hstack(((2,4),ind1))
+E_view = E[ind1][::-1]
+# Bott_E_Hall = np.reshape(Bott_E_Hall, (21,15))[::-1,:]
+my_E_Hall = np.loadtxt("Hall_1980_Collision_eff.csv")        
 
-#        print(i1,j1, R1, R2, Hall_R_col_ratio[j1], Hall_E_col[i1,j1]-compute_E_col_Hall(R1,R2))
+R0 = np.array([300,200,150,100,70,60,50,40,30,25,20,15,10,8,6])[::-1]
+R_view = R0[ind1][::-1]
+R0_even = np.arange(0,302,2)
+
+R_ratio = np.arange(0.0,1.05,0.05)
+
+R0_ipol = [0,2,4]
+E_ipol = [E[0],E[0],E[0]]
+
+
+# interpolation to data with distance dR_ipol = 2
+for i in range(len(R0)-1):
+    R_col = R0[i]
+    # print(R_col)
+    if R_col%2 == 0:
+        R_next = R_col + 2
+        R0_ipol.append(R_col)
+        E_ipol.append(E[i])
+    else: R_next = R_col + 1
+    dR2 = R0[i+1] - R_next
+    if dR2 > 0: dR = R0[i+1] - R_col
+    while (dR2 > 0):
+        dR1 = R_next - R_col
+        E_ipol.append((E[i+1]*dR1 + E[i]*dR2)/dR)
+        R0_ipol.append(R_next)
+        R_next += 2
+        dR2 = R0[i+1] - R_next
+
+R0_ipol.append(300)        
+E_ipol.append(E[-1])
+
+R0_ipol = np.array(R0_ipol)
+E_ipol = np.array(E_ipol)
+
+
+filename = "Hall_Bott_collision_efficiency.npy"
+np.save(filename, E_ipol)
+filename = "Hall_Bott_collector_radius.npy"
+np.save(filename, R0_ipol)
+filename = "Hall_Bott_radius_ratio.npy"
+np.save(filename, R_ratio)
+
+#%% TEST: PRINTING FOR EXACT RADII FROM TABLE
+# for i1 in range(1,151):
+#     diff_Eff = []    
+#     strng = ""
+#     for j1 in range(21):
+#         R1 = Hall_Bott_R_col[i1]
+#         R2 = Hall_Bott_R_col_ratio[j1] * R1        
+#         dE = Hall_Bott_E_col[i1,j1]-compute_E_col_Hall_Bott(R1,R2)
+#         diff_Eff.append(dE)
+#         strng += f"{dE:.2} "
+#         if abs(dE) > 1.0E-14 or math.isnan(dE):
+#             print(i1,j1, R1, R2, Hall_Bott_R_col_ratio[j1], dE)
+#     # print(i1,strng)
     

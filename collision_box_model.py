@@ -55,6 +55,7 @@ import constants as c
 from microphysics import compute_radius_from_mass
 from collision import simulate_collisions_np
 from collision import compute_E_col_Hall
+from collision import generate_folder_collision
 # from collision import simulate_collisions
 from init import dst_expo
 from init import generate_SIP_ensemble_expo_my_xi_rnd
@@ -75,55 +76,40 @@ from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold
 
 #%% INIT
 
+### SET PARAMETERS
+myOS = "Linux"
+# myOS = "MacOS"
+
 dV = 1.0
-# dV = 1.0E-6
-dt = 1.0
-# dt = 1.0
+dt = 20.0
+# dt = 20.0
 t_end = 3600.0
 dt_store = 600.0
-store_every = int(math.ceil(dt_store/dt))
 
-
-#kernel = "hall"
-kernel = "long"
-#kernel = "golovin"
+# kernel = "Bott"
+# kernel = "Hall"
+# kernel = "Long"
+kernel = "Long_Bott"
+# kernel = "Golovin"
 
 init = "SingleSIP"
+# init == "my_xi_random"
 
 no_sims = 500
-seed_list = np.arange(4711, 4711+no_sims*2, 2)
-# seed_list = np.arange(4711+38, 4711+38+no_sims*2, 2)
+start_seed = 4713
 
-p_min = 0
-p_max = 0.9999999
+## for SingleSIP random:
+# bin exponential scaling factor
+kappa = 1000
 
-
-# for my xi random initialization:
-# intended number of SIP:
+## for my xi random initialization:
+# INTENDED number of SIP:
 no_spc = 40
 # bin linear spreading parameter
 eps = 200
-
-# for SingleSIP random:
-# bin exponential scaling factor
-kappa = 40
-
-#simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-simdata_path = "/Users/bohrer/OneDrive - bwedu/python/sim_data/"
-
-# folder = "collision_box_model_multi_sim/dV_1E0_no_spc_80_no_sim_50_eps_200_pmax_1E-7/"
-# folder = "collision_box_model_multi_sim/dV_1E0_kappa_40_no_sim_50/"
-if init == "SingleSIP":
-    folder =\
-f"collision_box_model/kernels/{kernel}/init/{init}/\
-dV_{dV:.2}_dt_{dt:.2}_kappa_{kappa}_no_sims_{no_sims}/"
-elif init == "my_xi_random":
-    folder =\
-f"collision_box_model/kernels/{kernel}/init/{init}/\
-dV_{dV:.2}_dt_{dt:.2}_no_spc_{no_spc}_eps_{eps}_no_sims_{no_sims}/"
-path = simdata_path + folder
-if not os.path.exists(path):
-    os.makedirs(path)
+# area of cumulative PDF that is covered, also determines the bin width
+p_min = 0
+p_max = 1.0 - 1.0E-6
 
 # droplet concentration
 #n = 100 # cm^(-3)
@@ -134,29 +120,34 @@ LWC0 = 1.0E-6 # g/cm^3
 no_rpc = int(n0 * dV * 1.0E6)
 print("no_rpc=", no_rpc)
 
-# we start with a monomodal exponential distribution
+### DERIVED
+# Unterstrasser 2017 uses monomodal exponential distribution:
+# f = 1/mu exp(m/mu)
 # mean droplet mass
 mu = 1.0E15*LWC0 / n0
 print("mu_m=", mu)
+# mean radius
+# mu_R = 9.3 # mu
 mu_R = compute_radius_from_mass(mu, c.mass_density_water_liquid_NTP)
 print("mu_R=", mu_R)
 total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
 
-# we need an initial distribution for wet droplets:
-# here just for the water mass m
-# Unterstrasser 2017 uses exponential distribution:
-# f = 1/mu exp(m/mu)
-# mean radius
-# mu_R = 9.3 # mu
-# mean mass
-# mu = compute_mass_from_radius(mu_R, c.mass_density_water_liquid_NTP)
-# print(mu)
-
-
+# numerical integration parameters for my xi random init
 dm = mu*1.0E-5
 m0 = 0.0
 m1 = 100*mu
 
+if init == "SingleSIP":
+    init_pars = [kappa]
+elif init == "my_xi_random":
+    init_pars = [no_spc, eps]
+simdata_path, path =\
+    generate_folder_collision(myOS, dV, dt, kernel, init, init_pars, no_sims)
+store_every = int(math.ceil(dt_store/dt))
+
+seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
+
+### SIMULATION LOOP FOR no_sims SIMULATIONS
 for sim_n in range(no_sims):
     seed = seed_list[sim_n]
     np.random.seed(seed)
@@ -165,7 +156,8 @@ for sim_n in range(no_sims):
     
     masses, xis, m_low, m_high =\
         generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
-                              1.0/mu, no_rpc, kappa=kappa, seed = seed)    
+                              1.0/mu, no_rpc, m_high_by_m_low=1.0E8,
+                              kappa=kappa, seed = seed)    
         # generate_SIP_ensemble_expo_my_xi_rnd(dst, par, no_spc, no_rpc,
         #                       total_mass_in_cell,
         #                       p_min, p_max, eps,

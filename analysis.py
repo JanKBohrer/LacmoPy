@@ -134,7 +134,7 @@ def plot_particle_trajectories(traj, grid, selection=None,
 
 #%% BINNING OF SIPs:
 
-def auto_bin_SIPs(masses, xis, xi_min, no_bins, dV, no_sims):
+def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
 
     ind = np.nonzero(xis)
     m_sort = masses[ind]
