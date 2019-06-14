@@ -187,6 +187,7 @@ c JB: I changed 0.1 -> 0.01 in the 24th entry of "ecoll"
       & ,0.119,0.470,0.950,1.300,1.700,2.300,2.300,2.300,2.300,2.300
       & ,0.027,0.027,0.027,0.027,0.027,0.125,0.520,1.400,2.300,3.000
       & ,4.000,4.000,4.000,4.000,4.000/
+
 c two-dimensional linear interpolation of the collision efficiency
        do j=1,n
        do i=1,j

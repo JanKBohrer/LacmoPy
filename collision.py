@@ -290,6 +290,11 @@ def compute_terminal_velocity_Long(R):
 # note, that they dont have units, because Y = polynom(pi,X)
 # and Y and X are dimensionless
 # in Bott Code: sigma_w = 73.0, rho_w = 1.0, rho_a = 1.225E-3, g = 980.665
+## the function was tested vs the tabulated values from Unterstrasser/Beard
+## the rel devs. are marginal (my_v_sed > v_sed_Beard) and 
+## (rel dev <0.6% for small R and <0.8% for large R)
+## and might come from different material
+## constants: sigma_w, g, rho_a, rho_w ...
 p1_Beard = (-0.318657e1, 0.992696, -0.153193e-2,
           -0.987059e-3,-0.578878e-3,0.855176e-4,-0.327815e-5)[::-1]
 p2_Beard = (-0.500015e1,0.523778e1,-0.204914e1,0.475294,-0.542819e-1,
@@ -341,6 +346,64 @@ def compute_terminal_velocity_Beard(R):
     #     v = viscosity_air_NTP * N_P16 * np.exp(Y)\
     #         / (c.mass_density_air_dry_NTP * R_max * 2.0E-6)
     return v
+
+# with material const from Bott...
+v_max_Beard2 = 9.04929248
+@njit()
+def compute_terminal_velocity_Beard2(R):
+    rho_w = 1.0E3
+    rho_a = 1.225
+    viscosity_air_NTP = 1.818E-5
+    sigma_w_NTP = 73.0E-3
+    # R in mu = 1E-6 m
+    R_0 = 10.0
+    R_1 = 535.0
+    R_max = 3500.0
+    drho = rho_w-rho_a
+    # drho = c.mass_density_water_liquid_NTP - c.mass_density_air_dry_NTP
+    if R < R_0:
+        l0 = 6.62E-2 # mu
+        # this is converted for radius instead of diameter
+        # i.e. my_C1 = 4*C1_Beard
+        C1 = drho*c.earth_gravity / (4.5*viscosity_air_NTP)
+        # C_sc = 1.0 + 1.257 * l0 / R
+        C_sc = 1.0 + 1.255 * l0 / R
+        v = C1 * C_sc * R * R * 1.0E-12
+    elif R < R_1:
+        N_Da = 32.0E-18 * R*R*R * rho_a * drho \
+               * c.earth_gravity / (3.0 * viscosity_air_NTP*viscosity_air_NTP)
+        Y = np.log(N_Da)
+        Y = compute_polynom(p1_Beard,Y)
+        l0 = 6.62E-2 # mu
+        # C_sc = 1.0 + 1.257 * l0 / R
+        C_sc = 1.0 + 1.255 * l0 / R
+        v = viscosity_air_NTP * C_sc * np.exp(Y)\
+            / (rho_a * R * 2.0E-6)
+    elif R < R_max:
+        N_Bo = 16.0E-12 * R*R * drho * c.earth_gravity / (3.0 * sigma_w_NTP)
+        N_P16 = (sigma_w_NTP * sigma_w_NTP * sigma_w_NTP 
+                 * rho_a * rho_a 
+                 / (viscosity_air_NTP**4 * drho * c.earth_gravity))**one_sixth
+        Y = np.log(N_Bo * N_P16)
+        Y = compute_polynom(p2_Beard,Y)
+        v = viscosity_air_NTP * N_P16 * np.exp(Y)\
+            / (rho_a * R * 2.0E-6)
+    else: v = v_max_Beard2
+    # else:
+    #     # IN WORK: precalc v_max form R_max
+    #     N_Bo = 16.0E-12 * drho * c.earth_gravity\
+    #             / (3.0 * sigma_w_NTP) * R_max * R_max
+    #     N_P16 = (sigma_w_NTP * sigma_w_NTP * sigma_w_NTP 
+    #               * rho_a * rho_a 
+    #               / (viscosity_air_NTP**4 * drho * c.earth_gravity))**one_sixth
+    #     Y = np.log(N_Bo * N_P16)
+    #     Y = compute_polynom(p2_Beard,Y)
+    #     v = viscosity_air_NTP * N_P16 * np.exp(Y)\
+    #         / (rho_a * R_max * 2.0E-6)
+    return v
+# print(compute_terminal_velocity_Beard2(3500.0))
+    
+###
 #v_35 = compute_terminal_velocity_Long(35)
 #v_300 = compute_terminal_velocity_Long(300)
 
@@ -445,8 +508,21 @@ def kernel_Long_A(m_i, m_j):
         # return 5.78E3 * 1.0E-12 (m_i + m_j) / c.mass_density_water_liquid_NTP
         return 5.78E3 * 1.0E-12 * 1.0E-6 * four_pi_over_three * (R_i**3 + R_j**3)
 
-# Kernel "Long" as used in Unterstrasser 2017, taken from Bott
 
+# Kernel "Long" as used in Unterstrasser 2017, which he got from Bott
+## the Effi function was tested vs tabulated values from Unterstrasser
+## the raltive deviations (E1 - E2)/E1 are < 1.0E-13 f.a. radii
+@njit()
+def compute_E_col_Long_Bott(R_i, R_j):
+    R_max = max(R_i, R_j)
+    R_min = min(R_i, R_j)
+    if R_max <= 50:
+        E_col = 4.5E-4 * R_max*R_max \
+                * ( 1.0 - 3.0 / ( max(3.0, R_min) + 1.0E-2) )
+    else: E_col = 1.0
+    return E_col
+    
+# Kernel "Long" as used in Unterstrasser 2017, which he got from Bott
 four_pi_over_three = 4.0/3.0*math.pi
 @njit()
 def kernel_Long_Bott(m_i, m_j):
@@ -456,10 +532,28 @@ def kernel_Long_Bott(m_i, m_j):
     R_min = min(R_i, R_j)
     if R_max <= 50:
         E_col = 4.5E-4 * R_max * R_max \
-                * ( 1.0 - 3.0 / max(3.0, R_min) + 1.0E-2)
+                * ( 1.0 - 3.0 / ( max(3.0, R_min) + 1.0E-2) )
     else: E_col = 1.0
-    dv = compute_terminal_velocity_Beard(R_i)\
-         - compute_terminal_velocity_Beard(R_j)
+    dv = compute_terminal_velocity_Beard2(R_i)\
+         - compute_terminal_velocity_Beard2(R_j)
+    # dv = compute_terminal_velocity_Beard(R_i)\
+    #      - compute_terminal_velocity_Beard(R_j)
+    return math.pi * (R_i + R_j) * (R_i + R_j) * E_col * abs(dv) * 1.0E-12
+
+# Kernel "Long" as used in Unterstrasser 2017, which he got from Bott
+four_pi_over_three = 4.0/3.0*math.pi
+@njit()
+def kernel_Long_Bott_R(R_i, R_j):
+    # R_i = compute_radius_from_mass_jit(m_i, c.mass_density_water_liquid_NTP)
+    # R_j = compute_radius_from_mass_jit(m_j, c.mass_density_water_liquid_NTP)
+    R_max = max(R_i, R_j)
+    R_min = min(R_i, R_j)
+    if R_max <= 50:
+        E_col = 4.5E-4 * R_max * R_max \
+                * ( 1.0 - 3.0 / ( max(3.0, R_min) + 1.0E-2) )
+    else: E_col = 1.0
+    dv = compute_terminal_velocity_Beard2(R_i)\
+         - compute_terminal_velocity_Beard2(R_j)
     return math.pi * (R_i + R_j) * (R_i + R_j) * E_col * abs(dv) * 1.0E-12
 
 #m_i = 1E6
@@ -894,8 +988,8 @@ def collision_step_Long_Bott(xis, masses, dV, dt):
             ind_max = j
             xis_min = xis[i]
             ind_min = i
-            
         # xis_max = max(xis[i], xis[j])
+        
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
         # P_ij,s = max(xis_i, xis_j) P_ij
@@ -926,6 +1020,11 @@ def collision_step_Long_Bott(xis, masses, dV, dt):
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
+#%% AON UNTERSTRASSER
+def collision_step_Long_Bott(xis, masses, dV, dt):
+
+
+#%% WAITING TIME ALGORITHM
 
 # coalescence events with wating time distribution:
 # orig. by Gillespie 1972, 1975 for water droplets (direct = all weights = 1)
@@ -954,7 +1053,6 @@ def collision_step_Long_Bott(xis, masses, dV, dt):
 # 3. generate "j" from discrete PDF P3(j|tau,i) = P3(j|i):
 # P3(j|i) = C_ij/Ci
 
-
 def collision_step_tau_Golovin(xis, masses, dV, dt):
     indices = np.nonzero(xis)[0]
     # N = no_spct ("number of super particles per cell total")
@@ -977,39 +1075,6 @@ def collision_step_tau_Golovin(xis, masses, dV, dt):
     # 2. get the first index of the tuple (i,j)
     
 
-#%%
-
-# dV = 1.0E-6
-# dt = 1.0
-# # dt = 1.0
-# store_every = 600
-# t_end = 3600.0
-
-# no_spc = 40
-
-# # droplet concentration
-# #n = 100 # cm^(-3)
-# n0 = 297.0 # cm^(-3)
-# # liquid water content (per volume)
-# LWC0 = 1.0E-6 # g/cm^3
-# # total number of droplets
-# no_rpc = int(n0 * dV * 1.0E6)
-# print("no_rpc=", no_rpc)
-
-# # we start with a monomodal exponential distribution
-# # mean droplet mass
-# mu = 1.0E15*LWC0 / n0
-# print("mu_m=", mu)
-# from microphysics import compute_radius_from_mass
-# import constants as c
-# mu_R = compute_radius_from_mass(mu, c.mass_density_water_liquid_NTP)
-# print("mu_R=", mu_R)
-# total_mass_in_cell = dV*LWC0*1.0E6*1.0E15 # in fg = 1.0E-18 kg
-
-# masses = np.random.exponential(mu, no_rpc) # in mu
-# xi = np.ones(no_rpc, dtype = np.int64)
-
-# collision_step(xi, masses, dV, dt)
 
 
 
@@ -1051,7 +1116,7 @@ def simulate_collisions_np(xi, masses, dV, dt, t_end, store_every,
 
 
 
-#%% SHIMA ALGORITHM
+#%% SHIMA ALGORITHM OLD
 # @njit()
 # def collision_step(xi, masses, dV, dt):
 #     # xi is a 1D array of multiplicities

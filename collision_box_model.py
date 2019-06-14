@@ -81,7 +81,8 @@ myOS = "Linux"
 # myOS = "MacOS"
 
 dV = 1.0
-dt = 20.0
+dt = 1.0
+# dt = 1.0
 # dt = 20.0
 t_end = 3600.0
 dt_store = 600.0
@@ -100,7 +101,7 @@ start_seed = 4713
 
 ## for SingleSIP random:
 # bin exponential scaling factor
-kappa = 1000
+kappa = 160
 
 ## for my xi random initialization:
 # INTENDED number of SIP:

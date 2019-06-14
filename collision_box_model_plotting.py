@@ -16,6 +16,8 @@ from microphysics import compute_radius_from_mass
 from collision import generate_folder_collision
 from analysis import auto_bin_SIPs
 
+
+
 #%%
 
 ### SET PARAMETERS
@@ -23,8 +25,9 @@ myOS = "Linux"
 # myOS = "MacOS"
 
 dV = 1.0
-# dt = 1.0
-dt = 20.0
+# dt = 0.1
+dt = 1.0
+# dt = 20.0
 t_end = 3600.0
 dt_store = 600.0
 
@@ -52,8 +55,8 @@ bin_method = "log_R"
 
 ## for SingleSIP random:
 # bin exponential scaling factor
-# kappa = 80
-kappa = 1000
+kappa = 80
+# kappa = 2000
 
 ## for my xi random initialization:
 # INTENDED number of SIP:
@@ -146,6 +149,13 @@ print(
 np.amin(masses_vs_time.flatten())
 )
 #%% PLOT MOMENTS OF THE DISTRIBUTION f(m) WITH TIME
+### UNTERSTRASSER COMPARE VALUES
+# Long Kernel AON moments
+t_Unt = [0,10,20,30,35,40,50,55,60]
+lam0_Unt = [2.97E8, 2.92E8, 2.82E8, 2.67E8, 2.1E8, 1.4E8,  1.4E7, 4.0E6, 1.2E6]
+t_Unt2 = [0,10,20,30,40,50,60]
+lam2_Unt = [8.0E-15, 9.0E-15, 9.5E-15, 6E-13, 2E-10, 7E-9, 2.5E-8]
+
 
 TTFS, LFS, TKFS = 14,14,12
 
@@ -172,6 +182,7 @@ fig, axes = plt.subplots(nrows=2, figsize=(8,12))
 ax = axes[0]
 ax.semilogy( times//60, np.average(conc_vs_time,axis=0), "o" )
 # ax.semilogy( times//60, conc[0], "o" )
+ax.semilogy( t_Unt, lam0_Unt )
 
 ax.set_xlim([0.0,60.0])
 ax.set_ylim(ylim0)
@@ -184,6 +195,7 @@ ax.grid()
 ###
 ax = axes[1]
 ax.semilogy( times//60, np.average(lambda2_vs_time,axis=0), "o" )
+ax.semilogy( t_Unt2, lam2_Unt )
 
 ax.set_xlim([0.0,60.0])
 ax.set_ylim(ylim2)
@@ -220,6 +232,50 @@ fig.savefig(fig_name)
 # then divide each bin by m_right-m_left and calculate m_bin_center -> R_bin_c
 
 # dV = 0.1**3
+
+### results so far:
+# From Bott bin-model: first max fo t = 60 min at ca. (11, 6E-3)
+# for kappa = 2000 dt = 1.0, we get (11.8, 6.1E-3)
+## Very good results compared to bin model of Bott for kappa = 2000, dt = 1.0
+# dt = 0.1, kappa = 200 overestimates the first moment. This is because
+# the first max is too high
+# for larger dt or/and smaller kappa, the first max is to high
+# i.e. too few collisions of small particles.
+# could be because of the Shima algorithm, which leads to higher p_alpha
+# = pair probabilites due to the neighbor list algorithms
+# which scales p_alpha with no_sp/2*(no_sp-1) / (no_sp/2) ~~ no_sp
+# where no_sp is the number of super particles in one cell
+# then additionally there is the case of xi1 = 8, xi2 = 4 and
+# lets say p_alpha = 3.5, which should lead to 3 or 4 collisions
+# but can only lead to maximum of 2 collisions in Shima algorithm
+# again for xi1 = 8, xi2 = 8, we could get 3 or 4 , but we can only get
+# a maximum of 1 collion in Shima algorithm,
+# leading to xi1' = 4, x2' = 4
+# in AON of Unterstrasser, this case would mean:
+# v_i = 8 <= v_j = 8, nu_new = 8, e.g. nu_k = 3*8 -> p_crit = 3
+# -> multi coll: SIP j looses nu_k to i: NOT POSSIBLE,
+# i.e. we need to limit nu_k to nu_j => nu_k = 8
+# then nu_j' = 0, nu_i = nu_new = 8, total mass is with nu_i
+# this is equiv to collision of 8 with 8 drops...
+# THE ARGUMENT IS: all droplets collide, afterwards, all have the same mass
+# i.e. K(i,j) = 0 ...
+# AHA, seems that Unterstrasser has other view in description
+# with average droplets number that SHOULD collide in a time interval from
+# collisions between (i,j), BUT in total, the algorithms are the same
+# only that Shima splits the droplets whenever xi1 = xi2
+# which is a very good way in my op
+# THIS MEANS that the main difference is that Unterstrasser goes through
+# all possible droplet pairs -> N-1 + N-2 + N-3 + ... = 0.5*(N-1)*N
+# while Shima works with his Pair-List
+# I will try to replicate the restults of Unterstrasser with his algo over
+# all pairs. If this gives same results even for dt=20, kappa = 40
+# then everythin should be fine
+# I think, it is the better way for small no_spc = number of SIP per cell...
+# which is our case, anyway
+# Shima might be faster for large no_spc, but needs smaller dt and
+# more no_spc, so the advantages have to be examined..
+
+
 
 TTFS, LFS, TKFS = 14,14,12
 
@@ -287,12 +343,14 @@ for ind_t in range(len(times)):
     ax.loglog( bins_mid, g_ln_R, "-", label=f"{int(times[ind_t]/60):>3}" )
     # ax.loglog( bins_mid, g_ln_R, "o", markersize=5.0 )
     
-if kernel == "golovin":
+if kernel == "Golovin":
     ax.set_xlim([1.0,2.0E3])
-elif kernel == "long":
-    ax.set_xlim([1.0,8.0E3])
-elif kernel == "hall":
-    ax.set_xlim([1.0,8.0E3])
+elif kernel == "Long":
+    ax.set_xlim([1.0,5.0E3])
+elif kernel == "Long_Bott":
+    ax.set_xlim([1.0,5.0E3])
+elif kernel == "Hall":
+    ax.set_xlim([1.0,5.0E3])
 # ax.hist(radii,weights=masses*xi,bins=30)
 ax.set_ylim([1.0E-4,1.0E1])
 # ax.set_ylim([1.0E-6,1.0E1])
