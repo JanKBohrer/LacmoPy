@@ -60,6 +60,7 @@ from collision import generate_folder_collision
 from init import dst_expo
 from init import generate_SIP_ensemble_expo_my_xi_rnd
 from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold
+from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint
 # from collision import generate_permutation
 # from collision import simulate_collisions
 
@@ -81,11 +82,14 @@ myOS = "Linux"
 # myOS = "MacOS"
 
 dV = 1.0
-dt = 1.0
 # dt = 1.0
-# dt = 20.0
+# dt = 10.0
+dt = 20.0
 t_end = 3600.0
 dt_store = 600.0
+
+# algorithm = "Shima"
+algorithm = "AON_Unt"
 
 # kernel = "Bott"
 # kernel = "Hall"
@@ -94,18 +98,18 @@ kernel = "Long_Bott"
 # kernel = "Golovin"
 
 init = "SingleSIP"
-# init == "my_xi_random"
+# init = "my_xi_random"
 
 no_sims = 500
-start_seed = 4713
+start_seed = 4711
 
 ## for SingleSIP random:
 # bin exponential scaling factor
-kappa = 160
+kappa = 100
 
 ## for my xi random initialization:
 # INTENDED number of SIP:
-no_spc = 40
+no_spc = 160
 # bin linear spreading parameter
 eps = 200
 # area of cumulative PDF that is covered, also determines the bin width
@@ -143,30 +147,40 @@ if init == "SingleSIP":
 elif init == "my_xi_random":
     init_pars = [no_spc, eps]
 simdata_path, path =\
-    generate_folder_collision(myOS, dV, dt, kernel, init, init_pars, no_sims)
+    generate_folder_collision(myOS, dV, dt, algorithm, kernel,
+                              init, init_pars, no_sims, gen = True)
 store_every = int(math.ceil(dt_store/dt))
-
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 ### SIMULATION LOOP FOR no_sims SIMULATIONS
+par = 1.0/mu
+dst = dst_expo
 for sim_n in range(no_sims):
     seed = seed_list[sim_n]
     np.random.seed(seed)
-    dst = dst_expo
-    par = 1/mu
-    
-    masses, xis, m_low, m_high =\
-        generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
-                              1.0/mu, no_rpc, m_high_by_m_low=1.0E8,
-                              kappa=kappa, seed = seed)    
-        # generate_SIP_ensemble_expo_my_xi_rnd(dst, par, no_spc, no_rpc,
-        #                       total_mass_in_cell,
-        #                       p_min, p_max, eps,
-        #                       m0, m1, dm, seed, setseed = True)
-    
+    if init == "SingleSIP":
+        if algorithm == "AON_Unt":
+            masses, xis, m_low, m_high, bins =\
+                generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint(
+                                      1.0/mu, no_rpc, m_high_by_m_low=1.0E6,
+                                      kappa=kappa, seed = seed)    
+        elif algorithm == "Shima":
+            masses, xis, m_low, m_high, bins =\
+                generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
+                                      1.0/mu, no_rpc, m_high_by_m_low=1.0E6,
+                                      kappa=kappa, seed = seed)    
+    elif init == "my_xi_random": 
+        masses, xis, m_low, m_high =\
+            generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
+                                  total_mass_in_cell,
+                                  p_min, p_max, eps,
+                                  m0, m1, dm, seed, setseed = True)
+# def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
+#                                          total_mass_in_cell,
+#                                          p_min, p_max, eps,
+#                                          m0, m1, dm, seed, setseed = True):    
     # masses = np.random.exponential(mu, no_rpc) # in mu
     # xi = np.ones(no_rpc, dtype = np.int64)
-    
     
     m_max = np.amax(masses)
     print("sim_n", sim_n, "; masses.shape=", masses.shape, "; m_max=", m_max,
@@ -234,7 +248,7 @@ for sim_n in range(no_sims):
 
     times, concentrations, masses_vs_time, xis_vs_time =\
         simulate_collisions_np(xis, masses, dV, dt, t_end, store_every,
-                               kernel=kernel)
+                               algorithm=algorithm, kernel=kernel)
         # simulate_collisions(xi, masses, dV, dt, t_end, store_every)
     
     np.save(path + f"conc_{sim_n}.npy",concentrations)

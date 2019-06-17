@@ -21,7 +21,8 @@ from grid import bilinear_weight
 
 #%% PATH CREATION AND FILE HANDLING
 
-def generate_folder_collision(myOS, dV, dt, kernel, init, init_pars, no_sims):
+def generate_folder_collision(myOS, dV, dt, algorithm, kernel,
+                              init, init_pars, no_sims, gen):
     if myOS == "Linux":
         simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
     elif myOS == "MacOS":
@@ -40,11 +41,12 @@ def generate_folder_collision(myOS, dV, dt, kernel, init, init_pars, no_sims):
 #     f"collision_box_model/kernels/{kernel}/init/{init}/\
 # dV_{dV:.2}_dt_{dt:.2}_no_spc_{no_spc}_eps_{eps}_no_sims_{no_sims}/"
     folder =\
-f"collision_box_model/kernels/{kernel}/init/{init}/\
+f"collision_box_model/algo/{algorithm}/kernels/{kernel}/init/{init}/\
 dV_{dV:.2}_dt_{dt:.2}_{init_pars_string}_no_sims_{no_sims}/"
     path = simdata_path + folder
-    if not os.path.exists(path):
-        os.makedirs(path)
+    if gen:
+        if not os.path.exists(path):
+            os.makedirs(path)
     return simdata_path, path
 
 
@@ -641,22 +643,22 @@ def collision_step_Golovin(xis, masses, dV, dt):
         pair_kernel =\
             kernel_Golovin(masses[i], masses[j])
         if xis[i] >= xis[j]:
-            xis_max = xis[i]
+            xi_max = xis[i]
             ind_max = i
-            xis_min = xis[j]
+            xi_min = xis[j]
             ind_min = j
         else:
-            xis_max = xis[j]
+            xi_max = xis[j]
             ind_max = j
-            xis_min = xis[i]
+            xi_min = xis[i]
             ind_min = i
             
-        # xis_max = max(xis[i], xis[j])
+        # xi_max = max(xis[i], xis[j])
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
         # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xis_max\
+        pair_prob = pair_kernel * dt/dV * xi_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -669,16 +671,16 @@ def collision_step_Golovin(xis, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xis_min = min(xis[i], xis[j])
-            g = min(g,int(xis_max/xis_min))
-            if xis_max - g*xis_min > 0:
+            # xi_min = min(xis[i], xis[j])
+            g = min(g,int(xi_max/xi_min))
+            if xi_max - g*xi_min > 0:
                 # print("case 1")
-                xis[ind_max] -= g * xis_min
+                xis[ind_max] -= g * xi_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xis[ind_max] = int(0.5 * xis_min)
-                xis[ind_min] -= int(0.5 * xis_min)
+                xis[ind_max] = int(0.5 * xi_min)
+                xis[ind_min] -= int(0.5 * xi_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
@@ -726,22 +728,22 @@ def collision_step_Hall(xis, masses, dV, dt):
         pair_kernel =\
             kernel_Hall(masses[i], masses[j])
         if xis[i] >= xis[j]:
-            xis_max = xis[i]
+            xi_max = xis[i]
             ind_max = i
-            xis_min = xis[j]
+            xi_min = xis[j]
             ind_min = j
         else:
-            xis_max = xis[j]
+            xi_max = xis[j]
             ind_max = j
-            xis_min = xis[i]
+            xi_min = xis[i]
             ind_min = i
             
-        # xis_max = max(xis[i], xis[j])
+        # xi_max = max(xis[i], xis[j])
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
         # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xis_max\
+        pair_prob = pair_kernel * dt/dV * xi_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -754,16 +756,16 @@ def collision_step_Hall(xis, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xis_min = min(xis[i], xis[j])
-            g = min(g,int(xis_max/xis_min))
-            if xis_max - g*xis_min > 0:
+            # xi_min = min(xis[i], xis[j])
+            g = min(g,int(xi_max/xi_min))
+            if xi_max - g*xi_min > 0:
                 # print("case 1")
-                xis[ind_max] -= g * xis_min
+                xis[ind_max] -= g * xi_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xis[ind_max] = int(0.5 * xis_min)
-                xis[ind_min] -= int(0.5 * xis_min)
+                xis[ind_max] = int(0.5 * xi_min)
+                xis[ind_min] -= int(0.5 * xi_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
@@ -811,22 +813,22 @@ def collision_step_Bott(xis, masses, dV, dt):
         pair_kernel =\
             kernel_Bott(masses[i], masses[j])
         if xis[i] >= xis[j]:
-            xis_max = xis[i]
+            xi_max = xis[i]
             ind_max = i
-            xis_min = xis[j]
+            xi_min = xis[j]
             ind_min = j
         else:
-            xis_max = xis[j]
+            xi_max = xis[j]
             ind_max = j
-            xis_min = xis[i]
+            xi_min = xis[i]
             ind_min = i
             
-        # xis_max = max(xis[i], xis[j])
+        # xi_max = max(xis[i], xis[j])
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
         # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xis_max\
+        pair_prob = pair_kernel * dt/dV * xi_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -839,16 +841,16 @@ def collision_step_Bott(xis, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xis_min = min(xis[i], xis[j])
-            g = min(g,int(xis_max/xis_min))
-            if xis_max - g*xis_min > 0:
+            # xi_min = min(xis[i], xis[j])
+            g = min(g,int(xi_max/xi_min))
+            if xi_max - g*xi_min > 0:
                 # print("case 1")
-                xis[ind_max] -= g * xis_min
+                xis[ind_max] -= g * xi_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xis[ind_max] = int(0.5 * xis_min)
-                xis[ind_min] -= int(0.5 * xis_min)
+                xis[ind_max] = int(0.5 * xi_min)
+                xis[ind_min] -= int(0.5 * xi_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
@@ -895,22 +897,22 @@ def collision_step_Long(xis, masses, dV, dt):
         pair_kernel =\
             kernel_Long_A(masses[i], masses[j])
         if xis[i] >= xis[j]:
-            xis_max = xis[i]
+            xi_max = xis[i]
             ind_max = i
-            xis_min = xis[j]
+            xi_min = xis[j]
             ind_min = j
         else:
-            xis_max = xis[j]
+            xi_max = xis[j]
             ind_max = j
-            xis_min = xis[i]
+            xi_min = xis[i]
             ind_min = i
             
-        # xis_max = max(xis[i], xis[j])
+        # xi_max = max(xis[i], xis[j])
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
         # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xis_max\
+        pair_prob = pair_kernel * dt/dV * xi_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -923,16 +925,16 @@ def collision_step_Long(xis, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xis_min = min(xis[i], xis[j])
-            g = min(g,int(xis_max/xis_min))
-            if xis_max - g*xis_min > 0:
+            # xi_min = min(xis[i], xis[j])
+            g = min(g,int(xi_max/xi_min))
+            if xi_max - g*xi_min > 0:
                 # print("case 1")
-                xis[ind_max] -= g * xis_min
+                xis[ind_max] -= g * xi_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xis[ind_max] = int(0.5 * xis_min)
-                xis[ind_min] -= int(0.5 * xis_min)
+                xis[ind_max] = int(0.5 * xi_min)
+                xis[ind_min] -= int(0.5 * xi_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
@@ -979,22 +981,22 @@ def collision_step_Long_Bott(xis, masses, dV, dt):
         pair_kernel =\
             kernel_Long_Bott(masses[i], masses[j])
         if xis[i] >= xis[j]:
-            xis_max = xis[i]
+            xi_max = xis[i]
             ind_max = i
-            xis_min = xis[j]
+            xi_min = xis[j]
             ind_min = j
         else:
-            xis_max = xis[j]
+            xi_max = xis[j]
             ind_max = j
-            xis_min = xis[i]
+            xi_min = xis[i]
             ind_min = i
-        # xis_max = max(xis[i], xis[j])
+        # xi_max = max(xis[i], xis[j])
         
         # now we need p = P_ij,s N_s*(N_s-1)/2 / (no_pairs),
         # where N_s = no_spct and
         # P_ij,s = max(xis_i, xis_j) P_ij
         # P_ij = K_ij dt/dV
-        pair_prob = pair_kernel * dt/dV * xis_max\
+        pair_prob = pair_kernel * dt/dV * xi_max\
                     * 0.5 * no_spct * (no_spct - 1) / no_pairs
         # then evaluate
         # beta
@@ -1007,22 +1009,160 @@ def collision_step_Long_Bott(xis, masses, dV, dt):
         # print(pair_n, pair_prob, pair_prob_int, rnd01[pair_n], g)
         if g > 0:
             # print("collision for pair", i, j)
-            # xis_min = min(xis[i], xis[j])
-            g = min(g,int(xis_max/xis_min))
-            if xis_max - g*xis_min > 0:
+            # xi_min = min(xis[i], xis[j])
+            g = min(g,int(xi_max/xi_min))
+            if xi_max - g*xi_min > 0:
                 # print("case 1")
-                xis[ind_max] -= g * xis_min
+                xis[ind_max] -= g * xi_min
                 masses[ind_min] += g * masses[ind_max]
             else:
                 # print("case 2")
-                xis[ind_max] = int(0.5 * xis_min)
-                xis[ind_min] -= int(0.5 * xis_min)
+                xis[ind_max] = int(0.5 * xi_min)
+                xis[ind_min] -= int(0.5 * xi_min)
                 masses[ind_min] += g * masses[ind_max]
                 masses[ind_max] = masses[ind_min]
 
 #%% AON UNTERSTRASSER
-def collision_step_Long_Bott(xis, masses, dV, dt):
+# AON collision model from Unterstrasser 2017, p. 1534
+# in each step, check each (i-j) combination for a possible coalescence event
+# NOTE that I use xi instead of nu (in Unterstrasser), i.e. nu_k = xi_k etc.
+@njit()
+def collision_step_Long_Bott_Unt(xis, masses, dV, dt):
+    # xis = array of multiplicities
+    ind = np.nonzero(xis)[0]
+    # N = no_spct ("number of super particles per cell total")
+    # no_spct = len(indices)
+    no_spct = ind.shape[0]
+    # rnd = np.random.rand(no_spct*(no_spct-1)/2)
+    for i_SIP in range(1, no_spct):
+        i = ind[i_SIP]
+        # for j_SIP in range(i_SIP):
+        j_SIP = 0
+        while xis[i] > 0 and j_SIP < i_SIP:
+            j = ind[j_SIP]
+            if xis[j] > 0:
+                if xis[i] >= xis[j]:
+                    xi_max = xis[i]
+                    ind_max = i
+                    xi_min = xis[j]
+                    ind_min = j
+                else:
+                    xi_max = xis[j]
+                    ind_max = j
+                    xi_min = xis[i]
+                    ind_min = i            
+                # compute xi_k according to xi_k = dt/dV * xi_i * xi_j * K_ij
+                p_crit = dt/dV * xi_max\
+                         * kernel_Long_Bott(masses[i], masses[j])
+                xi_k = p_crit * xi_min
+                # xi_k = dt/dV * xi_min * xi_max\
+                #        * kernel_Long_Bott(masses[i], masses[j])
+                # p_crit = xi_k / xi_min
+                if p_crit > 1.0:
+                    # multiple collisions: one droplet of SIP i collects
+                    # more than one droplet of SIP j:
+                    # SIP (i = ind_min) collects
+                    # xi_k droplets of SIP (j = ind_max)
+                    # and distributes them on xi_i droplets:
+                    # now, we need to decide, what xi_k should to be:
+                    # integer and xi_k <= xi_max
+                    # p_crit = p_crit - int(p_crit)
+                    
+                    # NON INT!!!
+                    # if np.random.rand() < p_crit:
+                    #     xi_k = int(xi_k) + xi_min
+                    # else: xi_k = int(xi_k)
+                    
+                    xi_k = int(xi_k)
+                    # if xi_k >= xi_max:
+                    #     xi_k = xi_max
+                    # xi_k = min(xi_k, xi_max)
+                    masses[ind_min] =\
+                        (xi_min*masses[ind_min] + xi_k*masses[ind_max])\
+                        / xi_min
+                    xis[ind_max] -= xi_k
+                else:
+                    if np.random.rand() < p_crit:
+                        if xi_max - xi_min < 0.1:
+                            # NON INT!!
+                            # xis[ind_max] = int(xi_min/2)
+                            # xis[ind_min] = xi_min - int(xi_min/2)
+                            xis[ind_min] = 0.5 * xi_max
+                            xis[ind_max] = xis[ind_min]
+                            masses[ind_min] =\
+                                (xi_min*masses[ind_min]
+                                 + xi_max*masses[ind_max]) / xi_max
+                            masses[ind_max] = masses[ind_min]
+                        else:
+                            masses[ind_min] += masses[ind_max]
+                            xis[ind_max] -= xi_min
+                # if xis[ind_max] == 0 and xi_min > 1:
+                #     xis[ind_max] = int(xi_min/2)
+                #     xis[ind_min] = xi_min - int(xi_min/2)
+                #     masses[ind_max] = masses[ind_min]
+            j_SIP += 1
 
+@njit()
+def collision_step_Golovin_Unt(xis, masses, dV, dt):
+    # xis = array of multiplicities
+    ind = np.nonzero(xis)[0][::-1]
+    # N = no_spct ("number of super particles per cell total")
+    # no_spct = len(indices)
+    no_spct = ind.shape[0]
+    # rnd = np.random.rand(no_spct*(no_spct-1)/2)
+    for i_SIP in range(1, no_spct):
+        i = ind[i_SIP]
+        # for j_SIP in range(i_SIP):
+        j_SIP = 0
+        while xis[i] > 0 and j_SIP < i_SIP:
+            j = ind[j_SIP]
+            if xis[j] > 0:
+                if xis[i] >= xis[j]:
+                    xi_max = xis[i]
+                    ind_max = i
+                    xi_min = xis[j]
+                    ind_min = j
+                else:
+                    xi_max = xis[j]
+                    ind_max = j
+                    xi_min = xis[i]
+                    ind_min = i            
+                # compute xi_k according to xi_k = dt/dV * xi_i * xi_j * K_ij
+                p_crit = dt/dV * xi_max\
+                         * kernel_Golovin(masses[i], masses[j])
+                xi_k = p_crit * xi_min
+                # xi_k = dt/dV * xi_min * xi_max\
+                #        * kernel_Long_Bott(masses[i], masses[j])
+                # p_crit = xi_k / xi_min
+                if p_crit > 1.0:
+                    # multiple collisions: one droplet of SIP i collects
+                    # more than one droplet of SIP j:
+                    # SIP (i = ind_min) collects
+                    # xi_k droplets of SIP (j = ind_max)
+                    # and distributes them on xi_i droplets:
+                    # now, we need to decide, what xi_k should to be:
+                    # integer and xi_k <= xi_max
+                    p_crit = p_crit - int(p_crit)
+                    
+                    if np.random.rand() < p_crit:
+                        xi_k = int(xi_k) + xi_min
+                    else: xi_k = int(xi_k)
+                    # xi_k = int(xi_k)
+                    
+                    xi_k = min(xi_k, xi_max)
+                    masses[ind_min] =\
+                        (xi_min*masses[ind_min] + xi_k*masses[ind_max])\
+                        / xi_min
+                    xis[ind_max] -= xi_k
+                else:
+                    if np.random.rand() < p_crit:
+                        masses[ind_min] += masses[ind_max]
+                        xis[ind_max] -= xi_min
+                if xis[ind_max] == 0 and xi_min > 1:
+                    xis[ind_max] = int(xi_min/2)
+                    xis[ind_min] = xi_min - int(xi_min/2)
+                    masses[ind_max] = masses[ind_min]
+            j_SIP += 1
 
 #%% WAITING TIME ALGORITHM
 
@@ -1081,19 +1221,29 @@ def collision_step_tau_Golovin(xis, masses, dV, dt):
 #%% SIMULATE COLLISIONS
 
 def simulate_collisions_np(xi, masses, dV, dt, t_end, store_every,
-                           kernel="Golovin"):
-    if kernel == "Long": collision_step = collision_step_Long
-    elif kernel == "Long_Bott": collision_step = collision_step_Long_Bott
-    elif kernel == "Golovin": collision_step = collision_step_Golovin
-    elif kernel == "Hall": collision_step = collision_step_Hall
-    elif kernel == "Bott": collision_step = collision_step_Bott
+                           algorithm="Shima", kernel="Golovin"):
+    if algorithm == "Shima":
+        if kernel == "Long": collision_step = collision_step_Long
+        elif kernel == "Long_Bott": collision_step = collision_step_Long_Bott
+        elif kernel == "Golovin": collision_step = collision_step_Golovin
+        elif kernel == "Hall": collision_step = collision_step_Hall
+        elif kernel == "Bott": collision_step = collision_step_Bott
+    elif algorithm == "AON_Unt":
+        if kernel == "Long_Bott":
+            collision_step = collision_step_Long_Bott_Unt
+        elif kernel == "Golovin": collision_step = collision_step_Golovin_Unt
+            
     times = np.zeros(1+int(t_end/(store_every * dt)), dtype = np.float64)
     concentrations = np.zeros(1+int( math.ceil(t_end / (store_every * dt)) ),
                               dtype = np.float64)
     masses_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
                               dtype = np.float64)
-    xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
-                              dtype = np.int64)
+    if algorithm == "Shima":
+        xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
+                                  dtype = np.int64)
+    elif algorithm == "AON_Unt":
+        xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
+                                  dtype = np.float64)
     cnt_c = 0 
 
     for cnt, t in enumerate(np.arange(0.0,t_end,dt)):

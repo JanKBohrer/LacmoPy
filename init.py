@@ -109,9 +109,10 @@ def dst_log_normal(x, par):
         / ( x * math.sqrt(2 * math.pi) * par[1] )
     return f
 
-@njit()
-def dst_expo(x,k):
+
+def dst_expo_np(x,k):
     return np.exp(-x*k) * k
+dst_expo = njit()(dst_expo_np)
 
 def num_int_np(func, x0, x1, steps=1E5):
     dx = (x1 - x0) / steps
@@ -460,9 +461,11 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
         eta=1.0E-9, seed=4711, setseed = True):
     
     if setseed: np.random.seed(seed)
-    m_low = compute_mass_from_radius(r_critmin, c.mass_density_NaCl_dry)
+    m_low = compute_mass_from_radius(r_critmin,
+                                     c.mass_density_water_liquid_NTP)
     # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
     #                                            cnt_lim=1E8)
+    
     m_high = m_low * m_high_by_m_low
     # since we consider only particles with m > m_low, the total number of
     # placed particles and the total placed mass will be underestimated
@@ -482,21 +485,30 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
     # no_rpc *= 1.0/num_int_expo(m_low, m_high, par, steps=1.0E6)
     
     kappa_inv = 1.0/kappa
+    bin_fac = 10**kappa_inv
     
     masses = []
     xis = []
-    
+    bins = [m_low]
     no_rp_set = 0
     no_sp_set = 0
     bin_n = 0
     
+    m = np.random.uniform(m_low/2, m_low)
+    xi = dst_expo(m,par) * m_low * no_rpc
+    masses.append(m)
+    xis.append(xi)
+    no_rp_set += xi
+    no_sp_set += 1    
+    
     m_left = m_low
-    m = 0.0
+    # m = 0.0
     
     # print("no_rpc =", no_rpc)
     # while(no_rp_set < no_rpc and m < m_high):
     while(m < m_high):
-        m_right = m_left * 10**kappa_inv
+        # m_right = m_left * 10**kappa_inv
+        m_right = m_left * bin_fac
         # print("missing particles =", no_rpc - no_rp_set)
         # print("m_left, m_right, m_high")
         # print(bin_n, m_left, m_right, m_high)
@@ -507,8 +519,8 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
         xi = dst_expo(m,par) * (m_right - m_left) * no_rpc
         # xi = int((dst_expo(m,par) * (m_right - m_left) * no_rpc))
         # if xi < 1 : xi = 1
-        if no_rp_set + xi > no_rpc:
-            xi = no_rpc - no_rp_set
+        # if no_rp_set + xi > no_rpc:
+        #     xi = no_rpc - no_rp_set
             # print("no_rpc reached")
         # print("xi =", xi)
         masses.append(m)
@@ -516,6 +528,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
         no_rp_set += xi
         no_sp_set += 1
         m_left = m_right
+        bins.append(m_right)
         bin_n += 1
     
     xis = np.array(xis)
@@ -528,7 +541,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
     if xi_critmin < 1: xi_critmin = 1
     # print("xi_critmin =", xi_critmin)
     
-    for bin_n, xi in enumerate(xis):
+    for bin_n,xi in enumerate(xis):
         if xi < xi_critmin:
             # print("")
             p = xi / xi_critmin
@@ -548,7 +561,127 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
     # and assign the average mass to it
     # then reweight all of the masses such that the total mass is right.
     
-    return masses, xis, m_low, m_high
+    return masses, xis, m_low, m_high, bins
+
+
+
+# par = "rate" parameter "k" of the expo distr: k*exp(-k*m) (in 10^18 kg)
+# no_rpc = number of real particles in cell
+# NON INTERGER WEIGHTS ARE POSSIBLE A SIN UNTERSTRASSER 2017
+def generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint(
+        par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40,
+        eta=1.0E-9, seed=4711, setseed = True):
+    
+    if setseed: np.random.seed(seed)
+    m_low = compute_mass_from_radius(r_critmin,
+                                     c.mass_density_water_liquid_NTP)
+    # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
+    #                                            cnt_lim=1E8)
+    
+    m_high = m_low * m_high_by_m_low
+    # since we consider only particles with m > m_low, the total number of
+    # placed particles and the total placed mass will be underestimated
+    # to fix this, we could adjust the PDF
+    # by e.g. one of the two possibilities:
+    # 1. decrease the total number of particles and thereby the total pt conc.
+    # 2. keep the total number of particles, and thus increase the PDF
+    # in the interval [m_low, m_high]
+    # # For 1.: decrease the total number of particles by multiplication 
+    # # with factor num_int_expo_np(m_low, m_high, par, steps=1.0E6)
+    # print(no_rpc)
+    # no_rpc *= num_int_expo(m_low, m_high, par, steps=1.0E6)
+    
+    # for 2.:
+    # increase the total number of
+    # real particle "no_rpc" by 1.0 / int_(m_low)^(m_high)
+    # no_rpc *= 1.0/num_int_expo(m_low, m_high, par, steps=1.0E6)
+    
+    kappa_inv = 1.0/kappa
+    bin_fac = 10**kappa_inv
+    
+    masses = []
+    xis = []
+    bins = [m_low]
+    no_rp_set = 0
+    no_sp_set = 0
+    bin_n = 0
+    
+    m = np.random.uniform(m_low/2, m_low)
+    xi = dst_expo(m,par) * m_low * no_rpc
+    masses.append(m)
+    xis.append(xi)
+    no_rp_set += xi
+    no_sp_set += 1    
+    
+    m_left = m_low
+    # m = 0.0
+    
+    # print("no_rpc =", no_rpc)
+    # while(no_rp_set < no_rpc and m < m_high):
+    while(m < m_high):
+        # m_right = m_left * 10**kappa_inv
+        m_right = m_left * bin_fac
+        # print("missing particles =", no_rpc - no_rp_set)
+        # print("m_left, m_right, m_high")
+        # print(bin_n, m_left, m_right, m_high)
+        m = np.random.uniform(m_left, m_right)
+        # print("m =", m)
+        # we do not round to integer here, because of the weak threshold below
+        # the rounding is done afterwards
+        xi = dst_expo(m,par) * (m_right - m_left) * no_rpc
+        # xi = int((dst_expo(m,par) * (m_right - m_left) * no_rpc))
+        # if xi < 1 : xi = 1
+        # if no_rp_set + xi > no_rpc:
+        #     xi = no_rpc - no_rp_set
+            # print("no_rpc reached")
+        # print("xi =", xi)
+        masses.append(m)
+        xis.append(xi)
+        no_rp_set += xi
+        no_sp_set += 1
+        m_left = m_right
+        bins.append(m_right)
+        bin_n += 1
+    
+    xis = np.array(xis)
+    masses = np.array(masses)
+    
+    xi_max = xis.max()
+    # print("xi_max =", f"{xi_max:.2e}")
+    
+    # xi_critmin = int(xi_max * eta)
+    xi_critmin = xi_max * eta
+    # if xi_critmin < 1: xi_critmin = 1
+    # print("xi_critmin =", xi_critmin)
+    
+    valid_ind = []
+    
+    for bin_n,xi in enumerate(xis):
+        if xi < xi_critmin:
+            # print("")
+            p = xi / xi_critmin
+            if np.random.rand() >= p:
+                xis[bin_n] = 0
+            else:
+                xis[bin_n] = xi_critmin
+                valid_ind.append(bin_n)
+        else: valid_ind.append(bin_n)
+    
+    # ind = np.nonzero(xis)
+    # xis = xis[ind].astype(np.int64)
+    valid_ind = np.array(valid_ind)
+    xis = xis[valid_ind]
+    masses = masses[valid_ind]
+    
+    # now, some bins are empty, thus the total number sum(xis) is not right
+    # moreover, the total mass sum(masses*xis) is not right ...
+    # FIRST: test, how badly the total number and total mass of the cell
+    # is violated, if this is bad:
+    # -> create a number of particles, such that the total number is right
+    # and assign the average mass to it
+    # then reweight all of the masses such that the total mass is right.
+    
+    return masses, xis, m_low, m_high, bins
     
 # no_spc is the intended number of super particles per cell,
 # this will right on average, but will vary due to the random assigning 
@@ -565,6 +698,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
 # at least need to go down to 1 mu (resolution there...)
 # eps = parameter for the bin linear spreading:
 # bin_size(m = m_high) = eps * bin_size(m = m_low)
+# @njit()
 def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
                                          total_mass_in_cell,
                                          p_min, p_max, eps,
@@ -581,7 +715,7 @@ def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
     # (m_low, m_high), Ps = compute_quantiles(func, None, m0, m1, dm,
     #                                  [p_min, p_max], None)
     m_low = 0.0
-    m_high = num_int_expo_impl_right_border_np(m_low,p_max, dm, par, 1.0E8)
+    m_high = num_int_expo_impl_right_border(m_low,p_max, dm, par, 1.0E8)
     
     # if p_min == 0:
     #     m_low = 0.0
@@ -651,7 +785,7 @@ def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
             xi = no_rpc - no_pt
             # last = True
             M_sys = np.sum( np.array(xis)*np.array(masses) )
-            M_should = no_rpc * num_int_expo_mean_np(0.0,m_left,par,1.0E7)
+            M_should = no_rpc * num_int_expo_mean(0.0,m_left,par,1.0E7)
             masses = [m * M_should / M_sys for m in masses]
             # M = p_max * total_mass_in_cell - M
             M_diff = total_mass_in_cell - M_should
@@ -674,12 +808,12 @@ def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
                 xis[pt_n-1] = xi_sum
                 masses[pt_n-1] = m_sum / xi_sum
                 no_pt += xi
-                print(pt_n, xi, mu, no_pt)
+                # print(pt_n, xi, mu, no_pt)
             else:                
                 masses.append(mu)    
                 xis.append(xi)
                 no_pt += xi
-                print(pt_n, xi, mu, no_pt)
+                # print(pt_n, xi, mu, no_pt)
                 pt_n += 1            
             # masses.append(mu)    
             # xis.append(xi)
@@ -752,7 +886,7 @@ def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
             masses.append(mu)
             xis.append(xi)
             no_pt += xi
-            print(pt_n, xi, mu, no_pt, f"{m_left:.2e}", f"{m_right:.2e}")
+            # print(pt_n, xi, mu, no_pt, f"{m_left:.2e}", f"{m_right:.2e}")
             pt_n += 1
             m_left = m_right
         
@@ -761,7 +895,7 @@ def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
             xi = no_rpc - no_pt
             # last = True
             M_sys = np.sum( np.array(xis)*np.array(masses) )
-            M_should = no_rpc * num_int_expo_mean_np(0.0,m_left,par,1.0E7)
+            M_should = no_rpc * num_int_expo_mean(0.0,m_left,par,1.0E7)
             masses = [m * M_should / M_sys for m in masses]
             # M = p_max * total_mass_in_cell - M
             M_diff = total_mass_in_cell - M_should
@@ -795,12 +929,12 @@ def generate_SIP_ensemble_expo_my_xi_rnd(par, no_spc, no_rpc,
                 xis[pt_n-1] = xi_sum
                 masses[pt_n-1] = m_sum / xi_sum
                 no_pt += xi
-                print(pt_n, xi, mu, no_pt)
+                # print(pt_n, xi, mu, no_pt)
             else:                
                 masses.append(mu)    
                 xis.append(xi)
                 no_pt += xi
-                print(pt_n, xi, mu, no_pt)
+                # print(pt_n, xi, mu, no_pt)
                 pt_n += 1
     
     return np.array(masses), np.array(xis, dtype=np.int64), m_low, m_high

@@ -16,8 +16,6 @@ from microphysics import compute_radius_from_mass
 from collision import generate_folder_collision
 from analysis import auto_bin_SIPs
 
-
-
 #%%
 
 ### SET PARAMETERS
@@ -26,10 +24,14 @@ myOS = "Linux"
 
 dV = 1.0
 # dt = 0.1
-dt = 1.0
-# dt = 20.0
+# dt = 1.0
+# dt = 10.0
+dt = 20.0
 t_end = 3600.0
 dt_store = 600.0
+
+# algorithm = "Shima"
+algorithm = "AON_Unt"
 
 # kernel = "Bott"
 # kernel = "Hall"
@@ -48,24 +50,26 @@ no_sims = 500
 
 # for sampling and plotting:
 # no_bins = 25
-no_bins = 30
+no_bins = 60
 # bin_method = "lin_R"
 bin_method = "log_R"
 # bin_method = "my_auto_bin"
 
 ## for SingleSIP random:
 # bin exponential scaling factor
-kappa = 80
-# kappa = 2000
+# kappa = 2*640
+kappa = 100
+# kappa = 200
 
 ## for my xi random initialization:
 # INTENDED number of SIP:
-no_spc = 40
+# no_spc = 80
+no_spc = 160
 # bin linear spreading parameter
 eps = 200
 # area of cumulative PDF that is covered, also determines the bin width
 p_min = 0
-p_max = 0.9999999
+p_max = 1.0 - 1.0E-6
 
 # droplet concentration
 #n = 100 # cm^(-3)
@@ -98,7 +102,8 @@ if init == "SingleSIP":
 elif init == "my_xi_random":
     init_pars = [no_spc, eps]
 simdata_path, path =\
-    generate_folder_collision(myOS, dV, dt, kernel, init, init_pars, no_sims)
+    generate_folder_collision(myOS, dV, dt, algorithm, kernel,
+                              init, init_pars, no_sims, gen=False)
 
 times = []
 conc_vs_time = []
@@ -109,7 +114,7 @@ xis_vs_time = []
 tot_pt = 0
 
 ### LOAD DATA FROM FILES
-# no_sims=200
+# no_sims=4
 for sim_n in range(no_sims):
     # times_file = path + "times.npy"
     # conc_file = path + "conc.npy"
@@ -210,8 +215,8 @@ if init == "SingleSIP":
     pars = f"kappa={kappa}"
 elif init == "my_xi_random":
     pars = f"no_spc={no_spc}, eps={eps}"
-title = f"kernel={kernel}, init={init}, {pars},\n#sims={no_sims}, \
-dV={dV}, dt={dt}, \
+title = f"algor={algorithm}, kernel={kernel}, init={init}, {pars}, \
+\n#sims={no_sims}, dV={dV}, dt={dt}, \
 n0={n0:.3}" +  " cm$^{-3}$," + f" LWC0={LWC0:.2e}" + " g/cm$^3$"
 fig.suptitle(title, fontsize=TTFS)
 
@@ -284,13 +289,15 @@ f"g_ln_R_vs_time_kernel_{kernel}_init_{init}\
 _dV_{dV}_dt_{dt}_no_sims_{no_sims}.png"
 fig, ax = plt.subplots(figsize=(8,8))
 
-i1 = 153217
-i2 = 141680
+# i1 = 153217
+# i2 = 141680
 
 # for ind_t in range(1):
 # NOTE that if two droplets with the same xi collide,
 # two droplets are created with [xi/2] and xi - [xi/2]
 # and the same masses
+m_ges_0 = np.sum(xis_vs_time[0]*masses_vs_time[0])
+print(f"m_ges0 = {m_ges_0:.3e}")
 for ind_t in range(len(times)):
     xis = xis_vs_time[ind_t]
     ind1 = np.nonzero(xis)
@@ -308,7 +315,9 @@ for ind_t in range(len(times)):
     # R_max = 3.0*np.amax(radii)
     print("t=", times[ind_t], "R_min=", R_min, "with xi =", xis[ind_min],
           "R_max=", R_max, "with index", ind_max, "with xi =", xis[ind_max])
-    print("m_ges =", np.sum(masses*xis), "no_rpc =", np.sum(xis))
+    print(
+        f"(m_ges-m_ges0)/m_ges0 = {(np.sum(masses*xis)-m_ges_0)/m_ges_0:.3e}",
+        f"no_rpc_avg = {np.sum(xis)/no_sims:.3e}")
     
     R_min *= 0.99
     R_max *= 1.01
@@ -349,6 +358,7 @@ elif kernel == "Long":
     ax.set_xlim([1.0,5.0E3])
 elif kernel == "Long_Bott":
     ax.set_xlim([1.0,5.0E3])
+    # ax.set_xlim([1.0,1.0E4])
 elif kernel == "Hall":
     ax.set_xlim([1.0,5.0E3])
 # ax.hist(radii,weights=masses*xi,bins=30)
@@ -363,8 +373,8 @@ if init == "SingleSIP":
     pars = f"kappa={kappa}"
 elif init == "my_xi_random":
     pars = f"no_spc={no_spc}, eps={eps}"
-title = f"kernel={kernel}, init={init}, {pars},\n#sims={no_sims}, \
-dV={dV}, dt={dt}, \
+title = f"algor={algorithm}, kernel={kernel}, init={init}, {pars}, \
+\n#sims={no_sims}, dV={dV}, dt={dt}, \
 n0={n0:.3}" +  " cm$^{-3}$," + f" LWC0={LWC0:.2e}" + " g/cm$^3$"
 ax.set_title(title
 , pad = 10, fontsize=TTFS)
@@ -374,21 +384,22 @@ ax.grid()
 fig.savefig(fig_name)
 
 #%% PLOT SIP TOTAL MASSES
-#fig, ax = plt.subplots(figsize=(8,8))
-#for ind_t in range(len(times)):
-#    masses = masses_vs_time[ind_t]
-#    rad = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
-#    xi = xis_vs_time[ind_t]
-#    # ax.plot(masses, xi, "o", markersize=1.5)
-#    # ax.plot(rad, xi, "o", markersize=1.5)
-#    ax.plot(rad, xi*masses, "o", markersize=1.5)
-#    ax.set_xscale("log")
-#    ax.set_yscale("log")
-# masses = masses_vs_time[0]
-# xi = xis_vs_time[0]
-# ax.plot(masses, xi, "o", markersize=1.0)
+# fig, ax = plt.subplots(figsize=(8,8))
+# for ind_t in range(len(times)):
+#     masses = masses_vs_time[ind_t]
+#     rad = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
+#     xi = xis_vs_time[ind_t]
+#     # ax.plot(masses, xi, "o", markersize=1.5)
+#     # ax.plot(rad, xi, "o", markersize=1.5)
+#     ax.plot(rad, xi*masses, "o", markersize=1.5, label = f"{int(times[ind_t]//60)}")
+#     ax.set_xscale("log")
+#     ax.set_yscale("log")
+# # masses = masses_vs_time[0]
+# # xi = xis_vs_time[0]
+# # ax.plot(masses, xi, "o", markersize=2.0)
 # ax.set_xscale("log")
 # ax.set_yscale("log")
+# ax.legend()
 
 #%% TESTS
     
