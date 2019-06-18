@@ -78,13 +78,13 @@ from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint
 #%% INIT
 
 ### SET PARAMETERS
-myOS = "Linux"
-# myOS = "MacOS"
+#myOS = "Linux"
+myOS = "MacOS"
 
 dV = 1.0
-# dt = 1.0
+dt = 1.0
 # dt = 10.0
-dt = 20.0
+#dt = 20.0
 t_end = 3600.0
 dt_store = 600.0
 
@@ -100,12 +100,12 @@ kernel = "Long_Bott"
 init = "SingleSIP"
 # init = "my_xi_random"
 
-no_sims = 500
-start_seed = 4711
+no_sims = 50
+start_seed = 3711
 
 ## for SingleSIP random:
 # bin exponential scaling factor
-kappa = 100
+kappa = 40
 
 ## for my xi random initialization:
 # INTENDED number of SIP:

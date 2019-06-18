@@ -16,13 +16,14 @@ from init import dst_expo
 from init import compute_quantiles
 from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold
 from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint
+from init import generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint2
 from init import generate_SIP_ensemble_expo_my_xi_rnd
 from microphysics import compute_radius_from_mass
 
 #%% GENERATE SIP ENSEMBLE
 ### SET PARAMETERS
-myOS = "Linux"
-# myOS = "MacOS"
+#myOS = "Linux"
+myOS = "MacOS"
 
 dV = 1.0
 dt = 1.0
@@ -43,12 +44,12 @@ kernel = "Long_Bott"
 init = "SingleSIP"
 # init = "my_xi_random"
 
-no_sims = 50
+no_sims = 5
 start_seed = 4711
 
 ## for SingleSIP random:
 # bin exponential scaling factor
-kappa = 38
+kappa = 10
 # kappa = 2000
 
 ## for my xi random initialization:
@@ -97,8 +98,9 @@ store_every = int(math.ceil(dt_store/dt))
 
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
-simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
-folder = "collision_box_model/generate_SIPs/"
+#simdata_path = "/home/jdesk/OneDrive/python/sim_data/"
+simdata_path = "/Users/bohrer/OneDrive - bwedu/python/sim_data/"
+folder = f"collision_box_model/generate_SIPs_nonint2/kappa_{kappa}/"
 path = simdata_path + folder
 
 import os
@@ -108,9 +110,9 @@ if not os.path.exists(path):
 # seed = seed_list[4]
 for seed in seed_list:
     if init == "SingleSIP":
-        masses, xis, m_low, m_high, bins =\
-            generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint(
-                                  1.0/mu, no_rpc, m_high_by_m_low=1.0E8,
+        masses, xis, m_low, bins =\
+            generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint2(
+                                  1.0/mu, no_rpc, m_high_by_m_low=1.0E6,
                                   kappa=kappa, seed = seed)    
     elif init == "my_xi_random": 
         masses, xis, m_low, m_high =\
@@ -128,6 +130,8 @@ for seed in seed_list:
 # print( no_rpc * num_int_expo(0.0, m_low, 1.0/mu, steps=1.0E5) )
 
 #%%
+
+m_high = bins[-1]
 
 no_rpc_dev = []
 mass_dev = []
@@ -169,6 +173,7 @@ for seed in seed_list:
     # m_ges = np.sum(masses*xis)
     # bin_size = m_max/no_spc
     # bin_size = m_max/(no_spc-1)
+    
     bin_size = (m_high - m_low)/(no_rpc_is)
     
     # print()
@@ -198,6 +203,8 @@ for seed in seed_list:
     ax.set_ylim([0.01, 1.0E8])
     ax.set_xscale("log")
     ax.set_yscale("log")
+    
+    fig.savefig(path + fig_name)
     
     plt.show()
     plt.close()

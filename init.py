@@ -682,7 +682,56 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint(
     # then reweight all of the masses such that the total mass is right.
     
     return masses, xis, m_low, m_high, bins
+
+@njit()
+def generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint2(
+        par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40,
+        eta=1.0E-9, seed=4711, setseed = True):
+    bin_factor = 10**(1.0/kappa)
+    m_low = compute_mass_from_radius(r_critmin,c.mass_density_water_liquid_NTP)
+    m_left = m_low
+    # l_max = kappa * log_10(m_high/m_low)
+    l_max = int(kappa * np.log10(m_high_by_m_low)) + 1
+    rnd = np.random.rand( l_max )
+#    cnt = 0
     
+    masses = np.zeros(l_max, dtype = np.float64)
+    xis = np.zeros(l_max, dtype = np.float64)
+    bins = np.zeros(l_max+1, dtype = np.float64)
+    bins[0] = m_left
+    
+    for l in range(l_max):
+        m_right = m_left * bin_factor
+        bins[l+1] = m_right
+        dm = m_right - m_left
+        
+        m = m_left + dm * rnd[l]
+        masses[l] = m
+        xis[l] = no_rpc * dm * dst_expo(m, par)
+        
+        m_left = m_right
+        
+#        cnt += 1
+    
+    xi_max = xis.max()
+    xi_critmin = xi_max * eta
+    
+    switch = np.ones(l_max, dtype=np.int64)
+    
+    for l in range(l_max):
+        if xis[l] < xi_critmin:
+            if np.random.rand() < xis[l] / xi_critmin:
+                xis[l] = xi_critmin
+            else: switch[l] = 0
+    
+    ind = np.nonzero(switch)[0]
+    
+    xis = xis[ind]
+    masses = masses[ind]
+    
+    
+    return masses, xis, m_low, bins
+
 # no_spc is the intended number of super particles per cell,
 # this will right on average, but will vary due to the random assigning 
 # process of the xi_i

@@ -41,7 +41,7 @@ def generate_folder_collision(myOS, dV, dt, algorithm, kernel,
 #     f"collision_box_model/kernels/{kernel}/init/{init}/\
 # dV_{dV:.2}_dt_{dt:.2}_no_spc_{no_spc}_eps_{eps}_no_sims_{no_sims}/"
     folder =\
-f"collision_box_model/algo/{algorithm}/kernels/{kernel}/init/{init}/\
+f"collision_box_model_nonint/algo/{algorithm}/kernels/{kernel}/init/{init}/\
 dV_{dV:.2}_dt_{dt:.2}_{init_pars_string}_no_sims_{no_sims}/"
     path = simdata_path + folder
     if gen:
@@ -1164,6 +1164,59 @@ def collision_step_Golovin_Unt(xis, masses, dV, dt):
                     masses[ind_max] = masses[ind_min]
             j_SIP += 1
 
+
+
+
+
+
+
+@njit()
+def collision_step_Golovin_Unt2(xis, masses, dV, dt):
+    ind = np.nonzero(xis)
+    
+    no_spc = ind.shape[0]
+    
+    for i_ in range(1,no_spc):
+        i = ind[i_]
+        for j_ in range (i_):
+            j = ind[j_]
+            if xis[i] < xis[j]:
+                xi_min = xis[i]
+                xi_max = xis[j]
+                i_min = i
+                i_max = j
+            else:
+                xi_min = xis[j]
+                xi_max = xis[i]
+                i_min = j
+                i_max = i
+            xi_k = xi_max * xi_min * kernel_Long_Bott(masses[i], masses[j])\
+                   * dt / dV
+            p_crit = xi_k / xi_min
+            if p_crit > 1:
+                masses[i_min] = (xi_min*masses[i_min] + xi_k*masses[i_max])\
+                                / xi_min
+                xis[i_max] -= xi_k
+            
+            else:
+                rnd = np.random.rand()
+                if p_crit > rnd:
+                    if (xi_max-xi_min)/xi_max < 1.0E-5:
+                        b = (0.25 + 0.5 * rnd)
+                        xi_avg = 0.5 * (xi_min + xi_max)
+                        xis[i] = b * xi_avg
+                        xis[j] = (xi_min*masses[i_min] + xi_max*masses[i_max])\
+                                 / (masses[i_min]+masses[i_max])\
+                                 - b*xi_avg
+                        masses[i] = masses[i] + masses[j]
+                        masses[j] = masses[i]
+                    else:
+                        masses[i_min] += masses[i_max]
+                        xis[i_max] -= xi_min
+            
+
+
+
 #%% WAITING TIME ALGORITHM
 
 # coalescence events with wating time distribution:
@@ -1231,7 +1284,8 @@ def simulate_collisions_np(xi, masses, dV, dt, t_end, store_every,
     elif algorithm == "AON_Unt":
         if kernel == "Long_Bott":
             collision_step = collision_step_Long_Bott_Unt
-        elif kernel == "Golovin": collision_step = collision_step_Golovin_Unt
+        elif kernel == "Golovin": collision_step =\
+                                      collision_step_Golovin_Unt2
             
     times = np.zeros(1+int(t_end/(store_every * dt)), dtype = np.float64)
     concentrations = np.zeros(1+int( math.ceil(t_end / (store_every * dt)) ),

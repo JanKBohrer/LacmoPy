@@ -19,14 +19,14 @@ from analysis import auto_bin_SIPs
 #%%
 
 ### SET PARAMETERS
-myOS = "Linux"
-# myOS = "MacOS"
+#myOS = "Linux"
+myOS = "MacOS"
 
 dV = 1.0
 # dt = 0.1
 # dt = 1.0
 # dt = 10.0
-dt = 20.0
+dt = 1.0
 t_end = 3600.0
 dt_store = 600.0
 
@@ -46,7 +46,7 @@ kernel = "Long_Bott"
 init = "SingleSIP"
 # init == "my_xi_random"
 
-no_sims = 500
+no_sims = 50
 
 # for sampling and plotting:
 # no_bins = 25
@@ -58,7 +58,7 @@ bin_method = "log_R"
 ## for SingleSIP random:
 # bin exponential scaling factor
 # kappa = 2*640
-kappa = 100
+kappa = 40
 # kappa = 200
 
 ## for my xi random initialization:
