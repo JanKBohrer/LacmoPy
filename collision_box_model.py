@@ -85,17 +85,22 @@ dV = 1.0
 dt = 1.0
 # dt = 10.0
 #dt = 20.0
+#t_end = 60.0
+#t_end = 1200.0
 t_end = 3600.0
-dt_store = 600.0
+#dt_store = 6.0
+dt_store = 300.0
+#dt_store = 600.0
 
 # algorithm = "Shima"
 algorithm = "AON_Unt"
+#algorithm = "waiting_time"
 
 # kernel = "Bott"
 # kernel = "Hall"
 # kernel = "Long"
 kernel = "Long_Bott"
-# kernel = "Golovin"
+#kernel = "Golovin"
 
 init = "SingleSIP"
 # init = "my_xi_random"
@@ -149,7 +154,7 @@ elif init == "my_xi_random":
 simdata_path, path =\
     generate_folder_collision(myOS, dV, dt, algorithm, kernel,
                               init, init_pars, no_sims, gen = True)
-store_every = int(math.ceil(dt_store/dt))
+
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 ### SIMULATION LOOP FOR no_sims SIMULATIONS
@@ -159,7 +164,7 @@ for sim_n in range(no_sims):
     seed = seed_list[sim_n]
     np.random.seed(seed)
     if init == "SingleSIP":
-        if algorithm == "AON_Unt":
+        if algorithm == "AON_Unt" or "waiting_time" :
             masses, xis, m_low, m_high, bins =\
                 generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint(
                                       1.0/mu, no_rpc, m_high_by_m_low=1.0E6,
@@ -246,8 +251,8 @@ for sim_n in range(no_sims):
     plt.close()
     # print("start sim here")
 
-    times, concentrations, masses_vs_time, xis_vs_time =\
-        simulate_collisions_np(xis, masses, dV, dt, t_end, store_every,
+    times, concentrations, masses_vs_time, xis_vs_time, taus =\
+        simulate_collisions_np(xis, masses, dV, dt, t_end, dt_store,
                                algorithm=algorithm, kernel=kernel)
         # simulate_collisions(xi, masses, dV, dt, t_end, store_every)
     
@@ -255,6 +260,7 @@ for sim_n in range(no_sims):
     np.save(path + f"times_{sim_n}.npy",times)
     np.save(path + f"masses_vs_time_{sim_n}.npy",masses_vs_time)
     np.save(path + f"xis_vs_time_{sim_n}.npy",xis_vs_time)
+    np.save(path + f"taus_{sim_n}.npy",taus)
 
 # print(xi)
 # print(masses)

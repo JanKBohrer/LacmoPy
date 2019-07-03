@@ -24,20 +24,21 @@ myOS = "MacOS"
 
 dV = 1.0
 # dt = 0.1
-# dt = 1.0
+dt = 20.0
 # dt = 10.0
-dt = 1.0
+#dt = 20.0
 t_end = 3600.0
 dt_store = 600.0
 
 # algorithm = "Shima"
 algorithm = "AON_Unt"
+#algorithm = "waiting_time"
 
 # kernel = "Bott"
 # kernel = "Hall"
 # kernel = "Long"
 kernel = "Long_Bott"
-# kernel = "Golovin"
+#kernel = "Golovin"
 
 # kernel = "hall"
 # kernel = "long"
@@ -46,11 +47,11 @@ kernel = "Long_Bott"
 init = "SingleSIP"
 # init == "my_xi_random"
 
-no_sims = 50
+no_sims = 500
 
 # for sampling and plotting:
 # no_bins = 25
-no_bins = 60
+no_bins = 40
 # bin_method = "lin_R"
 bin_method = "log_R"
 # bin_method = "my_auto_bin"

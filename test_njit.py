@@ -25,3 +25,11 @@ C = func(A,B)
 print(C)
 
 print(np.nonzero(B)[0])
+
+
+a = 20
+
+if a == 10 or a == 20:
+    print("yes")
+    
+XX = np.ones((200,200))

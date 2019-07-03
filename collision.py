@@ -1168,11 +1168,53 @@ def collision_step_Golovin_Unt(xis, masses, dV, dt):
 
 
 
-
-
 @njit()
 def collision_step_Golovin_Unt2(xis, masses, dV, dt):
-    ind = np.nonzero(xis)
+    ind = np.nonzero(xis)[0]
+    
+    no_spc = ind.shape[0]
+    
+    for i_ in range(1,no_spc):
+        i = ind[i_]
+        for j_ in range (i_):
+            j = ind[j_]
+            if xis[i] < xis[j]:
+                xi_min = xis[i]
+                xi_max = xis[j]
+                i_min = i
+                i_max = j
+            else:
+                xi_min = xis[j]
+                xi_max = xis[i]
+                i_min = j
+                i_max = i
+            xi_k = xi_max * xi_min * kernel_Golovin(masses[i], masses[j])\
+                   * dt / dV
+            p_crit = xi_k / xi_min
+            if p_crit > 1:
+                masses[i_min] = (xi_min*masses[i_min] + xi_k*masses[i_max])\
+                                / xi_min
+                xis[i_max] -= xi_k
+            
+            else:
+                rnd = np.random.rand()
+                if p_crit > rnd:
+                    if (xi_max-xi_min)/xi_max < 1.0E-5:
+                        b = (0.25 + 0.5 * rnd)
+                        xi_avg = 0.5 * (xi_min + xi_max)
+                        xis[i] = b * xi_avg
+                        xis[j] = (xi_min*masses[i_min] + xi_max*masses[i_max])\
+                                 / (masses[i_min]+masses[i_max])\
+                                 - b*xi_avg
+                        masses[i] = masses[i] + masses[j]
+                        masses[j] = masses[i]
+                    else:
+                        masses[i_min] += masses[i_max]
+                        xis[i_max] -= xi_min
+
+@njit()
+def collision_step_Long_Bott_Unt2(xis, masses, dV, dt):
+    ind = np.nonzero(xis)[0]
     
     no_spc = ind.shape[0]
     
@@ -1244,78 +1286,258 @@ def collision_step_Golovin_Unt2(xis, masses, dV, dt):
 # 2. generate "i" from discrete PDF P2(i):
 # P2(i) = C_i/C_0
 # 3. generate "j" from discrete PDF P3(j|tau,i) = P3(j|i):
-# P3(j|i) = C_ij/Ci
-
-def collision_step_tau_Golovin(xis, masses, dV, dt):
+# P3(j|i) = C_ij/C_i
+@njit()
+def collision_step_tau_Long_Bott(xis, masses, dV):
     indices = np.nonzero(xis)[0]
     # N = no_spct ("number of super particles per cell total")
     # no_spct = len(indices)
     no_spct = indices.shape[0]
     
-    # 2. choose waiting time tau from PDF P1(tau) = C_0 exp(-C_0 tau)
+    dV_inv = 1.0/dV
+    
+    # 1. choose waiting time tau from PDF P1(tau) = C_0 exp(-C_0 tau)
+    # on the way: store all C_i = sum_{j=i+1}^N C_ij (i = 1,...,N-1)
+    # the number of elements in this list is N-1, if N = no_spct
+#    C_is = np.zeros(no_spct-1, dtype=np.float64)
+    C = np.zeros((no_spct-1,no_spct-1), dtype=np.float64)
+    
+    rnd = np.random.rand(3)
+    
+    # this does not work, we need C_0 first
+    # C_ijs = np.zeros(no_spct, dtype=np.float64) # the 0th index is not used
+    for i_ in range(no_spct-1):
+        i = indices[i_]
+        # C_i = 0.0
+        for j_ in range(i+1, no_spct):
+            j = indices[j_]
+            C[i_,j_] = max(xis[i], xis[j]) \
+                       * kernel_Long_Bott(masses[i], masses[j])
+#            C_is[i_] += max(xis[i], xis[j]) \
+#                       * kernel_Long_Bott(masses[i], masses[j]) / dV
+#    C_0 = C_is.sum()
+    C *= dV_inv
+    C_0 = C.sum()
+#    rnd01 = np.random.rand()
+    tau = -1.0/C_0 * np.log(1 - rnd[0])
+    
+    # 2. get the first index of the tuple (i,j)
+#    rnd02 = np.random.rand()
+    rnd[1] *= C_0
+#    C_sum = C_is[0]
+    C_sum = C[0,:].sum()
+    i_ = 0
+    while C_sum < rnd[1]:
+        i_ += 1
+#        C_sum += C_is[i_]
+        C_sum += C[i_,:].sum()
+    i = indices[i_]
+    
+    # 3. get the second index of the tuple (i,j)
+#    C_i = C_is[i_]
+    C_i = C[i_,:].sum()
+#    rnd03 = np.random.rand()
+    rnd[2] *= C_i
+    j_ = i_+1
+#    if i != 0: j = 0
+#    else: j = 1
+    j = indices[j_]
+    
+#    C_sum = max(xis[i], xis[j]) \
+#                       * kernel_Long_Bott(masses[i], masses[j]) / dV
+    C_sum = C[i_,j_]
+    
+    while C_sum < rnd[2]:
+        j_ += 1
+        j = indices[j_]
+#        if j != i: 
+#        C_sum += max(xis[i], xis[j]) \
+#                     * kernel_Long_Bott(masses[i], masses[j]) / dV
+        C_sum += C[i_,j_]
+        
+    # now, we have found tau, i, and j
+    # collision takes place after the AON algorithm
+    if xis[i] < xis[j]:
+        xi_min = xis[i]
+#        xi_max = xis[j]
+        i_min = i
+        i_max = j
+    else:
+        xi_min = xis[j]
+#        xi_max = xis[i]
+        i_min = j
+        i_max = i
+    masses[i_min] += masses[i_max]
+    xis[i_max] -= xi_min
+    
+    return tau
+
+@njit()
+def collision_step_tau_Golovin(xis, masses, dV):
+    indices = np.nonzero(xis)[0]
+    # N = no_spct ("number of super particles per cell total")
+    # no_spct = len(indices)
+    no_spct = indices.shape[0]
+    
+    # 1. choose waiting time tau from PDF P1(tau) = C_0 exp(-C_0 tau)
     # on the way: store all C_i = sum_{j=i+1}^N C_ij (i = 1,...,N-1)
     # the number of elements in this list is N-1, if N = no_spct
     C_is = np.zeros(no_spct-1, dtype=np.float64)
+    
+    rnd = np.random.rand(3)
+    
     # this does not work, we need C_0 first
     # C_ijs = np.zeros(no_spct, dtype=np.float64) # the 0th index is not used
-    for i in range(no_spct-1):
-        ind_i = indices(i)
+    for i_ in range(no_spct-1):
+        i = indices[i_]
         # C_i = 0.0
-        for j in range(i+1, no_spct):
-            ind_j = indices(j)
-            C_is[i] += kernel_Golovin(masses[ind_i], masses[ind_j])
-    rnd01 = np.random.rand()
-    # 2. get the first index of the tuple (i,j)
+        for j_ in range(i+1, no_spct):
+            j = indices[j_]
+            C_is[i_] += max(xis[i], xis[j]) \
+                       * kernel_Golovin(masses[i], masses[j]) / dV
+    C_0 = C_is.sum()
+#    rnd01 = np.random.rand()
+    tau = -1.0/C_0 * np.log(1 - rnd[0])
     
+    # 2. get the first index of the tuple (i,j)
+#    rnd02 = np.random.rand()
+    rnd[1] *= C_0
+    C_sum = C_is[0]
+    i_ = 0
+    while C_sum < rnd[1]:
+        i_ += 1
+        C_sum += C_is[i_]
+    i = indices[i_]
+    
+    # 3. get the second index of the tuple (i,j)
+    C_i = C_is[i_]
+#    rnd03 = np.random.rand()
+    rnd[2] *= C_i
+    j_ = i_+1
+#    if i != 0: j = 0
+#    else: j = 1
+    j = indices[j_]
+    
+    C_sum = max(xis[i], xis[j]) \
+                       * kernel_Golovin(masses[i], masses[j]) / dV
+    
+    while C_sum < rnd[2]:
+        j_ += 1
+        j = indices[j_]
+#        if j != i: 
+        C_sum += max(xis[i], xis[j]) \
+                     * kernel_Golovin(masses[i], masses[j]) / dV
+    
+    # now, we have found tau, i, and j
+    # collision takes place after the AON algorithm
+    if xis[i] < xis[j]:
+        xi_min = xis[i]
+#        xi_max = xis[j]
+        i_min = i
+        i_max = j
+    else:
+        xi_min = xis[j]
+#        xi_max = xis[i]
+        i_min = j
+        i_max = i
+    masses[i_min] += masses[i_max]
+    xis[i_max] -= xi_min
+    
+    return tau
 
 
 
 
 #%% SIMULATE COLLISIONS
 
-def simulate_collisions_np(xi, masses, dV, dt, t_end, store_every,
+def simulate_collisions_np(xis, masses, dV, dt, t_end, dt_store,
                            algorithm="Shima", kernel="Golovin"):
-    if algorithm == "Shima":
-        if kernel == "Long": collision_step = collision_step_Long
-        elif kernel == "Long_Bott": collision_step = collision_step_Long_Bott
-        elif kernel == "Golovin": collision_step = collision_step_Golovin
-        elif kernel == "Hall": collision_step = collision_step_Hall
-        elif kernel == "Bott": collision_step = collision_step_Bott
-    elif algorithm == "AON_Unt":
-        if kernel == "Long_Bott":
-            collision_step = collision_step_Long_Bott_Unt
-        elif kernel == "Golovin": collision_step =\
-                                      collision_step_Golovin_Unt2
-            
+        
+    store_every = int(math.ceil(dt_store/dt))                                      
     times = np.zeros(1+int(t_end/(store_every * dt)), dtype = np.float64)
     concentrations = np.zeros(1+int( math.ceil(t_end / (store_every * dt)) ),
                               dtype = np.float64)
     masses_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
                               dtype = np.float64)
-    if algorithm == "Shima":
-        xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
-                                  dtype = np.int64)
-    elif algorithm == "AON_Unt":
+    
+    collision_step = collision_step_Long_Bott
+    
+    if algorithm == "AON_Unt" or algorithm == "Shima":        
         xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
                                   dtype = np.float64)
-    cnt_c = 0 
-
-    for cnt, t in enumerate(np.arange(0.0,t_end,dt)):
-        # print("sim at", t)
-        if cnt%store_every == 0:
-            times[cnt_c] = t
-            concentrations[cnt_c] = np.sum(xi)/dV
-            masses_vs_time[cnt_c] = masses
-            xis_vs_time[cnt_c] = xi
-            cnt_c += 1
-        collision_step(xi, masses, dV, dt)  
-        
-    times[cnt_c] = t_end
-    concentrations[cnt_c] = np.sum(xi)/dV
-    masses_vs_time[cnt_c] = masses
-    xis_vs_time[cnt_c] = xi
+        if algorithm == "Shima":
+            xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
+                                          dtype = np.int64)
+#        elif algorithm == "AON_Unt":
+        if algorithm == "Shima":
+            if kernel == "Long": collision_step = collision_step_Long
+            elif kernel == "Long_Bott": collision_step = collision_step_Long_Bott
+            elif kernel == "Golovin": collision_step = collision_step_Golovin
+            elif kernel == "Hall": collision_step = collision_step_Hall
+            elif kernel == "Bott": collision_step = collision_step_Bott
+        elif algorithm == "AON_Unt":
+            if kernel == "Long_Bott":
+                collision_step = collision_step_Long_Bott_Unt2
+            elif kernel == "Golovin": collision_step =\
+                                          collision_step_Golovin_Unt2
+        cnt_c = 0 
     
-    return times, concentrations, masses_vs_time, xis_vs_time
+        for cnt, t in enumerate(np.arange(0.0,t_end,dt)):
+            # print("sim at", t)
+            if cnt%store_every == 0:
+                times[cnt_c] = t
+                concentrations[cnt_c] = np.sum(xis)/dV
+                masses_vs_time[cnt_c] = masses
+                xis_vs_time[cnt_c] = xis
+                cnt_c += 1
+            collision_step(xis, masses, dV, dt)  
+            
+        times[cnt_c] = t_end
+        concentrations[cnt_c] = np.sum(xis)/dV
+        masses_vs_time[cnt_c] = masses
+        xis_vs_time[cnt_c] = xis
+        taus = np.zeros(1)
+        print()
+        print("ALGO = SHIMA OR AON_UNT")
+#        print("ALGO=", algorithm)
+        print()
+        return times, concentrations, masses_vs_time, xis_vs_time, taus
+    
+    elif algorithm == "waiting_time":
+        print()
+        print("ALGO = WAITING TIME")
+        print()
+        xis_vs_time = np.zeros((1+int(t_end/(store_every * dt)), len(masses)),
+                                  dtype = np.float64)
+        if kernel == "Golovin": collision_step =\
+                                    collision_step_tau_Golovin
+        elif kernel == "Long_Bott": collision_step =\
+                                        collision_step_tau_Long_Bott
+        taus = []
+        t = 0.0
+        cnt_c = 0
+        times[cnt_c] = t
+        concentrations[cnt_c] = np.sum(xis)/dV
+        masses_vs_time[cnt_c] = masses
+        xis_vs_time[cnt_c] = xis
+        cnt_c = 1
+        while t < t_end:
+            if t - cnt_c * dt_store > 0.0:
+                times[cnt_c] = t
+                concentrations[cnt_c] = np.sum(xis)/dV
+                masses_vs_time[cnt_c] = masses
+                xis_vs_time[cnt_c] = xis
+                cnt_c += 1
+            tau = collision_step(xis, masses, dV) 
+            t += tau
+            taus.append(tau)
+            print(t)
+#            print(taus)
+        times[cnt_c] = t
+        concentrations[cnt_c] = np.sum(xis)/dV
+        masses_vs_time[cnt_c] = masses
+        xis_vs_time[cnt_c] = xis
+        return times, concentrations, masses_vs_time, xis_vs_time, taus
 # simulate_collisions = njit()(simulate_collisions_np)
 
 
