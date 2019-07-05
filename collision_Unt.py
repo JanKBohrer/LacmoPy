@@ -152,6 +152,7 @@ kappa = 10
 eta = 1.0E-9
 
 DNC0 = 2.97E8 # 1/m^3
+#DNC0 = 3.0E8 # 1/m^3
 LWC0 = 1.0E-3 # kg/m^3
 
 # LWC0_inv = 1.0 / LWC0
@@ -161,21 +162,24 @@ DNC0_over_LWC0 = DNC0 / LWC0
 # print(conc_per_mass(0.0, DNC0, DNC0_over_LWC0))
 # print(conc_per_mass(m_low, DNC0, DNC0_over_LWC0))
 
-no_bins = 10
+#no_bins = 10
 
-no_sims = 50
+no_sims = 500
 start_seed = 3711
 
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
-path = "/home/jdesk/OneDrive/python/sim_data/test_SIP_ensemble_Unt/"
+#path = "/home/jdesk/OneDrive/python/sim_data/test_SIP_ensemble_Unt/"
+path = "/Users/bohrer/OneDrive - bwedu/python/sim_data/test_SIP_ensemble_Unt/"
 folder = f"kappa_{kappa}/"
-path = path+folder
+path = path + folder
+
+ensemble_parameters = [dV, DNC0, LWC0, r_critmin, kappa, eta, no_sims, start_seed]
 
 if not os.path.exists(path):
     os.makedirs(path)
 
-for seed in seed_list:
+for i,seed in enumerate(seed_list):
     masses, xis, m_low, bins =\
         generate_SIP_ensemble_SingleSIP_Unt(DNC0, LWC0,
                                                dV, kappa, eta, r_critmin,
@@ -187,8 +191,21 @@ for seed in seed_list:
     np.save(path + f"masses_seed_{seed}", masses)
     np.save(path + f"radii_seed_{seed}", radii)
     np.save(path + f"xis_seed_{seed}", xis)
+    
+    if i == 0:
+        np.save(path + f"bins_mass", bins)
+        np.save(path + f"bins_rad", bins_rad)
+        np.save(path + "ensemble_parameters", ensemble_parameters)
+        
 
 #%%
+
+dV, DNC0, LWC0, r_critmin, kappa, eta, no_sims, start_seed = \
+    tuple(np.load(path + "ensemble_parameters.npy"))
+LWC0_over_DNC0 = LWC0 / DNC0
+
+bins_mass = np.load(path + "bins_mass.npy")
+bins_rad = np.load(path + "bins_rad.npy")
 
 masses_sampled = []
 radii_sampled = []
@@ -211,6 +228,7 @@ radii_sampled = np.concatenate(radii_sampled)
 xis_sampled = np.concatenate(xis_sampled)
 moments_sampled = np.transpose(moments_sampled)
 
+
 H1 = np.histogram(radii_sampled, bins_rad)[0]
 H2 = np.histogram(radii_sampled, bins_rad, weights=xis_sampled)[0]
 
@@ -229,9 +247,14 @@ for n in range(4):
 for n in range(4):
     print(n, (np.average(moments_sampled[n])-moments_an[n])/moments_an[n] )
 
+moments_sampled_avg_norm = np.average(moments_sampled, axis=1) / moments_an
+moments_sampled_std_norm = np.std(moments_sampled, axis=1) / moments_an
+
 #%% PLOTTING
 
-bins_mid_rad = 0.5*(bins_rad[1:] + bins_rad[:-1])
+#bins_mid_rad = 0.5*(bins_rad[1:] + bins_rad[:-1])
+
+
 
 # approximate the functions f_m, f_lnR = 3*m*f_m, g_lnR=3*m^2*f_m
 m_min = masses_sampled.min()
@@ -240,42 +263,213 @@ m_max = masses_sampled.max()
 # m_min*=0.99
 # m_max*=1.01
 
-m_min = m_min*0.5
-m_max = m_max*2.0
+#m_min = m_min*0.5
+#m_max = m_max*2.0
 
-no_bins = 20
+#no_bins = 20
 
 R_min = radii_sampled.min()
 R_max = radii_sampled.max()
 
 # sample bins in logspace of mass m
-bins = np.logspace(np.log10(m_min), np.log10(m_max), no_bins)
-bins_mid = 0.5*(bins[1:] + bins[:-1])
+#bins = np.logspace(np.log10(m_min), np.log10(m_max), no_bins)
+#bins_mid = 0.5*(bins[1:] + bins[:-1])
+
+# define centers on lin scale
+bins_mass_center = 0.5 * (bins_mass[:-1] + bins_mass[1:])
+bins_rad_center = 0.5 * (bins_rad[:-1] + bins_rad[1:])
+
+# define centers on the logarithmic scale
+#bins_mass_center = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
+#bins_rad_center = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
+
+### new approach: calculate the center of mass for each bin and set it as the
+# bin center -> s.b.
+
+
+bins_mass_width = (bins_mass[1:]-bins_mass[:-1])
 
 # estimate f_m(m) by binning:
 # DNC_i = f_m(m_i) * dm_i = droplet number conc in bin i with size dm_i
-f_m_num = np.histogram(masses_sampled,bins,weights=xis_sampled)[0]
-f_m_num = f_m_num / (bins[1:]-bins[:-1]) / dV
+f_m_num = np.histogram(masses_sampled,bins_mass,weights=xis_sampled)[0]
+g_m_num = np.histogram(masses_sampled,bins_mass,weights=xis_sampled*masses_sampled)[0]
 
-m_min = masses_sampled.min()*0.999
-m_max = masses_sampled.max()*1.001
-m_ = np.logspace(np.log10(m_min), np.log10(m_max), 1000)
+f_m_counts = np.histogram(masses_sampled,bins_mass)[0]
+f_m_ind = np.nonzero(f_m_counts)[0]
 
+f_m_num = f_m_num[f_m_ind]
+g_m_num = g_m_num[f_m_ind]
+bins_mass_center = bins_mass_center[f_m_ind]
+bins_mass_width = bins_mass_width[f_m_ind]
+
+### new approach: calculate the center of mass for each bin and set it as the
+# bin center
+bins_mass_center = g_m_num/f_m_num
+
+f_m_num = f_m_num / bins_mass_width / dV / no_sims
+g_m_num = g_m_num / bins_mass_width / dV / no_sims
+
+bins_rad_center = compute_radius_from_mass(bins_mass_center*1.0E18, 
+                                           c.mass_density_water_liquid_NTP)
+
+g_ln_r_num = 3 * bins_mass_center * g_m_num * 1000.0
+
+#m_min = masses_sampled.min()*0.999
+#m_max = masses_sampled.max()*1.001
+#m_ = np.logspace(np.log10(m_min*0.98), np.log10(m_max*1.1), 1000)
+m_ = np.logspace(np.log10(bins_mass_center[0]), np.log10(bins_mass_center[-1]), 1000)
+R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
 f_m_ana = conc_per_mass_np(m_, DNC0, DNC0_over_LWC0)
+g_m_ana = m_ * f_m_ana
+g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
 
-fig, ax = plt.subplots(figsize=(6,6))
+# analog to Wang 2007 and Unterstr 2017
+moments_num = np.zeros(4, dtype = np.float64)
+for n in range(4):
+    if n == 0:
+        moments_num[n] = np.sum( g_m_num / bins_mass_center * bins_mass_width )
+    elif n == 1:
+        moments_num[n] = np.sum( g_m_num * bins_mass_width)
+    else:
+        moments_num[n] = np.sum( g_m_num * bins_mass_center**(n-1) * bins_mass_width )
+#for n in range(4):
+#    if n == 0:
+#        moments_num[n] = np.log(10)/(3.0*kappa) * np.sum( g_m_num / bins_mass_center )
+#    elif n == 1:
+#        moments_num[n] = np.log(10)/(3.0*kappa) * np.sum( g_m_num )
+#    else:
+#        moments_num[n] = np.log(10)/(3.0*kappa) * np.sum( g_m_num * bins_mass_center**n )
+
+###########################################
+
+no_rows = 4
+fig, axes = plt.subplots(nrows=no_rows, figsize=(6,4*no_rows))
 # ax.loglog(radii, xis, "x")
 # ax.loglog(bins_mid[:51], H, "x-")
 # ax.vlines(bins_rad, xis.min(), xis.max(), linewidth=0.5, linestyle="dashed")
-
-ax.plot(bins_mid, f_m_num/50, "x")
+ax = axes[0]
+ax.plot(bins_mass_center, f_m_num, "x")
 ax.plot(m_, f_m_ana)
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax = axes[1]
+ax.plot(bins_mass_center, g_m_num, "x")
+ax.plot(m_, g_m_ana)
 ax.set_xscale("log")
 ax.set_yscale("log")
 # ax.loglog(bins_mid, f_m_num/50, "x")
 # ax.loglog(m_, f_m_ana)
-
 # ax.set_xlim(m_min*9, m_max/9)
+ax = axes[2]
+ax.plot(bins_rad_center, g_ln_r_num, "x")
+ax.plot(R_, g_ln_r_ana)
+ax.set_xscale("log")
+ax.set_yscale("log")
+#ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),17))
+ax.yaxis.set_ticks(np.logspace(-10,0,11))
+ax.grid(which="both")
+
+
+ax = axes[3]
+for n in range(4):
+    ax.plot( n*np.ones_like(moments_sampled[n]) , moments_sampled[n]/moments_an[n], "o")
+ax.errorbar( np.arange(4), moments_sampled_avg_norm, moments_sampled_std_norm,
+            fmt = "x" , c = "k", markersize = 20.0, linewidth =5.0, zorder=99)
+ax.plot(np.arange(4), np.ones_like(np.arange(4)))
+
+for ax in axes[:2]:
+    ax.grid()
+
+#%% PLOTTING DEVIATIONS
+
+#m_min = masses_sampled.min()*0.999
+#m_max = masses_sampled.max()*1.001
+#m_ = np.logspace(np.log10(m_min*0.98), np.log10(m_max*1.1), 1000)
+m_ = bins_mass_center 
+#m_ = np.logspace(np.log10(bins_mass_center[0]), np.log10(bins_mass_center[-1]), 1000)
+R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
+f_m_ana = conc_per_mass_np(m_, DNC0, DNC0_over_LWC0)
+g_m_ana = m_ * f_m_ana
+g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
+
+# analog to Wang 2007 and Unterstr 2017
+moments_num = np.zeros(4, dtype = np.float64)
+for n in range(4):
+    if n == 0:
+        moments_num[n] = np.sum( g_m_num / bins_mass_center * bins_mass_width )
+    elif n == 1:
+        moments_num[n] = np.sum( g_m_num * bins_mass_width)
+    else:
+        moments_num[n] = np.sum( g_m_num * bins_mass_center**(n-1) * bins_mass_width )
+#for n in range(4):
+#    if n == 0:
+#        moments_num[n] = np.log(10)/(3.0*kappa) * np.sum( g_m_num / bins_mass_center )
+#    elif n == 1:
+#        moments_num[n] = np.log(10)/(3.0*kappa) * np.sum( g_m_num )
+#    else:
+#        moments_num[n] = np.log(10)/(3.0*kappa) * np.sum( g_m_num * bins_mass_center**n )
+
+###########################################
+
+no_rows = 4
+fig, axes = plt.subplots(nrows=no_rows, figsize=(6,4*no_rows))
+# ax.loglog(radii, xis, "x")
+# ax.loglog(bins_mid[:51], H, "x-")
+# ax.vlines(bins_rad, xis.min(), xis.max(), linewidth=0.5, linestyle="dashed")
+ax = axes[0]
+ax.plot(bins_mass_center, (f_m_num-f_m_ana)/f_m_ana, "x")
+#ax.plot(m_, f_m_ana)
+#ax.set_xscale("log")
+#ax.set_yscale("log")
+ax = axes[1]
+ax.plot(bins_mass_center, (g_m_num-g_m_ana)/g_m_ana, "x")
+#ax.plot(m_, g_m_ana)
+#ax.set_xscale("log")
+#ax.set_yscale("log")
+# ax.loglog(bins_mid, f_m_num/50, "x")
+# ax.loglog(m_, f_m_ana)
+# ax.set_xlim(m_min*9, m_max/9)
+ax = axes[2]
+ax.plot(bins_rad_center, (g_ln_r_num-g_ln_r_ana)/g_ln_r_ana, "x")
+#ax.plot(R_, g_ln_r_ana)
+#ax.set_xscale("log")
+#ax.set_yscale("log")
+#ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),17))
+#ax.yaxis.set_ticks(np.logspace(-10,0,11))
+#ax.grid(which="both")
+
+
+ax = axes[3]
+for n in range(4):
+    ax.plot( n*np.ones_like(moments_sampled[n]) , moments_sampled[n]/moments_an[n], "o")
+ax.errorbar( np.arange(4), moments_sampled_avg_norm, moments_sampled_std_norm,
+            fmt = "x" , c = "k", markersize = 20.0, linewidth =5.0, zorder=99)
+ax.plot(np.arange(4), np.ones_like(np.arange(4)))
+
+for ax in axes[:3]:
+    ax.grid()
+
+#################################
+
+#fig, ax = plt.subplots(nrows=1, figsize=(8,8))
+#ax.plot(bins_rad_center, g_ln_r_num, "x")
+#ax.plot(R_, g_ln_r_ana)
+#ax.set_xscale("log")
+#ax.set_yscale("log")
+#ax.grid()
+#ax.yaxis.set_ticks(np.logspace(-8,0,9))
+
+#################################
+
+#%%
+
+#fig, ax = plt.subplots(nrows=1, figsize=(8,8))
+#for n in range(4):
+#    ax.plot( n*np.ones_like(moments_sampled[n]) , moments_sampled[n]/moments_an[n], "o")
+#ax.errorbar( np.arange(4), moments_sampled_avg_norm, moments_sampled_std_norm,
+#            fmt = "x" , c = "k", markersize = 20.0, linewidth =5.0, zorder=99)
+#ax.plot(np.arange(4), np.ones_like(np.arange(4)))
+#ax.plot( np.ones_like(moments_sampled[0]) , moments_sampled[0]/moments_an[0], "o")
 
 
 #%% TESTING MOMENTS OF THE CONCENTRATION DENSITY FUNCTION f_m(m)
