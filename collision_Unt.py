@@ -6,6 +6,8 @@ Created on Wed Jul  3 18:33:04 2019
 @author: jdesk
 """
 
+#%% IMPORTS AND DEFINITIONS
+
 import os
 import math
 import numpy as np
@@ -203,7 +205,159 @@ def generate_and_save_SIP_ensembles_SingleSIP_prob(
 
 ### ANALYZE EXPO SIP ENSEMBLE DATA FROM DATA STORED IN FILES
 
-def analyze_ensemble_data_sampled(kappa, no_sims, save_directory):
+# def analyze_ensemble_data_sampled(kappa, no_sims, save_directory):
+#     ### DERIVED
+#     folder = f"kappa_{kappa}/"
+#     path = save_directory + folder
+    
+#     dV, DNC0, LWC0, r_critmin, kappa, eta, no_sims00, start_seed = \
+#         tuple(np.load(path + "ensemble_parameters.npy"))
+#     LWC0_over_DNC0 = LWC0 / DNC0
+#     DNC0_over_LWC0 = DNC0 / LWC0
+#     start_seed = int(start_seed)
+#     no_sims00 = int(no_sims00)
+#     kappa = int(kappa)
+#     seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
+    
+#     ### ANALYSIS START
+#     masses = []
+#     xis = []
+#     radii = []
+    
+#     # masses_sampled = []
+#     # radii_sampled = []
+#     # xis_sampled = []
+#     moments_sampled = []
+#     for i,seed in enumerate(seed_list):
+#         masses.append(np.load(path + f"masses_seed_{seed}.npy"))
+#         xis.append(np.load(path + f"xis_seed_{seed}.npy"))
+#         radii.append(np.load(path + f"radii_seed_{seed}.npy"))
+#         # masses_sampled.append(masses)
+#         # xis_sampled.append(xis)
+    
+#         moments = np.zeros(4,dtype=np.float64)
+#         moments[0] = xis[i].sum() / dV
+#         for n in range(1,4):
+#             moments[n] = np.sum(xis[i]*masses[i]**n) / dV
+#         moments_sampled.append(moments)
+    
+#     masses_sampled = np.concatenate(masses)
+#     radii_sampled = np.concatenate(radii)
+#     xis_sampled = np.concatenate(xis)
+    
+#     # moments analysis
+#     moments_sampled = np.transpose(moments_sampled)
+#     moments_an = np.zeros(4,dtype=np.float64)
+#     for n in range(4):
+#         moments_an[n] = moments_analytical(n, DNC0, LWC0_over_DNC0)
+    
+#     for n in range(4):
+#         print(n, (np.average(moments_sampled[n])-moments_an[n])/moments_an[n] )
+    
+#     moments_sampled_avg_norm = np.average(moments_sampled, axis=1) / moments_an
+#     moments_sampled_std_norm = np.std(moments_sampled, axis=1) / moments_an
+    
+#     m_min = masses_sampled.min()
+#     m_max = masses_sampled.max()
+    
+#     R_min = radii_sampled.min()
+#     R_max = radii_sampled.max()
+    
+#     # H1 = np.histogram(radii_sampled, bins_rad)[0]
+#     # H2 = np.histogram(radii_sampled, bins_rad, weights=xis_sampled)[0]
+    
+#     # H1 = H1[np.nonzero(H1)[0]]
+#     # H2 = H2[np.nonzero(H1)[0]]
+    
+#     # H = H2 / H1
+    
+#     bins_mass = np.load(path + "bins_mass.npy")
+#     bins_rad = np.load(path + "bins_rad.npy")
+    
+#     f_m_counts = np.histogram(masses_sampled,bins_mass)[0]
+#     f_m_ind = np.nonzero(f_m_counts)[0]
+
+#     no_SIPs_avg = f_m_counts.sum()/no_sims
+
+#     bins_mass_ind = np.append(f_m_ind, f_m_ind[-1]+1)
+    
+#     bins_mass = bins_mass[bins_mass_ind]
+#     bins_rad = bins_rad[bins_mass_ind]
+#     bins_rad_log = np.log(bins_rad)
+#     bins_mass_width = (bins_mass[1:]-bins_mass[:-1])
+#     bins_rad_width = (bins_rad[1:]-bins_rad[:-1])
+#     bins_rad_width_log = (bins_rad_log[1:]-bins_rad_log[:-1])
+    
+#     ### approximate the functions f_m, f_lnR = 3*m*f_m, g_lnR=3*m^2*f_m
+#     # estimate f_m(m) by binning:
+#     # DNC_i = f_m(m_i) * dm_i = droplet number conc in bin i with size dm_i
+#     f_m_num_sampled = np.histogram(masses_sampled,bins_mass,
+#                                    weights=xis_sampled)[0]
+#     g_m_num_sampled = np.histogram(masses_sampled,bins_mass,
+#                                    weights=xis_sampled*masses_sampled)[0]
+    
+#     f_m_num_sampled = f_m_num_sampled / (bins_mass_width * dV * no_sims)
+#     g_m_num_sampled = g_m_num_sampled / (bins_mass_width * dV * no_sims)
+    
+#     # build g_ln_r = 3*m*g_m DIRECTLY from data
+#     g_ln_r_num_sampled = np.histogram(radii_sampled,
+#                                       bins_rad,
+#                                       weights=xis_sampled*masses_sampled)[0]
+#     g_ln_r_num_sampled = g_ln_r_num_sampled \
+#                          / (bins_rad_width_log * dV * no_sims)
+#     # g_ln_r_num_derived = 3 * bins_mass_center * g_m_num * 1000.0
+    
+#     # define centers on lin scale
+#     bins_mass_center_lin = 0.5 * (bins_mass[:-1] + bins_mass[1:])
+#     bins_rad_center_lin = 0.5 * (bins_rad[:-1] + bins_rad[1:])
+    
+#     # define centers on the logarithmic scale
+#     bins_mass_center_log = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
+#     bins_rad_center_log = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
+    
+#     # define the center of mass for each bin and set it as the "bin center"
+#     bins_mass_center_COM = g_m_num_sampled/f_m_num_sampled
+#     bins_rad_center_COM =\
+#         compute_radius_from_mass(bins_mass_center_COM*1.0E18,
+#                                  c.mass_density_water_liquid_NTP)
+    
+#     # set the bin "mass centers" at the right spot such that
+#     # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
+#     m_avg = LWC0_over_DNC0
+#     bins_mass_center_exact = bins_mass[f_m_ind] \
+#                              + m_avg * np.log(bins_mass_width\
+#           / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
+#     bins_rad_center_exact =\
+#         compute_radius_from_mass(bins_mass_center_exact*1.0E18,
+#                                  c.mass_density_water_liquid_NTP)
+    
+#     bins_mass_centers = np.array((bins_mass_center_lin,
+#                                   bins_mass_center_log,
+#                                   bins_mass_center_COM,
+#                                   bins_mass_center_exact))
+#     bins_rad_centers = np.array((bins_rad_center_lin,
+#                                   bins_rad_center_log,
+#                                   bins_rad_center_COM,
+#                                   bins_rad_center_exact))
+    
+#     m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+#     R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
+#     f_m_ana = conc_per_mass_np(m_, DNC0, DNC0_over_LWC0)
+#     g_m_ana = m_ * f_m_ana
+#     g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
+
+#     return bins_mass, bins_rad, bins_rad_log, \
+#            bins_mass_width, bins_rad_width, bins_rad_width_log, \
+#            bins_mass_centers, bins_rad_centers, \
+#            masses, xis, radii, f_m_counts, f_m_ind,\
+#            f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled,\
+#            m_, R_, f_m_ana, g_m_ana, g_ln_r_ana, \
+#            m_min, m_max, R_min, R_max, no_SIPs_avg, \
+#            moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
+#            moments_an
+
+def analyze_ensemble_data(kappa, no_sims, save_directory,
+                          sample_mode, no_bins=50, bin_mode=1):
     ### DERIVED
     folder = f"kappa_{kappa}/"
     path = save_directory + folder
@@ -253,7 +407,8 @@ def analyze_ensemble_data_sampled(kappa, no_sims, save_directory):
         print(n, (np.average(moments_sampled[n])-moments_an[n])/moments_an[n] )
     
     moments_sampled_avg_norm = np.average(moments_sampled, axis=1) / moments_an
-    moments_sampled_std_norm = np.std(moments_sampled, axis=1) / moments_an
+    moments_sampled_std_norm = np.std(moments_sampled, axis=1) \
+                               / np.sqrt(no_sims) / moments_an
     
     m_min = masses_sampled.min()
     m_max = masses_sampled.max()
@@ -268,12 +423,42 @@ def analyze_ensemble_data_sampled(kappa, no_sims, save_directory):
     # H2 = H2[np.nonzero(H1)[0]]
     
     # H = H2 / H1
-    
-    bins_mass = np.load(path + "bins_mass.npy")
-    bins_rad = np.load(path + "bins_rad.npy")
-    
+
+    if sample_mode == "given_bins":
+        bins_mass = np.load(path + "bins_mass.npy")
+        bins_rad = np.load(path + "bins_rad.npy")
+        bin_factor = 10**(1.0/kappa)
+    ### build log bins "intuitively"
+    elif sample_mode == "auto_bins":
+        if bin_mode == 1:
+            bin_factor = (m_max/m_min)**(1.0/no_bins)
+            # bin_log_dist = np.log(bin_factor)
+            # bin_log_dist_half = 0.5 * bin_log_dist
+            # add dummy bins for overflow
+            # bins_mass = np.zeros(no_bins+3,dtype=np.float64)
+            bins_mass = np.zeros(no_bins+1,dtype=np.float64)
+            bins_mass[0] = m_min
+            # bins_mass[0] = m_min / bin_factor
+            for bin_n in range(1,no_bins+1):
+                bins_mass[bin_n] = bins_mass[bin_n-1] * bin_factor
+            # the factor 1.01 is for numerical stability: to be sure
+            # that m_max does not contribute to a bin larger than the
+            # last bin
+            bins_mass[-1] *= 1.0001
+            # the factor 0.99 is for numerical stability: to be sure
+            # that m_min does not contribute to a bin smaller than the
+            # 0-th bin
+            bins_mass[0] *= 0.9999
+            # m_0 = m_min / np.sqrt(bin_factor)
+            # bins_mass_log = np.log(bins_mass)
+
+        bins_rad = compute_radius_from_mass(bins_mass*1.0E18,
+                                            c.mass_density_water_liquid_NTP)
+
+    ### histogram generation
     f_m_counts = np.histogram(masses_sampled,bins_mass)[0]
     f_m_ind = np.nonzero(f_m_counts)[0]
+    f_m_ind = np.arange(f_m_ind[0],f_m_ind[-1]+1)
 
     no_SIPs_avg = f_m_counts.sum()/no_sims
 
@@ -310,8 +495,10 @@ def analyze_ensemble_data_sampled(kappa, no_sims, save_directory):
     bins_rad_center_lin = 0.5 * (bins_rad[:-1] + bins_rad[1:])
     
     # define centers on the logarithmic scale
-    bins_mass_center_log = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
-    bins_rad_center_log = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
+    bins_mass_center_log = bins_mass[:-1] * np.sqrt(bin_factor)
+    bins_rad_center_log = bins_rad[:-1] * np.sqrt(bin_factor)
+    # bins_mass_center_log = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
+    # bins_rad_center_log = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
     
     # define the center of mass for each bin and set it as the "bin center"
     bins_mass_center_COM = g_m_num_sampled/f_m_num_sampled
@@ -344,113 +531,47 @@ def analyze_ensemble_data_sampled(kappa, no_sims, save_directory):
     g_m_ana = m_ * f_m_ana
     g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
 
+    ### STATISTICAL ANALYSIS OVER no_sim runs
+    # get f(m_i) curve for each "run" with same bins for all ensembles
+    f_m_num = []
+    g_m_num = []
+    g_ln_r_num = []
+    
+    for i,mass in enumerate(masses):
+        f_m_num.append(np.histogram(mass,bins_mass,weights=xis[i])[0] \
+                   / (bins_mass_width * dV))
+        g_m_num.append(np.histogram(mass,bins_mass,
+                                       weights=xis[i]*mass)[0] \
+                   / (bins_mass_width * dV))
+    
+        # build g_ln_r = 3*m*g_m DIRECTLY from data
+        g_ln_r_num.append(np.histogram(radii[i],
+                                          bins_rad,
+                                          weights=xis[i]*mass)[0] \
+                     / (bins_rad_width_log * dV))
+    
+    f_m_num = np.array(f_m_num)
+    g_m_num = np.array(g_m_num)
+    g_ln_r_num = np.array(g_ln_r_num)
+    
+    f_m_num_avg = np.average(f_m_num, axis=0)
+    f_m_num_std = np.std(f_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_m_num_avg = np.average(g_m_num, axis=0)
+    g_m_num_std = np.std(g_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_ln_r_num_avg = np.average(g_ln_r_num, axis=0)
+    g_ln_r_num_std = np.std(g_ln_r_num, axis=0, ddof=1) / np.sqrt(no_sims)
+
     return bins_mass, bins_rad, bins_rad_log, \
            bins_mass_width, bins_rad_width, bins_rad_width_log, \
            bins_mass_centers, bins_rad_centers, \
            masses, xis, radii, f_m_counts, f_m_ind,\
            f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled,\
            m_, R_, f_m_ana, g_m_ana, g_ln_r_ana, \
+           f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, \
+           g_ln_r_num_avg, g_ln_r_num_std, \
            m_min, m_max, R_min, R_max, no_SIPs_avg, \
            moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
            moments_an
-
-
-#%% GENERATE SIP ENSEMBLE AND STORE TO FILES
-
-# r_critmin = 0.6 # mu
-# # m_low = 1.0E-18 * compute_mass_from_radius(r_critmin,
-# #                                            c.mass_density_water_liquid_NTP)
-
-# dV = 1.0
-# kappa = 6
-# eta = 1.0E-9
-
-# DNC0 = 2.97E8 # 1/m^3
-# #DNC0 = 3.0E8 # 1/m^3
-# LWC0 = 1.0E-3 # kg/m^3
-
-# # LWC0_inv = 1.0 / LWC0
-# # DNC0_over_LWC0 = DNC0 / LWC0
-
-# # print(r_critmin, m_low)
-# # print(conc_per_mass(0.0, DNC0, DNC0_over_LWC0))
-# # print(conc_per_mass(m_low, DNC0, DNC0_over_LWC0))
-
-# #no_bins = 10
-
-# no_sims = 1000
-# start_seed = 3711
-
-# # LINUX desk
-# # path = "/home/jdesk/OneDrive/python/sim_data/test_SIP_ensemble_Unt/"
-# save_directory = "/mnt/D/sim_data/test_SIP_ensemble_Unt_new2/"
-# # path =\
-# #     "/Users/bohrer/OneDrive - bwedu/python/sim_data/test_SIP_ensemble_Unt/"
-
-# m_high_over_m_low = 1.0E6
-
-# generate_and_save_SIP_ensembles_SingleSIP_prob(
-#     DNC0, LWC0, dV, kappa, eta, r_critmin, no_sims,
-#     m_high_over_m_low, start_seed, save_directory)
-
-#%% DATA ANALYIS
-### SAMPLED DATA
-
-### SET VALUES/PATHS
-# LINUX desk
-# path = "/home/jdesk/OneDrive/python/sim_data/test_SIP_ensemble_Unt/"
-save_directory = "/mnt/D/sim_data/test_SIP_ensemble_Unt_new2/"
-# path =\
-#     "/Users/bohrer/OneDrive - bwedu/python/sim_data/test_SIP_ensemble_Unt/"
-
-# set manually for analysis
-# kappa = 10
-kappa = 6
-no_sims = 10
-
-folder = f"kappa_{kappa}/"
-path = save_directory + folder
-
-dV, DNC0, LWC0, r_critmin, kappa00, eta, no_sims00, start_seed = \
-    tuple(np.load(path + "ensemble_parameters.npy"))
-start_seed = int(start_seed)
-
-bins_mass, bins_rad, bins_rad_log, \
-bins_mass_width, bins_rad_width, bins_rad_width_log, \
-bins_mass_centers, bins_rad_centers, \
-masses, xis, radii, f_m_counts, f_m_ind,\
-f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled, \
-m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
-m_min, m_max, R_min, R_max, no_SIPs_avg, \
-moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
-moments_an = \
-    analyze_ensemble_data_sampled(kappa, no_sims, save_directory)
-
-### STATISTICAL ANALYSIS OVER no_sim runs
-# get f(m_i) curve for each "run" with same bins for all
-f_m_num = []
-g_m_num = []
-g_ln_r_num = []
-
-for i,mass in enumerate(masses):
-    f_m_num.append(np.histogram(mass,bins_mass,weights=xis[i])[0] \
-               / (bins_mass_width * dV))
-    g_m_num.append(np.histogram(mass,bins_mass,
-                                   weights=xis[i]*mass)[0] \
-               / (bins_mass_width * dV))
-
-    # build g_ln_r = 3*m*g_m DIRECTLY from data
-    g_ln_r_num.append(np.histogram(radii[i],
-                                      bins_rad,
-                                      weights=xis[i]*mass)[0] \
-                 / (bins_rad_width_log * dV))
-
-f_m_num = np.array(f_m_num)
-g_m_num = np.array(g_m_num)
-g_ln_r_num = np.array(g_ln_r_num)
-
-f_m_num_avg = np.average(f_m_num, axis=0)
-f_m_num_std = np.std(f_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
 
 # masses is a list of [masses0, masses1, ..., masses_no_sims]
 # where masses_i = array of masses of a spec. SIP ensemble
@@ -477,12 +598,12 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
             # that m_max does not contribute to a bin larger than the
             # last bin
             bins_mass[-1] *= 1.0001
-            bins_mass_log = np.log(bins_mass)
             # the factor 0.99 is for numerical stability: to be sure
             # that m_min does not contribute to a bin smaller than the
             # 0-th bin
             bins_mass[0] *= 0.9999
             # m_0 = m_min / np.sqrt(bin_factor)
+            bins_mass_log = np.log(bins_mass)
 
     bins_mass_width = np.zeros(no_bins+2,dtype=np.float64)
     bins_mass_width[1:-1] = bins_mass[1:]-bins_mass[:-1]
@@ -932,17 +1053,118 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
            np.array((lin_par0,lin_par1)), np.array((a0,a1,a2))
 # generate_myHisto_SIP_ensemble = njit()(generate_myHisto_SIP_ensemble_np)
 
+
+#%% GENERATE SIP ENSEMBLE AND STORE TO FILES
+
+# no_sims = 1000
+
+# kappa = 10
+# eta = 1.0E-9
+# r_critmin = 0.6 # mu
+# m_high_over_m_low = 1.0E6
+
+# gen_method = "SinSIP"
+# dV = 1.0
+# DNC0 = 2.97E8 # 1/m^3
+# #DNC0 = 3.0E8 # 1/m^3
+# LWC0 = 1.0E-3 # kg/m^3
+
+# start_seed = 3711
+
+# # LWC0_inv = 1.0 / LWC0
+# # DNC0_over_LWC0 = DNC0 / LWC0
+# # print(r_critmin, m_low)
+# # print(conc_per_mass(0.0, DNC0, DNC0_over_LWC0))
+# # print(conc_per_mass(m_low, DNC0, DNC0_over_LWC0))
+
+# # LINUX desk
+# ensemble_directory =\
+#     f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/"
+# # save_directory = "/mnt/D/sim_data/test_SIP_ensemble_Unt_new2/"
+
+# generate_and_save_SIP_ensembles_SingleSIP_prob(
+#     DNC0, LWC0, dV, kappa, eta, r_critmin, no_sims,
+#     m_high_over_m_low, start_seed, ensemble_directory)
+
+#%% DATA ANALYIS
+
+### SET VALUES/PATHS
+
+# set manually for analysis
+
+kappa = 10
+no_sims = 50
+gen_method = "SinSIP"
+
+### for auto binning simple
+# sample_mode = "given_bins"
+sample_mode = "auto_bins"
+
+# no_bins = 10
 # no_bins = 25
-# no_bins = 50
+# no_bins = 30
+no_bins = 50
 # no_bins = 100
-no_bins = 30
-# no_sims =
-bin_mode = 1 # bins uniform on log scale
+# bin_mode = 1 for bins equal dist on log scale
+bin_mode = 1
+
+### for myHisto generation (additional parameters)
 spread_mode = 0 # spreading based on lin scale
 # shift_factor = 1.0
 shift_factor = 0.5
 overflow_factor = 2.0
 scale_factor = 1.0
+
+# LINUX desk
+# save_directory = "/mnt/D/sim_data/test_SIP_ensemble_Unt_new2/"
+ensemble_directory =\
+    f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/"
+
+folder = f"kappa_{kappa}/"
+path = ensemble_directory + folder
+
+dV, DNC0, LWC0, r_critmin, kappa00, eta, no_sims00, start_seed = \
+    tuple(np.load(path + "ensemble_parameters.npy"))
+start_seed = int(start_seed)
+
+bins_mass, bins_rad, bins_rad_log, \
+bins_mass_width, bins_rad_width, bins_rad_width_log, \
+bins_mass_centers, bins_rad_centers, \
+masses, xis, radii, f_m_counts, f_m_ind,\
+f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled, \
+m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
+f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, \
+g_ln_r_num_avg, g_ln_r_num_std, \
+m_min, m_max, R_min, R_max, no_SIPs_avg, \
+moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
+moments_an = \
+    analyze_ensemble_data(kappa, no_sims, ensemble_directory,
+                          sample_mode, no_bins, bin_mode)
+# if sample_mode == "given_bins":
+#     bins_mass, bins_rad, bins_rad_log, \
+#     bins_mass_width, bins_rad_width, bins_rad_width_log, \
+#     bins_mass_centers, bins_rad_centers, \
+#     masses, xis, radii, f_m_counts, f_m_ind,\
+#     f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled, \
+#     m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
+#     m_min, m_max, R_min, R_max, no_SIPs_avg, \
+#     moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
+#     moments_an = \
+#         analyze_ensemble_data_sampled(kappa, no_sims, save_directory)
+# elif sample_mode == "auto_bins":
+#     bins_mass, bins_rad, bins_rad_log, \
+#     bins_mass_width, bins_rad_width, bins_rad_width_log, \
+#     bins_mass_centers, bins_rad_centers, \
+#     masses, xis, radii, f_m_counts, f_m_ind,\
+#     f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled, \
+#     m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
+#     m_min, m_max, R_min, R_max, no_SIPs_avg, \
+#     moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
+#     moments_an = \
+#         analyze_ensemble_data_simple(kappa, no_bins, no_sims,
+#                                      save_directory, bin_mode)
+
+
 
 f_m_num_avg_my, f_m_num_std_my, g_m_num_avg_my, g_m_num_std_my, \
 h_m_num_avg_my, h_m_num_std_my, \
@@ -966,79 +1188,7 @@ bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa =\
 # p0 = ()
 # best_vals, covar = curve_fit(fit_exp, x, y)
 
-### PLOTTING
-
-bins_mass_center_exact = bins_mass_centers[3]
-bins_rad_center_exact = bins_rad_centers[3]
-
-m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
-R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
-f_m_ana = conc_per_mass_np(m_, DNC0, DNC0/LWC0)
-g_m_ana = m_ * f_m_ana
-g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
-
-no_rows = 1
-
-MS= 15.0
-
-fig, axes = plt.subplots(nrows=no_rows, figsize=(10,10*no_rows))
-# ax.loglog(radii, xis, "x")
-# ax.loglog(bins_mid[:51], H, "x-")
-# ax.vlines(bins_rad, xis.min(), xis.max(), linewidth=0.5, linestyle="dashed")
-ax = axes
-# ax.plot(bins_mass_center_exact, f_m_num_sampled, "x")
-ax.plot(m_, f_m_ana_)
-ax.plot(bins_mass_center_lin_my, f_m_num_avg_my, "x", c="green",
-        markersize=MS, zorder=99)
-ax.plot(bins_mass_centers_my[4], f_m_num_avg_my[1:-1], "x", c = "red",
-        markersize=MS,
-        zorder=99)
-# for n in range(len(bins_mass_centers_my[0])):
-# lin approx
-for n in range(len(bins_mass_center_lin_my)-1):
-    m_ = np.linspace(bins_mass_center_lin_my[n],
-                      bins_mass_center_lin_my[n+1], 100)
-    f_ = lin_par[0,n] + lin_par[1,n] * m_
-    # ax.plot(m_,f_)
-    ax.plot(m_,f_, "-.", c = "orange")
-# for n in range(len(bins_mass_center_lin_my)-2):
-#     m_ = np.linspace(bins_mass_center_lin_my[n],
-#                       bins_mass_center_lin_my[n+2], 1000)
-#     f_ = aa[0,n] + aa[1,n] * m_ + aa[2,n] * m_*m_
-#     ax.plot(m_,f_)
-#     # ax.plot(m_,f_, c = "k")
-ax.vlines(bins_mass_my,f_m_num_avg_my[0]*2.0,f_m_num_avg_my[-1]*0.5,
-          linestyle="dashed", zorder=0)
-ax.set_xscale("log")
-ax.set_yscale("log")
-ax.set_xlabel("mass (kg)")
-ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$")
-
-fig.tight_layout()
-fig.savefig(path + f"fm_my_lin_my_lin_approx_no_sims_{no_sims}_no_bins_{no_bins}.png")
-
-f_m_num_avg_my = f_m_num_avg_my[1:-1]
-f_m_num_std_my = f_m_num_std_my[1:-1]
-
-# ax = axes[1]
-# ax.plot(m_, f_m_ana_)
-# ax.set_xscale("log")
-# ax.set_yscale("log")
-# ax.set_xlabel("mass (kg)")
-# ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$")
-
-# ax = axes[1]
-# ax.plot(bins_mass_center_exact, g_m_num_sampled, "x")
-# ax.plot(m_, g_m_ana_)
-# ax.set_xscale("log")
-# ax.set_yscale("log")
-# ax.set_xlabel("mass (kg)")
-# ax.set_ylabel(r"$g_m$ $\mathrm{(m^{-3})}$")
-# ax.loglog(bins_mid, f_m_num/50, "x")
-# ax.loglog(m_, f_m_ana)
-# ax.set_xlim(m_min*9, m_max/9)
-
-#%% try bin center quad fit from moments per bin...
+### try bin center quad fit from moments per bin... -> THAT DIDNT WORK ;P
 
 # bins_mass_pow = np.zeros((5,len(bins_mass_my)), dtype = np.float64)
 # bins_mass_pow[0] = bins_mass_my
@@ -1097,6 +1247,78 @@ f_m_num_std_my = f_m_num_std_my[1:-1]
 # ax.set_yscale("log")
 
 #%% PLOTTING
+
+bins_mass_center_exact = bins_mass_centers[3]
+bins_rad_center_exact = bins_rad_centers[3]
+
+m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
+f_m_ana = conc_per_mass_np(m_, DNC0, DNC0/LWC0)
+g_m_ana = m_ * f_m_ana
+g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
+
+no_rows = 1
+
+MS= 15.0
+
+fig, axes = plt.subplots(nrows=no_rows, figsize=(10,10*no_rows))
+# ax.loglog(radii, xis, "x")
+# ax.loglog(bins_mid[:51], H, "x-")
+# ax.vlines(bins_rad, xis.min(), xis.max(), linewidth=0.5, linestyle="dashed")
+ax = axes
+# ax.plot(bins_mass_center_exact, f_m_num_sampled, "x")
+ax.plot(m_, f_m_ana_)
+ax.plot(bins_mass_center_lin_my, f_m_num_avg_my, "x", c="green",
+        markersize=MS, zorder=99)
+ax.plot(bins_mass_centers_my[4], f_m_num_avg_my[1:-1], "x", c = "red",
+        markersize=MS,
+        zorder=99)
+# for n in range(len(bins_mass_centers_my[0])):
+# lin approx
+for n in range(len(bins_mass_center_lin_my)-1):
+    m_ = np.linspace(bins_mass_center_lin_my[n],
+                      bins_mass_center_lin_my[n+1], 100)
+    f_ = lin_par[0,n] + lin_par[1,n] * m_
+    # ax.plot(m_,f_)
+    ax.plot(m_,f_, "-.", c = "orange")
+# for n in range(len(bins_mass_center_lin_my)-2):
+#     m_ = np.linspace(bins_mass_center_lin_my[n],
+#                       bins_mass_center_lin_my[n+2], 1000)
+#     f_ = aa[0,n] + aa[1,n] * m_ + aa[2,n] * m_*m_
+#     ax.plot(m_,f_)
+#     # ax.plot(m_,f_, c = "k")
+ax.vlines(bins_mass_my,f_m_num_avg_my[0]*2.0,f_m_num_avg_my[-1]*0.5,
+          linestyle="dashed", zorder=0)
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_xlabel("mass (kg)")
+ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$")
+
+fig.tight_layout()
+fig.savefig(path +
+f"fm_my_lin_my_lin_approx_{sample_mode}_no_sims_{no_sims}_no_bins_{no_bins}.png")
+
+f_m_num_avg_my = f_m_num_avg_my[1:-1]
+f_m_num_std_my = f_m_num_std_my[1:-1]
+
+# ax = axes[1]
+# ax.plot(m_, f_m_ana_)
+# ax.set_xscale("log")
+# ax.set_yscale("log")
+# ax.set_xlabel("mass (kg)")
+# ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$")
+
+# ax = axes[1]
+# ax.plot(bins_mass_center_exact, g_m_num_sampled, "x")
+# ax.plot(m_, g_m_ana_)
+# ax.set_xscale("log")
+# ax.set_yscale("log")
+# ax.set_xlabel("mass (kg)")
+# ax.set_ylabel(r"$g_m$ $\mathrm{(m^{-3})}$")
+# ax.loglog(bins_mid, f_m_num/50, "x")
+# ax.loglog(m_, f_m_ana)
+# ax.set_xlim(m_min*9, m_max/9)
+
 ### SAMPLED DATA
 ### IN WORK: add errorbars to all...
 
@@ -1157,7 +1379,7 @@ ax.plot(m_, f_m_ana_)
 ax.set_xscale("log")
 ax.set_yscale("log")
 ax.set_xlabel("mass (kg)")
-ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$")
+ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$  [my lin fit]")
 ax.grid()
 
 ax = axes[4]
@@ -1178,9 +1400,7 @@ for ax in axes[:2]:
     ax.grid()
 
 fig.tight_layout()
-fig.savefig(path + f"fm_gm_glnR_moments_no_sims_{no_sims}_no_bins_{no_bins}.png")
-
-#%%
+fig.savefig(path + f"fm_gm_glnR_moments_{sample_mode}_no_sims_{no_sims}_no_bins_{no_bins}.png")
 
 ### DEVIATIONS OF SAMPLED DATA
 # kappa = 10
@@ -1213,7 +1433,7 @@ for ax in axes:
     ax.grid()
 
 fig.tight_layout()
-fig.savefig(path + f"Deviations_fm_sampled_data_no_sims_{no_sims}_no_bins_{no_bins}.png")
+fig.savefig(path + f"Deviations_fm_sampled_data_{sample_mode}_no_sims_{no_sims}_no_bins_{no_bins}.png")
 
 #m_min = masses_sampled.min()*0.999
 #m_max = masses_sampled.max()*1.001
@@ -1284,7 +1504,7 @@ for ax in axes:
 
 fig.tight_layout()
 fig.savefig(path\
-    + f"Deviations_fm_errorbars_sepa_plots_no_sims_{no_sims}_no_bins_{no_bins}.png")
+    + f"Deviations_fm_errorbars_sepa_plots_{sample_mode}_no_sims_{no_sims}_no_bins_{no_bins}.png")
 
 ### PLOT ALL IN ONE
 no_rows = 2
@@ -1294,7 +1514,7 @@ last_ind = 0
 # frac = 1.0
 frac = f_m_counts[0] / no_sims
 count_frac_limit = 0.1
-while frac > count_frac_limit:
+while frac > count_frac_limit and last_ind < len(f_m_counts)-2:
     last_ind += 1
     frac = f_m_counts[last_ind] / no_sims
 
@@ -1402,7 +1622,7 @@ fig.suptitle(
 
 fig.tight_layout()
 fig.subplots_adjust(top=0.9)
-fig.savefig(path + f"Deviations_fm_errorbars_no_sims_{no_sims}_no_bins_{no_bins}.png")
+fig.savefig(path + f"Deviations_fm_errorbars_{sample_mode}_no_sims_{no_sims}_no_bins_{no_bins}.png")
 
 #%% PLOTTING MYHISTO BINNING STATISTICAL ANALYSIS OVER no_sim runs
 
