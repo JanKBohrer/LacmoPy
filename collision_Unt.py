@@ -1056,35 +1056,38 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
 
 #%% GENERATE SIP ENSEMBLE AND STORE TO FILES
 
-# no_sims = 1000
+no_sims = 500
 
-# kappa = 10
+kappa = 40
+eta = 1.0E-8
 # eta = 1.0E-9
-# r_critmin = 0.6 # mu
-# m_high_over_m_low = 1.0E6
 
-# gen_method = "SinSIP"
-# dV = 1.0
-# DNC0 = 2.97E8 # 1/m^3
-# #DNC0 = 3.0E8 # 1/m^3
-# LWC0 = 1.0E-3 # kg/m^3
+r_critmin = 0.6 # mu
+m_high_over_m_low = 1.0E6
 
-# start_seed = 3711
+gen_method = "SinSIP"
+dV = 1.0
+DNC0 = 2.97E8 # 1/m^3
+#DNC0 = 3.0E8 # 1/m^3
+LWC0 = 1.0E-3 # kg/m^3
 
-# # LWC0_inv = 1.0 / LWC0
-# # DNC0_over_LWC0 = DNC0 / LWC0
-# # print(r_critmin, m_low)
-# # print(conc_per_mass(0.0, DNC0, DNC0_over_LWC0))
-# # print(conc_per_mass(m_low, DNC0, DNC0_over_LWC0))
+start_seed = 3711
 
-# # LINUX desk
-# ensemble_directory =\
-#     f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/"
-# # save_directory = "/mnt/D/sim_data/test_SIP_ensemble_Unt_new2/"
+# LWC0_inv = 1.0 / LWC0
+# DNC0_over_LWC0 = DNC0 / LWC0
+# print(r_critmin, m_low)
+# print(conc_per_mass(0.0, DNC0, DNC0_over_LWC0))
+# print(conc_per_mass(m_low, DNC0, DNC0_over_LWC0))
 
-# generate_and_save_SIP_ensembles_SingleSIP_prob(
-#     DNC0, LWC0, dV, kappa, eta, r_critmin, no_sims,
-#     m_high_over_m_low, start_seed, ensemble_directory)
+# LINUX desk
+ensemble_directory =\
+    f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/eta_{eta:.0e}/"
+    # f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/"
+# save_directory = "/mnt/D/sim_data/test_SIP_ensemble_Unt_new2/"
+
+generate_and_save_SIP_ensembles_SingleSIP_prob(
+    DNC0, LWC0, dV, kappa, eta, r_critmin, no_sims,
+    m_high_over_m_low, start_seed, ensemble_directory)
 
 #%% DATA ANALYIS
 
@@ -1092,13 +1095,13 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
 
 # set manually for analysis
 
-kappa = 10
-no_sims = 50
+kappa = 40
+no_sims = 500
 gen_method = "SinSIP"
 
 ### for auto binning simple
-# sample_mode = "given_bins"
-sample_mode = "auto_bins"
+sample_mode = "given_bins"
+# sample_mode = "auto_bins"
 
 # no_bins = 10
 # no_bins = 25
@@ -1118,7 +1121,8 @@ scale_factor = 1.0
 # LINUX desk
 # save_directory = "/mnt/D/sim_data/test_SIP_ensemble_Unt_new2/"
 ensemble_directory =\
-    f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/"
+    f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/eta_{eta:.0e}/"
+    # f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/"
 
 folder = f"kappa_{kappa}/"
 path = ensemble_directory + folder
@@ -1248,6 +1252,28 @@ bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa =\
 
 #%% PLOTTING
 
+### mean xi vs R
+
+no_rows = 1
+fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows))
+ax=axes
+ax.plot(bins_rad_centers[3], f_m_num_avg*bins_mass_width)
+
+ax.set_xscale("log")
+ax.set_yscale("log")
+ax.set_yticks(np.logspace(-4,8,13))
+ax.set_ylim((1.0E-4,1.0E8))
+ax.grid()
+
+ax.set_xlabel(r"radius ($\mathrm{\mu m}$)")
+ax.set_ylabel(r"mean multiplicity per SIP")
+
+fig.tight_layout()
+fig.savefig(path +
+f"xi_vs_R_{sample_mode}_no_sims_{no_sims}_no_bins_{no_bins}.png")
+
+#%%
+###
 bins_mass_center_exact = bins_mass_centers[3]
 bins_rad_center_exact = bins_rad_centers[3]
 
@@ -1422,12 +1448,13 @@ ax_titles = ["lin", "log", "COM", "exact"]
 for n in range(no_rows):
     ax = axes[n]
     f_m_ana = conc_per_mass_np(bins_mass_centers[n], DNC0, DNC0_over_LWC0)
-    # ax.plot(bins_mass_centers[n], (f_m_num_sampled-f_m_ana)/f_m_ana, "x")
-    ax.plot(bins_mass_width, (f_m_num_sampled-f_m_ana)/f_m_ana, "x")
+    ax.plot(bins_mass_centers[n], (f_m_num_sampled-f_m_ana)/f_m_ana, "x")
+    # ax.plot(bins_mass_width, (f_m_num_sampled-f_m_ana)/f_m_ana, "x")
     ax.set_xscale("log")
     ax.set_ylabel(r"$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ")
     ax.set_title(ax_titles[n])
-axes[3].set_xlabel("bin width $\Delta \hat{m}$ (kg)")
+# axes[3].set_xlabel("bin width $\Delta \hat{m}$ (kg)")
+axes[3].set_xlabel("mass (kg)")
 
 for ax in axes:
     ax.grid()
@@ -1497,7 +1524,8 @@ for n in range(no_rows):
     ax.set_xscale("log")
     ax.set_ylabel(r"$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ")
     ax.set_title(ax_titles[n])
-axes[3].set_xlabel("bin width $\Delta \hat{m}$ (kg)")
+# axes[3].set_xlabel("bin width $\Delta \hat{m}$ (kg)")
+axes[3].set_xlabel("mass (kg)")
 
 for ax in axes:
     ax.grid()
