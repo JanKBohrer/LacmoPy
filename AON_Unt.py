@@ -275,13 +275,22 @@ def simulate_collisions(xis, masses, dt, dV, t_end, dt_save, seed, save_dir,
 
 #%% AON Method from Unterstrasser
 
+#OS = "LinuxDesk"
+OS = "MacOS"
+
+
+#args = [0,1,1,1]
+args = [0,0,0,1]
+
 # simulate = True
-simulate = False
-analyze = True
-# analyze = False
-plotting = True
-# plotting = False
-plot_moments_kappa_var = True
+# analyze = True
+# plotting = True
+# plot_moments_kappa_var = True
+
+simulate = bool(args[0])
+analyze = bool(args[1])
+plotting = bool(args[2])
+plot_moments_kappa_var = bool(args[3])
 
 # kappa = 40
 # kappa = 800
@@ -293,7 +302,7 @@ eta = 1.0E-9
 kappa_list=[5,10,20,40,60,100,200,400,600,800]
 # no_sims = 163
 # no_sims = 450
-no_sims = 59
+no_sims = 50
 start_seed = 3711
 # start_seed = 4107
 # start_seed = 4385
@@ -315,6 +324,11 @@ dt_save = 600.0
 # t_end = 200.0
 t_end = 3600.0
 
+if OS == "MacOS":
+    sim_data_path = "/Users/bohrer/sim_data/"
+elif OS == "LinuxDesk":
+    sim_data_path = "/mnt/D/sim_data/"
+
 # ensemble_dir =\
 #     f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/kappa_{kappa}/"
     # f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/eta_{eta:.0e}/"
@@ -327,12 +341,13 @@ t_end = 3600.0
 
 if simulate:
     for kappa in kappa_list:
+        print("simulation for kappa = ", kappa)
         # SIP ensembles are already stored in directory
         # LINUX desk
         ensemble_dir =\
-        f"/mnt/D/sim_data/col_box_mod/ensembles/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/"
+        sim_data_path + f"col_box_mod/ensembles/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/"
         save_dir =\
-        f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/perm/"
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
@@ -357,6 +372,7 @@ if simulate:
 
 # kappa = 5
 if analyze:
+    print("kappa, time_n, {xi_max/xi_min:.3e}, no_SIPS_avg, R_min, R_max")
     for kappa in kappa_list:
         # no_sims = 500
         # no_bins = 10
@@ -391,7 +407,7 @@ if analyze:
         # f"/mnt/D/sim_data/col_box_mod/results/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
         
         load_dir =\
-        f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/perm/"
         
@@ -617,7 +633,7 @@ if analyze:
 if plotting:
     for kappa in kappa_list:
         load_dir =\
-        f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
 
         # bins_mass_centers =
         bins_mass_centers = np.load(load_dir + f"bins_mass_centers_{no_sims}_no_bins_{no_bins}.npy")
@@ -748,9 +764,12 @@ gen_method={gen_method}, kernel={kernel}, bin_method={bin_method}")
         fig.tight_layout()
         plt.subplots_adjust(top=0.95)
         fig.savefig(load_dir + fig_name)
+        plt.close("all")
 #%% PLOT MOMENTS VS TIME for several kappa
 # plot_moments_kappa_var = True
 
+mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
+                      5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
 
 if plot_moments_kappa_var:
 
@@ -771,7 +790,7 @@ if plot_moments_kappa_var:
     lam2_Unt = [8.0E-15, 9.0E-15, 9.5E-15, 6E-13, 2E-10, 7E-9, 2.5E-8]
     
     fig_dir = \
-    f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/"
+    sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/"
     # fig_dir = \
     # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/"
     
@@ -783,13 +802,16 @@ if plot_moments_kappa_var:
     
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows))
     
-    for kappa in kappa_list:
+    mom0_last_time = np.zeros(len(kappa_list),dtype=np.float64)
+    
+    for kappa_n,kappa in enumerate(kappa_list):
         load_dir = \
-        f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
         # load_dir = \
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
         save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
         moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        mom0_last_time[kappa_n] = moments_vs_time_avg[-1,0]
         for i,ax in enumerate(axes):
             ax.plot(save_times/60, moments_vs_time_avg[:,i],"x-",label=f"{kappa}")
             if i != 1:
@@ -809,7 +831,13 @@ if plot_moments_kappa_var:
         
         axes[0].plot(t_Unt,lam0_Unt, "o", c = "k")
         axes[2].plot(t_Unt2,lam2_Unt, "o", c = "k")
-    
+        
+#    for mom0_last in mom0_last_time:
+#    print(mom0_last_time/mom0_last_time.min())
+    print(mom0_last_time/mom0_last_time[-2])
+    print(mom0_last_time_Unt/mom0_last_time_Unt.min())
+    print()
     fig.tight_layout()
     fig.savefig(fig_dir + fig_name)
-
+    
+plt.close("all")
