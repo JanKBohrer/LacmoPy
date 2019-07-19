@@ -12,6 +12,7 @@ import numpy as np
 from numba import njit
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 
 import constants as c
 # from microphysics import compute_mass_from_radius
@@ -275,12 +276,13 @@ def simulate_collisions(xis, masses, dt, dV, t_end, dt_save, seed, save_dir,
 
 #%% AON Method from Unterstrasser
 
-#OS = "LinuxDesk"
-OS = "MacOS"
+OS = "LinuxDesk"
+# OS = "MacOS"
 
 
-#args = [0,1,1,1]
-args = [0,0,0,1]
+# args = [1,0,0,0]
+args = [0,1,1,1]
+# args = [1,1,1,1]
 
 # simulate = True
 # analyze = True
@@ -292,18 +294,35 @@ analyze = bool(args[1])
 plotting = bool(args[2])
 plot_moments_kappa_var = bool(args[3])
 
+dist = "expo"
+
 # kappa = 40
 # kappa = 800
-eta = 1.0E-9
 
 # kappa_list=[40]
+# kappa_list=[5,10,20,40,60,100]
 # kappa_list=[5,10,20,40,60,100,200]
-# kappa_list=[5,10,20,40,60,100,200,400,600]
-kappa_list=[5,10,20,40,60,100,200,400,600,800]
+# kappa_list=[5,10,20,40,60,100,200,400]
+kappa_list=[5,10,20,40,60,100,200,400,600]
+# kappa_list=[5,10,20,40,60,100,200,400,600,800]
+# kappa_list=[600]
+# kappa_list=[800]
+
+eta = 1.0E-9
+
 # no_sims = 163
 # no_sims = 450
 no_sims = 50
+# no_sims = 50
+# no_sims = 250
+
+# no_sims = 94
+
 start_seed = 3711
+
+# start_seed = 4523
+
+# start_seed = 4127
 # start_seed = 4107
 # start_seed = 4385
 # start_seed = 3811
@@ -317,7 +336,8 @@ kernel = "Long_Bott"
 bin_method = "auto_bin"
 
 # dt = 1.0
-dt = 20.0
+dt = 10.0
+# dt = 20.0
 dV = 1.0
 # dt_save = 40.0
 dt_save = 600.0
@@ -341,13 +361,13 @@ elif OS == "LinuxDesk":
 
 if simulate:
     for kappa in kappa_list:
-        print("simulation for kappa = ", kappa)
+        print("simulation for kappa =", kappa)
         # SIP ensembles are already stored in directory
         # LINUX desk
         ensemble_dir =\
-        sim_data_path + f"col_box_mod/ensembles/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/"
+        sim_data_path + f"col_box_mod/ensembles/{dist}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/"
         save_dir =\
-        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{dist}/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/perm/"
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
@@ -407,7 +427,7 @@ if analyze:
         # f"/mnt/D/sim_data/col_box_mod/results/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
         
         load_dir =\
-        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{dist}/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/perm/"
         
@@ -633,7 +653,7 @@ if analyze:
 if plotting:
     for kappa in kappa_list:
         load_dir =\
-        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{dist}/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
 
         # bins_mass_centers =
         bins_mass_centers = np.load(load_dir + f"bins_mass_centers_{no_sims}_no_bins_{no_bins}.npy")
@@ -769,10 +789,11 @@ gen_method={gen_method}, kernel={kernel}, bin_method={bin_method}")
 # plot_moments_kappa_var = True
 
 mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
-                      5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
+                               5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
+
+TTFS, LFS, TKFS = 14,14,12
 
 if plot_moments_kappa_var:
-
     # dt = 20.0
     # kappa_list = np.array([5,10,20,40,60,100,200,400,600,800])
     # kappa_list = np.array([5,10,20,40,60,100,200])
@@ -788,56 +809,109 @@ if plot_moments_kappa_var:
     lam0_Unt = [2.97E8, 2.92E8, 2.82E8, 2.67E8, 2.1E8, 1.4E8,  1.4E7, 4.0E6, 1.2E6]
     t_Unt2 = [0,10,20,30,40,50,60]
     lam2_Unt = [8.0E-15, 9.0E-15, 9.5E-15, 6E-13, 2E-10, 7E-9, 2.5E-8]
-    
+
+    # Wang 2007: s = 16 -> kappa = 53.151 = s * log_2(10)
+    t_Wang = np.linspace(0,60,7)
+    moments_vs_time_Wang = np.loadtxt(
+        sim_data_path + f"col_box_mod/results/{dist}/{kernel}/Wang2007_results2.txt")
+    moments_vs_time_Wang = np.reshape(moments_vs_time_Wang,(4,7)).T
+    moments_vs_time_Wang[:,0] *= 1.0E6
+    moments_vs_time_Wang[:,2] *= 1.0E-6
+    moments_vs_time_Wang[:,3] *= 1.0E-12
+
     fig_dir = \
-    sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/"
+    sim_data_path + f"col_box_mod/results/{dist}/{kernel}/{gen_method}/eta_{eta:.0e}/"
     # fig_dir = \
     # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/"
     
     # save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
     
     fig_name = "moments_vs_time_kappa_var"
-    fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}_no_bins_{no_bins}.png"
+    # fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
+    fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
     no_rows = 4
     
-    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows))
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows), sharex=True)
     
     mom0_last_time = np.zeros(len(kappa_list),dtype=np.float64)
     
     for kappa_n,kappa in enumerate(kappa_list):
         load_dir = \
-        sim_data_path + f"col_box_mod/results/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
+        sim_data_path + f"col_box_mod/results/{dist}/{kernel}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
         # load_dir = \
         # f"/mnt/D/sim_data/col_box_mod/results/{kernel}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
         save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
         moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        moments_vs_time_avg[:,1] *= 1.0E3
         mom0_last_time[kappa_n] = moments_vs_time_avg[-1,0]
         for i,ax in enumerate(axes):
             ax.plot(save_times/60, moments_vs_time_avg[:,i],"x-",label=f"{kappa}")
-            if i != 1:
-                ax.set_yscale("log")
-            ax.grid()
-            # if i ==0: ax.legend()
-            ax.legend()
-            ax.set_xticks(save_times/60)
-            ax.set_xlim([save_times[0]/60, save_times[-1]/60])
-            # ax.tick_params(labelbottom=True, labeltop=False, labelleft=False, labelright=False,
-            #                  bottom=True, top=False, left=False, right=False)
-            ax.tick_params(which="both", bottom=True, top=True, left=True, right=True)
-        if kernel == "Golovin":
-            axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
-            axes[2].set_yticks( np.logspace(-15,-9,7) )
-            axes[3].set_yticks( np.logspace(-26,-15,12) )
-        
-        axes[0].plot(t_Unt,lam0_Unt, "o", c = "k")
-        axes[2].plot(t_Unt2,lam2_Unt, "o", c = "k")
+
+    for i,ax in enumerate(axes):
+        ax.plot(t_Wang, moments_vs_time_Wang[:,i],
+                "o", c = "k",fillstyle='none', markersize = 10, mew=3.5, label="Wang")
+        if i != 1:
+            ax.set_yscale("log")
+        ax.grid()
+        # if i ==0: ax.legend()
+        if i != 1:
+            ax.legend(fontsize=TKFS)
+        if i == 1:
+            ax.legend(loc="lower left", bbox_to_anchor=(0.0, 0.05),
+                      fontsize=TKFS)
+        ax.set_xticks(save_times/60)
+        ax.set_xlim([save_times[0]/60, save_times[-1]/60])
+        # ax.tick_params(labelbottom=True, labeltop=False, labelleft=False, labelright=False,
+        #                  bottom=True, top=False, left=False, right=False)
+        ax.tick_params(which="both", bottom=True, top=True,
+                       left=True, right=True
+                       )
+        ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                       width=2, size=10)
+        ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+                       width=1, size=6)
+    axes[-1].set_xlabel("time (min)",fontsize=LFS)
+    axes[0].set_ylabel(r"$\lambda_0$ = DNC $(\mathrm{m^{-3}})$ ",
+                       fontsize=LFS)
+    axes[1].set_ylabel(r"$\lambda_1$ = LWC $(\mathrm{g \, m^{-3}})$ ",
+                       fontsize=LFS)
+    axes[2].set_ylabel(r"$\lambda_2$ $(\mathrm{kg^2 \, m^{-3}})$ ",
+                       fontsize=LFS)
+    axes[3].set_ylabel(r"$\lambda_3$ $(\mathrm{kg^3 \, m^{-3}})$ ",
+                       fontsize=LFS)
+    if kernel == "Golovin":
+        axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
+        axes[2].set_yticks( np.logspace(-15,-9,7) )
+        axes[3].set_yticks( np.logspace(-26,-15,12) )
+    elif kernel == "Long_Bott":
+        # axes[0].set_yticks([1.0E6,1.0E7,1.0E8,3.0E8,4.0E8])
+        axes[0].set_yticks([1.0E6,1.0E7,1.0E8])
+        axes[0].set_ylim([1.0E6,4.0E8])
+        # axes[1].yaxis.set_major_formatter(mtick.FormatStrFormatter('%.2e'))
+        axes[2].set_yticks( np.logspace(-15,-7,9) )
+        axes[2].set_ylim([1.0E-15,1.0E-7])
+        axes[3].set_yticks( np.logspace(-26,-11,16) )
+        axes[3].set_ylim([1.0E-26,1.0E-11])
+    # axes[0].plot(t_Unt,lam0_Unt, "o", c = "k")
+    # axes[2].plot(t_Unt2,lam2_Unt, "o", c = "k")
         
 #    for mom0_last in mom0_last_time:
 #    print(mom0_last_time/mom0_last_time.min())
     print(mom0_last_time/mom0_last_time[-2])
     print(mom0_last_time_Unt/mom0_last_time_Unt.min())
     print()
+    title=\
+f"Moments of the distribution for various $\kappa$ (see legend)\n\
+dt={dt:.1e}, eta={eta:.0e}, r_critmin=0.6, no_sims={no_sims}, \
+gen_method={gen_method}, kernel=LONG"
+#     title=\
+# f"Moments of the distribution for various $\kappa$ (see legend)\n\
+# dt={dt}, eta={eta:.0e}, no_sims={no_sims}, \
+# gen_method={gen_method}, kernel=LONG"
+    fig.suptitle(title, fontsize=TTFS, y = 0.997)
     fig.tight_layout()
+    # fig.subplots_adjust()
+    plt.subplots_adjust(top=0.965)
     fig.savefig(fig_dir + fig_name)
-    
+
 plt.close("all")

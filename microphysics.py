@@ -6,7 +6,6 @@ Created on Wed May  1 12:28:02 2019
 @author: jdesk
 """
 
-
 import math
 import numpy as np
 from scipy.optimize import fminbound
