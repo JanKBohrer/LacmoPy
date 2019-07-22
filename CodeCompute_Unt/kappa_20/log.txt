@@ -1,0 +1,154 @@
+/home/jdesk/CloudMP/CodeCompute_Unt
+Start time computation: Sun Jul 21 16:09:39 2019
+Instanz: 0
+total computing time in sec: 7
+Sun Jul 21 16:09:47 2019 --- Sun Jul 21 16:16:05 2019
+Instanz: 1
+total computing time in sec: 15
+Sun Jul 21 16:09:55 2019 --- Sun Jul 21 16:16:13 2019
+Instanz: 2
+total computing time in sec: 24
+Sun Jul 21 16:10:03 2019 --- Sun Jul 21 16:16:20 2019
+Instanz: 3
+total computing time in sec: 32
+Sun Jul 21 16:10:11 2019 --- Sun Jul 21 16:16:19 2019
+Instanz: 4
+total computing time in sec: 40
+Sun Jul 21 16:10:19 2019 --- Sun Jul 21 16:16:21 2019
+Instanz: 5
+total computing time in sec: 48
+Sun Jul 21 16:10:27 2019 --- Sun Jul 21 16:16:19 2019
+Instanz: 6
+total computing time in sec: 55
+Sun Jul 21 16:10:35 2019 --- Sun Jul 21 16:16:18 2019
+Instanz: 7
+total computing time in sec: 63
+Sun Jul 21 16:10:43 2019 --- Sun Jul 21 16:16:17 2019
+Instanz: 8
+total computing time in sec: 71
+Sun Jul 21 16:10:51 2019 --- Sun Jul 21 16:16:17 2019
+Instanz: 9
+total computing time in sec: 79
+Sun Jul 21 16:10:59 2019 --- Sun Jul 21 16:16:17 2019
+Instanz: 10
+total computing time in sec: 87
+Sun Jul 21 16:11:07 2019 --- Sun Jul 21 16:16:17 2019
+Instanz: 11
+total computing time in sec: 95
+Sun Jul 21 16:11:15 2019 --- Sun Jul 21 16:16:18 2019
+Instanz: 12
+total computing time in sec: 103
+Sun Jul 21 16:11:22 2019 --- Sun Jul 21 16:16:16 2019
+Instanz: 13
+total computing time in sec: 111
+Sun Jul 21 16:11:30 2019 --- Sun Jul 21 16:16:16 2019
+Instanz: 14
+total computing time in sec: 118
+Sun Jul 21 16:11:38 2019 --- Sun Jul 21 16:16:15 2019
+Instanz: 15
+total computing time in sec: 126
+Sun Jul 21 16:11:46 2019 --- Sun Jul 21 16:16:15 2019
+Instanz: 16
+total computing time in sec: 134
+Sun Jul 21 16:11:54 2019 --- Sun Jul 21 16:16:15 2019
+Instanz: 17
+total computing time in sec: 142
+Sun Jul 21 16:12:01 2019 --- Sun Jul 21 16:16:15 2019
+Instanz: 18
+total computing time in sec: 150
+Sun Jul 21 16:12:09 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 19
+total computing time in sec: 158
+Sun Jul 21 16:12:17 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 20
+total computing time in sec: 166
+Sun Jul 21 16:12:25 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 21
+total computing time in sec: 173
+Sun Jul 21 16:12:33 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 22
+total computing time in sec: 181
+Sun Jul 21 16:12:41 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 23
+total computing time in sec: 189
+Sun Jul 21 16:12:49 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 24
+total computing time in sec: 197
+Sun Jul 21 16:12:57 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 25
+total computing time in sec: 205
+Sun Jul 21 16:13:04 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 26
+total computing time in sec: 213
+Sun Jul 21 16:13:12 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 27
+total computing time in sec: 221
+Sun Jul 21 16:13:20 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 28
+total computing time in sec: 229
+Sun Jul 21 16:13:28 2019 --- Sun Jul 21 16:16:14 2019
+Instanz: 29
+total computing time in sec: 238
+Sun Jul 21 16:13:37 2019 --- Sun Jul 21 16:16:16 2019
+Instanz: 30
+total computing time in sec: 249
+Sun Jul 21 16:13:48 2019 --- Sun Jul 21 16:16:21 2019
+Instanz: 31
+total computing time in sec: 258
+Sun Jul 21 16:13:57 2019 --- Sun Jul 21 16:16:23 2019
+Instanz: 32
+total computing time in sec: 268
+Sun Jul 21 16:14:07 2019 --- Sun Jul 21 16:16:25 2019
+Instanz: 33
+total computing time in sec: 276
+Sun Jul 21 16:14:15 2019 --- Sun Jul 21 16:16:26 2019
+Instanz: 34
+total computing time in sec: 289
+Sun Jul 21 16:14:29 2019 --- Sun Jul 21 16:16:33 2019
+Instanz: 35
+total computing time in sec: 301
+Sun Jul 21 16:14:40 2019 --- Sun Jul 21 16:16:38 2019
+Instanz: 36
+total computing time in sec: 311
+Sun Jul 21 16:14:51 2019 --- Sun Jul 21 16:16:40 2019
+Instanz: 37
+total computing time in sec: 323
+Sun Jul 21 16:15:03 2019 --- Sun Jul 21 16:16:45 2019
+Instanz: 38
+total computing time in sec: 334
+Sun Jul 21 16:15:14 2019 --- Sun Jul 21 16:16:48 2019
+Instanz: 39
+total computing time in sec: 346
+Sun Jul 21 16:15:26 2019 --- Sun Jul 21 16:16:52 2019
+Instanz: 40
+total computing time in sec: 357
+Sun Jul 21 16:15:36 2019 --- Sun Jul 21 16:16:55 2019
+Instanz: 41
+total computing time in sec: 370
+Sun Jul 21 16:15:50 2019 --- Sun Jul 21 16:17:00 2019
+Instanz: 42
+total computing time in sec: 380
+Sun Jul 21 16:15:59 2019 --- Sun Jul 21 16:17:01 2019
+Instanz: 43
+total computing time in sec: 390
+Sun Jul 21 16:16:10 2019 --- Sun Jul 21 16:17:03 2019
+Instanz: 44
+total computing time in sec: 405
+Sun Jul 21 16:16:24 2019 --- Sun Jul 21 16:17:09 2019
+Instanz: 45
+total computing time in sec: 415
+Sun Jul 21 16:16:35 2019 --- Sun Jul 21 16:17:11 2019
+Instanz: 46
+total computing time in sec: 426
+Sun Jul 21 16:16:46 2019 --- Sun Jul 21 16:17:13 2019
+Instanz: 47
+total computing time in sec: 437
+Sun Jul 21 16:16:56 2019 --- Sun Jul 21 16:17:15 2019
+Instanz: 48
+total computing time in sec: 448
+Sun Jul 21 16:17:07 2019 --- Sun Jul 21 16:17:16 2019
+Instanz: 49
+total computing time in sec: 458
+Sun Jul 21 16:17:17 2019 --- Sun Jul 21 16:17:17 2019
+total computing time in sec: 458
+finalised

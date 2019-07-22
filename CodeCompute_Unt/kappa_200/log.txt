@@ -1,0 +1,12 @@
+/home/jdesk/CloudMP/CodeCompute_Unt
+Start time computation: Mon Jul 22 11:46:21 2019
+Instanz: 0
+total computing time in sec: 769
+Mon Jul 22 11:59:10 2019 --- Mon Jul 22 15:24:16 2019
+Instanz: 1
+total computing time in sec: 1534
+Mon Jul 22 12:11:55 2019 --- Mon Jul 22 15:23:40 2019
+Instanz: 2
+total computing time in sec: 2300
+Mon Jul 22 12:24:41 2019 --- Mon Jul 22 15:23:35 2019
+Instanz: 3

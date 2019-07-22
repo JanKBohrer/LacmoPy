@@ -50,19 +50,24 @@ two_pi_sqrt = np.sqrt(2.0*np.pi)
 four_pi_over_three = 4.0*np.pi/3.0
 four_pi_over_three_log = math.log(4.0*np.pi/3.0)
 
-def conc_per_mass_lognormal_np(m, DNC, mu_R_log, sigma_R_log, mass_density): # = f_m(m)
-#    print("m =",m)
-    return DNC * \
-           np.exp( -0.5*( ( np.log(m) 
-                            - ( 3.0*mu_R_log 
-                                + four_pi_over_three_log 
-                                + np.log(1.0E-18*mass_density)) ) \
-                          / sigma_R_log )**2 ) \
-           / (two_pi_sqrt * 3.0 * sigma_R_log * m)
-#    R = compute_radius_from_mass(1.0E18*m, c.mass_density_water_liquid_NTP)
-#    return DNC * np.exp( -0.5*( ( np.log( R ) - mu_R_log ) / sigma_R_log )**2 ) \
-#           / (R * two_pi_sqrt * sigma_R_log)
-conc_per_mass_lognormal = njit()(conc_per_mass_lognormal_np)
+#def conc_per_mass_lognormal_np(m, DNC, mu_R_log, sigma_R_log, mass_density): # = f_m(m)
+##    print("m =",m)
+#    return DNC * \
+#           np.exp( -0.5*( ( np.log(m) 
+#                            - ( 3.0*mu_R_log 
+#                                + four_pi_over_three_log 
+#                                + np.log(1.0E-18*mass_density)) ) \
+#                          / (3.0*sigma_R_log) )**2 ) \
+#           / (two_pi_sqrt * 3.0 * sigma_R_log * m)
+##    R = compute_radius_from_mass(1.0E18*m, mass_density)
+##    return DNC * np.exp( -0.5*( ( np.log( R ) - mu_R_log ) / sigma_R_log )**2 ) \
+##           / (R * two_pi_sqrt * sigma_R_log)
+#conc_per_mass_lognormal = njit()(conc_per_mass_lognormal_np)
+
+def conc_per_mass_lognormal_m_np(m, DNC, mu_m_log, sigma_m_log):
+    return DNC * np.exp( -0.5*( ( np.log( m ) - mu_m_log ) / sigma_m_log )**2 ) \
+           / (m * two_pi_sqrt * sigma_m_log)
+conc_per_mass_lognormal_m = njit()(conc_per_mass_lognormal_m_np)
 
 # PDF for DNC = 1.0 tested: numeric integral = 1.0
 def conc_per_mass_lognormal_R_np(R, DNC, mu_R_log, sigma_R_log): # = f_m(m)
@@ -70,8 +75,52 @@ def conc_per_mass_lognormal_R_np(R, DNC, mu_R_log, sigma_R_log): # = f_m(m)
            / (R * two_pi_sqrt * sigma_R_log)
 conc_per_mass_lognormal_R = njit()(conc_per_mass_lognormal_R_np)
 
+## this function needs x0, x1 in mass values
+#def num_int_lognormal_m_np(x0, x1, par, steps=1E6):
+#    dx = (x1 - x0) / steps
+#    x = x0
+#    intl = 0.0
+#    f1 = conc_per_mass_lognormal(x,par[0],par[1],par[2],par[3])
+#    # cnt = 0
+#    while (x < x1):
+#        f2 = conc_per_mass_lognormal(x + 0.5*dx, par[0],par[1],par[2],par[3])
+#        f3 = conc_per_mass_lognormal(x + dx, par[0],par[1],par[2],par[3])
+#        # intl_bef = intl        
+#        intl += 0.1666666666667 * dx * (f1 + 4.0 * f2 + f3)
+#        x += dx
+#        f1 = f3
+#        # cnt += 1        
+#        # intl += dx * x * dst_expo(x,k)
+#        # x += dx
+#        # cnt += 1
+#    return intl
+#num_int_lognormal_m = njit()(num_int_lognormal_m_np)
+#
+## this function needs x0, x1 in mass values
+#def num_int_lognormal_mean_m_np(x0, x1, par, steps=1E6):
+#    dx = (x1 - x0) / steps
+#    x = x0
+#    intl = 0.0
+#    f1 = conc_per_mass_lognormal(x,par[0],par[1],par[2],par[3]) * x
+#    # cnt = 0
+#    while (x < x1):
+#        f2 = conc_per_mass_lognormal(x + 0.5*dx, par[0],par[1],par[2],par[3]) \
+#             * (x + 0.5*dx)
+#        f3 = conc_per_mass_lognormal(x + dx, par[0],par[1],par[2],par[3]) \
+#             * (x + dx)
+#        # intl_bef = intl        
+#        intl += 0.1666666666667 * dx * (f1 + 4.0 * f2 + f3)
+#        x += dx
+#        f1 = f3
+#        # cnt += 1        
+#        # intl += dx * x * dst_expo(x,k)
+#        # x += dx
+#        # cnt += 1
+#    return intl
+#num_int_lognormal_mean_m = njit()(num_int_lognormal_mean_m_np)
+
 # this function needs x0, x1 in radius values
-def num_int_lognormal_np(x0, x1, par, steps=1E5):
+def num_int_lognormal_R_np(x0, x1, par, steps=1E6):
     dx = (x1 - x0) / steps
     x = x0
     intl = 0.0
@@ -89,7 +138,54 @@ def num_int_lognormal_np(x0, x1, par, steps=1E5):
         # x += dx
         # cnt += 1
     return intl
-num_int_lognormal = njit()(num_int_lognormal_np)
+num_int_lognormal_R = njit()(num_int_lognormal_R_np)
+
+def num_int_lognormal_mean_R_np(x0, x1, par, steps=1E6):
+    dx = (x1 - x0) / steps
+    x = x0
+    intl = 0.0
+    f1 = conc_per_mass_lognormal_R(x,par[0],par[1],par[2]) * x
+    # cnt = 0
+    while (x < x1):
+        f2 = conc_per_mass_lognormal_R(x + 0.5*dx, par[0],par[1],par[2]) \
+             * (x + 0.5*dx)
+        f3 = conc_per_mass_lognormal_R(x + dx, par[0],par[1],par[2]) \
+             * (x + dx)
+        # intl_bef = intl        
+        intl += 0.1666666666667 * dx * (f1 + 4.0 * f2 + f3)
+        x += dx
+        f1 = f3
+        # cnt += 1        
+        # intl += dx * x * dst_expo(x,k)
+        # x += dx
+        # cnt += 1
+    return intl
+num_int_lognormal_mean_R = njit()(num_int_lognormal_mean_R_np)
+
+def num_int_lognormal_mean_mass_R_np(x0, x1, par, steps=1E6):
+    dx = (x1 - x0) / steps
+    x = x0
+    intl = 0.0
+    f1 = conc_per_mass_lognormal_R(x,par[0],par[1],par[2]) \
+         * 1.0E-18*compute_mass_from_radius(x, par[3])
+    # cnt = 0
+    while (x < x1):
+        f2 = conc_per_mass_lognormal_R(x + 0.5*dx, par[0],par[1],par[2]) \
+             * 1.0E-18*compute_mass_from_radius(x+0.5*dx, par[3])
+        f3 = conc_per_mass_lognormal_R(x + dx, par[0],par[1],par[2]) \
+             * 1.0E-18*compute_mass_from_radius(x+dx, par[3])
+        # intl_bef = intl        
+        intl += 0.1666666666667 * dx * (f1 + 4.0 * f2 + f3)
+        x += dx
+        f1 = f3
+        # cnt += 1        
+        # intl += dx * x * dst_expo(x,k)
+        # x += dx
+        # cnt += 1
+    return intl
+num_int_lognormal_mean_mass_R = njit()(num_int_lognormal_mean_mass_R_np)
+
+
 
 # mu_R = 0.02
 # sigma_R = 1.4
@@ -99,7 +195,7 @@ num_int_lognormal = njit()(num_int_lognormal_np)
 # dist_par = np.append(dist_par, np.log((mu_R, sigma_R)))
 
 # R = np.logspace(-2.7,-1.2,1000)
-# m = 1.0E-18 * compute_mass_from_radius(R, c.mass_density_water_liquid_NTP)
+# m = 1.0E-18 * compute_mass_from_radius(R, mass_density)
 
 # m0 = 1.0E-20
 # m1 = 1.0E-17
@@ -146,14 +242,20 @@ def moments_analytical_expo(n, DNC, LWC_over_DNC):
 # moments referred to mass, when radius is distr. lognormal
 # mu_R_log -> mu_R_log + log(4 pi / 3 * density),
 # sigma_R_log -> 3 * sigma_R_log
-def moments_analytical_lognormal(n, DNC, mu_R_log, sigma_R_log, mass_density):
+#def moments_analytical_lognormal(n, DNC, mu_R_log, sigma_R_log, mass_density):
+#    if n == 0:
+#        return DNC
+#    else:
+#        # 4.5 = 0.5 * 9
+#        return DNC * np.exp(n * (mu_R_log + four_pi_over_three_log
+#                                 + np.log(1.0E-18*mass_density))
+#                            + 4.5 * n*n * sigma_R_log*sigma_R_log)
+
+def moments_analytical_lognormal_m(n, DNC, mu_m_log, sigma_m_log):
     if n == 0:
         return DNC
     else:
-        # 4.5 = 0.5 * 9
-        return DNC * np.exp(n * (mu_R_log + four_pi_over_three_log
-                                 + np.log(1.0E-18*mass_density))
-                            + 4.5 * n*n * sigma_R_log*sigma_R_log)
+        return DNC * np.exp(n * mu_m_log + 0.5 * n*n * sigma_m_log*sigma_m_log)
 
 def moments_analytical_lognormal_R(n, DNC, mu_R_log, sigma_R_log):
     if n == 0:
@@ -209,13 +311,17 @@ moments_f_m_num_expo = njit()(moments_f_m_num_expo_np)
 # dm_l = m_{l+1} - m_l
 # mu_l = m_l + rnd() * dm_l
 # xi_l = f_m(mu_l) * dm_l * dV
-def generate_SIP_ensemble_SingleSIP_Unt_expo_np(DNC0, DNC0_over_LWC0,
-                                                dV, kappa, eta, r_critmin,
-                                                m_high_over_m_low=1.0E6,
-                                                seed=3711, setseed=True):
+def generate_SIP_ensemble_SingleSIP_Unt_expo_np(
+        DNC0, DNC0_over_LWC0,
+        mass_density,
+        dV, kappa, eta, r_critmin,
+        m_high_over_m_low=1.0E6,
+        seed=3711, setseed=True):
     if setseed: np.random.seed(seed)
     m_low = 1.0E-18 * compute_mass_from_radius(r_critmin,
-                                               c.mass_density_water_liquid_NTP)
+                                               mass_density)
+#    m_low = 1.0E-18 * compute_mass_from_radius(r_critmin,
+#                                               mass_density)
     # DNC0_over_LWC0 = DNC0 / LWC0
     bin_factor = 10**(1.0/kappa)
     m_high = m_low * m_high_over_m_low
@@ -267,13 +373,14 @@ generate_SIP_ensemble_SingleSIP_Unt_expo =\
 # mu_l = m_l + rnd() * dm_l
 # xi_l = f_m(mu_l) * dm_l * dV
 def generate_SIP_ensemble_SingleSIP_Unt_lognormal_np(
-        DNC0, mu_R_log, sigma_R_log, mass_density,
+        DNC0, mu_m_log, sigma_m_log,
+        mass_density,
         dV, kappa, eta, r_critmin,
         m_high_over_m_low=1.0E6, seed=3711, setseed=True):
     if setseed: np.random.seed(seed)
     m_low = 1.0E-18 * compute_mass_from_radius(r_critmin, mass_density)
 #    m_low = 1.0E-18 * compute_mass_from_radius(r_critmin,
-#                                               c.mass_density_water_liquid_NTP)
+#                                               mass_density)
     # DNC0_over_LWC0 = DNC0 / LWC0
     bin_factor = 10**(1.0/kappa)
     m_high = m_low * m_high_over_m_low
@@ -294,7 +401,7 @@ def generate_SIP_ensemble_SingleSIP_Unt_lognormal_np(
         bin_width = m_right - m_left
         mu = m_left + rnd[bin_n] * bin_width
 
-        xi = conc_per_mass_lognormal(mu, DNC0, mu_R_log, sigma_R_log, mass_density) \
+        xi = conc_per_mass_lognormal_m(mu, DNC0, mu_m_log, sigma_m_log) \
              * bin_width * dV
         # print(bin_n, xi)
         xis[bin_n] = xi
@@ -337,15 +444,15 @@ def generate_and_save_SIP_ensembles_SingleSIP_prob(
         generate_SIP_ensemble_SingleSIP_Unt = \
             generate_SIP_ensemble_SingleSIP_Unt_lognormal
         DNC0 = dist_par[0]
-        mu_R_log = dist_par[1]
-        sigma_R_log = dist_par[2]
-        mass_density = dist_par[3]
-        ensemble_parameters = [dV, DNC0, mu_R_log, sigma_R_log, mass_density,
+        mu_m_log = dist_par[1]
+        sigma_m_log = dist_par[2]
+#        mass_density = dist_par[3]
+        ensemble_parameters = [dV, DNC0, mu_m_log, sigma_m_log, mass_density,
                                r_critmin, kappa, eta, no_sims, start_seed]
     # r_critmin = 0.6 # mu
     m_low = 1.0E-18 * compute_mass_from_radius(r_critmin, mass_density)
 #    m_low = 1.0E-18 * compute_mass_from_radius(r_critmin,
-#                                               c.mass_density_water_liquid_NTP)
+#                                               mass_density)
 
     # dV = 1.0
     # kappa = 10
@@ -375,14 +482,14 @@ def generate_and_save_SIP_ensembles_SingleSIP_prob(
     for i,seed in enumerate(seed_list):
         masses, xis, m_low, bins =\
             generate_SIP_ensemble_SingleSIP_Unt(
-                *dist_par, dV, kappa, eta, r_critmin,
+                *dist_par, mass_density, dV, kappa, eta, r_critmin,
                 m_high_over_m_low, seed)
         bins_rad = compute_radius_from_mass(1.0E18*bins, mass_density)
         radii = compute_radius_from_mass(1.0E18*masses, mass_density)
 #        bins_rad = compute_radius_from_mass(1.0E18*bins,
-#                                            c.mass_density_water_liquid_NTP)
+#                                            mass_density)
 #        radii = compute_radius_from_mass(1.0E18*masses,
-#                                         c.mass_density_water_liquid_NTP)
+#                                         mass_density)
         np.save(ensemble_dir + f"masses_seed_{seed}", masses)
         np.save(ensemble_dir + f"radii_seed_{seed}", radii)
         np.save(ensemble_dir + f"xis_seed_{seed}", xis)
@@ -508,7 +615,7 @@ def generate_and_save_SIP_ensembles_SingleSIP_prob(
 #     bins_mass_center_COM = g_m_num_sampled/f_m_num_sampled
 #     bins_rad_center_COM =\
 #         compute_radius_from_mass(bins_mass_center_COM*1.0E18,
-#                                  c.mass_density_water_liquid_NTP)
+#                                  mass_density)
     
 #     # set the bin "mass centers" at the right spot such that
 #     # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
@@ -518,7 +625,7 @@ def generate_and_save_SIP_ensembles_SingleSIP_prob(
 #           / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
 #     bins_rad_center_exact =\
 #         compute_radius_from_mass(bins_mass_center_exact*1.0E18,
-#                                  c.mass_density_water_liquid_NTP)
+#                                  mass_density)
     
 #     bins_mass_centers = np.array((bins_mass_center_lin,
 #                                   bins_mass_center_log,
@@ -530,7 +637,7 @@ def generate_and_save_SIP_ensembles_SingleSIP_prob(
 #                                   bins_rad_center_exact))
     
 #     m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
-#     R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
+#     R_ = compute_radius_from_mass(m_*1.0E18, mass_density)
 #     f_m_ana = conc_per_mass_np(m_, DNC0, DNC0_over_LWC0)
 #     g_m_ana = m_ * f_m_ana
 #     g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
@@ -568,12 +675,13 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
         moments_analytical = moments_analytical_expo
 #        start_seed = int(start_seed)
     elif dist =="lognormal":
-        conc_per_mass_np = conc_per_mass_lognormal_np
-        dV, DNC0, mu_R_log, sigma_R_log, mass_density, r_critmin, \
+        conc_per_mass_np = conc_per_mass_lognormal_m_np
+        dV, DNC0, mu_m_log, sigma_m_log, mass_density, r_critmin, \
         kappa, eta, no_sims00, start_seed = \
             tuple(np.load(ensemble_dir + "ensemble_parameters.npy"))
-        dist_par = (DNC0, mu_R_log, sigma_R_log, mass_density)
-        moments_analytical = moments_analytical_lognormal
+        dist_par = (DNC0, mu_m_log, sigma_m_log)
+#        dist_par = (DNC0, mu_R_log, sigma_R_log, mass_density)
+        moments_analytical = moments_analytical_lognormal_m
 #        start_seed = int(start_seed)
 
 #    print(start_seed)
@@ -1122,6 +1230,7 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
                      -0.9,
                      scale)
     scale *= scale_factor
+    print("scale")
     print(scale)
     f_m_num_avg[1:-1] = f_m_num_avg[1:-1] / (1.0 + scale)
     f_m_num_avg[0] = f_m_num_avg[0] / (1.0 + scale[0])
@@ -1285,11 +1394,84 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
 # generate_myHisto_SIP_ensemble = njit()(generate_myHisto_SIP_ensemble_np)
 
 
+
+#%% TESTING LOGNORMAL DIST
+#DNC0 = 60.0E6 # 1/m^3
+#
+##DNC0 = 2.97E8 # 1/m^3
+##DNC0 = 3.0E8 # 1/m^3
+#
+#### for expo dist
+#LWC0 = 1.0E-3 # kg/m^3
+#
+#### for lognormal dist
+#
+#mu_R = 0.02 # in mu
+#sigma_R = 1.4 #  no unit
+#
+#mu_R_log = np.log(mu_R)
+#sigma_R_log = np.log(sigma_R)
+#
+#mass_density = c.mass_density_NaCl_dry # in kg/m^3           
+#
+#dist_par_R = (DNC0, mu_R_log, sigma_R_log)
+#dist_par_m = (DNC0, mu_R_log, sigma_R_log, mass_density)
+#
+#R_ = np.logspace(-3,1,1000) 
+#f_R_ana = conc_per_mass_lognormal_R(R_, *dist_par_R)
+#
+#m_ = 1.0E-18*compute_mass_from_radius(R_, mass_density)
+#f_m_ana = conc_per_mass_lognormal(m_, *dist_par_m)
+#
+#intl_R = num_int_lognormal_R (R_[0], R_[-1], dist_par_R)
+#intl_m = num_int_lognormal_m (m_[0], m_[-1], dist_par_m)
+#
+#mean_R = num_int_lognormal_mean_R(R_[0], R_[-1], dist_par_R)
+#mean_m = num_int_lognormal_mean_m(m_[0], m_[-1], dist_par_m)
+#
+#mean_mass_R = num_int_lognormal_mean_mass_R(R_[0], R_[-1], dist_par_m)
+##mean_mass_R = num_int_lognormal_mean_mass_R(R_[0], R_[-1], dist_par_m, steps = 1E8)
+#
+#moments_R_ana = []
+#moments_m_ana = []
+#
+#for n in range(4):
+#    moments_R_ana.append( moments_analytical_lognormal_R(n, *dist_par_R) )
+#    moments_m_ana.append( moments_analytical_lognormal(n, *dist_par_m) )
+#
+#moments_R_ana = np.array(moments_R_ana)
+#moments_m_ana = np.array(moments_m_ana)
+#
+#print( moments_R_ana)
+#print( moments_m_ana)
+#
+#print(moments_m_ana/moments_R_ana)
+#
+#print(intl_R, (intl_R - DNC0) / DNC0)
+#print(intl_m, (intl_m - DNC0) / DNC0)
+#
+#print(mean_R, mu_R*DNC0, moments_R_ana[1])
+#print(mean_m, moments_m_ana[1], mean_m/mean_mass_R)
+##print(mean_m/DNC0, mu_R)
+#
+#fig,axes = plt.subplots(2)
+#ax = axes[0]
+#ax.plot(R_, f_R_ana)
+#ax.plot(R_, f_m_ana * 3.0*m_/R_)
+#ax.set_xscale("log")
+#ax = axes[1]
+#ax.plot(R_, f_m_ana)
+#ax.set_xscale("log")
+#
+#fig.tight_layout()
+
+
 #%% GENERATE SIP ENSEMBLE AND STORE TO FILES
 
 plt.ioff()
 
 args = [1,1,1]
+#args = [1,1,1]
 # args = [0,1,1]
 # args = [1,1,1]
 
@@ -1301,21 +1483,22 @@ plotting = bool(args[2]) # NOTE: plotting needs analyze first (or in buffer)
 
 ### SIP GENERATION SET PARAMETERS
 
-#OS = "LinuxDesk"
-OS = "MacOS"
+OS = "LinuxDesk"
+#OS = "MacOS"
 
-no_sims = 2
+no_sims = 500
 start_seed = 3711
 
 #kappa_list=[5]
-kappa_list=[10]
+#kappa_list=[10]
 #kappa_list=[5,10]
 # kappa_list=[800]
 #kappa_list=[5,10,20,40]
+#kappa_list=[10,20,40]
 # kappa_list=[5,10,20,40,60,100]
 # kappa_list=[5,10,20,40,60,100,200]
 # kappa_list=[5,6,10,20,40,60,100,200,400,600]
-# kappa_list=[5,10,20,40,60,100,200,400,600,800]
+kappa_list=[5,10,20,40,60,100,200,400,600,800]
 #kappa_list=[5,6,10,20,40,60,100,200,400,600,800]
 # eta = 1.0E-8
 eta = 1.0E-9
@@ -1323,7 +1506,7 @@ eta = 1.0E-9
 r_critmin = 0.001 # mu
 #r_critmin = 0.6 # mu
 
-m_high_over_m_low = 1.0E6
+m_high_over_m_low = 1.0E8
 
 gen_method = "SinSIP"
 dV = 1.0
@@ -1349,6 +1532,11 @@ mass_density = c.mass_density_NaCl_dry # in kg/m^3
 mu_R_log = np.log(mu_R)
 sigma_R_log = np.log(sigma_R)
 
+# derive parameters of lognormal distribution of mass f_m(m)
+# assuming mu_R in mu and density in kg/m^3
+mu_m_log = 3.0 * mu_R_log + np.log(1.0E-18 * four_pi_over_three * mass_density)
+sigma_m_log = 3.0 * sigma_R_log
+
 ### DATA ANALYSIS SET PARAMETERS
 
 # use the same bins as for generation
@@ -1370,7 +1558,7 @@ spread_mode = 0 # spreading based on lin scale
 # shift_factor = 1.0
 # the artificial bins before the first and after the last one get multiplied
 # by this factor (since they only get part of the half of the first/last bin)
-overflow_factor = 3.0
+overflow_factor = 2.0
 # scale factor for the first correction
 scale_factor = 1.0
 # shift factor for the second correction.
@@ -1394,8 +1582,9 @@ if dist == "expo":
     DNC0_over_LWC0 = DNC0 / LWC0
     dist_par = (DNC0, DNC0_over_LWC0)
 elif dist =="lognormal":
-    conc_per_mass_np = conc_per_mass_lognormal_np
-    dist_par = (DNC0, mu_R_log, sigma_R_log, mass_density)
+    conc_per_mass_np = conc_per_mass_lognormal_m_np
+    dist_par = (DNC0, mu_m_log, sigma_m_log)
+#    dist_par = (DNC0, mu_m_log, sigma_m_log, mass_density)
 
 if generate:
     for kappa in kappa_list:
@@ -1555,8 +1744,9 @@ for kappa in kappa_list:
         
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_yticks(np.logspace(-4,8,13))
-        ax.set_ylim((1.0E-4,1.0E8))
+        if dist == "expo":
+            ax.set_yticks(np.logspace(-4,8,13))
+            ax.set_ylim((1.0E-4,1.0E8))
         ax.grid()
         
         ax.set_xlabel(r"radius ($\mathrm{\mu m}$)")
@@ -1567,8 +1757,8 @@ for kappa in kappa_list:
         f"xi_vs_R_{sample_mode}_no_sims_{no_sims}_no_bins_{no_bins}.png")
 
 ### my lin approx plot
-        bins_mass_center_exact = bins_mass_centers[3]
-        bins_rad_center_exact = bins_rad_centers[3]
+#        bins_mass_center_exact = bins_mass_centers[3]
+#        bins_rad_center_exact = bins_rad_centers[3]
         
         m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
         R_ = compute_radius_from_mass(m_*1.0E18, mass_density)
@@ -1644,11 +1834,16 @@ for kappa in kappa_list:
 ### SAMPLED DATA
         ### IN WORK: add errorbars to all...
         
-        bins_mass_center_exact = bins_mass_centers[3]
-        bins_rad_center_exact = bins_rad_centers[3]
+        if dist == "expo":
+            bins_mass_center_exact = bins_mass_centers[3]
+            bins_rad_center_exact = bins_rad_centers[3]
+        elif dist == "lognormal":
+            bins_mass_center_exact = bins_mass_centers[0]
+            bins_rad_center_exact = bins_rad_centers[0]
         
         m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
-        R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
+        R_ = compute_radius_from_mass(m_*1.0E18, mass_density)
+#        R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
         f_m_ana = conc_per_mass_np(m_, *dist_par)
         g_m_ana = m_ * f_m_ana
         g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
@@ -1686,10 +1881,11 @@ for kappa in kappa_list:
         ax.set_ylabel(r"$g_{\ln(r)}$ $\mathrm{(g \; m^{-3})}$")
         # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
         # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-        ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-        ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-        # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
-        ax.yaxis.set_ticks(np.logspace(-11,0,12))
+        if dist == "expo":
+            ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+            ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+            # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+            ax.yaxis.set_ticks(np.logspace(-11,0,12))
         ax.grid(which="both")
         
         # my binning method
@@ -1790,12 +1986,12 @@ for kappa in kappa_list:
     
 ### PLOTTING STATISTICAL ANALYSIS OVER no_sim runs
 
-        ### fm_gm_g_ln_r with errorbars
-        bins_mass_center_exact = bins_mass_centers[3]
-        bins_rad_center_exact = bins_rad_centers[3]
+### fm_gm_g_ln_r with errorbars
+#        bins_mass_center_exact = bins_mass_centers[3]
+#        bins_rad_center_exact = bins_rad_centers[3]
         
         m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
-        R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
+        R_ = compute_radius_from_mass(m_*1.0E18, mass_density)
         f_m_ana = conc_per_mass_np(m_, *dist_par)
         g_m_ana = m_ * f_m_ana
         g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
@@ -1823,8 +2019,9 @@ for kappa in kappa_list:
         ax.plot(m_, f_m_ana_)
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_yticks(np.logspace(6,21,16))
-        ax.set_ylim((f_m_ana_[-1],1.0E21))
+        if dist == "expo":
+            ax.set_yticks(np.logspace(6,21,16))
+            ax.set_ylim((f_m_ana_[-1],1.0E21))
         # ax.set_ylim((1.0E6,1.0E21))
         ax.set_xlabel("mass (kg) [exact centers]")
         ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$")
@@ -1844,11 +2041,12 @@ for kappa in kappa_list:
         ax.plot(m_, g_m_ana_)
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_yticks(np.logspace(-4,8,13))
-        # ax.set_ylim((1.0E-4,3.0E8))
-        ax.set_ylim((g_m_ana_[-1],3.0E8))
-        ax.set_xlabel("mass (kg) [exact centers]")
-        ax.set_ylabel(r"$g_m$ $\mathrm{(m^{-3})}$")
+        if dist == "expo":
+            ax.set_yticks(np.logspace(-4,8,13))
+            # ax.set_ylim((1.0E-4,3.0E8))
+            ax.set_ylim((g_m_ana_[-1],3.0E8))
+            ax.set_xlabel("mass (kg) [exact centers]")
+            ax.set_ylabel(r"$g_m$ $\mathrm{(m^{-3})}$")
         # ax.loglog(bins_mid, f_m_num/50, "x")
         # ax.loglog(m_, f_m_ana)
         # ax.set_xlim(m_min*9, m_max/9)
@@ -1873,11 +2071,12 @@ for kappa in kappa_list:
         ax.set_ylabel(r"$g_{\ln(r)}$ $\mathrm{(g \; m^{-3})}$")
         # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
         # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-        ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-        ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-        # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
-        ax.set_yticks(np.logspace(-11,0,12))
-        ax.set_ylim((1.0E-11,5.0))
+        if dist == "expo":
+            ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+            ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+            # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+            ax.set_yticks(np.logspace(-11,0,12))
+            ax.set_ylim((1.0E-11,5.0))
         ax.grid(which="both")
         
         # my binning method
@@ -1899,9 +2098,10 @@ for kappa in kappa_list:
         ax.plot(m_, f_m_ana_)
         ax.set_xscale("log")
         ax.set_yscale("log")
-        ax.set_yticks(np.logspace(6,21,16))
-        # ax.set_ylim((1.0E6,1.0E21))
-        ax.set_ylim((f_m_ana_[-1],1.0E21))
+        if dist == "expo":
+            ax.set_yticks(np.logspace(6,21,16))
+            # ax.set_ylim((1.0E6,1.0E21))
+            ax.set_ylim((f_m_ana_[-1],1.0E21))
         ax.set_xlabel("mass (kg) [my lin fit centers]")
         ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$  [my lin fit]")
         ax.grid()
@@ -2286,9 +2486,9 @@ for kappa in kappa_list:
 #                                                m_high_over_m_low=1.0E6,
 #                                                seed=seed)
 #     bins_rad = compute_radius_from_mass(1.0E18*bins,
-#                                         c.mass_density_water_liquid_NTP)
+#                                         mass_density)
 #     radii = compute_radius_from_mass(1.0E18*masses,
-#                                      c.mass_density_water_liquid_NTP)
+#                                      mass_density)
 #     np.save(path + f"masses_seed_{seed}", masses)
 #     np.save(path + f"radii_seed_{seed}", radii)
 #     np.save(path + f"xis_seed_{seed}", xis)
@@ -2441,7 +2641,7 @@ for kappa in kappa_list:
 # bins_mass_center_COM = g_m_num_sampled/f_m_num_sampled
 # bins_rad_center_COM =\
 #     compute_radius_from_mass(bins_mass_center_COM*1.0E18,
-#                              c.mass_density_water_liquid_NTP)
+#                              mass_density)
 
 # # set the bin "mass centers" at the right spot such that
 # # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
@@ -2450,7 +2650,7 @@ for kappa in kappa_list:
 #       / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
 # bins_rad_center_exact =\
 #     compute_radius_from_mass(bins_mass_center_exact*1.0E18,
-#                              c.mass_density_water_liquid_NTP)
+#                              mass_density)
 
 # bins_mass_centers = np.array((bins_mass_center_lin,
 #                               bins_mass_center_log,
@@ -2458,7 +2658,7 @@ for kappa in kappa_list:
 #                               bins_mass_center_exact))
 
 # m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
-# R_ = compute_radius_from_mass(m_*1.0E18, c.mass_density_water_liquid_NTP)
+# R_ = compute_radius_from_mass(m_*1.0E18, mass_density)
 # f_m_ana = conc_per_mass_np(m_, DNC0, DNC0_over_LWC0)
 # g_m_ana = m_ * f_m_ana
 # g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
