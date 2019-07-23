@@ -81,8 +81,8 @@ dV=1. #in m^-3
 dVi=1./dV
 
     #Anzahl der Instanzen
-nr_inst=41
-nr_ins_start=9   # bei verteilter Berechnung der Instanzen kann Seed-Parameter angepasst werden
+nr_inst=50
+nr_ins_start=1   # bei verteilter Berechnung der Instanzen kann Seed-Parameter angepasst werden
 
     #Ausgabe und Speicherung der Simulationsergebnisse
         #Zeitpunkte, an denen Groessenverteilung geplottet werden soll
@@ -107,7 +107,7 @@ LWC=1e-3  #1e-3
         #numerische Parameter
             #Anzahl der Bins pro Massen-Groessenordnung 
             #! = KAPPA !
-n10=400
+n10=5
             #Anzahl an Massen-Groessenordnungen
 r10=18
             #log10 von unterer Massen-Grenze

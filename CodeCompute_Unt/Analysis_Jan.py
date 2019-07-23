@@ -35,7 +35,7 @@ def defineMoments_0D():
 
 t_Wang, mom_Wang = defineMoments_0D()
 
-kappa_list = [10,20,40,60,100,200,400]
+kappa_list = [5,10,20,40,60,100,200,400]
 
 sim_data_path = "/home/jdesk/CloudMP/CodeCompute_Unt/kappa_10/"
 t_mom = np.loadtxt(sim_data_path + "Moments_meta.dat" ,skiprows=2)
@@ -51,10 +51,10 @@ for kappa_n,kappa in enumerate(kappa_list):
     elif kappa == 60:
         t_mom = np.loadtxt(sim_data_path + "Moments_meta.dat" ,skiprows=2)
     
-    if kappa in (200,400):
-        moments_vs_time = np.loadtxt(sim_data_path + "Moments1.dat")
-    else:
-        moments_vs_time = np.loadtxt(sim_data_path + "Moments.dat")
+#    if kappa == 400:
+#        moments_vs_time = np.loadtxt(sim_data_path + "Moments1.dat")
+#    else:
+    moments_vs_time = np.loadtxt(sim_data_path + "Moments.dat")
     
     no_time_steps = len(t_mom)
     
@@ -82,6 +82,8 @@ for kappa_n,kappa in enumerate(kappa_list):
 
 #%%
 
+TTFS, LFS, TKFS = 14,14,12
+
 no_rows = 4
 #plot_every_R = 10
 fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
@@ -90,9 +92,20 @@ fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
 for i,ax in enumerate(axes):
     for kappa_n, kappa in enumerate(kappa_list):
         ax.plot(t_mom/60,  moments_vs_time_kappa_var[kappa_n][i],
-                "x-", label="kappa")
-    ax.plot(t_Wang, mom_Wang[:,i], "o", c= "k", markersize=5)
+                "x-", label=f"{kappa}")
+    ax.plot(t_Wang, mom_Wang[:,i], "o", c= "k",
+            fillstyle='none', markersize = 10, mew=2.0, label="Wang")
+    ax.legend()
+    ax.tick_params(which="both", bottom=True, top=True,
+                   left=True, right=True
+                   )
+    ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                   width=2, size=10)
+    ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+                   width=1, size=6)
+    ax.set_xlim((0,60))
 for i in [0,2,3]:
     axes[i].set_yscale("log")
     axes[i].grid()
-    
+fig.tight_layout()
+fig.savefig("/home/jdesk/CloudMP/CodeCompute_Unt/moments_vs_time.pdf")    
