@@ -81,7 +81,7 @@ dV=1. #in m^-3
 dVi=1./dV
 
     #Anzahl der Instanzen
-nr_inst=50
+nr_inst=500
 nr_ins_start=1   # bei verteilter Berechnung der Instanzen kann Seed-Parameter angepasst werden
 
     #Ausgabe und Speicherung der Simulationsergebnisse
@@ -107,7 +107,7 @@ LWC=1e-3  #1e-3
         #numerische Parameter
             #Anzahl der Bins pro Massen-Groessenordnung 
             #! = KAPPA !
-n10=5
+n10=40
             #Anzahl an Massen-Groessenordnungen
 r10=18
             #log10 von unterer Massen-Grenze

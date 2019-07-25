@@ -31,7 +31,7 @@ import sys
 
 def InitSIP_ExpVert_singleSIP_WS(imlow,n10,r10,min10,eta_nu,xf0,N0,nr_sip_max):
 #imlow      IN :
-#n10        IN : Anzahl an Bins pro Massendekade = kappa ?
+#n10        IN : Anzahl an Bins pro Massendekade = kappa
 #r10        IN : Anzahl an Massendekaden
 #min10      IN : log von unterster Bingrenze
 #xf0        IN : Mean mass in kg

@@ -75,8 +75,10 @@ def compute_terminal_velocity_Beard2(R):
         # this is converted for radius instead of diameter
         # i.e. my_C1 = 4*C1_Beard
         C1 = drho*c.earth_gravity / (4.5*viscosity_air_NTP)
-        # C_sc = 1.0 + 1.257 * l0 / R
-        C_sc = 1.0 + 1.255 * l0 / R
+        # Bott uses factor 1.257 in data from Unterstrasser, but in paper
+        # the factor is 1.255 ...
+        C_sc = 1.0 + 1.257 * l0 / R
+#        C_sc = 1.0 + 1.255 * l0 / R
         v = C1 * C_sc * R * R * 1.0E-12
     elif R < R_1:
         N_Da = 32.0E-18 * R*R*R * rho_a * drho \
@@ -84,8 +86,10 @@ def compute_terminal_velocity_Beard2(R):
         Y = np.log(N_Da)
         Y = compute_polynom(p1_Beard,Y)
         l0 = 6.62E-2 # mu
-        # C_sc = 1.0 + 1.257 * l0 / R
-        C_sc = 1.0 + 1.255 * l0 / R
+        # Bott uses factor 1.257 in data from Unterstrasser, but in paper
+        # the factor is 1.255 ...
+        C_sc = 1.0 + 1.257 * l0 / R
+#        C_sc = 1.0 + 1.255 * l0 / R
         v = viscosity_air_NTP * C_sc * np.exp(Y)\
             / (rho_a * R * 2.0E-6)
     elif R < R_max:

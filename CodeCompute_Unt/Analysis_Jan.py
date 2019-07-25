@@ -76,8 +76,8 @@ for kappa_n,kappa in enumerate(kappa_list):
                                              (no_inst, no_time_steps)).T
     
     moments_vs_time_avg = np.average(moments_vs_time2, axis=2)
-    if kappa == 40:
-        moments_vs_time_avg = moments_vs_time_avg[:,::5]
+#    if kappa == 40:
+#        moments_vs_time_avg = moments_vs_time_avg[:,::5]
     moments_vs_time_kappa_var.append(moments_vs_time_avg)
 
 #%%
@@ -108,4 +108,4 @@ for i in [0,2,3]:
     axes[i].set_yscale("log")
     axes[i].grid()
 fig.tight_layout()
-fig.savefig("/home/jdesk/CloudMP/CodeCompute_Unt/moments_vs_time.pdf")    
+fig.savefig("/home/jdesk/CloudMP/CodeCompute_Unt/moments_vs_time2.pdf")    

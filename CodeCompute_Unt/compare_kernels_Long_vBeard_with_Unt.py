@@ -116,15 +116,17 @@ kernel_max_dev_ind = np.zeros(no_grid_pts, dtype = int)
 for i,R1 in enumerate(radius_grid):
     kernel_max_dev[i] = np.amax((cck_my[i] - cck[i]) / (cck[i] +1E-6))
     kernel_max_dev_ind[i] = np.argmax((cck_my[i] - cck[i]) / (cck[i] +1E-6))
-    print(i, R1, kernel_max_dev[i], kernel_max_dev_ind[i])
+#    print(i, R1, kernel_max_dev[i], kernel_max_dev_ind[i])
 
-Beard_data = np.loadtxt("/home/jdesk/CloudMP/CodeCompute_Unt/data/" + "VBeard.dat")
+Beard_data = np.loadtxt("/home/jdesk/CloudMP/CodeCompute_Unt/data_Long_kernel/" + "VBeard.dat")
 
 R_Beard = Beard_data[:,0]
 m_Beard = Beard_data[:,1]
 v_Beard = Beard_data[:,2]
 
-#%% VELOCITY FUNCTION COMPARE
+#%% generate v_Beard from function implement. by Unterstrasser
+
+v_Beard_comp  = K.Fallg2(R_Beard)
 
 v_my = np.zeros(no_grid_pts)
 for i in range(no_grid_pts):
@@ -134,29 +136,70 @@ v_my *= 100.
 
 no_rows = 1
 fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
+#axes.plot(R_Beard*1.0E-4, v_Beard_comp, "x")
+#axes.plot(R_Beard*1.0E-4, v_my, "x")
+#axes.plot(R_Beard*1.0E-4, v_Beard, "o")
+#axes.vlines([1.0E-3,5.35E-2,0.35],0.0,1E4)
+axes.vlines([1.0E-3,5.35E-2,0.35],0.0, np.amax(1E5*np.abs(v_Beard_comp-v_Beard)/v_Beard))
+axes.plot(R_Beard*1.0E-4, 1.0E5*np.abs(v_Beard_comp-v_Beard)/v_Beard)
+axes.set_xscale("log")
+#axes.set_yscale("log")
+axes.set_title(" rel error v_Beard_comp from Bott - v_Beard data vs radius(cm)")
 
-axes.plot(R_Beard, 100*(v_my-v_Beard ) / v_Beard )
+#%% VELOCITY FUNCTION COMPARE
+
+no_rows = 1
+fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
+f = 1E6*(v_my-v_Beard ) / v_Beard
+axes.plot(R_Beard, f )
+axes.vlines([10.0,535.,3500.],f.min(), f.max())
+axes.set_xscale("log")
+
+fig.savefig("my_vel_rel_dev_to_Beard_tabul.pdf")
+
+no_rows = 1
+fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
+#f = 1E5*(v_my-v_Beard ) / v_Beard
+axes.plot(R_Beard, v_my )
+axes.plot(R_Beard, v_Beard )
+axes.vlines([10.0,535.,3500.], 0 ,900)
+axes.set_xscale("log")
+#axes.set_yscale("log")
+fig.savefig("my_vel.pdf")
+no_rows = 1
+
+limm = 360
+fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
+#f = 1E5*(v_my-v_Beard ) / v_Beard
+axes.plot(R_Beard[limm:], v_my[limm:] )
+axes.plot(R_Beard[limm:], v_Beard[limm:] )
+axes.axvline(3500.)
+axes.set_xscale("log")
+#axes.set_yscale("log")
+fig.savefig("my_vel_high_R.pdf")
+
+
 
 #%% FULL KERNEL COMPARE
 
-no_rows = 4
-plot_every_R = 10
-fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
-ax = axes[0]
-ax.plot(R_Beard, 100*(v_my-v_Beard ) / v_Beard )
-#ax.plot(radius_grid, (mass_grid-mass_grid_my)/mass_grid)
-ax = axes[1]
-for i,R1 in enumerate(radius_grid[::plot_every_R]):
-#    ax.plot(radius_grid, cck[i*plot_every_R], label=f"{R1:.3}")
-    ax.plot(radius_grid,
-            (cck_my[i*plot_every_R] - cck[i*plot_every_R]) / (cck[i*plot_every_R] +1E-6) ,
-                          label=f"{R1:.2}")
-ax.grid()
-ax.legend()
-
-ax = axes[2]
-ax.plot(radius_grid, kernel_max_dev)
-
-ax = axes[3]
-ax.plot(radius_grid, radius_grid[kernel_max_dev_ind])
+#no_rows = 4
+#plot_every_R = 10
+#fig, axes = plt.subplots(no_rows,figsize=(10,6*no_rows))
+#ax = axes[0]
+#ax.plot(R_Beard, 100*(v_my-v_Beard ) / v_Beard )
+##ax.plot(radius_grid, (mass_grid-mass_grid_my)/mass_grid)
+#ax = axes[1]
+#for i,R1 in enumerate(radius_grid[::plot_every_R]):
+##    ax.plot(radius_grid, cck[i*plot_every_R], label=f"{R1:.3}")
+#    ax.plot(radius_grid,
+#            (cck_my[i*plot_every_R] - cck[i*plot_every_R]) / (cck[i*plot_every_R] +1E-6) ,
+#                          label=f"{R1:.2}")
+#ax.grid()
+#ax.legend()
+#
+#ax = axes[2]
+#ax.plot(radius_grid, kernel_max_dev)
+#
+#ax = axes[3]
+#ax.plot(radius_grid, radius_grid[kernel_max_dev_ind])
 
