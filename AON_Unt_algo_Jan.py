@@ -20,7 +20,7 @@ import matplotlib.ticker as mtick
 
 import constants as c
 # from microphysics import compute_mass_from_radius
-from microphysics import compute_radius_from_mass
+from microphysics import compute_radius_from_mass_vec
 from microphysics import compute_radius_from_mass_jit
 # from microphysics import compute_mass_from_radius
 
@@ -132,8 +132,8 @@ def kernel_Golovin(m_i, m_j):
     return 1.5 * (m_i + m_j)
 
 # Kernel "Long" as used in Unterstrasser 2017, which he got from Bott
-four_pi_over_three = 4.0/3.0*math.pi
-four_pi_over_three_inv = 1.0/four_pi_over_three
+#four_pi_over_three = 4.0/3.0*math.pi
+#four_pi_over_three_inv = 1.0/four_pi_over_three
 @njit()
 def kernel_Long_Bott(m_i, m_j):
     R_i = compute_radius_from_mass_jit(m_i*1.0E18,
@@ -153,7 +153,7 @@ def kernel_Long_Bott(m_i, m_j):
     return math.pi * (R_i + R_j) * (R_i + R_j) * E_col * abs(dv) * 1.0E-12
 
 # Kernel "Long" as used in Unterstrasser 2017, which he got from Bott
-four_pi_over_three = 4.0/3.0*math.pi
+#four_pi_over_three = 4.0/3.0*math.pi
 @njit()
 def kernel_Long_Bott_R(R_i, R_j):
 #    R_i = compute_radius_from_mass_jit(m_i*1.0E18,
@@ -246,7 +246,7 @@ def collision_step_Long_Bott_np(xis, masses, dt, dV):
                 # print(j,i,p_crit)
             elif p_crit > rnd[cnt]:
                 xi_rel_dev = (xi_max-xi_min)/xi_max
-                if xi_rel_dev < 1.0E-4:
+                if xi_rel_dev < 1.0E-5:
                     print("xi_i approx xi_j, xi_rel_dev =",
                           xi_rel_dev,
                           " in collision")
@@ -364,9 +364,14 @@ def collision_step_Long_Bott_kernel_grid_np(
 collision_step_Long_Bott_kernel_grid = \
     njit()(collision_step_Long_Bott_kernel_grid_np)
 
+## IN:
+# R1, R2 (in mu)
+# collection effic. E_col (-)
+# absolute difference in terminal velocity (>0) in m/s
+## OUT: Hydrodynamic collection kernel in m^3/s
 @njit()
-def compute_kernel_hydro(R1, R2, E_col, dv):
-    return math.pi * (R1 + R2) * (R1 + R2) * E_col * dv
+def compute_kernel_hydro(R_1, R_2, E_col, dv):
+    return math.pi * (R_1 + R_2) * (R_1 + R_2) * E_col * dv * 1.0E-12
 
 
 #################################################

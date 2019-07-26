@@ -24,15 +24,23 @@ from atmosphere import compute_surface_tension_water,\
 # from radius in microns 
 # and density in kg/m^3
 @vectorize("float64(float64,float64)")
-def compute_mass_from_radius(radius_, density_):
+def compute_mass_from_radius_vec(radius_, density_):
+    return c.pi_times_4_over_3 * density_ * radius_ * radius_ * radius_ 
+
+@njit()
+# jitted for single mass value when function is used in another jitted function
+def compute_mass_from_radius_jit(radius_, density_):
     return c.pi_times_4_over_3 * density_ * radius_ * radius_ * radius_ 
 
 # compute radius in microns
 # mass in 10^-18 kg, density in kg/m^3, radius in micro meter
+# vectorize for mass array
 @vectorize("float64(float64,float64)")
-def compute_radius_from_mass(mass_, density_):
+def compute_radius_from_mass_vec(mass_, density_):
     return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
+
 @njit()
+# jitted for single mass value when function is used in another jitted function
 def compute_radius_from_mass_jit(mass_, density_):
     return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
 @vectorize("float64(float64,float64)", target="parallel")
@@ -244,6 +252,7 @@ def compute_particle_reynolds_number(radius_, velocity_dev_, fluid_density_,
 ### microphysics
 
 # use continuous version for now...  
+@njit()
 def compute_water_activity_mf(mass_fraction_solute_, vant_Hoff_):
 #    vant_Hoff =\
 #        np.where(mass_fraction_solute_ < mf_cross,
@@ -256,7 +265,7 @@ def compute_water_activity_mf(mass_fraction_solute_, vant_Hoff_):
     return (1 - mass_fraction_solute_)\
          / ( 1 - ( 1 - molar_mass_ratio_w_NaCl * vant_Hoff_ )
                  * mass_fraction_solute_ )
-
+@njit()
 def compute_kelvin_term_mf(mass_fraction_solute_,
                         temperature_,
                         mass_solute_,
@@ -293,7 +302,7 @@ def compute_kelvin_term_mf(mass_fraction_solute_,
 #                compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
 #                compute_density_particle(mass_fraction_solute_, temperature_),
 #                compute_surface_tension_water(temperature_))
-
+@njit()
 def compute_kelvin_raoult_term_mf(mass_fraction_solute_,
                                       temperature_,
                                       vant_Hoff_,
@@ -306,7 +315,7 @@ def compute_kelvin_raoult_term_mf(mass_fraction_solute_,
                                mass_solute_,
                                mass_density_particle_,
                                surface_tension_)
-
+@njit()
 def compute_kelvin_raoult_term_NaCl_mf(mass_fraction_solute_,
                                            temperature_,
                                            mass_solute_):
@@ -360,7 +369,7 @@ def compute_kelvin_raoult_term_minus_S_amb_NaCl_mf(mass_fraction_solute_,
 # this function was tested and yields the same results as the non-vectorized
 # version. The old version had to be modified because inside vectorized
 # function, you can not create another function via lambda: 
-@vectorize( "float64(float64,float64,float64)" )
+@vectorize( "float64(float64,float64,float64)", forceobj=True )
 def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
                                               ambient_saturation_,
                                               ambient_temperature_,

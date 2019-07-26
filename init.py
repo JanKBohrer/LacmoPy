@@ -454,6 +454,14 @@ def generate_random_positions(grid, no_spc, seed):
 
 #%% GENERATE SIP ENSEMBLES
 
+### NEW APPROACH AFTER UNTERSTRASSER CODE 
+    
+
+
+
+#############################################################################
+### OLD APPROACH
+
 # par = "rate" parameter "k" of the expo distr: k*exp(-k*m) (in 10^18 kg)
 # no_rpc = number of real particles in cell
 def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(

@@ -446,7 +446,7 @@ def generate_and_save_SIP_ensembles_SingleSIP_prob(
         generate_SIP_ensemble_SingleSIP_Unt = \
             generate_SIP_ensemble_SingleSIP_Unt_expo
         DNC0 = dist_par[0]
-        DNC0_over_LWC0 = dist_par[1]
+#        DNC0_over_LWC0 = dist_par[1]
         ensemble_parameters = [dV, DNC0, LWC0, r_critmin,
                                kappa, eta, no_sims, start_seed]
     elif dist == "lognormal":
