@@ -337,7 +337,7 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     # print("len(bin_centers) after =", len(bin_centers))
 
     # radii = compute_radius_from_mass(m_sort, c.mass_density_water_liquid_NTP)
-    radii = compute_radius_from_mass(bin_centers,
+    radii = compute_radius_from_mass_vec(bin_centers,
                                      c.mass_density_water_liquid_NTP)
     
     ###
@@ -545,7 +545,7 @@ def sample_masses(m_w, m_s, xi, cells, target_cell, no_cells_x, no_cells_z):
     
     return m_wat, m_dry, multi, i, j
 
-from microphysics import compute_radius_from_mass,\
+from microphysics import compute_radius_from_mass_vec,\
                          compute_R_p_w_s_rho_p
 import constants as c
 # we always assume the only quantities stored are m_s, m_w, xi
@@ -559,7 +559,7 @@ def sample_radii(m_w, m_s, xi, cells, grid_temperature,
     # print(m_wat)
     # print(m_dry)
     # print(multi)
-    R_s = compute_radius_from_mass(m_dry, c.mass_density_NaCl_dry)
+    R_s = compute_radius_from_mass_vec(m_dry, c.mass_density_NaCl_dry)
     T_p = grid_temperature[i,j]
     R, w_s, rho_p = compute_R_p_w_s_rho_p(m_wat, m_dry, T_p)
     return R, R_s, multi        

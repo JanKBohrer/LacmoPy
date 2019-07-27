@@ -107,10 +107,10 @@ def simulate_collisions(SIP_quantities,
     
 ### ANALYSIS OF SIM DATA
 
-# given kappa
-load_dir =\
-sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
-def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir):
+# for given kappa:
+# the simulation yields masses in unit 1E-18 kg
+# to compare moments etc with Unterstrasser, masses are converted to kg
+def analyze_sim_data(kappa, mass_density, dV, no_sims, start_seed, no_bins, load_dir):
     # f"/mnt/D/sim_data/col_box_mod/results/{kernel_name}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
     # f"/mnt/D/sim_data/col_box_mod/results/{kernel_name}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/perm/"
     
@@ -121,7 +121,9 @@ def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir
     masses_vs_time = []
     xis_vs_time = []
     for seed in seed_list:
-        masses_vs_time.append(np.load(load_dir + f"masses_vs_time_{seed}.npy"))
+        # convert to kg
+        masses_vs_time.append(1E-18*np.load(load_dir + f"masses_vs_time_{seed}.npy"))
+#        masses_vs_time.append(np.load(load_dir + f"masses_vs_time_{seed}.npy"))
         xis_vs_time.append(np.load(load_dir + f"xis_vs_time_{seed}.npy"))
     
     masses_vs_time_T = []
@@ -169,9 +171,10 @@ def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir
     
         m_min = masses_sampled.min()
         m_max = masses_sampled.max()
-
-        R_min = compute_radius_from_mass_jit(m_min, mass_density)
-        R_max = compute_radius_from_mass_jit(m_max, mass_density)
+        
+        # convert to microns
+        R_min = compute_radius_from_mass_jit(1E18*m_min, mass_density)
+        R_max = compute_radius_from_mass_jit(1E18*m_max, mass_density)
 
         xi_min = xis_sampled.min()
         xi_max = xis_sampled.max()
@@ -207,7 +210,8 @@ def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir
         # bins_mass_log = np.log(bins_mass)
     
         bins_mass_vs_time[time_n] = bins_mass
-        bins_rad = compute_radius_from_mass_vec(bins_mass, mass_density)
+        # convert to microns
+        bins_rad = compute_radius_from_mass_vec(1E18*bins_mass, mass_density)
         bins_mass_log = np.log(bins_mass)
         bins_rad_log = np.log(bins_rad)
     
@@ -247,8 +251,9 @@ def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir
         bins_mass_center_exact = bins_mass[:-1] \
                                  + m_avg * np.log(bins_mass_width\
               / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
+        # convert to microns
         bins_rad_center_exact =\
-            compute_radius_from_mass_vec(bins_mass_center_exact,
+            compute_radius_from_mass_vec(1E18*bins_mass_center_exact,
                                          mass_density)
         bins_mass_centers.append( np.array((bins_mass_center_lin,
                                   bins_mass_center_log,
@@ -266,7 +271,8 @@ def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir
     
     
         for sim_n,mass in enumerate(masses):
-            rad = compute_radius_from_mass_vec(mass, mass_density)
+            # convert to microns
+            rad = compute_radius_from_mass_vec(1E18*mass, mass_density)
             f_m_num.append(np.histogram(mass, bins_mass, weights=xis[sim_n])[0] \
                            / (bins_mass_width * dV))
             g_m_num.append(np.histogram(mass, bins_mass, weights=xis[sim_n]*mass)[0] \
@@ -294,10 +300,10 @@ def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir
         g_ln_r_num_avg_vs_time[time_n] = np.average(g_ln_r_num, axis=0)
         g_ln_r_num_std_vs_time[time_n] = \
             np.std(g_ln_r_num, axis=0, ddof=1) / np.sqrt(no_sims)
-    
-    R_min_vs_time = compute_radius_from_mass_vec(m_min_vs_time,
+    # convert to microns
+    R_min_vs_time = compute_radius_from_mass_vec(1E18*m_min_vs_time,
                                                  mass_density)
-    R_max_vs_time = compute_radius_from_mass_vec(m_max_vs_time,
+    R_max_vs_time = compute_radius_from_mass_vec(1E18*m_max_vs_time,
                                                  mass_density)
     
     moments_vs_time_avg = np.average(moments_vs_time, axis=2)
@@ -332,8 +338,6 @@ def analyze_sim_data(mass_density, kappa, no_sims, start_seed, no_bins, load_dir
 
 
 # PLOTTING
-load_dir =\
-sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
 def plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
                          kernel_name, gen_method, bin_method, load_dir):
     save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
@@ -473,11 +477,11 @@ gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
 ### PLOT MOMENTS VS TIME for several kappa
 
 # TTFS, LFS, TKFS: title, labels, ticks font size
-#fig_dir = \
-#sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/{gen_method}/eta_{eta:.0e}/"
 def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                            kernel_name, gen_method,
-                           dist, start_seed, ref_data_path, sim_data_path, fig_dir, TTFS, LFS, TKFS):
+                           dist, start_seed, ref_data_path, sim_data_path,
+                           result_path_add,
+                           fig_dir, TTFS, LFS, TKFS):
     mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
                                    5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
     
@@ -497,7 +501,7 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
 
     no_kappas = len(kappa_list)
     
-    fig_name = f"moments_vs_time_kappa_var_{no_kappas}_"
+    fig_name = f"moments_vs_time_kappa_var_{no_kappas}"
     # fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
     fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
     no_rows = 4
@@ -507,10 +511,7 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
     mom0_last_time = np.zeros(len(kappa_list),dtype=np.float64)
     
     for kappa_n,kappa in enumerate(kappa_list):
-        load_dir = \
-        sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/dt_{int(dt)}/"
-        # load_dir = \
-        # f"/mnt/D/sim_data/col_box_mod/results/{kernel_name}/{gen_method}/kappa_{kappa}/dt_{int(dt)}/"
+        load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
         save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
         moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
         moments_vs_time_avg[:,1] *= 1.0E3
@@ -568,9 +569,10 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         
 #    for mom0_last in mom0_last_time:
 #    print(mom0_last_time/mom0_last_time.min())
-    print(mom0_last_time/mom0_last_time[-2])
-    print(mom0_last_time_Unt/mom0_last_time_Unt.min())
-    print()
+    if len(mom0_last_time) >= 3:
+        print(mom0_last_time/mom0_last_time[-2])
+        print(mom0_last_time_Unt/mom0_last_time_Unt.min())
+        print()
     title=\
 f"Moments of the distribution for various $\kappa$ (see legend)\n\
 dt={dt:.1e}, eta={eta:.0e}, r_critmin=0.6, no_sims={no_sims}, \

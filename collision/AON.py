@@ -22,8 +22,8 @@ from microphysics import compute_radius_from_mass_vec
 # the multiplicities are collected in "xis" (rational, non-integer)
 # the SIP-masses are collected in "masses" (in 1E-18 kg)
 # the collection pair (i-j) order is the same as in Unterstrasser
-def collision_step_Long_Bott_m_np(xis, masses, dt_over_dV, no_cols,
-                                  mass_density):
+def collision_step_Long_Bott_m_np(xis, masses, mass_density, dt_over_dV,
+                                  no_cols):
     # check each i-j combination for a possible collection event
     no_SIPs = xis.shape[0]
     # ind = generate_permutation(no_SIPs)
@@ -187,7 +187,6 @@ def collision_step_Long_Bott_Ecol_grid_R_np(
         xis, masses, radii, vel, mass_densities,
         dt_over_dV, E_col_grid, no_kernel_bins,
         R_kernel_low_log, bin_factor_R_log, no_cols):
-    
     no_SIPs = xis.shape[0]
 
     rnd = np.random.rand( (no_SIPs*(no_SIPs-1))//2 )
@@ -273,113 +272,113 @@ collision_step_Long_Bott_Ecol_grid_R = \
 
 #%% METHOD TEST
 
-OS = "LinuxDesk"
-# OS = "MacOS"
-
-kernel_method = "kernel_grid_m"
-#kernel_method = "Ecol_grid"
-#kernel_method = "analytic"
-
-#args = [1,0,0,0]
-args = [0,1,1,1]
-# args = [1,1,1,1]
-
-# simulate = True
-# analyze = True
-# plotting = True
-# plot_moments_kappa_var = True
-
-simulate = bool(args[0])
-analyze = bool(args[1])
-plotting = bool(args[2])
-plot_moments_kappa_var = bool(args[3])
-
-dist = "expo"
-
-kappa = 20
-
-# kappa = 800
-
-#kappa_list=[400]
-#kappa_list=[5]
-#kappa_list=[5,10,20,40]
-# kappa_list=[5,10,20,40,60,100,200]
-# kappa_list=[5,10,20,40,60,100,200,400]
-kappa_list=[5,10,20,40,60,100,200,400]
-# kappa_list=[5,10,20,40,60,100,200,400,600,800]
-# kappa_list=[600]
-# kappa_list=[800]
-
-eta = 1.0E-9
-
-# no_sims = 163
-# no_sims = 450
-no_sims = 500
-# no_sims = 50
-# no_sims = 250
-
-# no_sims = 94
-
-start_seed = 3711
-# start_seed = 4523
-# start_seed = 4127
-# start_seed = 4107
-# start_seed = 4385
-# start_seed = 3811
-
-seed = start_seed
-
-no_bins = 50
-
-gen_method = "SinSIP"
-# kernel = "Golovin"
-kernel_name = "Long_Bott"
-
-bin_method = "auto_bin"
-
-# dt = 1.0
-dt = 10.0
-#dt = 20.0
-#dt = 50.0
-dV = 1.0
-# dt_save = 40.0
-dt_save = 300.0
-# t_end = 200.0
-t_end = 3600.0
-
-mass_density = 1.0E3
-
-
-if OS == "MacOS":
-    sim_data_path = "/Users/bohrer/sim_data/"
-elif OS == "LinuxDesk":
-    sim_data_path = "/mnt/D/sim_data_my_kernel_grid_strict_thresh/"
-#    sim_data_path = "/mnt/D/sim_data/"
-    
-ensemble_dir =\
-    sim_data_path + \
-    f"col_box_mod/ensembles/{dist}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/"
-
-masses = np.load(ensemble_dir + f"masses_seed_{seed}.npy")
-xis = np.load(ensemble_dir + f"xis_seed_{seed}.npy")
-
-masses*=1E18
-
-radii = compute_radius_from_mass(masses, mass_density)
-mass_densities = np.ones_like(radii) * mass_density
-# for testing
-vel = np.zeros_like(radii)
-for i in range (len(vel)):
-    vel[i] = kernel.compute_terminal_velocity_Beard(radii[i])
-
-m0 = np.copy(masses)
-xi0 = np.copy(xis)
-
-dt_over_dV = dt/dV
-
-np.random.seed(seed)
-
-no_cols = np.array( (0,0) )
+#OS = "LinuxDesk"
+## OS = "MacOS"
+#
+#kernel_method = "kernel_grid_m"
+##kernel_method = "Ecol_grid"
+##kernel_method = "analytic"
+#
+##args = [1,0,0,0]
+#args = [0,1,1,1]
+## args = [1,1,1,1]
+#
+## simulate = True
+## analyze = True
+## plotting = True
+## plot_moments_kappa_var = True
+#
+#simulate = bool(args[0])
+#analyze = bool(args[1])
+#plotting = bool(args[2])
+#plot_moments_kappa_var = bool(args[3])
+#
+#dist = "expo"
+#
+#kappa = 20
+#
+## kappa = 800
+#
+##kappa_list=[400]
+##kappa_list=[5]
+##kappa_list=[5,10,20,40]
+## kappa_list=[5,10,20,40,60,100,200]
+## kappa_list=[5,10,20,40,60,100,200,400]
+#kappa_list=[5,10,20,40,60,100,200,400]
+## kappa_list=[5,10,20,40,60,100,200,400,600,800]
+## kappa_list=[600]
+## kappa_list=[800]
+#
+#eta = 1.0E-9
+#
+## no_sims = 163
+## no_sims = 450
+#no_sims = 500
+## no_sims = 50
+## no_sims = 250
+#
+## no_sims = 94
+#
+#start_seed = 3711
+## start_seed = 4523
+## start_seed = 4127
+## start_seed = 4107
+## start_seed = 4385
+## start_seed = 3811
+#
+#seed = start_seed
+#
+#no_bins = 50
+#
+#gen_method = "SinSIP"
+## kernel = "Golovin"
+#kernel_name = "Long_Bott"
+#
+#bin_method = "auto_bin"
+#
+## dt = 1.0
+#dt = 10.0
+##dt = 20.0
+##dt = 50.0
+#dV = 1.0
+## dt_save = 40.0
+#dt_save = 300.0
+## t_end = 200.0
+#t_end = 3600.0
+#
+#mass_density = 1.0E3
+#
+#
+#if OS == "MacOS":
+#    sim_data_path = "/Users/bohrer/sim_data/"
+#elif OS == "LinuxDesk":
+#    sim_data_path = "/mnt/D/sim_data_my_kernel_grid_strict_thresh/"
+##    sim_data_path = "/mnt/D/sim_data/"
+#    
+#ensemble_dir =\
+#    sim_data_path + \
+#    f"col_box_mod/ensembles/{dist}/{gen_method}/eta_{eta:.0e}/kappa_{kappa}/"
+#
+#masses = np.load(ensemble_dir + f"masses_seed_{seed}.npy")
+#xis = np.load(ensemble_dir + f"xis_seed_{seed}.npy")
+#
+#masses*=1E18
+#
+#radii = compute_radius_from_mass_vec(masses, mass_density)
+#mass_densities = np.ones_like(radii) * mass_density
+## for testing
+#vel = np.zeros_like(radii)
+#for i in range (len(vel)):
+#    vel[i] = kernel.compute_terminal_velocity_Beard(radii[i])
+#
+#m0 = np.copy(masses)
+#xi0 = np.copy(xis)
+#
+#dt_over_dV = dt/dV
+#
+#np.random.seed(seed)
+#
+#no_cols = np.array( (0,0) )
 
 #%%
 
@@ -411,29 +410,29 @@ def generate_E_col_grid_Long_Bott_np(R_low, R_high, no_bins_10,
 generate_E_col_grid_Long_Bott = \
     njit()(generate_E_col_grid_Long_Bott_np)
 
-R_low = 0.6
-R_high = 6E3
-no_bins_10 = 20
-
-E_col_grid, radius_grid = \
-    generate_E_col_grid_Long_Bott(R_low, R_high, no_bins_10, mass_density)
-
-no_kernel_bins = len(radius_grid)
-R_kernel_low = radius_grid[0]
-bin_factor_R = radius_grid[1] / radius_grid[0]
-R_kernel_low_log = math.log(R_kernel_low)
-bin_factor_R_log = math.log(bin_factor_R)
-
-no_steps = 360
-for step_n in range(no_steps):
-    collision_step_Long_Bott_Ecol_grid_R(
-        xis, masses, radii, vel, mass_densities,
-        dt_over_dV, E_col_grid, no_kernel_bins,
-        R_kernel_low_log, bin_factor_R_log, no_cols)
-    print(step_n, no_cols)
-
-print(masses-m0)
-print(xis-xi0)
+#R_low = 0.6
+#R_high = 6E3
+#no_bins_10 = 20
+#
+#E_col_grid, radius_grid = \
+#    generate_E_col_grid_Long_Bott(R_low, R_high, no_bins_10, mass_density)
+#
+#no_kernel_bins = len(radius_grid)
+#R_kernel_low = radius_grid[0]
+#bin_factor_R = radius_grid[1] / radius_grid[0]
+#R_kernel_low_log = math.log(R_kernel_low)
+#bin_factor_R_log = math.log(bin_factor_R)
+#
+#no_steps = 360
+#for step_n in range(no_steps):
+#    collision_step_Long_Bott_Ecol_grid_R(
+#        xis, masses, radii, vel, mass_densities,
+#        dt_over_dV, E_col_grid, no_kernel_bins,
+#        R_kernel_low_log, bin_factor_R_log, no_cols)
+#    print(step_n, no_cols)
+#
+#print(masses-m0)
+#print(xis-xi0)
 
 #%% TESTING collision steps
 
