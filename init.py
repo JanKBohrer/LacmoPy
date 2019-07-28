@@ -15,9 +15,10 @@ from numba import njit
 import constants as c
 from grid import Grid
 from grid import interpolate_velocity_from_cell_bilinear
-from microphysics import compute_mass_from_radius,\
+from microphysics import compute_mass_from_radius_jit
+from microphysics import compute_mass_from_radius_vec,\
                          compute_initial_mass_fraction_solute_NaCl,\
-                         compute_radius_from_mass,\
+                         compute_radius_from_mass_vec,\
                          compute_density_particle,\
                          compute_dml_and_gamma_impl_Newton_full_np,\
                          compute_R_p_w_s_rho_p
@@ -469,7 +470,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
         eta=1.0E-9, seed=4711, setseed = True):
     
     if setseed: np.random.seed(seed)
-    m_low = compute_mass_from_radius(r_critmin,
+    m_low = compute_mass_from_radius_jit(r_critmin,
                                      c.mass_density_water_liquid_NTP)
     # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
     #                                            cnt_lim=1E8)
@@ -581,7 +582,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint(
         eta=1.0E-9, seed=4711, setseed = True):
     
     if setseed: np.random.seed(seed)
-    m_low = compute_mass_from_radius(r_critmin,
+    m_low = compute_mass_from_radius_jit(r_critmin,
                                      c.mass_density_water_liquid_NTP)
     # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
     #                                            cnt_lim=1E8)
@@ -696,7 +697,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint2(
         par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40,
         eta=1.0E-9, seed=4711, setseed = True):
     bin_factor = 10**(1.0/kappa)
-    m_low = compute_mass_from_radius(r_critmin,c.mass_density_water_liquid_NTP)
+    m_low = compute_mass_from_radius_jit(r_critmin,c.mass_density_water_liquid_NTP)
     m_left = m_low
     # l_max = kappa * log_10(m_high/m_low)
     l_max = int(kappa * np.log10(m_high_by_m_low)) + 1
@@ -1226,7 +1227,7 @@ def initialize_grid_and_particles(
     ID = 0
     
     # number of super particles
-    no_spcm = np.array(no_spcm) # input: no super part. per cell and mode
+    no_spcm = np.array(no_spcm) # input: nr of super part. per cell and mode
     no_spct = np.sum(no_spcm) # no super part. per cell (total)
     # no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
     
@@ -1240,7 +1241,7 @@ def initialize_grid_and_particles(
 #    print(R_s)
 #    print()
                    
-    m_s = compute_mass_from_radius(R_s, c.mass_density_NaCl_dry)
+    m_s = compute_mass_from_radius_vec(R_s, c.mass_density_NaCl_dry)
     w_s = np.zeros_like(m_s) # init weight fraction
     m_w = np.zeros_like(m_s) # init particle water masses to zero
     m_p = np.zeros_like(m_s) # init particle full mass
@@ -1331,6 +1332,8 @@ def initialize_grid_and_particles(
             # print("no_rpcm[l]")
             # print(weights_R_s[l][:,j])
             # print(no_rpcm[l])
+            # the number concentration is not constant but depends on the
+            # mass density of the vicinity
             xi[l][:,j] = np.rint(weights_R_s[l][:,j]
                                  * no_rpcm[np.nonzero(no_spcm)][l]).astype(int)
             # print("xi[l][:,j]")
@@ -1341,7 +1344,7 @@ def initialize_grid_and_particles(
                           R_s[l][:,j], S_avg, T_avg)
             m_p[l][:,j] = m_s[l][:,j] / w_s[l][:,j]
             rho_p[l][:,j] = compute_density_particle(w_s[l][:,j], T_avg)
-            R_p[l][:,j] = compute_radius_from_mass(m_p[l][:,j], rho_p[l][:,j])
+            R_p[l][:,j] = compute_radius_from_mass_vec(m_p[l][:,j], rho_p[l][:,j])
             m_w[l][:,j] = m_p[l][:,j] - m_s[l][:,j]
             dm_l_level += np.sum(m_w[l][:,j] * xi[l][:,j])
             dm_p_level += np.sum(m_p[l][:,j] * xi[l][:,j])

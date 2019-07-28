@@ -142,7 +142,7 @@ def compute_R_p_w_s_rho_p_par(m_w, m_s, T_p):
     m_p = m_w + m_s
     w_s = m_s / m_p
     rho_p = compute_density_particle(w_s, T_p)
-    return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
+    return compute_radius_from_mass_jit(m_p, rho_p), w_s, rho_p
     
 def compute_particle_radius_from_ws_T_ms( mass_fraction_solute_,
                                          temperature_, dry_mass_):
@@ -376,7 +376,7 @@ def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
                                               # opt = 'None'
                                               ):
     # 0.
-    m_s = compute_mass_from_radius(radius_dry_, c.mass_density_NaCl_dry)
+    m_s = compute_mass_from_radius_jit(radius_dry_, c.mass_density_NaCl_dry)
     w_s_effl = compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
     # 1.
     S_effl = compute_kelvin_raoult_term_NaCl_mf(w_s_effl,
@@ -896,7 +896,7 @@ def compute_dml_and_gamma_impl_Newton_lin_np(
         m_p = mass_new + m_s
         w_s = m_s / m_p
         rho = compute_density_particle(w_s, T_p)
-        R = compute_radius_from_mass(m_p, rho)
+        R = compute_radius_from_mass_jit(m_p, rho)
         gamma = compute_mass_rate(
                     mass_new, m_s, w_s, R, T_p, rho,
                     T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w)
@@ -940,7 +940,7 @@ def compute_dml_and_gamma_impl_Newton_full_np(
         m_p = mass_new + m_s
         w_s = m_s / m_p
         rho = compute_density_particle(w_s, T_p)
-        R = compute_radius_from_mass(m_p, rho)
+        R = compute_radius_from_mass_jit(m_p, rho)
         gamma, dgamma_dm = compute_mass_rate_and_derivative(
                                mass_new, m_s, w_s, R, T_p, rho,
                                T_amb, p_amb, S_amb, e_s_amb,

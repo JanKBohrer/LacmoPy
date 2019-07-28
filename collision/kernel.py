@@ -207,9 +207,9 @@ def compute_terminal_velocity_Beard_my_mat_const(R):
 # in Hall_E_col:
 # row =  collector drop radius (radius of larger drop)
 # column = ratio of R_small/R_large "collector ratio"  
-Hall_E_col = np.load("kernel_data/Hall/Hall_collision_efficiency.npy")
-Hall_R_col = np.load("kernel_data/Hall/Hall_collector_radius.npy")
-Hall_R_col_ratio = np.load("kernel_data/Hall/Hall_radius_ratio.npy")
+Hall_E_col = np.load("collision/kernel_data/Hall/Hall_collision_efficiency.npy")
+Hall_R_col = np.load("collision/kernel_data/Hall/Hall_collector_radius.npy")
+Hall_R_col_ratio = np.load("collision/kernel_data/Hall/Hall_radius_ratio.npy")
 @njit()
 def linear_weight(i, weight, f):
     return f[i+1]*weight + f[i]*(1.0-weight)
@@ -260,11 +260,9 @@ def compute_E_col_Long_Bott(R_i, R_j):
         R_min = R_j
         
     if R_max <= 50:
-        E_col = 4.5E-4 * R_max * R_max \
+        return 4.5E-4 * R_max * R_max \
                 * ( 1.0 - 3.0 / ( max(3.0, R_min) + 1.0E-2) )
-    else: E_col = 1.0    
-    
-    return E_col
+    else: return 1.0    
     
 ### Kernel "Hall" used by Unterstrasser 2017, he got it from Bott bin-code
 # NOTE that there are differences in the Effi table:        
@@ -277,9 +275,9 @@ def compute_E_col_Long_Bott(R_i, R_j):
 # in Hall_E_col:
 # row =  collector drop radius (radius of larger drop)
 # column = ratio of R_small/R_large "collector ratio"  
-Hall_Bott_E_col = np.load("kernel_data/Hall/Hall_Bott_collision_efficiency.npy")
-Hall_Bott_R_col = np.load("kernel_data/Hall/Hall_Bott_collector_radius.npy")
-Hall_Bott_R_col_ratio = np.load("kernel_data/Hall/Hall_Bott_radius_ratio.npy")        
+Hall_Bott_E_col = np.load("collision/kernel_data/Hall/Hall_Bott_collision_efficiency.npy")
+Hall_Bott_R_col = np.load("collision/kernel_data/Hall/Hall_Bott_collector_radius.npy")
+Hall_Bott_R_col_ratio = np.load("collision/kernel_data/Hall/Hall_Bott_radius_ratio.npy")        
 @njit()
 def compute_E_col_Hall_Bott(R_i, R_j):
     dR_ipol = 2.0
@@ -349,5 +347,111 @@ def compute_kernel_Long_Bott_m(m_i, m_j, mass_density):
     R_j = compute_radius_from_mass_jit(m_j, mass_density)
     return compute_kernel_Long_Bott_R(R_i, R_j)
 
+#%% GENERATION (DISCRETIZATION) OF KERNEL AND EFFICIENCY GRIDS
+    
+# R_low, R_high in mu = 1E-6 m
+# no_bins_10: number of bins per radius decade
+# mass_density in kg/m^3
+# R_low and R_high are both included in the radius_grid range interval
+# but R_high itself might NOT be a value of the radius_grid
+# (which is def by no_bins_10 and R_low)
+def generate_kernel_grid_Long_Bott_np(R_low, R_high, no_bins_10,
+                                      mass_density):
+    
+    bin_factor = 10**(1.0/no_bins_10)
+    
+    no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
+    
+    radius_grid = np.zeros( no_bins, dtype = np.float64 )
+    radius_grid[0] = R_low
+    for bin_n in range(1,no_bins):
+        radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor
+    
+    # generate velocity grid first at pos. of radius_grid
+    
+    vel_grid = compute_terminal_velocity_Beard_vec(radius_grid)
+    
+#    vel_grid = np.zeros( no_bins, dtype = np.float64 )
+#    for i in range(no_bins):
+#        vel_grid[i] = compute_terminal_velocity_Beard(radius_grid[i])
+    
+    kernel_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
+    
+    for j in range(1,no_bins):
+        R_j = radius_grid[j]
+        v_j = vel_grid[j]
+        for i in range(j):
+            R_i = radius_grid[i]
+            ### Kernel "LONG" provided by Bott (via Unterstrasser)
+            if R_j <= 50.0:
+                E_col = 4.5E-4 * R_j * R_j \
+                        * ( 1.0 - 3.0 / ( max(3.0, R_i) + 1.0E-2 ) )
+            else: E_col = 1.0
+            
+            kernel_grid[j,i] = 1.0E-12 * math.pi * (R_i + R_j) * (R_i + R_j) \
+                               * E_col * abs(v_j - vel_grid[i]) 
+            kernel_grid[i,j] = kernel_grid[j,i]
 
+    c_radius_to_mass = 4.0E-18 * math.pi * mass_density / 3.0
+#    c_mass_to_radius = 1.0 / c_radius_to_mass
+    mass_grid = c_radius_to_mass * radius_grid**3
 
+    return kernel_grid, vel_grid, mass_grid, radius_grid
+generate_kernel_grid_Long_Bott = njit()(generate_kernel_grid_Long_Bott_np)
+
+# R_low, R_high in mu = 1E-6 m
+# no_bins_10: number of bins per radius decade
+# mass_density in kg/m^3
+# R_low and R_high are both included in the radius_grid range interval
+# but R_high itself might NOT be a value of the radius_grid
+# (which is def by no_bins_10 and R_low)
+def generate_and_save_kernel_grid_Long_Bott(R_low, R_high, no_bins_10,
+                                               mass_density, save_dir):
+    kernel_grid, vel_grid, mass_grid, radius_grid = \
+        generate_kernel_grid_Long_Bott(R_low, R_high, no_bins_10,
+                                       mass_density)
+    
+    np.save(save_dir + "radius_grid_out.npy", radius_grid)
+    np.save(save_dir + "mass_grid_out.npy", mass_grid)
+    np.save(save_dir + "kernel_grid.npy", kernel_grid)
+    np.save(save_dir + "velocity_grid.npy", vel_grid)        
+    
+    return kernel_grid, vel_grid, mass_grid, radius_grid
+
+def generate_E_col_grid_Long_Bott_np(R_low, R_high, no_bins_10):
+
+    bin_factor = 10**(1.0/no_bins_10)
+    no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
+    radius_grid = np.zeros( no_bins, dtype = np.float64 )
+    
+    radius_grid[0] = R_low
+    for bin_n in range(1,no_bins):
+        radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor
+    
+    # vel grid ONLY for testing...
+#    vel_grid = np.zeros( no_bins, dtype = np.float64 )
+#    for i in range(no_bins):
+#        vel_grid[i] = kernel.compute_terminal_velocity_Beard(radius_grid[i])
+    
+    E_col_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
+    
+    for j in range(0,no_bins):
+        R_j = radius_grid[j]
+        for i in range(j+1):
+            E_col_grid[j,i] = compute_E_col_Long_Bott(radius_grid[i], R_j)
+            E_col_grid[i,j] = E_col_grid[j,i]
+    
+    return E_col_grid, radius_grid
+#    return E_col_grid, radius_grid, vel_grid
+generate_E_col_grid_Long_Bott = \
+    njit()(generate_E_col_grid_Long_Bott_np)
+
+def generate_and_save_E_col_grid_Long_Bott(R_low, R_high,
+                                           no_bins_10, save_dir):
+    E_col_grid, radius_grid = \
+        generate_E_col_grid_Long_Bott(R_low, R_high, no_bins_10)
+    
+    np.save(save_dir + "radius_grid_out.npy", radius_grid)
+    np.save(save_dir + "E_col_grid.npy", E_col_grid)
+    
+    return E_col_grid, radius_grid

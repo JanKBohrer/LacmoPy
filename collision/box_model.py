@@ -10,12 +10,13 @@ Created on Thu Jul 25 16:31:53 2019
 
 import math
 import numpy as np
-from numba import njit
+#from numba import njit
 import matplotlib.pyplot as plt
 
-import kernel
-from kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
-                   compute_E_col_Long_Bott, update_velocity_Beard
+#import kernel
+#from kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
+#                   compute_E_col_Long_Bott
+from kernel import update_velocity_Beard
 from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_radius_from_mass_vec
 
@@ -62,7 +63,7 @@ def simulate_collisions(SIP_quantities,
     save_times = np.zeros(no_saves)
     # step_n = 0
     save_n = 0
-    if kernel_method == "Ecol_grid":
+    if kernel_method == "Ecol_grid_R":
         for step_n in range(no_steps):
             if step_n % dn_save == 0:
                 t = step_n * dt
@@ -72,10 +73,10 @@ def simulate_collisions(SIP_quantities,
                 save_n += 1
             # for box model: calc. velocity from terminal vel.
             # in general: vel given from dynamic simulation
-            update_velocity_Beard(vel,radii)
             collision_step(xis, masses, radii, vel, mass_densities,
                            dt_over_dV, E_col_grid, no_kernel_bins,
                            R_kernel_low_log, bin_factor_R_log, no_cols)
+            update_velocity_Beard(vel,radii)
     elif kernel_method == "kernel_grid_m":
         for step_n in range(no_steps):
             if step_n % dn_save == 0:
@@ -97,7 +98,8 @@ def simulate_collisions(SIP_quantities,
                 save_n += 1
             collision_step(xis, masses, mass_density, dt_over_dV, no_cols)
     
-    t = (step_n+1) * dt
+    t = no_steps * dt
+#    t = (step_n+1) * dt
     xis_vs_time[save_n] = np.copy(xis)
     masses_vs_time[save_n] = np.copy(masses)
     save_times[save_n] = t

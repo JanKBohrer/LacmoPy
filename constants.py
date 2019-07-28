@@ -12,6 +12,7 @@ import math
 one_third = 1.0 / 3.0
 # 4/3 * pi
 pi_times_4_over_3 = 4.0 * math.pi / 3.0
+four_pi_over_three = 4.0 * math.pi / 3.0
 # 3 / (4 * pi)
 pi_times_4_over_3_inv = 0.75 / math.pi
 
