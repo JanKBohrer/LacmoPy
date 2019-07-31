@@ -55,13 +55,22 @@ import os
 # from datetime import datetime
 # import timeit
 
+from grid import compute_no_grid_cells_from_step_sizes
+
 # import constants as c
-from init import initialize_grid_and_particles, dst_log_normal
+from init import initialize_grid_and_particles_SinSIP , dst_log_normal
+
+from generate_SIP_ensemble_dst import \
+    gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl
+
+from analysis import plot_pos_vel_pt
+
 # from grid import Grid
 # from grid import interpolate_velocity_from_cell_bilinear,\
 #                  compute_cell_and_relative_position
                  # interpolate_velocity_from_position_bilinear,\
-# from microphysics import compute_radius_from_mass,\
+from microphysics import compute_mass_from_radius_vec
+import constants as c
 #                          compute_R_p_w_s_rho_p
 #                          compute_initial_mass_fraction_solute_NaCl,\
 #                          compute_density_particle,\
@@ -91,8 +100,9 @@ my_OS = "Linux_desk"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
-    simdata_path = home_path + "OneDrive/python/sim_data/"
-    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
+    simdata_path = "/mnt/D/sim_data_cloudMP/test_gen_grid_and_pt/"
+#    sim_data_path = home_path + "OneDrive/python/sim_data/"
+#    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
     home_path = "/Users/bohrer/"
     simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
@@ -103,7 +113,9 @@ elif (my_OS == "Mac"):
 #%% I. GENERATE GRID AND PARTICLES
 # from init import initialize_grid_and_particles
 
+
 # 1a. generate grid and particles + save initial to file
+#%% GRID PARAMETERS
 # domain size
 x_min = 0.0
 x_max = 1500.0
@@ -111,47 +123,137 @@ z_min = 0.0
 z_max = 1500.0
 
 # grid steps
-dx = 20.0
+dx = 150.0
 dy = 1.0
-dz = 20.0
+dz = 150.0
+#dx = 20.0
+#dy = 1.0
+#dz = 20.0
+#dx = 500.0
+#dy = 1.0
+#dz = 500.0
+
+dV = dx*dy*dz
 
 p_0 = 101500 # surface pressure in Pa
 p_ref = 1.0E5 # ref pressure for potential temperature in Pa
-r_tot_0 = 7.5E-3 # kg water / kg dry air
+r_tot_0 = 7.5E-3 # kg water / kg dry air (constant over whole domain in setup)
 # r_tot_0 = 22.5E-3 # kg water / kg dry air
 # r_tot_0 = 7.5E-3 # kg water / kg dry air
 Theta_l = 289.0 # K
-# number density of particles mode 1 and mode 2:
-n_p = np.array([60.0E6, 40.0E6]) # m^3
-# n_p = np.array([60.0E6, 40.0E6]) # m^3
 
-# no_super_particles_cell = [N1,N2] is a list with
+#%% PARTICLE PARAMETERS
+
+# no_super_particles_cell_mode = [N1,N2] is a list with
 # N1 = no super part. per cell in mode 1 etc.
-no_spcm = np.array([4, 4])
-# no_spcm = np.array([0, 4])
+# with init method = SingleSIP, this is only the target value.
+# the true number of particles per cell and mode will fluctuate around this
+no_spcm = np.array([10, 10])
+#no_spcm = np.array([0, 4])
+
+no_cells = compute_no_grid_cells_from_step_sizes(
+               ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
+
+grid_folder =\
+    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"
+
+idx_mode_nonzero = np.nonzero(no_spcm)[0]
+
+no_modes = len(idx_mode_nonzero)
+
+print("no_modes, idx_mode_nonzero:", no_modes, ",", idx_mode_nonzero)
+#print()
 
 ### creating random particles
 # parameters of log-normal distribution:
-dst = dst_log_normal
+#dst = dst_log_normal
+
+dist = "lognormal"
+
+if dist == "lognormal":
+    r_critmin = np.array([0.001, 0.00375]) # mu, # mode 1, mode 2, ..
+    m_high_over_m_low = 1.0E8
+    
+    # droplet number concentration 
+    # set DNC0 manually only for lognormal distr.
+    # number density of particles mode 1 and mode 2:
+    DNC0 = np.array([60.0E6, 40.0E6]) # 1/m^3
+    # n_p = np.array([60.0E6, 40.0E6]) # 1/m^3
+#    DNC0 = 60.0E6 # 1/m^3
+    #DNC0 = 2.97E8 # 1/m^3
+    #DNC0 = 3.0E8 # 1/m^3
+
+    
+    # parameters of radial lognormal distribution -> converted to mass
+    # parameters below
+#    mu_R = 0.02 # in mu
+#    sigma_R = 1.4 #  no unit
+    mu_R = 0.5 * np.array( [0.04, 0.15] )
+    sigma_R = np.array( [1.4,1.6] )
+    
+    if no_modes == 1:
+        no_spcm = no_spcm[idx_mode_nonzero][0]
+        sigma_R = sigma_R[idx_mode_nonzero][0]
+        mu_R = mu_R[idx_mode_nonzero][0]
+#        no_rpcm = no_rpcm[idx_mode_nonzero][0]
+        r_critmin = r_critmin[idx_mode_nonzero][0] # mu
+        DNC0 = DNC0[idx_mode_nonzero][0] # mu
+        
+    else:    
+        no_spcm = no_spcm[idx_mode_nonzero]
+        sigma_R = sigma_R[idx_mode_nonzero]
+        mu_R = mu_R[idx_mode_nonzero]
+#        no_rpcm = no_rpcm[idx_mode_nonzero]
+        r_critmin = r_critmin[idx_mode_nonzero] # mu
+        DNC0 = DNC0[idx_mode_nonzero] # mu
+
+    mu_R_log = np.log( mu_R )
+    sigma_R_log = np.log( sigma_R )    
+    # derive parameters of lognormal distribution of mass f_m(m)
+    # assuming mu_R in mu and density in kg/m^3
+    # mu_m in 1E-18 kg
+    mu_m_log = np.log(compute_mass_from_radius_vec(mu_R,
+                                                   c.mass_density_NaCl_dry))
+    sigma_m_log = 3.0 * sigma_R_log
+    dst_par = (mu_m_log, sigma_m_log)
+
+#%% SINGLE SIP INITIALIZATION PARAMETERS
+
+# derive scaling parameter kappa from no_spcm
+kappa = np.rint( no_spcm / 20 * 35) * 0.1
+kappa = np.maximum(kappa, 0.1)
+print("kappa =", kappa)
+
+eta = 1E-9
+#eta_threshold = "weak"
+eta_threshold = "fix"
+if eta_threshold == "weak":
+    weak_threshold = True
+else: weak_threshold = False
+
+m_high_over_m_low = 1.0E8
+
+reseed = False
+seed = 3711
+rnd_seed = seed
+
+########### OLD WORKING ###################    
 # in log(mu)
-par_sigma = np.log( [1.4,1.6] )
 # par_sigma = np.log( [1.0,1.0] )
 # in mu
-par_r0 = 0.5 * np.array( [0.04, 0.15] )
-dst_par = []
-for i,sig in enumerate(par_sigma):
-    dst_par.append([par_r0[i],sig])
-dst_par = np.array(dst_par)
+#dst_par = []
+#for i,sig in enumerate(par_sigma):
+#    dst_par.append([mu_R[i],sig])
+#dst_par = np.array(dst_par)
 # parameters of the quantile-integration
-P_min = 0.001
-P_max = 0.999
-dr = 1E-4
-r0 = dr
-r1 = 10 * par_sigma
-reseed = False
-rnd_seed = 4713
+#P_min = 0.001
+#P_max = 0.999
+#dr = 1E-4
+#r0 = dr
+#r1 = 10 * par_sigma
+########### OLD WORKING ###################    
 
-### for saturation adjustment phase
+#%% saturation adjustment phase parameters
 S_init_max = 1.04
 dt_init = 0.1 # s
 # number of iterations for the root finding
@@ -160,19 +262,79 @@ Newton_iterations = 2
 # maximal allowed iter counts in initial particle water take up to equilibrium
 iter_cnt_limit = 800
 
-folder = "grid_75_75_spcm_4_4/"
-# folder = "grid_75_75_spcm_20_20/"
-path = simdata_path + folder
-if not os.path.exists(path):
-    os.makedirs(path)
+#%% DERIVED AND PATH CREATION
 
-grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids =\
-    initialize_grid_and_particles(
+#folder = "grid_75_75_spcm_4_4/"
+# folder = "grid_75_75_spcm_20_20/"
+grid_path = simdata_path + grid_folder
+if not os.path.exists(grid_path):
+    os.makedirs(grid_path)
+
+#%% generate SIP ensembles
+
+seed_list = np.arange(seed, seed + 2*no_cells[1], 2)
+
+masses = []
+xis = []
+cells_x = []
+cells_z = []
+
+#no_spc = []
+no_spc = np.zeros(no_cells, dtype = np.int64)
+# number of real particles per cell and mode
+
+mass_density_air_lvl = 1.
+mass_density_air0 = 1.
+
+#for j in range(no_cells[1]):
+##    no_rpcm = dV * DNC0 * mass_density_air_lvl / mass_density_air0
+#    no_rpcm = dV * DNC0 * mass_density_air_lvl / mass_density_air0
+#    masses_lvl, xis_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
+#        gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
+#                mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
+#                dV, kappa, eta, weak_threshold, r_critmin,
+#                m_high_over_m_low, seed_list[j], no_cells[0], no_rpcm)
+#    # now, masses_lvl , xis_lvl are arrays and can be indexed by cells_x_lvl
+#    # modes_lvl is just for checking
+#    # do magic stuff... init saturation adjustment..
+#    # -> think about, what we need right now: R_s, m_w, m_p, R_p, ...
+#    # other things can be done later by full array operation
+#    masses.append(masses_lvl)
+#    xis.append(xis_lvl)
+#    cells_x.append(cells_x_lvl)
+#    cells_z.append(np.ones_like(cells_x_lvl) * j)
+##    no_spc.append(no_spc_lvl)
+#    no_spc[:,j] = no_spc_lvl
+
+#%% GENERATE GRID AND PARTICLES
+
+#if act_gen_grid:
+grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids, removed_ids = \
+    initialize_grid_and_particles_SinSIP(
         x_min, x_max, z_min, z_max, dx, dy, dz,
         p_0, p_ref, r_tot_0, Theta_l,
-        n_p, no_spcm, dst, dst_par, 
-        P_min, P_max, r0, r1, dr, rnd_seed, reseed,
-        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path)
+        DNC0, no_spcm, no_modes, dist, dst_par,
+        eta, eta_threshold, r_critmin, m_high_over_m_low,
+        rnd_seed, reseed,
+        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, grid_path,
+        logfile = None)
+
+#%%
+
+fig_name = grid_path + "pos_vel_t0.pdf"
+plot_pos_vel_pt(pos, vel, grid,
+                    figsize=(8,8), no_ticks = [11,11],
+                    MS = 1.0, ARRSCALE=10, fig_name=fig_name)
+
+
+
+#grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids =\
+#    initialize_grid_and_particles(
+#        x_min, x_max, z_min, z_max, dx, dy, dz,
+#        p_0, p_ref, r_tot_0, Theta_l,
+#        n_p, no_spcm, dst, dst_par, 
+#        P_min, P_max, r0, r1, dr, rnd_seed, reseed,
+#        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path)
 
 #%% simple plots
 # IN WORK: ADD AUTOMATIC CREATION OF DRY SIZE SPECTRA COMPARED WITH EXPECTED PDF

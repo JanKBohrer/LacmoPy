@@ -708,7 +708,10 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
     ax.set_ylabel(r"concentration (${\mathrm{cm}^{3}}$)", fontsize = LFS)
     # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
     # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
-    ax.set_title( f'height = {height} m', fontsize = TTFS )
+    ax.set_title( f'height = {height} m' +
+                 f" tg cell ({target_cell[0]} {target_cell[1]}) "
+                    + f"+ ({no_cells_x}, {no_cells_z})",
+                    fontsize = TTFS )
     
     # X = np.linspace(1E-2,1.0,1000)
     # Y = np.log(X)
@@ -730,7 +733,10 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
     fig.tight_layout()
     plt.show()
     if fig_path is not None:
-        fig.savefig(fig_path + "spectrum_" + str(height) +".pdf")
+#        fig.savefig(fig_path + "spectrum_" + str(height) +".pdf")
+        fig.savefig(fig_path
+                    + f"spectrum_cell_{target_cell[0]}_{target_cell[1]}_"
+                    + f"pl_{no_cells_x}_{no_cells_z}.pdf")
 
 #%% PLOT GRID SCALAR FIELDS WITH TIME
 

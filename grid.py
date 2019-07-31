@@ -205,7 +205,7 @@ def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
     for i, range_i in enumerate(gridranges_list_):
         no_cells.append(
             int(np.ceil( (range_i[1] - range_i[0]) / stepsizes_list_[i] ) ) )
-    return no_cells
+    return np.array(no_cells)
 
 # grid_scalar_fields = np.array([T, p, Theta, rho_dry, r_v, r_l, S, e_s])
 # grid_mat_prop = np.array([K, D_v, L, sigma_w, c_p_f, mu_f, rho_f])

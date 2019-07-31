@@ -166,8 +166,21 @@ no_spcm = np.array([0, 4])
 
 ### creating random particles
 # parameters of log-normal distribution:
-dst = dst_log_normal
+#dst = dst_log_normal
+dist = "lognormal"
 # in log(mu)
+
+if dist == "lognormal":
+    r_critmin = 0.001 # mu
+    m_high_over_m_low = 1.0E8
+    
+    # set DNC0 manually only for lognormal distr. NOT for expo
+    DNC0 = 60.0E6 # 1/m^3
+    #DNC0 = 2.97E8 # 1/m^3
+    #DNC0 = 3.0E8 # 1/m^3
+    mu_R = 0.02 # in mu
+    sigma_R = 1.4 #  no unit
+
 par_sigma = np.log( [1.4,1.6] )
 # par_sigma = np.log( [1.0,1.0] )
 # in mu

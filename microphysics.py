@@ -437,6 +437,77 @@ def compute_initial_mass_fraction_solute_NaCl(radius_dry_,
     # else:
     return w_s_init
 
+# this function was tested and yields the same results as the non-vectorized
+# version. The old version had to be modified because inside vectorized
+# function, you can not create another function via lambda: 
+@vectorize( "float64(float64,float64,float64)", forceobj=True )
+def compute_initial_mass_fraction_solute_m_s_NaCl(m_s,
+                                                  ambient_saturation_,
+                                                  ambient_temperature_,
+                                                  # opt = 'None'
+                                                  ):
+    # 0.
+#    m_s = compute_mass_from_radius_jit(radius_dry_, c.mass_density_NaCl_dry)
+    w_s_effl = compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
+    # 1.
+    S_effl = compute_kelvin_raoult_term_NaCl_mf(w_s_effl,
+                                                ambient_temperature_, m_s)
+    # 2.
+    # np.where(ambient_saturation_ <= S_effl, w_s_init = w_s_effl,)
+    if ambient_saturation_ <= S_effl:
+        w_s_init = w_s_effl
+    else:
+        # 3.
+        w_s_act, S_act, flag, nofc  = \
+            fminbound(compute_kelvin_raoult_term_negative_NaCl_mf,
+                      x1=1E-8, x2=w_s_effl, args=(ambient_temperature_, m_s),
+                      xtol = 1.0E-12, full_output=True )
+        # 4.
+        # increase w_s_act slightly to avoid numerical problems
+        # in solving with brentq() below
+        if flag == 0:
+            w_s_act *= 1.000001
+        # set w_s_act (i.e. the min bound for brentq() solve below )
+        # to deliqu. mass fraction if fminbound does not converge
+        else:
+            w_s_act = compute_solubility_NaCl(ambient_temperature_)
+        # update S_act to S_act* < S_act (right branch of S_eq vs w_s curve)
+        S_act = compute_kelvin_raoult_term_NaCl_mf(w_s_act,
+                                                   ambient_temperature_, m_s)
+        # 5.
+        if ambient_saturation_ > S_act:
+            w_s_init = w_s_act
+        else:
+            # 6.
+            solve_result = \
+                brentq(
+                    compute_kelvin_raoult_term_minus_S_amb_NaCl_mf,
+                    # lambda w: compute_kelvin_raoult_term_NaCl_mf(
+                    #               w, ambient_temperature_, m_s)\
+                    #           - ambient_saturation_,
+                    w_s_act,
+                    w_s_effl,
+                    (ambient_temperature_, m_s, ambient_saturation_),
+                    xtol = 1e-15,
+                    full_output=True)
+            if solve_result[1].converged:
+                w_s_init = solve_result[0]
+    #         solute_mass_fraction
+    # = brentq(droplet.compute_kelvin_raoult_term_mf_init,
+    #            mf_max, mf_del, args = S_a)
+            else:
+                w_s_init = w_s_act        
+    
+    # if opt == 'verbose':
+    #     w_s_act, S_act, flag, nofc  = \
+    #         fminbound(lambda w: -compute_kelvin_raoult_term_NaCl_mf(
+    #                                 w, ambient_temperature_, m_s),
+    #                   x1=1E-8, x2=w_s_effl, xtol = 1.0E-12, full_output=True )
+    #     S_act = -S_act
+    #     return w_s_init, w_s_act, S_act
+    # else:
+    return w_s_init
+
 # def compute_initial_mass_fraction_solute_NaCl_old(radius_dry_,
 #                                               ambient_saturation_,
 #                                               ambient_temperature_,

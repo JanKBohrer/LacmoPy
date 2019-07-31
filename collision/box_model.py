@@ -16,13 +16,13 @@ import matplotlib.pyplot as plt
 #import kernel
 #from kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
 #                   compute_E_col_Long_Bott
-from kernel import update_velocity_Beard
+from .kernel import update_velocity_Beard
 from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_radius_from_mass_vec
 
-from AON import collision_step_Long_Bott_m
-from AON import collision_step_Long_Bott_Ecol_grid_R
-from AON import collision_step_Long_Bott_kernel_grid_m
+from .AON import collision_step_Long_Bott_m
+from .AON import collision_step_Long_Bott_Ecol_grid_R
+from .AON import collision_step_Long_Bott_kernel_grid_m
 
 
 #%% DEFINITIONS

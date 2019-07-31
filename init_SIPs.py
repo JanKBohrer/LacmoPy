@@ -738,7 +738,7 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
 
     start_seed = int(start_seed)
     no_sims00 = int(no_sims00)
-    kappa = int(kappa)
+#    kappa = int(kappa)
     seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
     
     ### ANALYSIS START

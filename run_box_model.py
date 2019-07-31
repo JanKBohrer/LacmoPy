@@ -26,31 +26,32 @@ import numpy as np
 #import matplotlib.pyplot as plt
 #import matplotlib.ticker as mtick
 
-incl_path = "/home/jdesk/CloudMP"
-import sys
-if os.path.exists(incl_path):
-    sys.path.append(incl_path)
+#incl_path = "/home/jdesk/CloudMP"
+#import sys
+#if os.path.exists(incl_path):
+#    sys.path.append(incl_path)
     
 import constants as c
 
 from microphysics import compute_radius_from_mass_vec
 #from microphysics import compute_radius_from_mass_jit
 
-from box_model import simulate_collisions
-from box_model import analyze_sim_data
-from box_model import plot_for_given_kappa
-from box_model import plot_moments_kappa_var
+from collision.box_model import simulate_collisions,analyze_sim_data
+from collision.box_model import plot_for_given_kappa, plot_moments_kappa_var
 
 #from kernel import compute_terminal_velocity_Beard
-from kernel import compute_terminal_velocity_Beard_vec
-from kernel import generate_and_save_kernel_grid_Long_Bott
-from kernel import generate_and_save_E_col_grid_Long_Bott
+from collision.kernel import compute_terminal_velocity_Beard_vec
+from collision.kernel import generate_and_save_kernel_grid_Long_Bott
+from collision.kernel import generate_and_save_E_col_grid_Long_Bott
 
 #from init_SIPs import conc_per_mass_expo
 from init_SIPs import generate_and_save_SIP_ensembles_SingleSIP_prob
 from init_SIPs import analyze_ensemble_data
 #from init_SIPs import generate_myHisto_SIP_ensemble_np
 #from init_SIPs import plot_ensemble_data
+
+from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_expo
+from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
 
 #%% SET PARAMETERS 
 
@@ -59,7 +60,7 @@ OS = "LinuxDesk"
 
 ############################################################################################
 # SET args for SIP ensemble generation AND Kernel-grid generation
-args_gen = [0,0,0,0,0]
+args_gen = [1,1,1,0,0]
 #args_gen = [1,1,1,0,0]
 
 act_gen_SIP = bool(args_gen[0])
@@ -70,8 +71,8 @@ act_gen_kernel_grid = bool(args_gen[3])
 act_gen_Ecol_grid = bool(args_gen[4])
 
 # SET args for simulation
-#args_sim = [0,0,0,0]
-args_sim = [1,0,0,0]
+args_sim = [0,0,0,0]
+#args_sim = [1,0,0,0]
 #args_sim = [0,1,1,1]
 #args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
@@ -84,10 +85,10 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 ############################################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 
-kappa_list=[400]
+kappa_list=[3.5]
 #kappa_list=[5,10,20,40,60,100]
 #kappa_list=[5,10,20,40,60,100,200]
-#kappa_list=[5,10,20,40,60,100,200,400]
+#kappa_list=[3,3.5,5,10,20,40,60,100,200,400]
 #kappa_list=[60,100,200]
 #kappa_list=[5,10,20,40,60,100,200,400,600,800]
 #kappa_list=[200,400,600,800]
@@ -95,6 +96,8 @@ kappa_list=[400]
 no_sims = 500
 #no_sims = 400
 start_seed = 3711
+
+seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 # kernel_name = "Golovin"
 kernel_name = "Long_Bott"
@@ -127,19 +130,20 @@ mass_density = 1E3 # approx for water
 if OS == "MacOS":
     sim_data_path = "/Users/bohrer/sim_data/"
 elif OS == "LinuxDesk":
-    sim_data_path = "/mnt/D/sim_data_unif/col_box_mod/"
+    sim_data_path = "/mnt/D/sim_data_SIP_from_dst/col_box_mod/"
+#    sim_data_path = "/mnt/D/sim_data_unif/col_box_mod/"
 
 ############################################################################################
 ### SET PARAMETERS FOR SIP ENSEMBLES
 
-dist = "expo"
-#dist = "lognormal"
+#dist = "expo"
+dist = "lognormal"
 gen_method = "SinSIP"
 
 eta = 1.0E-9
 
-eta_threshold = "weak"
-#eta_threshold = "fix"
+#eta_threshold = "weak"
+eta_threshold = "fix"
 
 dV = 1.0
 
@@ -166,7 +170,7 @@ if dist == "lognormal":
 
 ## PARAMS FOR DATA ANALYSIS OF INITIAL SIP ENSEMBLES
 
-# the "bin_method_init_ensembles" is not necessary anymore
+## the "bin_method_init_ensembles" is not necessary anymore
 # both methods are applied and plotted by default
 # use the same bins as for generation
 #bin_method_init_ensembles = "given_bins"
@@ -229,6 +233,10 @@ elif dist =="lognormal":
           "mu_R =", mu_R, "sigma_R = ", sigma_R)
     dist_par = (DNC0, mu_m_log, sigma_m_log)
 
+no_rpc = DNC0 * dV
+
+###
+
 ensemble_path_add =\
 f"{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}/ensembles/"
 result_path_add =\
@@ -257,13 +265,65 @@ if act_gen_Ecol_grid:
 
 #%% SIP ENSEMBLE GENERATION
 if act_gen_SIP:
+    no_SIPs_avg = []
     for kappa in kappa_list:
+        no_SIPs_avg_ = 0
         ensemble_dir =\
             sim_data_path + ensemble_path_add + f"kappa_{kappa}/"
-             
-        generate_and_save_SIP_ensembles_SingleSIP_prob(
-            dist, dist_par, mass_density, dV, kappa, eta, weak_threshold,
-            r_critmin, m_high_over_m_low, no_sims, start_seed, ensemble_dir)
+        if not os.path.exists(ensemble_dir):
+            os.makedirs(ensemble_dir)
+        for i,seed in enumerate(seed_list):
+            if dist == "expo":
+                ensemble_parameters = [dV, DNC0, DNC0_over_LWC0, r_critmin,
+                       kappa, eta, no_sims, start_seed]
+
+                masses, weights, m_low, bins = \
+                    gen_mass_ensemble_weights_SinSIP_expo(
+                            1.0E18*m_mean, mass_density,
+                            dV, kappa, eta, weak_threshold, r_critmin,
+                            m_high_over_m_low,
+                            seed, setseed=True)
+
+            elif dist == "lognormal":
+                mu_m_log = 3.0 * mu_R_log \
+                           + np.log(c.four_pi_over_three * mass_density)
+                mu_m_log2 = 3.0 * mu_R_log \
+                           + np.log(1E-18 * c.four_pi_over_three * mass_density)
+                sigma_m_log = 3.0 * sigma_R_log
+                ensemble_parameters = [dV, DNC0, mu_m_log2, sigma_m_log, mass_density,
+                               r_critmin, kappa, eta, no_sims, start_seed]
+
+                masses, weights, m_low, bins = \
+                    gen_mass_ensemble_weights_SinSIP_lognormal(
+                        mu_m_log, sigma_m_log,
+                        mass_density,
+                        dV, kappa, eta, weak_threshold, r_critmin,
+                        m_high_over_m_low,
+                        seed, setseed=True)
+            xis = no_rpc * weights
+            no_SIPs_avg_ += xis.shape[0]
+            bins_rad = compute_radius_from_mass_vec(bins, mass_density)
+            radii = compute_radius_from_mass_vec(masses, mass_density)
+
+            np.save(ensemble_dir + f"masses_seed_{seed}", 1.0E-18*masses)
+            np.save(ensemble_dir + f"radii_seed_{seed}", radii)
+            np.save(ensemble_dir + f"xis_seed_{seed}", xis)
+            
+            if i == 0:
+                np.save(ensemble_dir + f"bins_mass", 1.0E-18*bins)
+                np.save(ensemble_dir + f"bins_rad", bins_rad)
+                np.save(ensemble_dir + "ensemble_parameters",
+                        ensemble_parameters)                    
+        no_SIPs_avg.append(no_SIPs_avg_/no_sims)
+        print(kappa, no_SIPs_avg_/no_sims)
+    np.savetxt(sim_data_path + ensemble_path_add + f"no_SIPs_vs_kappa.txt",
+               (kappa_list,no_SIPs_avg), fmt = "%-6.5g")
+#               , delimiter="\t")
+#    np.savetxt()
+#### WORKING VERSION -> generates mass ensemble in kg        
+#        generate_and_save_SIP_ensembles_SingleSIP_prob(
+#            dist, dist_par, mass_density, dV, kappa, eta, weak_threshold,
+#            r_critmin, m_high_over_m_low, no_sims, start_seed, ensemble_dir)
 
 #%% SIP ENSEMBLE ANALYSIS AND PLOTTING
 if act_analysis_ensembles:

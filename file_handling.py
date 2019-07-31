@@ -92,21 +92,25 @@ def dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path):
 
 def dump_particle_tracer_data_block(time_block,
                              traced_vectors, traced_scalars, traced_xi,
-                             # traced_grid_fields,
+                             traced_water,
                              path):#,
+                             # traced_grid_fields,
                        #start_time):
     t = int(time_block[0])
     filename_pt_vec = path + "particle_vector_data_" + str(t) + ".npy"
     filename_pt_scal = path + "particle_scalar_data_" + str(t) + ".npy"
     filename_pt_xi = path + "particle_xi_data_" + str(t) + ".npy"
+    filename_water_rem = path + "water_removed_" + str(t) + ".npy"
     # filename_grid = path + "grid_T_rv_" + str(t) + ".npy"
     filename_time_block = path + "particle_time_block_" + str(t) + ".npy"
     np.save(filename_pt_vec, traced_vectors )
     np.save(filename_pt_scal, traced_scalars )
     np.save(filename_pt_xi, traced_xi )
+    np.save(filename_water_rem, traced_water )
     # np.save(filename_grid, traced_grid_fields )
     np.save(filename_time_block, time_block )
     print("particle data block saved at times = ", time_block)
+    print("water removed:", traced_water)
 
 def load_particle_data(path, save_times):
     vec_data = []

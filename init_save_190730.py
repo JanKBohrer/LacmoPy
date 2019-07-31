@@ -18,7 +18,6 @@ from grid import interpolate_velocity_from_cell_bilinear
 from microphysics import compute_mass_from_radius_jit
 from microphysics import compute_mass_from_radius_vec,\
                          compute_initial_mass_fraction_solute_NaCl,\
-                         compute_initial_mass_fraction_solute_m_s_NaCl, \
                          compute_radius_from_mass_vec,\
                          compute_density_particle,\
                          compute_dml_and_gamma_impl_Newton_full_np,\
@@ -36,11 +35,8 @@ from atmosphere import compute_kappa_air_moist,\
 from file_handling import save_grid_and_particles_full
 
 from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
-#from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal_grid
-from generate_SIP_ensemble_dst import \
-    gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
-
-
+from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal_grid
+    
 #%%
 # IN WORK: what do you need from grid.py?
 # from grid import *
@@ -469,40 +465,6 @@ def generate_random_positions(grid, no_spc, seed, set_seed = False):
     pos = np.array([x, z])
     rel_pos = np.array([rnd_x, rnd_z])
     return pos, rel_pos, np.array(cells)
-
-## no_spcm = super-part/cell in modes [N_mode1_per_cell, N_mode2_per_cell, ...]
-## no_spc = # super-part/cell
-## no_spt = # SP total in full domain
-## returns positions of particles of shape (2, no_spt)
-#def generate_random_positions_cells(grid, cells, seed, set_seed = False):
-#    if isinstance(no_spc, (list, tuple, np.ndarray)):
-#        no_spt = np.sum(no_spc)
-#    else:
-#        no_spt = grid.no_cells_tot * no_spc
-#        no_spc = np.ones(grid.no_cells, dtype = np.int64) * no_spc
-#    if set_seed:
-#        np.random.seed(seed)        
-#    rnd_x = np.random.rand(no_spt)
-#    rnd_z = np.random.rand(no_spt)
-#    dx = grid.steps[0]
-#    dz = grid.steps[1]
-#    x = []
-#    z = []
-#    cells = [[],[]]
-#    n = 0
-#    for j in range(grid.no_cells[1]):
-#        z0 = grid.corners[1][0,j]
-#        for i in range(grid.no_cells[0]):
-#            x0 = grid.corners[0][i,j]
-#            for k in range(no_spc[i,j]):
-#                x.append(x0 + dx * rnd_x[n])
-#                z.append(z0 + dz * rnd_z[n])
-#                cells[0].append(i)
-#                cells[1].append(j)
-#                n += 1
-#    pos = np.array([x, z])
-#    rel_pos = np.array([rnd_x, rnd_z])
-#    return pos, rel_pos, np.array(cells)
 
 #%%
 
@@ -1161,20 +1123,19 @@ def compute_profiles_T_p_rhod_S_without_liquid(
 # particle_file = "stored_particles.txt"
 # particle_file = path + particle_file
 
-def initialize_grid_and_particles_SinSIP(
+def initialize_grid_and_particles(
         x_min, x_max, z_min, z_max, dx, dy, dz,
         p_0, p_ref, r_tot_0, Theta_l,
-        DNC0, no_spcm, no_modes, dist, dst_par,
-        eta, eta_threshold, r_critmin, m_high_over_m_low,
-        rnd_seed, reseed,
-        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, save_path,
+        n_p, no_spcm, dst, dst_par, 
+        P_min, P_max, r0, r1, dr, rnd_seed, reseed,
+        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path,
         logfile = None):
     import os
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
+    if not os.path.exists(path):
+        os.makedirs(path)
     # VERSION WITH PARTICLE PROPERTIES IN ARRAYS, not particle class
     ##############################################
-    ### 1. set base grid
+    # 1. set base grid
     ##############################################
     # grid dimensions ("ranges")
     # note that the step size is fix.
@@ -1182,7 +1143,7 @@ def initialize_grid_and_particles_SinSIP(
     # AT LEAST x_max - x_min, etc... but may also be larger,
     # if the sizes are no integer multiples of the step sizes
     if logfile is not None:
-        log_file = save_path + "log_grid.txt"
+        log_file = path + "log_grid.txt"
         log_handle = open(log_file, "w")
         sys.stdout = log_handle
         
@@ -1195,14 +1156,14 @@ def initialize_grid_and_particles_SinSIP(
     grid.print_info()
     ###
     paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
-             Theta_l, DNC0,
+             Theta_l, n_p,
              no_spcm,
              dst_par, rnd_seed, S_init_max, dt_init, iter_cnt_limit]
     para_names = 'x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0, \
-    Theta_l, DNC0, no_super_particles_cell, \
+    Theta_l, n_p, no_super_particles_cell, \
     par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit'
     
-    grid_para_file = save_path + "grid_paras.txt"
+    grid_para_file = path + "grid_paras.txt"
     with open(grid_para_file, "w") as f:
         f.write( para_names + '\n' )
         for item in paras:
@@ -1213,7 +1174,7 @@ def initialize_grid_and_particles_SinSIP(
     ###
     
     ##############################################
-    ### 2. Set initial profiles without liquid water
+    # 2. Set initial profiles without liquid water
     ##############################################
     
     # INITIAL PROFILES
@@ -1252,24 +1213,11 @@ def initialize_grid_and_particles_SinSIP(
     #         z_0, z_0, p_0, p_ref, Theta_l, r_tot )
     
     ##############################################
-    ### 3. Go through levels from the ground and place particles 
+    # 3. Go through levels from the ground and place particles 
     ##############################################
     print(
       "\n### particle placement and saturation adjustment for each z-level ###")
     print('timestep for sat. adj.: dt_init = ', dt_init)
-    ### DERIVED PARAMETERS SIP INIT
-    if dist == "lognormal":
-        mu_m_log = dst_par[0]
-        sigma_m_log = dst_par[1]
-        
-        # derive scaling parameter kappa from no_spcm
-        kappa = np.rint( no_spcm / 20 * 35) * 0.1
-        kappa = np.maximum(kappa, 0.1)
-        print("kappa =", kappa)
-    
-    if eta_threshold == "weak":
-        weak_threshold = True
-    else: weak_threshold = False
     
     # start at level 0 (from surface!)
     
@@ -1282,7 +1230,7 @@ def initialize_grid_and_particles_SinSIP(
     # total number of real particles per mode in one grid cell:
     # total number of real particles in mode 'k' (= 1,2) in cell [i,j]
     # reference value at p_ref (marked by 0)
-    no_rpcm_0 =  (np.ceil( V0*DNC0 )).astype(int)
+    no_rpcm_0 =  (np.ceil( V0*n_p )).astype(int)
     no_rpct_0 = np.sum(no_rpcm_0)
     
     # empty cell list
@@ -1304,32 +1252,43 @@ def initialize_grid_and_particles_SinSIP(
     # cell_numbers = []
     
     # running particle ID
-#    ID = 0
+    ID = 0
     
+    # number of super particles
+    no_spcm = np.array(no_spcm) # input: nr of super part. per cell and mode
+    no_spct = np.sum(no_spcm) # no super part. per cell (total)
+    # no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
+    
+    ### generate particle radii and weights for the whole grid
+#    m_s = np.zeros( (len(no_spcm),grid.no_cells[0], grid.no_cells[1]),
+#                   dtype = np.float64)
+#    weights_m_s = np.zeros( (len(no_spcm),grid.no_cells[0], grid.no_cells[1]),
+#                   dtype = np.float64)
+   
     ##########################################################################
     # WORKING VERSION
     # number of super particles
-#    no_spcm = np.array(no_spcm) # input: nr of super part. per cell and mode
-#    no_spct = np.sum(no_spcm) # no super part. per cell (total)
-#    # no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
-#    
-#    ### generate particle radii and weights for the whole grid
-#    R_s, weights_R_s = generate_random_radii_multimodal_lognorm(
-#                               grid, dst_par, no_spcm, rnd_seed, reseed)
-#    # convert to dry masses
-##    print()
-##    print("type(R_s)")
-##    print(type(R_s))
-##    print(R_s)
-##    print()
-#                   
-#    m_s = compute_mass_from_radius_vec(R_s, c.mass_density_NaCl_dry)
-#    w_s = np.zeros_like(m_s) # init weight fraction
-#    m_w = np.zeros_like(m_s) # init particle water masses to zero
-#    m_p = np.zeros_like(m_s) # init particle full mass
-#    R_p = np.zeros_like(m_s) # init particle radius
-#    rho_p = np.zeros_like(m_s) # init particle density
-#    xi = np.zeros_like(m_s).astype(int)
+    no_spcm = np.array(no_spcm) # input: nr of super part. per cell and mode
+    no_spct = np.sum(no_spcm) # no super part. per cell (total)
+    # no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
+    
+    ### generate particle radii and weights for the whole grid
+    R_s, weights_R_s = generate_random_radii_multimodal_lognorm(
+                               grid, dst_par, no_spcm, rnd_seed, reseed)
+    # convert to dry masses
+#    print()
+#    print("type(R_s)")
+#    print(type(R_s))
+#    print(R_s)
+#    print()
+                   
+    m_s = compute_mass_from_radius_vec(R_s, c.mass_density_NaCl_dry)
+    w_s = np.zeros_like(m_s) # init weight fraction
+    m_w = np.zeros_like(m_s) # init particle water masses to zero
+    m_p = np.zeros_like(m_s) # init particle full mass
+    R_p = np.zeros_like(m_s) # init particle radius
+    rho_p = np.zeros_like(m_s) # init particle density
+    xi = np.zeros_like(m_s).astype(int)
     ##########################################################################
     
     mass_water_liquid_levels = []
@@ -1342,23 +1301,9 @@ def initialize_grid_and_particles_SinSIP(
     # iter_cnt_limit = 500
     rho_dry_0 = p_0 / (c.specific_gas_constant_air_dry * 293.0)
     no_rpt_should = np.zeros_like(no_rpcm_0)
-    
-    np.random.seed(rnd_seed)
-    
-    m_w = []
-    m_s = []
-    xi = []
-    cells_x = []
-    cells_z = []
-    modes = []
-    
-    no_spc = np.zeros(grid.no_cells, dtype = np.int64)
-    
-    ### go through z-levels from the ground, j is the cell index resp. z
     for j in range(grid.no_cells[1]):
     #     print('next j')
     #     we are now in column 'j', fixed z-level
-
         n_top = j + 1
         n_bot = j
         
@@ -1418,63 +1363,35 @@ def initialize_grid_and_particles_SinSIP(
         
         print('\n### level', j, "###")
         print('S_env_init0 = ', S_avg)
-    ########################################################
-    ### 3a. (first initialization setting S_eq = S_amb if possible)
-    ########################################################
-        
-        # nr of real particle per cell and mode is now given for rho_dry_avg
+        ########################################################
+        # 3a. (first initialization setting S_eq = S_amb if possible)
+        ########################################################
         no_rpcm = np.rint( no_rpcm_0 * rho_dry_avg / rho_dry_0 ).astype(int)
         no_rpt_should += no_rpcm * grid.no_cells[0]
+                                 
+        for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+            # print("weights_R_s[l][:,j]")
+            # print("no_rpcm[l]")
+            # print(weights_R_s[l][:,j])
+            # print(no_rpcm[l])
+            # the number concentration is not constant but depends on the
+            # mass density of the vicinity
+            xi[l][:,j] = np.rint(weights_R_s[l][:,j]
+                                 * no_rpcm[np.nonzero(no_spcm)][l]).astype(int)
+            # print("xi[l][:,j]")
+            # print(xi[l][:,j])
+            # initial weight fraction of this level dependent on S_amb
+            # -> try to place the particles with m_w such that S = S_eq
+            w_s[l][:,j] = compute_initial_mass_fraction_solute_NaCl(
+                          R_s[l][:,j], S_avg, T_avg)
+            m_p[l][:,j] = m_s[l][:,j] / w_s[l][:,j]
+            rho_p[l][:,j] = compute_density_particle(w_s[l][:,j], T_avg)
+            R_p[l][:,j] = compute_radius_from_mass_vec(m_p[l][:,j], rho_p[l][:,j])
+            m_w[l][:,j] = m_p[l][:,j] - m_s[l][:,j]
+            dm_l_level += np.sum(m_w[l][:,j] * xi[l][:,j])
+            dm_p_level += np.sum(m_p[l][:,j] * xi[l][:,j])
+            print("placed", len(xi[l][:,j].flatten()), "particles in a mode")
         
-    ### create SIP ensemble for this level -> list of 
-        # m_s_lvl = [ m_s[0,j], m_s[1,j], ... ]
-        # xi_lvl = ...
-        m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
-            gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
-                    mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
-                    grid.volume_cell, kappa, eta, weak_threshold, r_critmin,
-                    m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
-                    setseed=False)
-        no_spc[:,j] = no_spc_lvl
-        w_s_lvl = compute_initial_mass_fraction_solute_m_s_NaCl(
-                          m_s_lvl, S_avg, T_avg)
-        m_p_lvl = m_s_lvl / w_s_lvl
-#        rho_p_lvl = compute_density_particle(w_s_lvl, T_avg)
-#        R_p_lvl = compute_radius_from_mass_vec(m_p_lvl, rho_p_lvl)
-        m_w_lvl = m_p_lvl - m_s_lvl
-        dm_l_level += np.sum(m_w_lvl * xi_lvl)
-        dm_p_level += np.sum(m_p_lvl * xi_lvl)
-        print("placed", len(xi_lvl), "particles in a mode")        
-    #####################################################################
-    # OLD WORKING                                 
-#        for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
-#            # print("weights_R_s[l][:,j]")
-#            # print("no_rpcm[l]")
-#            # print(weights_R_s[l][:,j])
-#            # print(no_rpcm[l])
-#            # the number concentration is not constant but depends on the
-#            # mass density of the vicinity
-#            xi[l][:,j] = np.rint(weights_R_s[l][:,j]
-#                                 * no_rpcm[np.nonzero(no_spcm)][l]).astype(int)
-#            # print("xi[l][:,j]")
-#            # print(xi[l][:,j])
-#            # initial weight fraction of this level dependent on S_amb
-#            # -> try to place the particles with m_w such that S = S_eq
-##            w_s[l][:,j] = compute_initial_mass_fraction_solute_m_s_NaCl(
-##                          m_s[l][:,j], S_avg, T_avg)
-#            w_s[l][:,j] = compute_initial_mass_fraction_solute_NaCl(
-#                          R_s[l][:,j], S_avg, T_avg)
-#            m_p[l][:,j] = m_s[l][:,j] / w_s[l][:,j]
-#            rho_p[l][:,j] = compute_density_particle(w_s[l][:,j], T_avg)
-#            R_p[l][:,j] = compute_radius_from_mass_vec(m_p[l][:,j],
-#                                                       rho_p[l][:,j])
-#            m_w[l][:,j] = m_p[l][:,j] - m_s[l][:,j]
-#            dm_l_level += np.sum(m_w[l][:,j] * xi[l][:,j])
-#            dm_p_level += np.sum(m_p[l][:,j] * xi[l][:,j])
-#            print("placed", len(xi[l][:,j].flatten()), "particles in a mode")
-    # OLD WORKING END                                 
-    #####################################################################
-    
         # print('level = ', j)
     
         # convert from 10^-18 kg to kg
@@ -1546,15 +1463,15 @@ def initialize_grid_and_particles_SinSIP(
     #     rho_tot_avg = rho_m_avg * ((1 + r_tot)/(1 + r_v_avg))
     #     p = p_prev  - earth_gravity * rho_tot_avg * dz
         
-    ########################################################
-    ### 3b. saturation adjustment in level, CELL WISE
-    # this was the initial placement of particles
-    # now comes the saturation adjustment incl. condensation/vaporization
-    # due to supersaturation/subsaturation
-    # note that there will also be subsaturation if S is smaller than S_act,
-    # because water vapor was taken from the atm. in the intitial
-    # particle placement step
-    ########################################################
+        ########################################################
+        # 3b. 
+        # this was the initial placement of particles
+        # now comes the saturation adjustment incl. condensation/vaporization
+        # due to supersaturation/subsaturation
+        # note that there will also be subsaturation if S is smaller than S_act,
+        # because water vapor was taken from the atm. in the intitial
+        # particle placement step
+        ########################################################
     
         # initialize for saturation adjustment loop
         # loop until the change in dm_l_level is sufficiently small:
@@ -1589,50 +1506,26 @@ def initialize_grid_and_particles_SinSIP(
                 # at high saturations, since S > 1.05 can happen initially
                 S_avg = grid.saturation[cell]
                 S_avg2 = np.min([S_avg, S_init_max ])
+
                 
-                ind_x = cells_x_lvl == i
-                
-                m_w_cell = m_w_lvl[ind_x]
-                m_s_cell = m_s_lvl[ind_x]
-                
-                R_p_cell, w_s_cell, rho_p_cell =\
-                    compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_avg)
-                
-                dm_l, gamma_ =\
-                compute_dml_and_gamma_impl_Newton_full_np(
-                    dt_init, Newton_iterations, m_w_cell,
-                    m_s_cell, w_s_cell, R_p_cell, T_avg,
-                    rho_p_cell,
-                    T_avg, p_avg, S_avg2, e_s_avg, L_v, K, D_v, sigma_w)
-                
-                m_w_lvl[ind_x] += dm_l
-#                m_w[l][cell] += dm_l
-                
-                dm_l_level += np.sum(dm_l * xi_lvl[ind_x])
-                dm_p_level += np.sum(dm_l * xi_lvl[ind_x])
-                
-            ######################################################
-            # OLD WORKING                
-#                for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
-#                    m_w_cell = m_w[l][cell]
-#                    m_s_cell = m_s[l][cell]
-#                    
-#                    R_p_cell, w_s_cell, rho_p_cell =\
-#                        compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_avg)
-#                    
-#                    dm_l, gamma_ =\
-#                    compute_dml_and_gamma_impl_Newton_full_np(
-#                        dt_init, Newton_iterations, m_w_cell,
-#                        m_s_cell, w_s_cell, R_p_cell, T_avg,
-#                        rho_p_cell,
-#                        T_avg, p_avg, S_avg2, e_s_avg, L_v, K, D_v, sigma_w)
-#                    
-#                    m_w[l][cell] += dm_l
-#                    
-#                    dm_l_level += np.sum(dm_l * xi[l][cell])
-#                    dm_p_level += np.sum(dm_l * xi[l][cell])
-            # OLD WORKING                
-            ######################################################
+                for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+                    m_w_cell = m_w[l][cell]
+                    m_s_cell = m_s[l][cell]
+                    
+                    R_p_cell, w_s_cell, rho_p_cell =\
+                        compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_avg)
+                    
+                    dm_l, gamma_ =\
+                    compute_dml_and_gamma_impl_Newton_full_np(
+                        dt_init, Newton_iterations, m_w_cell,
+                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+                        rho_p_cell,
+                        T_avg, p_avg, S_avg2, e_s_avg, L_v, K, D_v, sigma_w)
+                    
+                    m_w[l][cell] += dm_l
+                    
+                    dm_l_level += np.sum(dm_l * xi[l][cell])
+                    dm_p_level += np.sum(dm_l * xi[l][cell])
                 
             # IN WORK: check if the temperature, pressure etc is right
             # BEFORE the level starts and check the addition to these values!
@@ -1702,12 +1595,9 @@ def initialize_grid_and_particles_SinSIP(
             grid.mixing_ratio_water_liquid[:,j].fill(0.0)
             for i in range(grid.no_cells[0]):
                 cell = (i,j)
-                grid.mixing_ratio_water_liquid[cell] +=\
-                    np.sum(m_w_lvl[ind_x] * xi_lvl[ind_x])
-                
-#                for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
-#                    grid.mixing_ratio_water_liquid[cell] +=\
-#                        np.sum(m_w[l][cell] * xi[l][cell])
+                for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+                    grid.mixing_ratio_water_liquid[cell] +=\
+                        np.sum(m_w[l][cell] * xi[l][cell])
     
             grid.mixing_ratio_water_liquid[:,j] *= 1.0E-18 / mass_air_dry_cell
             grid.mixing_ratio_water_vapor[:,j] =\
@@ -1750,29 +1640,12 @@ def initialize_grid_and_particles_SinSIP(
         r_l_env_init_center[j] = r_l_avg
         rho_dry_env_init_center[j] = rho_dry_avg
         S_env_init_center[j] = S_avg
-        
-        m_w.append(m_w_lvl)
-        m_s.append(m_s_lvl)
-        xi.append(xi_lvl)
-        
-        cells_x.append(cells_x_lvl)
-        cells_z.append(np.ones_like(cells_x_lvl) * j)        
-        
-        modes.append(modes_lvl)        
-        
-    m_w = np.concatenate(m_w)        
-    m_s = np.concatenate(m_s)        
-    xi = np.concatenate(xi)        
-    cells_x = np.concatenate(cells_x)        
-    cells_z = np.concatenate(cells_z)   
-    cells_comb = np.array( (cells_x, cells_z) )
-    modes = np.concatenate(modes)   
     
     print('')
     print('iter count max = ', iter_cnt_max, ' level = ', iter_cnt_max_level)
     # total number of particles in grid
     no_particles_tot = np.size(m_w)
-    print('last particle ID = ', len(m_w) - 1 )
+    print('last particle ID = ', len(m_w.flatten()) - 1 )
     print ('no_super_particles_tot placed = ', no_particles_tot)
     # print('no_super_particles_tot should',
     #       no_super_particles_tot  )
@@ -1808,27 +1681,18 @@ def initialize_grid_and_particles_SinSIP(
     print("placed ", len(m_w.flatten()), "super particles" )
     print("representing ", np.sum(xi.flatten()), "real particles:" )
     print("mode real_part_placed real_part_should diff_real_should:")
-    
-    if no_modes == 1:
-        print(0, np.sum(xi), no_rpt_should, np.sum(xi) - no_rpt_should)
-    else:
-        for mode_n in range(no_modes):
-            ind_mode = modes == mode_n
-            print(mode_n, f"{np.sum(xi[ind_mode]):.3e}",
-                  f"{no_rpt_should[mode_n]:.3e}",
-                  f"{np.sum(xi[ind_mode]) - no_rpt_should[mode_n]:.3e}")
-    
-#    l_ = 0
-#    for l, N_l in enumerate( no_spcm ):
-#        if l in np.nonzero(no_spcm)[0]:
-#            print( l, np.sum(xi[l_]), no_rpt_should[l],
-#                   np.sum(xi[l_]) - no_rpt_should[l])
-#            l_ += 1
-#        else:
-#            print( l, 0, no_rpt_should[l], -no_rpt_should[l])
+    l_ = 0
+    for l, N_l in enumerate( no_spcm ):
+        if l in np.nonzero(no_spcm)[0]:
+            print( l, np.sum(xi[l_]), no_rpt_should[l],
+                   np.sum(xi[l_]) - no_rpt_should[l])
+            l_ += 1
+        else:
+            print( l, 0, no_rpt_should[l], -no_rpt_should[l])
     
     ########################################################
-    ### 4. set mass flux and velocity grid
+    # 4. 
+    # set mass flux and velocity grid
     ######################################################## 
     
     j_max = 0.6 * np.sqrt(grid.sizes[0] * grid.sizes[0] +
@@ -1874,18 +1738,16 @@ def initialize_grid_and_particles_SinSIP(
     grid.mass_dry_inv = V0_inv * grid.rho_dry_inv
     
     # assign random positions to particles
-    
-    pos, rel_pos, cells = generate_random_positions(grid, no_spc, rnd_seed,
-                                                    set_seed=False)
+    pos, rel_pos, cells = generate_random_positions(grid, no_spct, rnd_seed)
     # init velocities
     #vel = np.zeros_like(pos)
     
     # generate cell array [ [i1,j1], [i2,j2], ... ] and flatten particle masses
-#    ID = 0
-#    m_w_flat = np.zeros(len(pos[0]))
-#    m_s_flat = np.zeros(len(pos[0]))
-#    xi_flat = np.zeros(len(pos[0]), dtype = np.int64)
-#    cell_list = np.zeros( (2, len(pos[0])), dtype = int )
+    ID = 0
+    m_w_flat = np.zeros(len(pos[0]))
+    m_s_flat = np.zeros(len(pos[0]))
+    xi_flat = np.zeros(len(pos[0]), dtype = np.int64)
+    cell_list = np.zeros( (2, len(pos[0])), dtype = int )
     
     # @njit()
     # def flatten_m_w_m_s(m_w,m_s,m_w_flat,m_s_flat, no_spcm, grid_no_cells):
@@ -1898,51 +1760,43 @@ def initialize_grid_and_particles_SinSIP(
     #                     m_w_flat[ID] = m_w[l][i,j][n]
     #                     m_s_flat[ID] = m_s[l][i,j][n]
                         
-#    for j in range(grid.no_cells[1]):
-#        for i in range(grid.no_cells[0]):
-#            for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
-#                if isinstance(m_w[l][i,j], (list, tuple, np.ndarray)):
-#                    for n, m_w_ in enumerate(m_w[l][i,j]):
-#                        cell_list[0,ID] = i
-#                        cell_list[1,ID] = j
-#                        m_w_flat[ID] = m_w[l][i,j][n]
-#                        m_s_flat[ID] = m_s[l][i,j][n]
-#                        xi_flat[ID] = xi[l][i,j][n]
-#                        ID += 1
-#                else:
-#                    cell_list[0,ID] = i
-#                    cell_list[1,ID] = j
-#                    m_w_flat[ID] = m_w[l][i,j]
-#                    m_s_flat[ID] = m_s[l][i,j]
-#                    xi_flat[ID] = xi[l][i,j]
-#                    ID += 1
-### IN WORK    
-    vel = interpolate_velocity_from_cell_bilinear(cells, rel_pos,
+    for j in range(grid.no_cells[1]):
+        for i in range(grid.no_cells[0]):
+            for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+                if isinstance(m_w[l][i,j], (list, tuple, np.ndarray)):
+                    for n, m_w_ in enumerate(m_w[l][i,j]):
+                        cell_list[0,ID] = i
+                        cell_list[1,ID] = j
+                        m_w_flat[ID] = m_w[l][i,j][n]
+                        m_s_flat[ID] = m_s[l][i,j][n]
+                        xi_flat[ID] = xi[l][i,j][n]
+                        ID += 1
+                else:
+                    cell_list[0,ID] = i
+                    cell_list[1,ID] = j
+                    m_w_flat[ID] = m_w[l][i,j]
+                    m_s_flat[ID] = m_s[l][i,j]
+                    xi_flat[ID] = xi[l][i,j]
+                    ID += 1
+    
+    vel = interpolate_velocity_from_cell_bilinear(cell_list, rel_pos,
                                                       grid.velocity,
                                                       grid.no_cells)
     
-#    active_ids = list(range(len(m_s_flat)))
-    active_ids = list(range(len(m_s)))
+    active_ids = list(range(len(m_s_flat)))
     removed_ids = []
     
     t = 0
-    save_grid_and_particles_full(t, grid, pos, cells, vel,
-                                 m_w, m_s, xi,
-                                 active_ids, removed_ids, save_path)
-    
-#    save_grid_and_particles_full(t, grid, pos, cell_list, vel,
-#                                 m_w_flat, m_s_flat, xi_flat,
-#                                 active_ids, removed_ids, save_path)
+    save_grid_and_particles_full(t, grid, pos, cell_list, vel,
+                                 m_w_flat, m_s_flat, xi_flat,
+                                 active_ids, removed_ids, path)
     
     if logfile:
         sys.stdout = sys.__stdout__
         log_handle.close()
     
-    return grid, pos, cells, cells_comb, vel, m_w, m_s, xi,\
+    return grid, pos, cell_list, vel, m_w_flat, m_s_flat, xi_flat,\
            active_ids, removed_ids
-#    return grid, pos, cells, vel, m_w_flat, m_s_flat, xi_flat,\
-#           active_ids, removed_ids
-
 
 #%% testing (commented)
 # particles: pos, vel, masses, multi,

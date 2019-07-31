@@ -38,6 +38,7 @@ from grid import interpolate_velocity_from_cell_bilinear,\
                        # compute_heat_of_vaporization,\
                        # compute_saturation_pressure_vapor_liquid,\
 from microphysics import compute_radius_from_mass_vec
+from microphysics import compute_mass_from_radius_vec
 from file_handling import save_grid_and_particles_full,\
                           load_grid_and_particles_full
 from file_handling import dump_particle_data, save_grid_scalar_fields                          
@@ -49,9 +50,13 @@ from collision.kernel import generate_and_save_E_col_grid_Long_Bott
 
 from numba import njit
 
+from generate_SIP_ensemble_dst import \
+    gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl
+
 # keep velocities and mass densities fixed for a collision timestep
 # the np-method is 2 times faster than the jitted version
 # 1000 collision steps for 75 x 75 cells take 3240 s = 54 min
+# ADD active ids and id list!!!
 def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_np(
         xi, m_w, vel, mass_densities, cells, no_cells,
         dt_over_dV, E_col_grid, no_kernel_bins,
@@ -104,7 +109,7 @@ elif (my_OS == "Mac"):
 
 #%% I. GENERATE GRID AND PARTICLES
 
-args = [0,0,1]
+args = [0,0,0]
 
 act_gen_grid = bool(args[0])
 act_gen_Ecol_grid = bool(args[1])
@@ -124,12 +129,15 @@ z_max = 1500.0
 #dx = 750.0
 #dy = 1.0
 #dz = 750.0
+dx = 500.0
+dy = 1.0
+dz = 500.0
 #dx = 150.0
 #dy = 1.0
 #dz = 150.0
-dx = 20.0
-dy = 1.0
-dz = 20.0
+#dx = 20.0
+#dy = 1.0
+#dz = 20.0
 
 p_0 = 101500 # surface pressure in Pa
 p_ref = 1.0E5 # ref pressure for potential temperature in Pa
@@ -138,13 +146,13 @@ r_tot_0 = 7.5E-3 # kg water / kg dry air
 # r_tot_0 = 7.5E-3 # kg water / kg dry air
 Theta_l = 289.0 # K
 # number density of particles mode 1 and mode 2:
-n_p = np.array([60.0E6, 100.0E6]) # m^3
-# n_p = np.array([60.0E6, 40.0E6]) # m^3
+#n_p = np.array([60.0E6, 100.0E6]) # m^3
+n_p = np.array([60.0E6, 40.0E6]) # m^3
 
 # no_super_particles_cell = [N1,N2] is a list with
 # N1 = no super part. per cell in mode 1 etc.
-no_spcm = np.array([20, 20])
-# no_spcm = np.array([0, 4])
+#no_spcm = np.array([20, 20])
+no_spcm = np.array([2, 2])
 
 ### creating random particles
 # parameters of log-normal distribution:
@@ -154,6 +162,8 @@ par_sigma = np.log( [1.4,1.6] )
 # par_sigma = np.log( [1.0,1.0] )
 # in mu
 par_r0 = 0.5 * np.array( [0.04, 0.15] )
+
+
 dst_par = []
 for i,sig in enumerate(par_sigma):
     dst_par.append([par_r0[i],sig])
@@ -177,9 +187,15 @@ Newton_iterations = 2
 iter_cnt_limit = 800
 
 #folder = "190514/grid_75_75_spcm_0_4/"
-folder = "grid_75_75_no_spcm_20_20/"
-#folder = "grid_2_2_no_spcm_20_20/"
+#folder = "grid_75_75_no_spcm_20_20/"
+folder = "grid_3_3_no_spcm_2_2/"
 path = sim_data_path + folder
+
+#%%
+
+
+
+#%%
 
 if act_gen_grid:
     if not os.path.exists(path):
@@ -192,7 +208,6 @@ if act_gen_grid:
             n_p, no_spcm, dst, dst_par, 
             P_min, P_max, r0, r1, dr, rnd_seed, reseed,
             S_init_max, dt_init, Newton_iterations, iter_cnt_limit, path)
-
 
 #%%
         
@@ -221,6 +236,101 @@ save_dir_Ecol_grid = sim_data_path + f"Ecol_grid_data/"
 kernel_method = "Ecol_grid_R"
 
 
+#%%
+n_p = np.array([60.0E6, 40.0E6]) # 1/m^3
+
+no_rpcm = grid.volume_cell * n_p
+
+no_spcm = np.array([2, 2])
+
+kappa = np.rint( no_spcm / 20 * 35) // 10
+
+kappa = np.maximum(kappa, 0.5)
+
+print("kappa =", kappa)
+
+
+# in log(mu)
+par_sigma = np.log( [1.4, 1.6] )
+# par_sigma = np.log( [1.0,1.0] )
+# in mu
+par_r0 = 0.5 * np.array( [0.04, 0.15] )
+###
+idx_mode_nonzero = np.nonzero(no_spcm)[0]
+
+no_modes = len(idx_mode_nonzero)
+
+print(idx_mode_nonzero)
+print(no_modes)
+
+#%%
+
+r_critmin = np.array([0.001, 0.00375]) # mu
+
+if no_modes == 1:
+    no_spcm = no_spcm[idx_mode_nonzero][0]
+    par_sigma = par_sigma[idx_mode_nonzero][0]
+    par_r0 = par_r0[idx_mode_nonzero][0]
+    no_rpcm = no_rpcm[idx_mode_nonzero][0]
+    r_critmin = r_critmin[idx_mode_nonzero][0] # mu
+else:    
+    no_spcm = no_spcm[idx_mode_nonzero]
+    par_sigma = par_sigma[idx_mode_nonzero]
+    par_r0 = par_r0[idx_mode_nonzero]
+    no_rpcm = no_rpcm[idx_mode_nonzero]
+    r_critmin = r_critmin[idx_mode_nonzero] # mu
+
+# derive parameters of lognormal distribution of mass f_m(m)
+# assuming mu_R in mu and density in kg/m^3
+# mu_m in 1E-18 kg
+mu_m_log = np.log(compute_mass_from_radius_vec(par_r0,c.mass_density_NaCl_dry))
+sigma_m_log = 3.0 * par_sigma
+
+
+eta = 1E-9
+#eta_threshold = "weak"
+eta_threshold = "fix"
+if eta_threshold == "weak":
+    weak_threshold = True
+else: weak_threshold = False
+
+
+m_high_over_m_low = 1.0E8
+
+# set DNC0 manually only for lognormal distr. NOT for expo
+#DNC0 = 60.0E6 # 1/m^3
+##DNC0 = 2.97E8 # 1/m^3
+##DNC0 = 3.0E8 # 1/m^3
+#mu_R = 0.02 # in mu
+#sigma_R = 1.4 #  no unit
+
+seed = 3711
+no_cells = (3,3)
+
+seed_list = np.arange(seed, seed + 2*no_cells[1], 2)
+
+masses = []
+xis = []
+cells_x = []
+cells_z = []
+for j in range(no_cells[1]):
+    masses_lvl, xis_lvl, cells_x_lvl, modes_lvl = \
+        gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
+                mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
+                dV, kappa, eta, weak_threshold, r_critmin,
+                m_high_over_m_low, seed_list[j], no_cells[0], no_rpcm)
+    # now, masses_lvl , xis_lvl are arrays and can be indexed by cells_x_lvl
+    # modes_lvl is just for checking
+    # do magic stuff... init saturation adjustment..
+    # -> think about, what we need right now: R_s, m_w, m_p, R_p, ...
+    # other things can be done later by full array operation
+    masses.append(masses_lvl)
+    xis.append(xis_lvl)
+    cells_x.append(cells_x_lvl)
+    cells_z.append(np.ones_like(cells_x_lvl) * j)
+    
+
+#%%
 
 R_low_kernel, R_high_kernel, no_bins_10_kernel = 0.01, 51.0, 100
 
@@ -310,9 +420,9 @@ if act_sim:
 #print(xi - xi0)
 #print(m_w - m_w0)
 
-print(no_cols)
+    print(no_cols)
 
 #print( compute_radius_from_mass_vec(m_w, mass_density) )
 
-print(end_time - start_time)
+    print(end_time - start_time)
 
