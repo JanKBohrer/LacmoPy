@@ -34,10 +34,10 @@ def save_sim_paras_to_file(sim_paras, sim_par_names, t, path):
 # particle_list_by_id: list of Particle objects
 # active_ids: list of integers
 def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
-                            active_ids, removed_ids,
+                            active_ids, 
                             vector_filename, scalar_filename, cells_filename, 
                             xi_filename,
-                            active_ids_filename, removed_ids_filename):
+                            active_ids_filename):
 #     with open(pt_filename, "w") as f:
 #         for p in p_list:
 #             string1 = f'{p.id} {p.multiplicity} {p.location[0]}\
@@ -50,7 +50,7 @@ def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
     np.save(scalar_filename, [m_w, m_s] )
     np.save(xi_filename, xi )
     np.save(active_ids_filename, active_ids)
-    np.save(removed_ids_filename, removed_ids)
+#    np.save(removed_ids_filename, removed_ids)
 
 def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):#,
                        #start_time):
@@ -276,7 +276,7 @@ def load_grid_from_files(basics_file, arr_file1, arr_file2):
     return grid
         
 def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
-                                 active_ids, removed_ids,
+                                 active_ids,
                                  path):
     grid.mixing_ratio_water_liquid.fill(0.0)
     
@@ -291,7 +291,7 @@ def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
     # print("xi")
     # print(xi)
     
-    for ID in active_ids:
+    for ID in np.arange(len(xi))[active_ids]:
         # par = particle_list_by_id[ID]
         # cell = tuple(par.cell)
         grid.mixing_ratio_water_liquid[cells[0,ID],cells[1,ID]] +=\
@@ -312,17 +312,17 @@ def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
     xi_filename = path + xi_filename    
     active_ids_file = "active_ids_" + str(int(t)) + ".npy"
     active_ids_file = path + active_ids_file
-    rem_ids_file = "removed_ids_" + str(int(t)) + ".npy"
-    rem_ids_file = path + rem_ids_file
+#    rem_ids_file = "removed_ids_" + str(int(t)) + ".npy"
+#    rem_ids_file = path + rem_ids_file
     
 #    np.save(path + "trace_ids_" + str(int(t)) + ".npy", trace_ids)
     save_grid_to_files(grid, t, *grid_file_list)
     
     save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
-                            active_ids, removed_ids,
+                            active_ids, 
                             vector_filename, scalar_filename,
                             cells_filename, xi_filename,
-                            active_ids_file, rem_ids_file)
+                            active_ids_file)
     
 def load_grid_and_particles_full(t, path):
     grid_file_list = ["grid_basics_" + str(int(t)) + ".txt",
@@ -339,8 +339,8 @@ def load_grid_and_particles_full(t, path):
     xi_filename = path + xi_filename    
     active_ids_file = "active_ids_" + str(int(t)) + ".npy"
     active_ids_file = path + active_ids_file
-    rem_ids_file = "removed_ids_" + str(int(t)) + ".npy"
-    rem_ids_file = path + rem_ids_file
+#    rem_ids_file = "removed_ids_" + str(int(t)) + ".npy"
+#    rem_ids_file = path + rem_ids_file
     grid = load_grid_from_files(*grid_file_list)
     vectors = np.load(vector_filename)
     pos = vectors[0]
@@ -351,8 +351,8 @@ def load_grid_and_particles_full(t, path):
     m_s = scalars[1]
     xi = np.load(xi_filename)
     active_ids = np.load(active_ids_file)
-    removed_ids = np.load(rem_ids_file)
+#    removed_ids = np.load(rem_ids_file)
     # pt_lst, act_ids, rem_ids =\
     #     load_particle_list_from_files(grid, particle_file,
     #                                   active_ids_file, rem_ids_file)
-    return grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids
+    return grid, pos, cells, vel, m_w, m_s, xi, active_ids 

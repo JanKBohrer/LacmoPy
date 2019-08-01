@@ -1922,13 +1922,17 @@ def initialize_grid_and_particles_SinSIP(
                                                       grid.no_cells)
     
 #    active_ids = list(range(len(m_s_flat)))
-    active_ids = list(range(len(m_s)))
-    removed_ids = []
+#    active_ids = list(range(len(m_s)))
+#    active_ids = list(range(len(m_s)))
+#    removed_ids = []
+    
+    active_ids = np.full( len(m_s), True )
+#    removed_ids = np.full( len(m_s), False )
     
     t = 0
     save_grid_and_particles_full(t, grid, pos, cells, vel,
                                  m_w, m_s, xi,
-                                 active_ids, removed_ids, save_path)
+                                 active_ids, save_path)
     
 #    save_grid_and_particles_full(t, grid, pos, cell_list, vel,
 #                                 m_w_flat, m_s_flat, xi_flat,
@@ -1939,7 +1943,7 @@ def initialize_grid_and_particles_SinSIP(
         log_handle.close()
     
     return grid, pos, cells, cells_comb, vel, m_w, m_s, xi,\
-           active_ids, removed_ids
+           active_ids 
 #    return grid, pos, cells, vel, m_w_flat, m_s_flat, xi_flat,\
 #           active_ids, removed_ids
 

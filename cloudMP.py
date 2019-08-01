@@ -71,7 +71,7 @@ from file_handling import load_grid_and_particles_full
 #                         save_particles_to_files,\
 # from analysis import compare_functions_run_time
 
-from integration import simulate 
+from integration import simulate, simulate_col 
 
 ### STORAGE DIRECTORIES
 my_OS = "Linux_desk"
@@ -89,31 +89,32 @@ elif (my_OS == "Mac"):
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 
 #%% GRID PARAMETERS
+# ----> set only no_spcm and no_cells below
 # domain size
-x_min = 0.0
-x_max = 1500.0
-z_min = 0.0
-z_max = 1500.0
-
-# grid steps
-dx = 150.0
-dy = 1.0
-dz = 150.0
-#dx = 20.0
-#dy = 1.0
-#dz = 20.0
+#x_min = 0.0
+#x_max = 1500.0
+#z_min = 0.0
+#z_max = 1500.0
+#
+## grid steps
+##dx = 150.0
+##dy = 1.0
+##dz = 150.0
+##dx = 20.0
+##dy = 1.0
+##dz = 20.0
 #dx = 500.0
 #dy = 1.0
 #dz = 500.0
-
-dV = dx*dy*dz
-
-p_0 = 101500 # surface pressure in Pa
-p_ref = 1.0E5 # ref pressure for potential temperature in Pa
-r_tot_0 = 7.5E-3 # kg water / kg dry air (constant over whole domain in setup)
-# r_tot_0 = 22.5E-3 # kg water / kg dry air
-# r_tot_0 = 7.5E-3 # kg water / kg dry air
-Theta_l = 289.0 # K
+#
+#dV = dx*dy*dz
+#
+#p_0 = 101500 # surface pressure in Pa
+#p_ref = 1.0E5 # ref pressure for potential temperature in Pa
+#r_tot_0 = 7.5E-3 # kg water / kg dry air (constant over whole domain in setup)
+## r_tot_0 = 22.5E-3 # kg water / kg dry air
+## r_tot_0 = 7.5E-3 # kg water / kg dry air
+#Theta_l = 289.0 # K
 
 #%% PARTICLE PARAMETERS
 
@@ -121,15 +122,14 @@ Theta_l = 289.0 # K
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([10, 10])
-#no_spcm = np.array([0, 4])
+#no_spcm = np.array([10, 10])
+no_spcm = np.array([20, 20])
 
-no_cells = compute_no_grid_cells_from_step_sizes(
-               ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
+#no_cells = compute_no_grid_cells_from_step_sizes(
+#               ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
 
-#%% III. SIMULATION
+no_cells = (75, 75)
 
-####################################
 ### SET
 # load grid and particle list from directory
 # folder_load = "190508/grid_10_10_spct_4/"
@@ -138,15 +138,43 @@ no_cells = compute_no_grid_cells_from_step_sizes(
 # folder_load = "grid_75_75_spcm_20_20/spinup/"
 grid_folder =\
     f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" 
-    
+
+#save_folder = grid_folder
+save_folder = grid_folder + "spin_up_2h/"
+#save_folder = grid_folder + "sim_col_01/"
+#save_folder = grid_folder + "sim03_act_id_list/"
+
+#%% COLLISIONS PARAMS
+
+act_collisions = True
+kernel_method = "Ecol_grid_R"
+
+save_dir_Ecol_grid = simdata_path + "Ecol_grid_data/"
+
+import math
+
+if kernel_method == "Ecol_grid_R":
+    radius_grid = \
+        np.load(save_dir_Ecol_grid + "radius_grid_out.npy")
+    E_col_grid = \
+        np.load(save_dir_Ecol_grid + "E_col_grid.npy" )        
+    R_kernel_low = radius_grid[0]
+    bin_factor_R = radius_grid[1] / radius_grid[0]
+    R_kernel_low_log = math.log(R_kernel_low)
+    bin_factor_R_log = math.log(bin_factor_R)
+    no_kernel_bins = len(radius_grid)
+
+no_cols = np.array((0,0))
+
+
+#%% III. SIMULATION
+
+####################################
+
 #grid_folder =\
 #    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
 #    + "sim02_spin_up_2h/"
 #folder_load = "grid_75_75_spcm_4_4/"
-
-#save_folder = grid_folder
-save_folder = grid_folder + "sim03_act_id_list/"
-
 
 # folder_save = "190508/grid_10_10_spct_4/sim5/"
 # folder_save = "190510/grid_15_15_spcm_4_4/sim2/"
@@ -159,7 +187,8 @@ t_start = 0.0
 #t_end = 14400.0 # s
 #t_end = 7200.0 # s
 # t_end = 3600.0 # s
-t_end = 600.0 # s
+t_end = 1800.0 # s
+#t_end = 60.0 # s
 
 dt = 1.0 # s # timestep of advection
 
@@ -177,8 +206,8 @@ Newton_iter = 2 # number of root finding iterations for impl. mass integration
 # grid frames are taken at
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
 #frame_every = 1200
-#frame_every = 600
-frame_every = 300
+frame_every = 600
+#frame_every = 10
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
@@ -188,6 +217,7 @@ trace_ids = 40
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
 # dump_every must be <= frame_every and frame_every/dump_every must be integer
 dump_every = 10
+#dump_every = 5
 
 # g must be positive (9.8...) or 0.0 (for spin up)
 #g_set = 0.0
@@ -199,7 +229,7 @@ g_set = c.earth_gravity
 ### INIT
 #path = simdata_path + folder_load
 
-grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids = \
+grid, pos, cells, vel, m_w, m_s, xi, active_ids = \
     load_grid_and_particles_full(t_start, simdata_path + grid_folder)
 
 save_path = simdata_path + save_folder
@@ -209,15 +239,25 @@ if not os.path.exists(save_path):
 ### INIT END
 #################################### 
 
-id_list = np.arange(xi.shape[0])
+### IN WORK: NEED TO STORE ACTIVE_IDS, NEED TO SET IT IN INIT RIGHT!!
+#id_list = np.arange(xi.shape[0])
 active_ids = np.full(xi.shape[0], True)
 
 water_removed = np.array([0.0])
 #water_removed = np.array([0.0,0.0])
 
+rnd_seed = 3711
+
+#simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
+#             active_ids,
+#             dt, scale_dt, t_start, t_end, Newton_iter, g_set, act_collisions,
+#             frame_every, dump_every, trace_ids, 
+#             E_col_grid, no_kernel_bins,
+#             R_kernel_low_log, bin_factor_R_log, no_cols, rnd_seed,
+#             save_path)             
 simulate(grid,
          pos, vel, cells, m_w, m_s, xi, water_removed,
-             id_list, active_ids,
+         active_ids,
          dt, scale_dt, t_start, t_end,
          Newton_iter, g_set,
          frame_every, dump_every, trace_ids,

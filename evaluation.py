@@ -40,31 +40,32 @@ elif (my_OS == "Mac"):
     #   home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 
 #%% GRID PARAMETERS
+# ----> set only no_spcm and no_cells below
 # domain size
-x_min = 0.0
-x_max = 1500.0
-z_min = 0.0
-z_max = 1500.0
-
-# grid steps
-dx = 150.0
-dy = 1.0
-dz = 150.0
-#dx = 20.0
+#x_min = 0.0
+#x_max = 1500.0
+#z_min = 0.0
+#z_max = 1500.0
+#
+## grid steps
+#dx = 150.0
 #dy = 1.0
-#dz = 20.0
-#dx = 500.0
-#dy = 1.0
-#dz = 500.0
-
-dV = dx*dy*dz
-
-p_0 = 101500 # surface pressure in Pa
-p_ref = 1.0E5 # ref pressure for potential temperature in Pa
-r_tot_0 = 7.5E-3 # kg water / kg dry air (constant over whole domain in setup)
-# r_tot_0 = 22.5E-3 # kg water / kg dry air
-# r_tot_0 = 7.5E-3 # kg water / kg dry air
-Theta_l = 289.0 # K
+#dz = 150.0
+##dx = 20.0
+##dy = 1.0
+##dz = 20.0
+##dx = 500.0
+##dy = 1.0
+##dz = 500.0
+#
+#dV = dx*dy*dz
+#
+#p_0 = 101500 # surface pressure in Pa
+#p_ref = 1.0E5 # ref pressure for potential temperature in Pa
+#r_tot_0 = 7.5E-3 # kg water / kg dry air (constant over whole domain in setup)
+## r_tot_0 = 22.5E-3 # kg water / kg dry air
+## r_tot_0 = 7.5E-3 # kg water / kg dry air
+#Theta_l = 289.0 # K
 
 #%% PARTICLE PARAMETERS
 
@@ -72,14 +73,16 @@ Theta_l = 289.0 # K
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([10, 10])
+#no_spcm = np.array([10, 10])
 #no_spcm = np.array([20, 20])
-#no_spcm = np.array([0, 4])
+no_spcm = np.array([4, 4])
 
 from grid import compute_no_grid_cells_from_step_sizes
 
-no_cells = compute_no_grid_cells_from_step_sizes(
-               ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
+#no_cells = compute_no_grid_cells_from_step_sizes(
+#               ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
+
+no_cells = (3, 3)
 
 grid_folder =\
     f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"
@@ -103,23 +106,25 @@ grid_folder =\
 # folder_save = folder_load
 
 #folder_add = "sim01/"
-folder_add = "sim02_spin_up_2h/"
+folder_add = "sim_col_01/"
+#folder_add = "sim02_spin_up_2h/"
 
 load_path = simdata_path + grid_folder + folder_add
 # path = simdata_path + folder_load_base
-#t = 0
+t = 60
 #t = 7200
-t = 14400
+#t = 14400
 # t = 10800
 t_start = 0
 #t_start = 7200
 #t_end = 7200
 # t_end = 10800
-t_end = 14400
+t_end = 60
+#t_end = 14400
 reload = True
 
 if reload:
-    grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids = \
+    grid, pos, cells, vel, m_w, m_s, xi, active_ids  = \
         load_grid_and_particles_full(t, load_path)
     R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s,
                                             grid.temperature[tuple(cells)] )
@@ -142,8 +147,10 @@ no_cells_z = 1
 
 #for i in range(0,75,20):
 #    for j in range(0,75,20):
-for i in range(0,10,4):
-    for j in range(0,10,4):
+#for i in range(0,10,4):
+#    for j in range(0,10,4):
+for i in range(0,3):
+    for j in range(0,3):
         target_cell = (i,j)
         plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
                                    target_cell, no_cells_x, no_cells_z,

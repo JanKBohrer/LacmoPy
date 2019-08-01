@@ -100,6 +100,7 @@ def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
     # vel_y = np.zeros_like(x_rel)
     # print("np.shape(vel_ipol)")
     # print(vel_ipol.shape)
+    u, v = (0., 0.)
     for n in range( no_pt ):
         i = cells[0,n]
         j = cells[1,n]
@@ -107,25 +108,26 @@ def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
         # j = j_list[n]
         weight_x = rel_pos[0,n]
         weight_y = rel_pos[1,n]
-        if ( j == 0 and weight_y <= 0.5 ):
-            u, v = weight_velocities_linear(i, j, weight_x, weight_y,
-                                            grid_vel[0], grid_vel[1])
-        elif ( j == (grid_no_cells[1] - 1) and weight_y >= 0.5 ):
-            u, v = weight_velocities_linear(i, j, weight_x, weight_y,
-                                            grid_vel[0], grid_vel[1])
-        else:
-            if weight_y > 0.5:
-                u = bilinear_weight(i, j,
-                                    weight_x, weight_y - 0.5, grid_vel[0])
+        if j >= 0:
+            if ( j == 0 and weight_y <= 0.5 ):
+                u, v = weight_velocities_linear(i, j, weight_x, weight_y,
+                                                grid_vel[0], grid_vel[1])
+            elif ( j == (grid_no_cells[1] - 1) and weight_y >= 0.5 ):
+                u, v = weight_velocities_linear(i, j, weight_x, weight_y,
+                                                grid_vel[0], grid_vel[1])
             else:
-                u = bilinear_weight(i, j - 1,
-                                    weight_x, weight_y + 0.5, grid_vel[0])
-        if weight_x > 0.5:
-            v = bilinear_weight(i, j,
-                                weight_x - 0.5, weight_y, grid_vel[1])
-        else:
-            v = bilinear_weight(i - 1, j,
-                                weight_x + 0.5, weight_y, grid_vel[1])
+                if weight_y > 0.5:
+                    u = bilinear_weight(i, j,
+                                        weight_x, weight_y - 0.5, grid_vel[0])
+                else:
+                    u = bilinear_weight(i, j - 1,
+                                        weight_x, weight_y + 0.5, grid_vel[0])
+            if weight_x > 0.5:
+                v = bilinear_weight(i, j,
+                                    weight_x - 0.5, weight_y, grid_vel[1])
+            else:
+                v = bilinear_weight(i - 1, j,
+                                    weight_x + 0.5, weight_y, grid_vel[1])
         # vel_x[n] = u
         # vel_y[n] = v
         

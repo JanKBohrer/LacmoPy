@@ -497,7 +497,7 @@ from microphysics import compute_R_p_w_s_rho_p
 # 1000 collision steps for 75 x 75 cells take 3240 s = 54 min
 # ADD active ids and id list!!!
 def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
-        xi, m_w, m_s, vel, mass_densities, T_p, cells, no_cells,
+        xi, m_w, m_s, vel, grid_temperature, cells, no_cells,
         dt_over_dV, E_col_grid, no_kernel_bins,
         R_kernel_low_log, bin_factor_R_log, no_cols):
     
@@ -511,22 +511,26 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
             xi_cell = xi[mask_ij]
             m_w_cell = m_w[mask_ij]
             m_s_cell = m_s[mask_ij]
+            T_p_cell = grid_temperature[i,j]
 #            mass_densities = np.ones_like(masses) * mass_density
             
-            R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_cell, m_s_cell,
-                                                    T_p_cell)
+            R_p_cell, w_s_cell, rho_p_cell =\
+                compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_p_cell)
             
-            radii = compute_radius_from_mass_vec(m_w_cell+m_s_cell,
-                                                 mass_densities[mask_ij])
+#            radii = compute_radius_from_mass_vec(m_w_cell+m_s_cell,
+#                                                 mass_densities[mask_ij])
             vels = vel[:,mask_ij]
             
             ### IN WORK: SAFETY: IS THERE A PARTICLE IN THE CELL AT ALL?
             
             collision_step_Long_Bott_Ecol_grid_R_2D_multicomp(
-                    xi_cell, m_w_cell, m_s_cell, radii, vels, mass_densities,
+                    xi_cell, m_w_cell, m_s_cell, R_p_cell, vels,
+                    rho_p_cell,
                     dt_over_dV, E_col_grid, no_kernel_bins,
                     R_kernel_low_log, bin_factor_R_log, no_cols)            
             
             xi[mask_ij] = xi_cell
             m_w[mask_ij] = m_w_cell   
             m_s[mask_ij] = m_s_cell   
+collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp = \
+    njit()(collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np)

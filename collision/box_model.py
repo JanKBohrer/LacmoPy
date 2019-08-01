@@ -24,7 +24,6 @@ from .AON import collision_step_Long_Bott_m
 from .AON import collision_step_Long_Bott_Ecol_grid_R
 from .AON import collision_step_Long_Bott_kernel_grid_m
 
-
 #%% DEFINITIONS
 
 ### SIMULATION

@@ -309,7 +309,7 @@ mass_density_air0 = 1.
 #%% GENERATE GRID AND PARTICLES
 
 #if act_gen_grid:
-grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids, removed_ids = \
+grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids  = \
     initialize_grid_and_particles_SinSIP(
         x_min, x_max, z_min, z_max, dx, dy, dz,
         p_0, p_ref, r_tot_0, Theta_l,
@@ -321,7 +321,7 @@ grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids, removed_ids = \
 
 #%%
 
-fig_name = grid_path + "pos_vel_t0.pdf"
+fig_name = grid_path + "pos_vel_t0.png"
 plot_pos_vel_pt(pos, vel, grid,
                     figsize=(8,8), no_ticks = [11,11],
                     MS = 1.0, ARRSCALE=10, fig_name=fig_name)

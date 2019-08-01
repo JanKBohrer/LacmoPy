@@ -414,16 +414,18 @@ propagate_grid_subloop_step_par =\
 #%% PARTICLE PROPAGATION
 from numba import prange
 # @njit()
-def update_cells_and_rel_pos_np(pos, cells, rel_pos, grid_ranges, grid_steps):
-    x = pos[0]
-    y = pos[1]
+def update_cells_and_rel_pos_np(pos, cells, rel_pos,
+                                active_ids,
+                                grid_ranges, grid_steps):
+    x = pos[0][active_ids]
+    y = pos[1][active_ids]
     # cells = np.empty( (2,len(x)) , dtype = np.int64)
     # rel_pos = np.empty( (2,len(x)) , dtype = np.float64 )
     # gridranges = arr [[x_min, x_max], [y_min, y_max]]
-    rel_pos[0] = x - grid_ranges[0,0] 
-    rel_pos[1] = y - grid_ranges[1,0]
-    cells[0] = np.floor(x/grid_steps[0]).astype(np.int64)
-    cells[1] = np.floor(y/grid_steps[1]).astype(np.int64)
+    rel_pos[0][active_ids] = x - grid_ranges[0,0] 
+    rel_pos[1][active_ids] = y - grid_ranges[1,0]
+    cells[0][active_ids] = np.floor(x/grid_steps[0]).astype(np.int64)
+    cells[1][active_ids] = np.floor(y/grid_steps[1]).astype(np.int64)
     
     rel_pos[0] = rel_pos[0] / grid_steps[0] - cells[0]
     rel_pos[1] = rel_pos[1] / grid_steps[1] - cells[1]
@@ -450,8 +452,10 @@ update_cells_and_rel_pos_par = njit(parallel=True)(update_cells_and_rel_pos_np)
 # best =  1.071e+03 us; worst =  1.082e+03 us; mean = 1.076e+03 +- 4.62 us
 # best =  641.5 us; worst =  743.3 us; mean = 699.8 +- 33.3 us
 # active_ids is a bool array with entry True/False for each SIP
-def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, water_removed,
-                                 id_list, active_ids, grid_ranges, dt):
+def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, cells,
+                                 water_removed,
+                                 id_list, active_ids,
+                                 grid_ranges, dt):
     z_min = grid_ranges[1,0]
     # removed = False
     pos += dt * vel
@@ -476,6 +480,9 @@ def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, water_removed,
             vel[1,ID] = 0.0
             active_ids[ID] = False
             water_removed[0] += xi[ID] * m_w[ID]
+            cells[1,ID] = -1
+            ### IN WORK -> SET CELL[1] TO -1 -> DO NOT UPDATE CELL AFTERWARDS
+            
             
 #    for ID in prange(xi.shape[0]):
 #        if xi[ID] != 0:
@@ -726,13 +733,15 @@ def propagate_particles_subloop_step_np(grid_scalar_fields, grid_mat_prop,
     #                 grid_mat_prop[ind["muf"]], grid_mat_prop[ind["rhof"]], 
     #                 grid_no_cells, g_set, dt_sub)
     ### 10.
-    update_pos_from_vel_BC_PS(m_w, pos, vel, xi, water_removed, id_list,
+    update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
+                              water_removed, id_list,
                               active_ids,
                               grid_ranges, dt_sub_pos)
 
     # update_pos_from_vel_BC_PS(pos, vel, xi, grid_ranges, dt_sub_pos)
     ### 11.
-    update_cells_and_rel_pos(pos, cells, rel_pos, grid_ranges, grid_steps)
+    update_cells_and_rel_pos(pos, cells, rel_pos, active_ids,
+                             grid_ranges, grid_steps)
 propagate_particles_subloop_step = njit()(propagate_particles_subloop_step_np)
 propagate_particles_subloop_step_par =\
     njit(parallel = True)(propagate_particles_subloop_step_np)
@@ -789,7 +798,7 @@ integrate_subloop = njit()(integrate_subloop_np)
 #%% SIMULATE INTERVAL
 
 from collision.AON import \
-    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
+    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp
 
 ### SIMULATE INTERVAL WITH COLLISIONS
 # grid_scalar_fields[0] = grid.temperature
@@ -848,9 +857,13 @@ def simulate_interval_col_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
     
         # b) for all particles: x_n+1/2 = x_n + h/2 v_n
         # removed_ids_step = []        
-        update_pos_from_vel_BC_PS(m_w, pos, vel, xi, water_removed, id_list,
-                                  active_ids, grid_ranges, dt_sub_half)
-        update_cells_and_rel_pos(pos, cells, rel_pos, grid_ranges, grid_steps)
+        update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
+                                  water_removed, id_list,
+                                  active_ids, grid_ranges,
+                                  dt_sub_half)
+        update_cells_and_rel_pos(pos, cells, rel_pos,
+                                 active_ids,
+                                 grid_ranges, grid_steps)
 
         # c) advection change of r_v and T
         delta_r_v_ad = -dt_sub\
@@ -927,16 +940,24 @@ def simulate_interval_col_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
                                     delta_Theta_ad, delta_r_v_ad,
                                     delta_m_l, delta_Q_p,
                                     grid_volume_cell)
+        
         ### insert collisions here (after each advection step)
         # what changes during collisions ? -> m_s, m_w, xi
         # NOT m_w_cell total -> need to update something after?
         # njit possible ??
-        dt_over_dV = dt / grid.volume_cell
-        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
-            xi, m_w, m_s, vel, mass_densities, cells, grid.no_cells,
+        ### IN WORK 
+#        update_T_p(grid_scalar_fields[0], cells, T_p)
+        dt_over_dV = dt / grid_volume_cell
+        
+#        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+#                xi, m_w, m_s, vel, grid_temperature, cells, no_cells,
+#                dt_over_dV, E_col_grid, no_kernel_bins,
+#                R_kernel_low_log, bin_factor_R_log, no_cols)        
+        
+        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp(
+            xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
             dt_over_dV, E_col_grid, no_kernel_bins,
             R_kernel_low_log, bin_factor_R_log, no_cols)
-        
         
 simulate_interval_col = njit()(simulate_interval_col_np)
 
@@ -995,9 +1016,13 @@ def simulate_interval_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
     
         # b) for all particles: x_n+1/2 = x_n + h/2 v_n
         # removed_ids_step = []        
-        update_pos_from_vel_BC_PS(m_w, pos, vel, xi, water_removed, id_list,
-                                  active_ids, grid_ranges, dt_sub_half)
-        update_cells_and_rel_pos(pos, cells, rel_pos, grid_ranges, grid_steps)
+        update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
+                                  water_removed, id_list,
+                                  active_ids, grid_ranges,
+                                  dt_sub_half)
+        update_cells_and_rel_pos(pos, cells, rel_pos,
+                                 active_ids,
+                                 grid_ranges, grid_steps)
 
         # c) advection change of r_v and T
         delta_r_v_ad = -dt_sub\
@@ -1116,17 +1141,24 @@ simulate_interval = njit()(simulate_interval_np)
 # -> if integer: spread this number of tracers uniformly over the ID-range
 # path: path to save data, the file notation is chosen internally
 def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
-             id_list, active_ids,
+             active_ids,
              dt, scale_dt, t_start, t_end, Newton_iter, g_set, act_collisions,
-             frame_every, dump_every, trace_ids, path):
+             frame_every, dump_every, trace_ids, 
+             E_col_grid, no_kernel_bins,
+             R_kernel_low_log, bin_factor_R_log, no_cols,
+             rnd_seed,
+             path):
     log_file = path + f"log_sim_t_{int(t_start)}_{int(t_end)}.txt"
     
     start_time = datetime.now()
     
     # init particles
     rel_pos = np.zeros_like(pos)
-    update_cells_and_rel_pos(pos, cells, rel_pos, grid.ranges, grid.steps)
+    update_cells_and_rel_pos(pos, cells, rel_pos, active_ids,
+                             grid.ranges, grid.steps)
     T_p = np.ones_like(m_w)
+    
+    id_list = np.arange(xi.shape[0])
     
     # init grid properties
     grid.update_material_properties()
@@ -1225,6 +1257,7 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
         f.write( f"start date and time = {date}\n" )    
         f.write( f"sim time = {date-start_time}\n" )    
     ### INTEGRATION LOOP START
+    if act_collisions: np.random.seed(rnd_seed)
     for frame_N in range(no_grid_frames):
         t = t_start + frame_N * frame_every * dt 
         update_grid_r_l(m_w, xi, cells,
@@ -1235,20 +1268,20 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
         
         if act_collisions:
             simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
-                                     grid_mass_flux_air_dry, p_ref, p_ref_inv,
-                                     grid_no_cells, grid_ranges,
-                                     grid_steps, grid_volume_cell,
-                                     pos, vel, cells, rel_pos, m_w, m_s, xi,
-                                     water_removed,
-                                     id_list, active_ids, T_p,
-                                     delta_m_l, delta_Q_p,
-                                     dt, dt_sub, dt_sub_half, scale_dt, frame_every,
-                                     Newton_iter, g_set,
-                                     dump_every, trace_ids,
-                                     traced_vectors, traced_scalars,
-                                     traced_xi, traced_water
-                                     # , traced_grid_fields
-                                     )        
+                         grid_mass_flux_air_dry, p_ref, p_ref_inv,
+                         grid_no_cells, grid_ranges,
+                         grid_steps, grid_volume_cell,
+                         pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+                         id_list, active_ids, T_p,
+                         delta_m_l, delta_Q_p,
+                         dt, dt_sub, dt_sub_half, scale_dt, frame_every,
+                         Newton_iter, g_set,
+                         dump_every, trace_ids,
+                         traced_vectors, traced_scalars,
+                         traced_xi, traced_water,
+                         E_col_grid, no_kernel_bins,
+                         R_kernel_low_log, bin_factor_R_log, no_cols
+                         )            
         else:
             simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                                      grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -1258,12 +1291,12 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
                                      water_removed,
                                      id_list, active_ids, T_p,
                                      delta_m_l, delta_Q_p,
-                                     dt, dt_sub, dt_sub_half, scale_dt, frame_every,
+                                     dt, dt_sub, dt_sub_half, scale_dt,
+                                     frame_every,
                                      Newton_iter, g_set,
                                      dump_every, trace_ids,
                                      traced_vectors, traced_scalars,
                                      traced_xi, traced_water
-                                     # , traced_grid_fields
                                      )        
         time_block =\
             np.arange(t, t + frame_every * dt, dump_every * dt).astype(int)
@@ -1284,6 +1317,8 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
                        m_w[trace_ids], m_s[trace_ids], xi[trace_ids],
                        grid_scalar_fields[0], grid_scalar_fields[4], path)
     
+    np.save(f"water_removed_{int(t)}", water_removed)
+    
     # full save at t_end
     grid.temperature = grid_scalar_fields[0]
     grid.pressure = grid_scalar_fields[1]
@@ -1303,7 +1338,8 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     grid.mass_density_fluid = grid_mat_prop[6]
     
 #    active_ids = np.nonzero(xi)[0]
-    removed_ids = np.where(xi == 0)[0]
+#    removed_ids = np.where(xi == 0)[0]
+    removed_ids = np.invert(active_ids)
     
     save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                                      active_ids, removed_ids,
@@ -1363,7 +1399,7 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
 # -> if integer: spread this number of tracers uniformly over the ID-range
 # path: path to save data, the file notation is chosen internally
 def simulate(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
-             id_list, active_ids,
+             active_ids,
              dt, scale_dt, t_start, t_end, Newton_iter, g_set,
              frame_every, dump_every, trace_ids, path):
     log_file = path + f"log_sim_t_{int(t_start)}_{int(t_end)}.txt"
@@ -1372,8 +1408,11 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     
     # init particles
     rel_pos = np.zeros_like(pos)
-    update_cells_and_rel_pos(pos, cells, rel_pos, grid.ranges, grid.steps)
+    update_cells_and_rel_pos(pos, cells, rel_pos, active_ids,
+                             grid.ranges, grid.steps)
     T_p = np.ones_like(m_w)
+    
+    id_list = np.arange(xi.shape[0])
     
     # init grid properties
     grid.update_material_properties()
@@ -1533,7 +1572,8 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     grid.mass_density_fluid = grid_mat_prop[6]
     
 #    active_ids = np.nonzero(xi)[0]
-    removed_ids = np.where(xi == 0)[0]
+#    removed_ids = np.where(xi == 0)[0]
+    removed_ids = np.invert(active_ids)
     
     save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                                      active_ids, removed_ids,
