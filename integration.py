@@ -788,6 +788,9 @@ integrate_subloop = njit()(integrate_subloop_np)
 
 #%% SIMULATE INTERVAL
 
+from collision.AON import \
+    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
+
 ### SIMULATE INTERVAL WITH COLLISIONS
 # grid_scalar_fields[0] = grid.temperature
 # grid_scalar_fields[1] = grid.pressure
@@ -821,7 +824,9 @@ def simulate_interval_col_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          Newton_iter, g_set,
                          dump_every, trace_ids,
                          traced_vectors, traced_scalars,
-                         traced_xi, traced_water
+                         traced_xi, traced_water,
+                         E_col_grid, no_kernel_bins,
+                         R_kernel_low_log, bin_factor_R_log, no_cols
                          # , traced_grid_fields
                          ):
     dump_N = 0
@@ -926,6 +931,12 @@ def simulate_interval_col_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
         # what changes during collisions ? -> m_s, m_w, xi
         # NOT m_w_cell total -> need to update something after?
         # njit possible ??
+        dt_over_dV = dt / grid.volume_cell
+        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+            xi, m_w, m_s, vel, mass_densities, cells, grid.no_cells,
+            dt_over_dV, E_col_grid, no_kernel_bins,
+            R_kernel_low_log, bin_factor_R_log, no_cols)
+        
         
 simulate_interval_col = njit()(simulate_interval_col_np)
 

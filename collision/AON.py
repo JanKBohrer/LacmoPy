@@ -358,3 +358,175 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
             cnt += 1
 collision_step_Long_Bott_Ecol_grid_R_2D = \
     njit()(collision_step_Long_Bott_Ecol_grid_R_2D_np)
+    
+# given E_col grid for radii
+# given velocities "vel"
+# updates masses AND radii
+# assume mass densities constant (but varying for diff SIPs) during coll step
+def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
+        xis, m_w, m_s, radii, vel, mass_densities,
+        dt_over_dV, E_col_grid, no_kernel_bins,
+        R_kernel_low_log, bin_factor_R_log, no_cols ):
+    no_SIPs = xis.shape[0]
+
+    rnd = np.random.rand( (no_SIPs*(no_SIPs-1))//2 )
+    
+    ind_kernel = create_kernel_index_array(
+                     radii, no_SIPs,
+                     R_kernel_low_log, bin_factor_R_log, no_kernel_bins)
+    
+    # check each i-j combination for a possible collection event
+    cnt = 0
+    for i in range(0, no_SIPs-1):
+        for j in range(i+1, no_SIPs):
+            if xis[i] <= xis[j]:
+                ind_min = i
+                ind_max = j
+            else:
+                ind_min = j
+                ind_max = i
+            xi_min = xis[ind_min] # = nu_i in Unt
+            xi_max = xis[ind_max] # = nu_j in Unt
+            m_w_min = m_w[ind_min] # = mu_i in Unt, not necc. the smaller mass
+            m_w_max = m_w[ind_max] # = mu_j in Unt, not necc. the larger mass
+            m_s_min = m_s[ind_min] # = mu_i in Unt, not necc. the smaller mass
+            m_s_max = m_s[ind_max] # = mu_j in Unt, not necc. the larger mass
+            
+
+            p_crit = xi_max * dt_over_dV \
+                     * compute_kernel_hydro(
+                           radii[i], radii[j],
+                           E_col_grid[ind_kernel[i], ind_kernel[j]],
+                           # abs difference of 2D vectors
+                           math.sqrt( (vel[0,i] - vel[0,j])**2
+                                      + (vel[1,i] - vel[1,j])**2 ) )
+
+            if p_crit > 1.0:
+                # multiple collection
+                xi_col = p_crit * xi_min # p_crit = xi_col / xi_min
+                m_w[ind_min] = m_w_min + p_crit * m_w_max
+                m_s[ind_min] = m_s_min + p_crit * m_s_max
+                # mass changed: update radius
+                radii[ind_min] =\
+                    compute_radius_from_mass_jit(m_w[ind_min] + m_s[ind_min],
+                                                 mass_densities[ind_min])
+                xis[ind_max] -= xi_col
+                # rad of ind_min changed -> update kernel index:
+                ind_kernel[ind_min] = \
+                    compute_kernel_index(radii[ind_min], R_kernel_low_log,
+                                         bin_factor_R_log, no_kernel_bins)
+                no_cols[1] += 1
+            elif p_crit > rnd[cnt]:
+                no_cols[0] += 1
+                xi_rel_dev = (xi_max-xi_min)/xi_max
+                if xi_rel_dev < 1.0E-5:
+                    print("xi_i approx xi_j, xi_rel_dev =",
+                          xi_rel_dev,
+                          " in collision")
+                    xi_ges = xi_min + xi_max
+                    m_w[ind_min] = 2.0 * ( xi_min*m_w_min + xi_max*m_w_max ) \
+                                      / xi_ges
+                    m_s[ind_min] = 2.0 * ( xi_min*m_s_min + xi_max*m_s_max ) \
+                                      / xi_ges
+                    m_w[ind_max] = m_w[ind_min]
+                    m_s[ind_max] = m_s[ind_min]
+                    radii[ind_min] =\
+                        compute_radius_from_mass_jit(m_w[ind_min]+m_s[ind_min],
+                                                     mass_densities[ind_min])
+                    radii[ind_max] = radii[ind_min]
+                    xis[ind_max] = 0.5 * 0.7 * xi_ges
+                    xis[ind_min] = 0.5 * xi_ges - xis[ind_max]
+                    # radius of ind_min AND ind_max changed to same radii
+                    # -> update kernel ind:
+                    ind_kernel[ind_min] = \
+                        compute_kernel_index(radii[ind_min], R_kernel_low_log,
+                                             bin_factor_R_log, no_kernel_bins)
+                    ind_kernel[ind_max] = ind_kernel[ind_min]
+                else:
+                    m_w[ind_min] += m_w_max
+                    m_s[ind_min] += m_s_max
+                    radii[ind_min] =\
+                        compute_radius_from_mass_jit(m_w[ind_min]+m_w[ind_min],
+                                                     mass_densities[ind_min])
+                    xis[ind_max] -= xi_min
+                    # rad of ind_min changed -> update kernel index:
+                    ind_kernel[ind_min] = \
+                        compute_kernel_index(radii[ind_min], R_kernel_low_log,
+                                             bin_factor_R_log, no_kernel_bins)
+            cnt += 1
+collision_step_Long_Bott_Ecol_grid_R_2D_multicomp = \
+    njit()(collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np)
+
+
+# keep velocities and mass densities fixed for a collision timestep
+# the np-method is 2 times faster than the jitted version
+# 1000 collision steps for 75 x 75 cells take 3240 s = 54 min
+# ADD active ids and id list!!!
+def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_np(
+        xi, m_w, vel, mass_densities, cells, no_cells,
+        dt_over_dV, E_col_grid, no_kernel_bins,
+        R_kernel_low_log, bin_factor_R_log, no_cols):
+    
+    for i in range(no_cells[0]):
+        mask_i = (cells[0] == i)
+        for j in range(no_cells[1]):
+#            mask_j = (cells[1] == j)
+            mask_ij = np.logical_and(mask_i , (cells[1] == j))
+            
+            # for given cell:
+            xis = xi[mask_ij]
+            masses = m_w[mask_ij]
+#            mass_densities = np.ones_like(masses) * mass_density
+            radii = compute_radius_from_mass_vec(masses,
+                                                 mass_densities[mask_ij])
+            vels = vel[:,mask_ij]
+            
+            ### IN WORK: SAFETY: IS THERE A PARTICLE IN THE CELL AT ALL?
+            
+            collision_step_Long_Bott_Ecol_grid_R_2D(
+                    xis, masses, radii, vels, mass_densities,
+                    dt_over_dV, E_col_grid, no_kernel_bins,
+                    R_kernel_low_log, bin_factor_R_log, no_cols)            
+            
+            xi[mask_ij] = xis
+            m_w[mask_ij] = masses   
+
+from microphysics import compute_R_p_w_s_rho_p
+# keep velocities and mass densities fixed for a collision timestep
+# the np-method is 2 times faster than the jitted version
+# 1000 collision steps for 75 x 75 cells take 3240 s = 54 min
+# ADD active ids and id list!!!
+def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+        xi, m_w, m_s, vel, mass_densities, T_p, cells, no_cells,
+        dt_over_dV, E_col_grid, no_kernel_bins,
+        R_kernel_low_log, bin_factor_R_log, no_cols):
+    
+    for i in range(no_cells[0]):
+        mask_i = (cells[0] == i)
+        for j in range(no_cells[1]):
+#            mask_j = (cells[1] == j)
+            mask_ij = np.logical_and(mask_i , (cells[1] == j))
+            
+            # for given cell:
+            xi_cell = xi[mask_ij]
+            m_w_cell = m_w[mask_ij]
+            m_s_cell = m_s[mask_ij]
+#            mass_densities = np.ones_like(masses) * mass_density
+            
+            R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_cell, m_s_cell,
+                                                    T_p_cell)
+            
+            radii = compute_radius_from_mass_vec(m_w_cell+m_s_cell,
+                                                 mass_densities[mask_ij])
+            vels = vel[:,mask_ij]
+            
+            ### IN WORK: SAFETY: IS THERE A PARTICLE IN THE CELL AT ALL?
+            
+            collision_step_Long_Bott_Ecol_grid_R_2D_multicomp(
+                    xi_cell, m_w_cell, m_s_cell, radii, vels, mass_densities,
+                    dt_over_dV, E_col_grid, no_kernel_bins,
+                    R_kernel_low_log, bin_factor_R_log, no_cols)            
+            
+            xi[mask_ij] = xi_cell
+            m_w[mask_ij] = m_w_cell   
+            m_s[mask_ij] = m_s_cell   
