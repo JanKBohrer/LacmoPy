@@ -1339,10 +1339,10 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     
 #    active_ids = np.nonzero(xi)[0]
 #    removed_ids = np.where(xi == 0)[0]
-    removed_ids = np.invert(active_ids)
+#    removed_ids = np.invert(active_ids)
     
     save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
-                                     active_ids, removed_ids,
+                                     active_ids,
                                      path)
     # total water removed by hitting the ground
     # convert to kg
@@ -1573,10 +1573,10 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     
 #    active_ids = np.nonzero(xi)[0]
 #    removed_ids = np.where(xi == 0)[0]
-    removed_ids = np.invert(active_ids)
+#    removed_ids = np.invert(active_ids)
     
     save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
-                                     active_ids, removed_ids,
+                                     active_ids,
                                      path)
     # total water removed by hitting the ground
     # convert to kg

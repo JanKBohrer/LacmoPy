@@ -74,8 +74,8 @@ from file_handling import load_grid_and_particles_full
 from integration import simulate, simulate_col 
 
 ### STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-# my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -83,7 +83,8 @@ if(my_OS == "Linux_desk"):
 #    sim_data_path = home_path + "OneDrive/python/sim_data/"
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
-    home_path = "/Users/bohrer/"
+#    home_path = "/Users/bohrer/sim_data_cloudMP/test_gen_grid_and_pt/"
+    simdata_path = "/Users/bohrer/sim_data_cloudMP/test_gen_grid_and_pt/"
 #    simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
 #    fig_path = home_path \
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
@@ -140,13 +141,20 @@ grid_folder =\
     f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" 
 
 #save_folder = grid_folder
-save_folder = grid_folder + "spin_up_2h/"
+save_folder = grid_folder + "no_spin_up_col/"
+
+#save_folder = grid_folder + "no_spin_up_no_col/"
+
+#save_folder = grid_folder + "spin_up_2h/"
+
 #save_folder = grid_folder + "sim_col_01/"
 #save_folder = grid_folder + "sim03_act_id_list/"
 
 #%% COLLISIONS PARAMS
 
+#act_collisions = False
 act_collisions = True
+
 kernel_method = "Ecol_grid_R"
 
 save_dir_Ecol_grid = simdata_path + "Ecol_grid_data/"
@@ -186,9 +194,10 @@ t_start = 0.0
 #t_start = 7200.0 # s
 #t_end = 14400.0 # s
 #t_end = 7200.0 # s
-# t_end = 3600.0 # s
-t_end = 1800.0 # s
-#t_end = 60.0 # s
+ 
+t_end = 3600.0 # s
+#t_end = 1800.0 # s
+#t_end = 20.0 # s
 
 dt = 1.0 # s # timestep of advection
 
@@ -211,7 +220,7 @@ frame_every = 600
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
-trace_ids = 40
+trace_ids = 30
 
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
@@ -247,18 +256,19 @@ water_removed = np.array([0.0])
 #water_removed = np.array([0.0,0.0])
 
 rnd_seed = 3711
-
-#simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
-#             active_ids,
-#             dt, scale_dt, t_start, t_end, Newton_iter, g_set, act_collisions,
-#             frame_every, dump_every, trace_ids, 
-#             E_col_grid, no_kernel_bins,
-#             R_kernel_low_log, bin_factor_R_log, no_cols, rnd_seed,
-#             save_path)             
-simulate(grid,
-         pos, vel, cells, m_w, m_s, xi, water_removed,
-         active_ids,
-         dt, scale_dt, t_start, t_end,
-         Newton_iter, g_set,
-         frame_every, dump_every, trace_ids,
-         save_path)
+if act_collisions:
+    simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
+                 active_ids,
+                 dt, scale_dt, t_start, t_end, Newton_iter, g_set, act_collisions,
+                 frame_every, dump_every, trace_ids, 
+                 E_col_grid, no_kernel_bins,
+                 R_kernel_low_log, bin_factor_R_log, no_cols, rnd_seed,
+                 save_path)             
+else:
+    simulate(grid,
+        pos, vel, cells, m_w, m_s, xi, water_removed,
+        active_ids,
+        dt, scale_dt, t_start, t_end,
+        Newton_iter, g_set,
+        frame_every, dump_every, trace_ids,
+        save_path)
