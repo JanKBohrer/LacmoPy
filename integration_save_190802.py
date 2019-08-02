@@ -33,11 +33,6 @@ from file_handling import dump_particle_data, save_grid_scalar_fields,\
 from grid import update_grid_r_l
 from datetime import datetime                      
 
-#from collision.AON import \
-#    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp
-from collision.AON import \
-    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
-
 #%% ADVECTION
             
 # get timestep estimate by courant number (cfl number)
@@ -754,7 +749,7 @@ propagate_particles_subloop_step_par =\
 
 #%% SUBLOOP COMBINED
     
-def integrate_subloop_n_steps_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
+def integrate_subloop_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          grid_no_cells, grid_ranges, grid_steps,
                          grid_volume_cell, p_ref, p_ref_inv,
                          pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
@@ -798,113 +793,12 @@ def integrate_subloop_n_steps_np(grid_scalar_fields, grid_mat_prop, grid_velocit
         
         # tau += dt_sub
     # subloop 1 end    
-integrate_subloop_n_steps = njit()(integrate_subloop_n_steps_np)
-
-def integrate_grid_and_condens_one_adv_step_np(
-        grid_scalar_fields, grid_mat_prop, grid_velocity,
-        grid_mass_flux_air_dry, p_ref, p_ref_inv,
-        grid_no_cells, grid_ranges,
-        grid_steps, grid_volume_cell,
-        pos, vel, cells, rel_pos, m_w, m_s, xi,
-        water_removed,
-        id_list, active_ids, T_p,
-        delta_m_l, delta_Q_p,
-        dt, dt_sub, dt_sub_half, scale_dt, no_adv_steps,
-        Newton_iter, g_set):
-    ### one timestep dt:
-    # a) dt_sub is set
-
-    # b) for all particles: x_n+1/2 = x_n + h/2 v_n
-    # removed_ids_step = []        
-    update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
-                              water_removed, id_list,
-                              active_ids, grid_ranges,
-                              dt_sub_half)
-    update_cells_and_rel_pos(pos, cells, rel_pos,
-                             active_ids,
-                             grid_ranges, grid_steps)
-
-    # c) advection change of r_v and T
-    delta_r_v_ad = -dt_sub\
-                   * compute_divergence_upwind(
-                         grid_scalar_fields[4],
-                         grid_mass_flux_air_dry,
-                         grid_no_cells, grid_steps,
-                         flux_type = 1,
-                         boundary_conditions = np.array([0, 1]))\
-                   * grid_scalar_fields[9]
-    delta_Theta_ad = -dt_sub\
-                   * compute_divergence_upwind(
-                         grid_scalar_fields[2],
-                         grid_mass_flux_air_dry,
-                         grid_no_cells, grid_steps,
-                         flux_type = 1,
-                         boundary_conditions = np.array([0, 1]))\
-                     * grid_scalar_fields[9]
-
-    # d) subloop 1
-    # for n_h = 0, ..., N_h-1
-    integrate_subloop_n_steps(grid_scalar_fields, grid_mat_prop, grid_velocity,
-                      grid_no_cells, grid_ranges, grid_steps,
-                      grid_volume_cell, p_ref, p_ref_inv,
-                      pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
-                      id_list, active_ids, T_p,
-                      delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
-                      dt_sub, dt_sub, scale_dt, Newton_iter, g_set)
-    # subloop 1 end
-    
-    # e) advection change of r_v and T for second subloop
-    delta_r_v_ad = -2.0 * dt_sub\
-                   * compute_divergence_upwind(
-                         grid_scalar_fields[4],
-                         grid_mass_flux_air_dry,
-                         grid_no_cells, grid_steps,
-                         flux_type = 1,
-                         boundary_conditions = np.array([0, 1]))\
-                   * grid_scalar_fields[9] - delta_r_v_ad
-    delta_Theta_ad = -2.0 * dt_sub\
-                   * compute_divergence_upwind(
-                         grid_scalar_fields[2],
-                         grid_mass_flux_air_dry,
-                         grid_no_cells, grid_steps,
-                         flux_type = 1,
-                         boundary_conditions = np.array([0, 1]))\
-                     * grid_scalar_fields[9] - delta_Theta_ad
-    # f) subloop 2
-    # for n_h = 0, ..., N_h-2
-    integrate_subloop_n_steps(grid_scalar_fields, grid_mat_prop, grid_velocity,
-                      grid_no_cells, grid_ranges, grid_steps,
-                      grid_volume_cell, p_ref, p_ref_inv,
-                      pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
-                      id_list, active_ids, T_p,
-                      delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
-                      dt_sub, dt_sub, scale_dt-1, Newton_iter, g_set)
-    # subloop 2 end
-
-    # add one step, where pos is moved only by half timestep x_n+1/2 -> x_n
-    # i) for all particles
-    # updates delta_m_l and delta_Q_p as well
-    propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
-                                     grid_velocity,
-                                     grid_no_cells, grid_ranges, grid_steps,
-                                     pos, vel, cells, rel_pos, m_w, m_s, xi,
-                                     water_removed, id_list, active_ids,
-                                     T_p,
-                                     delta_m_l, delta_Q_p,
-                                     dt_sub, dt_sub_half,
-                                     Newton_iter, g_set)
-    # ii) to vii)
-    propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
-                                p_ref, p_ref_inv,
-                                delta_Theta_ad, delta_r_v_ad,
-                                delta_m_l, delta_Q_p,
-                                grid_volume_cell)    
-integrate_grid_and_condens_one_adv_step = \
-    njit()(integrate_grid_and_condens_one_adv_step_np)
+integrate_subloop = njit()(integrate_subloop_np)
 
 #%% SIMULATE INTERVAL
 
-
+from collision.AON import \
+    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp
 
 ### SIMULATE INTERVAL WITH COLLISIONS
 # grid_scalar_fields[0] = grid.temperature
@@ -928,9 +822,7 @@ integrate_grid_and_condens_one_adv_step = \
 
 # simulates grid and particles for no_adv_steps advection timesteps dt = dt_adv
 # with subloop integration with timestep dt_sub
-# since coll step is 2 times faster in np-version, there is no njit() here
-# the np version is the "normal" version
-def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
+def simulate_interval_col_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          grid_mass_flux_air_dry, p_ref, p_ref_inv,
                          grid_no_cells, grid_ranges,
                          grid_steps, grid_volume_cell,
@@ -943,9 +835,9 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          traced_vectors, traced_scalars,
                          traced_xi, traced_water,
                          E_col_grid, no_kernel_bins,
-                         R_kernel_low_log, bin_factor_R_log, no_cols):
+                         R_kernel_low_log, bin_factor_R_log, no_cols
                          # , traced_grid_fields
-    dt_over_dV = dt / grid_volume_cell
+                         ):
     dump_N = 0
     for cnt in range(no_adv_steps):
         if cnt % dump_every == 0:
@@ -960,24 +852,114 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
 
             dump_N +=1
             
-        integrate_grid_and_condens_one_adv_step(
-            grid_scalar_fields, grid_mat_prop, grid_velocity,
-            grid_mass_flux_air_dry, p_ref, p_ref_inv,
-            grid_no_cells, grid_ranges,
-            grid_steps, grid_volume_cell,
-            pos, vel, cells, rel_pos, m_w, m_s, xi,
-            water_removed,
-            id_list, active_ids, T_p,
-            delta_m_l, delta_Q_p,
-            dt, dt_sub, dt_sub_half, scale_dt, no_adv_steps,
-            Newton_iter, g_set)    
+        ### one timestep dt:
+        # a) dt_sub is set
+    
+        # b) for all particles: x_n+1/2 = x_n + h/2 v_n
+        # removed_ids_step = []        
+        update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
+                                  water_removed, id_list,
+                                  active_ids, grid_ranges,
+                                  dt_sub_half)
+        update_cells_and_rel_pos(pos, cells, rel_pos,
+                                 active_ids,
+                                 grid_ranges, grid_steps)
+
+        # c) advection change of r_v and T
+        delta_r_v_ad = -dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[4],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                       * grid_scalar_fields[9]
+        delta_Theta_ad = -dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[2],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                         * grid_scalar_fields[9]
+
+        # d) subloop 1
+        # for n_h = 0, ..., N_h-1
+        integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
+                          grid_no_cells, grid_ranges, grid_steps,
+                          grid_volume_cell, p_ref, p_ref_inv,
+                          pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+                          id_list, active_ids, T_p,
+                          delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                          dt_sub, dt_sub, scale_dt, Newton_iter, g_set)
+        # subloop 1 end
         
-        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+        # e) advection change of r_v and T for second subloop
+        delta_r_v_ad = -2.0 * dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[4],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                       * grid_scalar_fields[9] - delta_r_v_ad
+        delta_Theta_ad = -2.0 * dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[2],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                         * grid_scalar_fields[9] - delta_Theta_ad
+        # f) subloop 2
+        # for n_h = 0, ..., N_h-2
+        integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
+                          grid_no_cells, grid_ranges, grid_steps,
+                          grid_volume_cell, p_ref, p_ref_inv,
+                          pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+                          id_list, active_ids, T_p,
+                          delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                          dt_sub, dt_sub, scale_dt-1, Newton_iter, g_set)
+        # subloop 2 end
+    
+        # add one step, where pos is moved only by half timestep x_n+1/2 -> x_n
+        # i) for all particles
+        # updates delta_m_l and delta_Q_p as well
+        propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                         grid_velocity,
+                                         grid_no_cells, grid_ranges, grid_steps,
+                                         pos, vel, cells, rel_pos, m_w, m_s, xi,
+                                         water_removed, id_list, active_ids,
+                                         T_p,
+                                         delta_m_l, delta_Q_p,
+                                         dt_sub, dt_sub_half,
+                                         Newton_iter, g_set)
+        # ii) to vii)
+        propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                    p_ref, p_ref_inv,
+                                    delta_Theta_ad, delta_r_v_ad,
+                                    delta_m_l, delta_Q_p,
+                                    grid_volume_cell)
+        
+        ### insert collisions here (after each advection step)
+        # what changes during collisions ? -> m_s, m_w, xi
+        # NOT m_w_cell total -> need to update something after?
+        # njit possible ??
+        ### IN WORK 
+#        update_T_p(grid_scalar_fields[0], cells, T_p)
+        dt_over_dV = dt / grid_volume_cell
+        
+#        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+#                xi, m_w, m_s, vel, grid_temperature, cells, no_cells,
+#                dt_over_dV, E_col_grid, no_kernel_bins,
+#                R_kernel_low_log, bin_factor_R_log, no_cols)        
+        
+        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp(
             xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
             dt_over_dV, E_col_grid, no_kernel_bins,
             R_kernel_low_log, bin_factor_R_log, no_cols)
-# since coll step is 2 times faster in np-version, there is no jitting here
-#simulate_interval_col = njit()(simulate_interval_col_np)
+        
+simulate_interval_col = njit()(simulate_interval_col_np)
 
 ### SIMULATE INTERVAL WITHOUT COLLISIONS
 # grid_scalar_fields[0] = grid.temperature
@@ -1002,20 +984,19 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
 # simulates grid and particles for no_adv_steps advection timesteps dt = dt_adv
 # with subloop integration with timestep dt_sub
 def simulate_interval_wout_col_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
-                                  grid_mass_flux_air_dry, p_ref, p_ref_inv,
-                                  grid_no_cells, grid_ranges,
-                                  grid_steps, grid_volume_cell,
-                                  pos, vel, cells, rel_pos, m_w, m_s, xi,
-                                  water_removed,
-                                  id_list, active_ids, T_p,
-                                  delta_m_l, delta_Q_p,
-                                  dt, dt_sub, dt_sub_half, scale_dt, no_adv_steps,
-                                  Newton_iter, g_set,
-                                  dump_every, trace_ids,
-                                  traced_vectors, traced_scalars,
-                                  traced_xi, traced_water
-                                  ):
-                                  # , traced_grid_fields
+                         grid_mass_flux_air_dry, p_ref, p_ref_inv,
+                         grid_no_cells, grid_ranges,
+                         grid_steps, grid_volume_cell,
+                         pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+                         id_list, active_ids, T_p,
+                         delta_m_l, delta_Q_p,
+                         dt, dt_sub, dt_sub_half, scale_dt, no_adv_steps,
+                         Newton_iter, g_set,
+                         dump_every, trace_ids,
+                         traced_vectors, traced_scalars,
+                         traced_xi, traced_water
+                         # , traced_grid_fields
+                         ):
     dump_N = 0
     for cnt in range(no_adv_steps):
         if cnt % dump_every == 0:
@@ -1027,19 +1008,97 @@ def simulate_interval_wout_col_np(grid_scalar_fields, grid_mat_prop, grid_veloci
             traced_water[dump_N] = water_removed[0]
             # traced_grid_fields[dump_N,0] = np.copy(grid_scalar_fields[0])
             # traced_grid_fields[dump_N,1] = np.copy(grid_scalar_fields[4])
+
             dump_N +=1
             
-        integrate_grid_and_condens_one_adv_step(
-                grid_scalar_fields, grid_mat_prop, grid_velocity,
-                grid_mass_flux_air_dry, p_ref, p_ref_inv,
-                grid_no_cells, grid_ranges,
-                grid_steps, grid_volume_cell,
-                pos, vel, cells, rel_pos, m_w, m_s, xi,
-                water_removed,
-                id_list, active_ids, T_p,
-                delta_m_l, delta_Q_p,
-                dt, dt_sub, dt_sub_half, scale_dt, no_adv_steps,
-                Newton_iter, g_set)            
+        ### one timestep dt:
+        # a) dt_sub is set
+    
+        # b) for all particles: x_n+1/2 = x_n + h/2 v_n
+        # removed_ids_step = []        
+        update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
+                                  water_removed, id_list,
+                                  active_ids, grid_ranges,
+                                  dt_sub_half)
+        update_cells_and_rel_pos(pos, cells, rel_pos,
+                                 active_ids,
+                                 grid_ranges, grid_steps)
+
+        # c) advection change of r_v and T
+        delta_r_v_ad = -dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[4],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                       * grid_scalar_fields[9]
+        delta_Theta_ad = -dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[2],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                         * grid_scalar_fields[9]
+
+        # d) subloop 1
+        # for n_h = 0, ..., N_h-1
+        integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
+                          grid_no_cells, grid_ranges, grid_steps,
+                          grid_volume_cell, p_ref, p_ref_inv,
+                          pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+                          id_list, active_ids, T_p,
+                          delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                          dt_sub, dt_sub, scale_dt, Newton_iter, g_set)
+        # subloop 1 end
+        
+        # e) advection change of r_v and T for second subloop
+        delta_r_v_ad = -2.0 * dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[4],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                       * grid_scalar_fields[9] - delta_r_v_ad
+        delta_Theta_ad = -2.0 * dt_sub\
+                       * compute_divergence_upwind(
+                             grid_scalar_fields[2],
+                             grid_mass_flux_air_dry,
+                             grid_no_cells, grid_steps,
+                             flux_type = 1,
+                             boundary_conditions = np.array([0, 1]))\
+                         * grid_scalar_fields[9] - delta_Theta_ad
+        # f) subloop 2
+        # for n_h = 0, ..., N_h-2
+        integrate_subloop(grid_scalar_fields, grid_mat_prop, grid_velocity,
+                          grid_no_cells, grid_ranges, grid_steps,
+                          grid_volume_cell, p_ref, p_ref_inv,
+                          pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+                          id_list, active_ids, T_p,
+                          delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                          dt_sub, dt_sub, scale_dt-1, Newton_iter, g_set)
+        # subloop 2 end
+    
+        # add one step, where pos is moved only by half timestep x_n+1/2 -> x_n
+        # i) for all particles
+        # updates delta_m_l and delta_Q_p as well
+        propagate_particles_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                         grid_velocity,
+                                         grid_no_cells, grid_ranges, grid_steps,
+                                         pos, vel, cells, rel_pos, m_w, m_s, xi,
+                                         water_removed, id_list, active_ids,
+                                         T_p,
+                                         delta_m_l, delta_Q_p,
+                                         dt_sub, dt_sub_half,
+                                         Newton_iter, g_set)
+        # ii) to vii)
+        propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                    p_ref, p_ref_inv,
+                                    delta_Theta_ad, delta_r_v_ad,
+                                    delta_m_l, delta_Q_p,
+                                    grid_volume_cell)
 simulate_interval_wout_col = njit()(simulate_interval_wout_col_np)
 
 #%% SIMULATE FULL
@@ -1224,8 +1283,7 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
                          R_kernel_low_log, bin_factor_R_log, no_cols
                          )            
         else:
-            simulate_interval_wout_col(grid_scalar_fields,
-                                       grid_mat_prop, grid_velocity,
+            simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                                      grid_mass_flux_air_dry, p_ref, p_ref_inv,
                                      grid_no_cells, grid_ranges,
                                      grid_steps, grid_volume_cell,

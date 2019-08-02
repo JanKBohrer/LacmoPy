@@ -55,7 +55,7 @@ Created on Wed May  1 14:07:21 2019
 ### BUILT IN
 # import math
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import os
 # from datetime import datetime
 # import timeit
@@ -64,22 +64,23 @@ import os
 import constants as c
 # from init import initialize_grid_and_particles, dst_log_normal
 
-from grid import compute_no_grid_cells_from_step_sizes
+#from grid import compute_no_grid_cells_from_step_sizes
 
 from file_handling import load_grid_and_particles_full
 # from file_handling import dump_particle_data, save_grid_scalar_fields                          
 #                         save_particles_to_files,\
 # from analysis import compare_functions_run_time
 
-from integration import simulate, simulate_col 
+from integration import simulate_wout_col, simulate_col 
 
 ### STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
-my_OS = "Mac"
+my_OS = "Linux_desk"
+#my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
-    simdata_path = "/mnt/D/sim_data_cloudMP/test_gen_grid_and_pt/"
+    simdata_path = "/mnt/D/sim_data_cloudMP_col/"
+#    simdata_path = "/mnt/D/sim_data_cloudMP/test_gen_grid_and_pt/"
 #    sim_data_path = home_path + "OneDrive/python/sim_data/"
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
@@ -141,7 +142,7 @@ grid_folder =\
     f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" 
 
 #save_folder = grid_folder
-save_folder = grid_folder + "no_spin_up_col/"
+save_folder = grid_folder + "no_spin_up_col_speed_test/"
 
 #save_folder = grid_folder + "no_spin_up_no_col/"
 
@@ -195,7 +196,8 @@ t_start = 0.0
 #t_end = 14400.0 # s
 #t_end = 7200.0 # s
  
-t_end = 3600.0 # s
+#t_end = 3600.0 # s
+t_end = 60.0 # s
 #t_end = 1800.0 # s
 #t_end = 20.0 # s
 
@@ -215,12 +217,12 @@ Newton_iter = 2 # number of root finding iterations for impl. mass integration
 # grid frames are taken at
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
 #frame_every = 1200
-frame_every = 600
-#frame_every = 10
+#frame_every = 600
+frame_every = 10
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
-trace_ids = 30
+trace_ids = 40
 
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
@@ -265,7 +267,7 @@ if act_collisions:
                  R_kernel_low_log, bin_factor_R_log, no_cols, rnd_seed,
                  save_path)             
 else:
-    simulate(grid,
+    simulate_wout_col(grid,
         pos, vel, cells, m_w, m_s, xi, water_removed,
         active_ids,
         dt, scale_dt, t_start, t_end,

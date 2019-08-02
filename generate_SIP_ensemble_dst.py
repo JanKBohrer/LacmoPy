@@ -202,12 +202,13 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
     
     no_spc_lvl = np.zeros(no_cells_x, dtype = np.int64)
     
-    modes_lvl = []
+    if no_modes > 1:
+        modes_lvl = []
     
     for i in range(no_cells_x):
         if no_modes == 1:
             masses, weights, m_low, bins = \
-                gen_mass_ensemble_weights_SinSIP_lognormal_np(
+                gen_mass_ensemble_weights_SinSIP_lognormal(
                     mu_m_log, sigma_m_log, mass_density,
                     dV, kappa, eta, weak_threshold, r_critmin,
                     m_high_over_m_low, seed, setseed=False)
@@ -219,7 +220,7 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
         elif no_modes > 1:
             for mode_n in range(no_modes):
                 masses, weights, m_low, bins = \
-                    gen_mass_ensemble_weights_SinSIP_lognormal_np(
+                    gen_mass_ensemble_weights_SinSIP_lognormal(
                         mu_m_log[mode_n], sigma_m_log[mode_n], mass_density,
                         dV, kappa[mode_n], eta, weak_threshold,
                         r_critmin[mode_n],
@@ -234,14 +235,95 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
     masses_lvl = np.concatenate(masses_lvl)
     xis_lvl = np.concatenate(xis_lvl)
     cells_x_lvl = np.concatenate(cells_x_lvl)
-    modes_lvl = np.concatenate(modes_lvl)
+    if no_modes > 1:
+        modes_lvl = np.concatenate(modes_lvl)
+    else: modes_lvl = np.zeros_like(cells_x_lvl)
                     
     return masses_lvl, xis_lvl, cells_x_lvl, modes_lvl, no_spc_lvl
+
+# see above, now for expo dist
+# at the z-level, the mass density and thereby the number of real particles per
+# cell is known
+# create SIPs for each cell of the level, then
+# lump all in one array and assign cell - x values for indexing
+# if no_modes = 1: monomodal, mu_m_log, sigma_m_log = scalars
+# if no_modes > 1: multimodal, mu_m_log = [mu0, mu1, ...] same for sigm & kappa
+# mass density is only for conversion r_critmin -> m_critmin
+# for lognorm weak threshold: kappa = 3.5 -> no_SIPs_avg = 20.2
+# expo is monomodal ONLY!
+# IN WORK: UNFINISHED!
+def gen_mass_ensemble_weights_SinSIP_expo_z_lvl(
+        m_mean, mass_density,
+        dV, kappa, eta, weak_threshold, r_critmin,
+        m_high_over_m_low, seed, no_cells_x, no_rpcm, setseed = True):
+    # NOTE that array not possible since nr of SIPs is not equal in each cell
     
+    if setseed:
+        np.random.seed(seed)
+    
+    masses_lvl = []
+    xis_lvl = []
+    cells_x_lvl = []
+    
+    no_spc_lvl = np.zeros(no_cells_x, dtype = np.int64)
+    
+#    modes_lvl = []
+    
+    for i in range(no_cells_x):
+        # UNFINISHED!
+        masses, weights, m_low, bins = \
+            gen_mass_ensemble_weights_SinSIP_expo(
+                    m_mean, mass_density,
+                    dV, kappa, eta, weak_threshold, r_critmin,
+                    m_high_over_m_low,
+                    seed, setseed=False)        
+        no_sp_cell = len(masses)
+        no_spc_lvl[i] += no_sp_cell
+        masses_lvl.append(masses)
+        xis_lvl.append(weights*no_rpcm)
+        cells_x_lvl.append( i*np.ones(no_sp_cell, dtype=np.int64) )
+    
+    masses_lvl = np.concatenate(masses_lvl)
+    xis_lvl = np.concatenate(xis_lvl)
+    cells_x_lvl = np.concatenate(cells_x_lvl)
+#    modes_lvl = np.concatenate(modes_lvl)
+                    
+    return masses_lvl, xis_lvl, cells_x_lvl, no_spc_lvl
     
     
 #%% CREATE ENSEMBLE MASSES AND WEIGHTS IN EACH CELL
 
+# no_cells = [no_c_x, no_c_z]
+def gen_mass_ensemble_weights_SinSIP_expo_grid_np(
+        m_mean, mass_density,
+        dV, kappa, eta, weak_threshold, r_critmin,
+        m_high_over_m_low, seed, no_cells, no_rpcm):
+    
+    np.random.seed(seed)
+    
+    masses = []
+    cells_x = []
+    cells_z = []
+    xis = []
+    
+    for j in range(no_cells[1]):
+        masses_lvl, xis_lvl, cells_x_lvl, no_spc_lvl = \
+            gen_mass_ensemble_weights_SinSIP_expo_z_lvl(
+                m_mean, mass_density,
+                dV, kappa, eta, weak_threshold, r_critmin,
+                m_high_over_m_low, seed, no_cells[0], no_rpcm, setseed = False)
+        masses.append(masses_lvl)
+        cells_x.append(cells_x_lvl)
+        cells_z.append(np.ones_like(cells_x_lvl) * j)
+        xis.append(xis_lvl)
+    
+    masses = np.concatenate(masses)
+    xis = np.concatenate(xis)
+    cells = np.array( (np.concatenate(cells_x), np.concatenate(cells_z)) )
+    
+    return masses, xis, cells
+    
+    
 # njit not possible because of lists
 def gen_mass_ensemble_weights_SinSIP_lognormal_grid(
         mu_m_log, sigma_m_log, mass_density,

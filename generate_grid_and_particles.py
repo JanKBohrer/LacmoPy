@@ -70,6 +70,7 @@ from analysis import plot_pos_vel_pt
 #                  compute_cell_and_relative_position
                  # interpolate_velocity_from_position_bilinear,\
 from microphysics import compute_mass_from_radius_vec
+from microphysics import compute_mass_from_radius_jit
 import constants as c
 #                          compute_R_p_w_s_rho_p
 #                          compute_initial_mass_fraction_solute_NaCl,\
@@ -161,6 +162,11 @@ idx_mode_nonzero = np.nonzero(no_spcm)[0]
 
 no_modes = len(idx_mode_nonzero)
 
+if no_modes == 1:
+    no_spcm = no_spcm[idx_mode_nonzero][0]
+else:    
+    no_spcm = no_spcm[idx_mode_nonzero]
+
 print("no_modes, idx_mode_nonzero:", no_modes, ",", idx_mode_nonzero)
 #print()
 
@@ -169,6 +175,7 @@ print("no_modes, idx_mode_nonzero:", no_modes, ",", idx_mode_nonzero)
 #dst = dst_log_normal
 
 dist = "lognormal"
+dist = "expo"
 
 if dist == "lognormal":
     r_critmin = np.array([0.001, 0.00375]) # mu, # mode 1, mode 2, ..
@@ -182,8 +189,6 @@ if dist == "lognormal":
 #    DNC0 = 60.0E6 # 1/m^3
     #DNC0 = 2.97E8 # 1/m^3
     #DNC0 = 3.0E8 # 1/m^3
-
-    
     # parameters of radial lognormal distribution -> converted to mass
     # parameters below
 #    mu_R = 0.02 # in mu
@@ -192,7 +197,6 @@ if dist == "lognormal":
     sigma_R = np.array( [1.4,1.6] )
     
     if no_modes == 1:
-        no_spcm = no_spcm[idx_mode_nonzero][0]
         sigma_R = sigma_R[idx_mode_nonzero][0]
         mu_R = mu_R[idx_mode_nonzero][0]
 #        no_rpcm = no_rpcm[idx_mode_nonzero][0]
@@ -200,7 +204,6 @@ if dist == "lognormal":
         DNC0 = DNC0[idx_mode_nonzero][0] # mu
         
     else:    
-        no_spcm = no_spcm[idx_mode_nonzero]
         sigma_R = sigma_R[idx_mode_nonzero]
         mu_R = mu_R[idx_mode_nonzero]
 #        no_rpcm = no_rpcm[idx_mode_nonzero]
@@ -216,6 +219,22 @@ if dist == "lognormal":
                                                    c.mass_density_NaCl_dry))
     sigma_m_log = 3.0 * sigma_R_log
     dst_par = (mu_m_log, sigma_m_log)
+
+elif dist == "expo":
+    LWC0 = 1.0E-3 # kg/m^3
+    R_mean = 9.3 # in mu
+    r_critmin = 0.6 # mu
+    m_high_over_m_low = 1.0E6    
+
+    rho_w = 1E3
+    m_mean = compute_mass_from_radius_jit(R_mean, rho_w) # in 1E-18 kg
+    DNC0 = 1E18 * LWC0 / m_mean # in 1/m^3
+    # we need to hack here a little because of the units of m_mean and LWC0
+    LWC0_over_DNC0 = m_mean
+    DNC0_over_LWC0 = 1.0/m_mean
+    print("dist = expo", f"DNC0 = {DNC0:.3e}", "LWC0 =", LWC0, "m_mean = ", m_mean)
+    dst_par = (DNC0, DNC0_over_LWC0)
+
 
 #%% SINGLE SIP INITIALIZATION PARAMETERS
 
@@ -272,19 +291,19 @@ if not os.path.exists(grid_path):
 
 #%% generate SIP ensembles
 
-seed_list = np.arange(seed, seed + 2*no_cells[1], 2)
+#seed_list = np.arange(seed, seed + 2*no_cells[1], 2)
 
-masses = []
-xis = []
-cells_x = []
-cells_z = []
+#masses = []
+#xis = []
+#cells_x = []
+#cells_z = []
 
 #no_spc = []
-no_spc = np.zeros(no_cells, dtype = np.int64)
+#no_spc = np.zeros(no_cells, dtype = np.int64)
 # number of real particles per cell and mode
 
-mass_density_air_lvl = 1.
-mass_density_air0 = 1.
+#mass_density_air_lvl = 1.
+#mass_density_air0 = 1.
 
 #for j in range(no_cells[1]):
 ##    no_rpcm = dV * DNC0 * mass_density_air_lvl / mass_density_air0

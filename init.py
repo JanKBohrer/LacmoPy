@@ -1267,6 +1267,15 @@ def initialize_grid_and_particles_SinSIP(
         kappa = np.maximum(kappa, 0.1)
         print("kappa =", kappa)
     
+#    if dist == "expo":
+#        DNC0 = dst_par[0]
+#        DNC0_over_LWC0 = dst_par[1]
+#
+#        # derive scaling parameter kappa from no_spcm
+#        kappa = np.rint( no_spcm * 2) * 0.1
+#        kappa = np.maximum(kappa, 0.1)
+#        print("kappa =", kappa)
+    
     if eta_threshold == "weak":
         weak_threshold = True
     else: weak_threshold = False
@@ -1429,12 +1438,15 @@ def initialize_grid_and_particles_SinSIP(
     ### create SIP ensemble for this level -> list of 
         # m_s_lvl = [ m_s[0,j], m_s[1,j], ... ]
         # xi_lvl = ...
-        m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
-            gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
-                    mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
-                    grid.volume_cell, kappa, eta, weak_threshold, r_critmin,
-                    m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
-                    setseed=False)
+        if dist == "lognormal":
+            m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
+                gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
+                        mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
+                        grid.volume_cell, kappa, eta, weak_threshold, r_critmin,
+                        m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
+                        setseed=False)
+#        elif dist == "expo":
+            
         no_spc[:,j] = no_spc_lvl
         w_s_lvl = compute_initial_mass_fraction_solute_m_s_NaCl(
                           m_s_lvl, S_avg, T_avg)

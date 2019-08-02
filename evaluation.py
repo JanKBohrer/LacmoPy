@@ -23,6 +23,7 @@ from analysis import sample_masses, sample_radii, compare_functions_run_time,\
                         plot_scalar_field_frames, plot_pos_vel_pt, \
                         plot_particle_size_spectra
 # from integration import compute_dt_max_from_CFL
+#from grid import compute_no_grid_cells_from_step_sizes
 
 ### storage directories -> need to assign "simdata_path" and "fig_path"
 my_OS = "Linux_desk"
@@ -30,7 +31,8 @@ my_OS = "Linux_desk"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
-    simdata_path = "/mnt/D/sim_data_cloudMP/test_gen_grid_and_pt/"    
+    simdata_path = "/mnt/D/sim_data_cloudMP_col/"    
+#    simdata_path = "/mnt/D/sim_data_OneDrive_save_190802/"    
 #    simdata_path = home_path + "OneDrive/python/sim_data/"
     # fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
@@ -74,53 +76,48 @@ elif (my_OS == "Mac"):
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
-#no_spcm = np.array([20, 20])
-no_spcm = np.array([4, 4])
+no_spcm = np.array([20, 20])
+#no_spcm = np.array([4, 4])
 
-from grid import compute_no_grid_cells_from_step_sizes
 
 #no_cells = compute_no_grid_cells_from_step_sizes(
 #               ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
 
-no_cells = (3, 3)
+no_cells = (75, 75)
+#no_cells = (3, 3)
 
 grid_folder =\
     f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"
 
-# load_folder = "190511/grid_75_75_spcm_4_4/"
-# folder_load_base = "190512/grid_75_75_spcm_0_4/"
-# folder_load = "190512/grid_75_75_spcm_0_4/sim8/"
-# folder_load_base = "190508/grid_10_10_spct_4/sim4/"
-# folder_load = "190508/grid_10_10_spct_4/sim4/"
-# folder_load_base = "grid_75_75_spcm_20_20/"
-# folder_load = "grid_75_75_spcm_20_20/"
-# folder_load_base = "grid_75_75_spcm_20_20/spinup/"
-# folder_load = "grid_75_75_spcm_20_20/spinup/"
-#folder_load = "grid_75_75_spcm_20_20/after_spinup_2/"
-# folder_load = "grid_75_75_spcm_20_20/after_spinup/"
-# folder_load_base = "grid_75_75_spcm_20_20/spinup/"
-# folder_load = "grid_75_75_spcm_0_4/sim5/"
-# folder_load = "190507/test1/"
-# folder_load = "190508/grid_75_75_spct_20/"
-# folder_save = "190508/grid_10_10_spct_4/"
-# folder_save = folder_load
 
 #folder_add = "sim01/"
-folder_add = "sim_col_01/"
+#folder_add = "spin_up_2h/"
+#folder_add = "no_spin_up_no_col/"
+folder_add = "no_spin_up_no_col_test/"
+#folder_add = "no_spin_up_col/"
+#folder_add = "with_grav_from_start/"
+#folder_add = "grav_from_start/"
 #folder_add = "sim02_spin_up_2h/"
 
 load_path = simdata_path + grid_folder + folder_add
+
 # path = simdata_path + folder_load_base
+#t = 0
 t = 60
+#t = 3600
 #t = 7200
 #t = 14400
 # t = 10800
+
 t_start = 0
 #t_start = 7200
+
+t_end = 60
+#t_end = 3600
 #t_end = 7200
 # t_end = 10800
-t_end = 60
 #t_end = 14400
+
 reload = True
 
 if reload:
@@ -132,6 +129,8 @@ if reload:
 
 #load_folder = grid_folder
 #path = simdata_path + load_folder
+
+plt.ioff()
 
 #%% GRID THERMODYNAMIC FIELDS
 
@@ -145,12 +144,12 @@ target_cell = (0,0)
 no_cells_x = 1
 no_cells_z = 1
 
-#for i in range(0,75,20):
-#    for j in range(0,75,20):
+for i in range(0,75,20):
+    for j in range(0,75,20):
 #for i in range(0,10,4):
 #    for j in range(0,10,4):
-for i in range(0,3):
-    for j in range(0,3):
+#for i in range(0,3):
+#    for j in range(0,3):
         target_cell = (i,j)
         plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
                                    target_cell, no_cells_x, no_cells_z,
