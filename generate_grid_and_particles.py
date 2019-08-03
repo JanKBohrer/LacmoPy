@@ -101,13 +101,14 @@ my_OS = "Linux_desk"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
-    simdata_path = "/mnt/D/sim_data_cloudMP/test_gen_grid_and_pt/"
+    simdata_path = "/mnt/D/sim_data_cloudMP_col/"
 #    sim_data_path = home_path + "OneDrive/python/sim_data/"
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
     home_path = "/Users/bohrer/"
     simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
-    fig_path = home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
+    fig_path =\
+        home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 
 
 
@@ -124,19 +125,19 @@ z_min = 0.0
 z_max = 1500.0
 
 # grid steps
-dx = 150.0
-dy = 1.0
-dz = 150.0
-#dx = 20.0
+#dx = 150.0
 #dy = 1.0
-#dz = 20.0
+#dz = 150.0
+dx = 20.0
+dy = 1.0
+dz = 20.0
 #dx = 500.0
 #dy = 1.0
 #dz = 500.0
 
 dV = dx*dy*dz
 
-p_0 = 101500 # surface pressure in Pa
+p_0 = 1015E2 # surface pressure in Pa
 p_ref = 1.0E5 # ref pressure for potential temperature in Pa
 r_tot_0 = 7.5E-3 # kg water / kg dry air (constant over whole domain in setup)
 # r_tot_0 = 22.5E-3 # kg water / kg dry air
@@ -149,14 +150,19 @@ Theta_l = 289.0 # K
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([10, 10])
-#no_spcm = np.array([0, 4])
+no_spcm = np.array([16, 24])
+#no_spcm = np.array([20, 20])
 
 no_cells = compute_no_grid_cells_from_step_sizes(
                ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
 
+reseed = False
+seed_SIP_gen = 3717
+#rnd_seed = seed
+
 grid_folder =\
-    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"
+    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
+    + f"{seed_SIP_gen}/"
 
 idx_mode_nonzero = np.nonzero(no_spcm)[0]
 
@@ -175,10 +181,10 @@ print("no_modes, idx_mode_nonzero:", no_modes, ",", idx_mode_nonzero)
 #dst = dst_log_normal
 
 dist = "lognormal"
-dist = "expo"
+#dist = "expo"
 
 if dist == "lognormal":
-    r_critmin = np.array([0.001, 0.00375]) # mu, # mode 1, mode 2, ..
+    r_critmin = np.array([0.001, 0.003]) # mu, # mode 1, mode 2, ..
     m_high_over_m_low = 1.0E8
     
     # droplet number concentration 
@@ -232,18 +238,20 @@ elif dist == "expo":
     # we need to hack here a little because of the units of m_mean and LWC0
     LWC0_over_DNC0 = m_mean
     DNC0_over_LWC0 = 1.0/m_mean
-    print("dist = expo", f"DNC0 = {DNC0:.3e}", "LWC0 =", LWC0, "m_mean = ", m_mean)
+    print("dist = expo", f"DNC0 = {DNC0:.3e}", "LWC0 =", LWC0,
+          "m_mean = ", m_mean)
     dst_par = (DNC0, DNC0_over_LWC0)
 
 
 #%% SINGLE SIP INITIALIZATION PARAMETERS
 
-# derive scaling parameter kappa from no_spcm
-kappa = np.rint( no_spcm / 20 * 35) * 0.1
-kappa = np.maximum(kappa, 0.1)
-print("kappa =", kappa)
+# derive scaling parameter kappa from no_spcm -> shifted to
+# initialize_grid_and_particles_SinSIP (init.py)
+#kappa = np.rint( no_spcm / 20 * 35) * 0.1
+#kappa = np.maximum(kappa, 0.1)
+#print("kappa =", kappa)
 
-eta = 1E-9
+eta = 1E-10
 #eta_threshold = "weak"
 eta_threshold = "fix"
 if eta_threshold == "weak":
@@ -251,10 +259,6 @@ if eta_threshold == "weak":
 else: weak_threshold = False
 
 m_high_over_m_low = 1.0E8
-
-reseed = False
-seed = 3711
-rnd_seed = seed
 
 ########### OLD WORKING ###################    
 # in log(mu)
@@ -334,18 +338,16 @@ grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids  = \
         p_0, p_ref, r_tot_0, Theta_l,
         DNC0, no_spcm, no_modes, dist, dst_par,
         eta, eta_threshold, r_critmin, m_high_over_m_low,
-        rnd_seed, reseed,
+        seed_SIP_gen, reseed,
         S_init_max, dt_init, Newton_iterations, iter_cnt_limit, grid_path,
         logfile = None)
 
-#%%
+#%% PLOT PARTICLES WITH VELOCITY VECTORS
 
-fig_name = grid_path + "pos_vel_t0.png"
-plot_pos_vel_pt(pos, vel, grid,
-                    figsize=(8,8), no_ticks = [11,11],
-                    MS = 1.0, ARRSCALE=10, fig_name=fig_name)
-
-
+#fig_name = grid_path + "pos_vel_t0.png"
+#plot_pos_vel_pt(pos, vel, grid,
+#                    figsize=(8,8), no_ticks = [11,11],
+#                    MS = 1.0, ARRSCALE=10, fig_name=fig_name)
 
 #grid, pos, cells, vel, m_w, m_s, xi, active_ids, removed_ids =\
 #    initialize_grid_and_particles(

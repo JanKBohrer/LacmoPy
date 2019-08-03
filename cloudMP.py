@@ -125,12 +125,17 @@ elif (my_OS == "Mac"):
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
-no_spcm = np.array([20, 20])
+#no_spcm = np.array([12, 12])
+no_spcm = np.array([16, 24])
 
 #no_cells = compute_no_grid_cells_from_step_sizes(
 #               ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
 
+#no_cells = (10, 10)
 no_cells = (75, 75)
+
+# seed of the SIP generation -> needed for the right grid folder
+seed_SIP_gen = 3711
 
 ### SET
 # load grid and particle list from directory
@@ -139,17 +144,14 @@ no_cells = (75, 75)
 # folder_load = "190514/grid_75_75_spcm_0_4/"
 # folder_load = "grid_75_75_spcm_20_20/spinup/"
 grid_folder =\
-    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" 
+    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
+    + f"{seed_SIP_gen}/"
+#    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" 
 
-#save_folder = grid_folder
-save_folder = grid_folder + "no_spin_up_col_speed_test/"
+# the seed is added later automatically for collision simulations
+save_folder = "no_spin_up_col_speed_test/"
+#save_folder = simdata_path + grid_folder + "no_spin_up_col_speed_test/"
 
-#save_folder = grid_folder + "no_spin_up_no_col/"
-
-#save_folder = grid_folder + "spin_up_2h/"
-
-#save_folder = grid_folder + "sim_col_01/"
-#save_folder = grid_folder + "sim03_act_id_list/"
 
 #%% COLLISIONS PARAMS
 
@@ -197,7 +199,7 @@ t_start = 0.0
 #t_end = 7200.0 # s
  
 #t_end = 3600.0 # s
-t_end = 60.0 # s
+t_end = 6.0 # s
 #t_end = 1800.0 # s
 #t_end = 20.0 # s
 
@@ -210,7 +212,7 @@ dt = 1.0 # s # timestep of advection
 # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR N = 10.0/0.2 = 50
 scale_dt = 5
 
-Newton_iter = 2 # number of root finding iterations for impl. mass integration
+Newton_iter = 3 # number of root finding iterations for impl. mass integration
 
 # save grid properties T, p, Theta, r_v, r_l, S every "frame_every" steps dt
 # MUST be >= than dump_every and an integer multiple of dump every
@@ -218,7 +220,7 @@ Newton_iter = 2 # number of root finding iterations for impl. mass integration
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
 #frame_every = 1200
 #frame_every = 600
-frame_every = 10
+frame_every = 1
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
@@ -227,12 +229,16 @@ trace_ids = 40
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
 # dump_every must be <= frame_every and frame_every/dump_every must be integer
-dump_every = 10
+#dump_every = 10
+dump_every = 1
 #dump_every = 5
 
 # g must be positive (9.8...) or 0.0 (for spin up)
 #g_set = 0.0
 g_set = c.earth_gravity
+
+# for collisions
+seed_sim = 3711
 ### SET END
 ####################################
 
@@ -243,7 +249,9 @@ g_set = c.earth_gravity
 grid, pos, cells, vel, m_w, m_s, xi, active_ids = \
     load_grid_and_particles_full(t_start, simdata_path + grid_folder)
 
-save_path = simdata_path + save_folder
+save_path = simdata_path + grid_folder + save_folder
+if act_collisions:
+    save_path += f"{seed_sim}/"
 #path = simdata_path + folder_save
 if not os.path.exists(save_path):
     os.makedirs(save_path)
@@ -252,19 +260,19 @@ if not os.path.exists(save_path):
 
 ### IN WORK: NEED TO STORE ACTIVE_IDS, NEED TO SET IT IN INIT RIGHT!!
 #id_list = np.arange(xi.shape[0])
-active_ids = np.full(xi.shape[0], True)
+#active_ids = np.full(xi.shape[0], True)
 
 water_removed = np.array([0.0])
 #water_removed = np.array([0.0,0.0])
 
-rnd_seed = 3711
+
 if act_collisions:
     simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
                  active_ids,
                  dt, scale_dt, t_start, t_end, Newton_iter, g_set, act_collisions,
                  frame_every, dump_every, trace_ids, 
                  E_col_grid, no_kernel_bins,
-                 R_kernel_low_log, bin_factor_R_log, no_cols, rnd_seed,
+                 R_kernel_low_log, bin_factor_R_log, no_cols, seed_sim,
                  save_path)             
 else:
     simulate_wout_col(grid,

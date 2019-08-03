@@ -532,8 +532,8 @@ def generate_random_positions(grid, no_spc, seed, set_seed = False):
 # par = "rate" parameter "k" of the expo distr: k*exp(-k*m) (in 10^18 kg)
 # no_rpc = number of real particles in cell
 def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
-        par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40,
-        eta=1.0E-9, seed=4711, setseed = True):
+        par, no_rpc, r_critmin, m_high_by_m_low, kappa,
+        eta, seed, setseed):
     
     if setseed: np.random.seed(seed)
     m_low = compute_mass_from_radius_jit(r_critmin,
@@ -1194,22 +1194,7 @@ def initialize_grid_and_particles_SinSIP(
     grid = Grid( grid_ranges, grid_steps, dy )
     grid.print_info()
     ###
-    paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
-             Theta_l, DNC0,
-             no_spcm,
-             dst_par, rnd_seed, S_init_max, dt_init, iter_cnt_limit]
-    para_names = 'x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0, \
-    Theta_l, DNC0, no_super_particles_cell, \
-    par_sigma, par_r0, rnd_seed, S_init_max, dt_init, iter_cnt_limit'
-    
-    grid_para_file = save_path + "grid_paras.txt"
-    with open(grid_para_file, "w") as f:
-        f.write( para_names + '\n' )
-        for item in paras:
-            if type(item) is list or type(item) is np.ndarray:
-                for el in item:
-                    f.write( f'{el} ' )
-            else: f.write( f'{item} ' )    
+
     ###
     
     ##############################################
@@ -1263,9 +1248,9 @@ def initialize_grid_and_particles_SinSIP(
         sigma_m_log = dst_par[1]
         
         # derive scaling parameter kappa from no_spcm
-        kappa = np.rint( no_spcm / 20 * 35) * 0.1
-        kappa = np.maximum(kappa, 0.1)
-        print("kappa =", kappa)
+        kappa_dst = np.rint( no_spcm / 20 * 28) * 0.1
+        kappa_dst = np.maximum(kappa_dst, 0.1)
+        print("kappa =", kappa_dst)
     
 #    if dist == "expo":
 #        DNC0 = dst_par[0]
@@ -1292,6 +1277,10 @@ def initialize_grid_and_particles_SinSIP(
     # total number of real particles in mode 'k' (= 1,2) in cell [i,j]
     # reference value at p_ref (marked by 0)
     no_rpcm_0 =  (np.ceil( V0*DNC0 )).astype(int)
+    
+    ### REMOVE 
+    print("{no_rpcm_0[0]} {no_rpcm_0[1]}" )
+    print(f"{no_rpcm_0[0]} {no_rpcm_0[1]}" )
     no_rpct_0 = np.sum(no_rpcm_0)
     
     # empty cell list
@@ -1363,6 +1352,8 @@ def initialize_grid_and_particles_SinSIP(
     
     no_spc = np.zeros(grid.no_cells, dtype = np.int64)
     
+    no_rpcm_scale_factors_lvl_wise = np.zeros(grid.no_cells[1])
+    
     ### go through z-levels from the ground, j is the cell index resp. z
     for j in range(grid.no_cells[1]):
     #     print('next j')
@@ -1432,7 +1423,13 @@ def initialize_grid_and_particles_SinSIP(
     ########################################################
         
         # nr of real particle per cell and mode is now given for rho_dry_avg
-        no_rpcm = np.rint( no_rpcm_0 * rho_dry_avg / rho_dry_0 ).astype(int)
+        no_rpcm_scale_factor = rho_dry_avg / rho_dry_0
+        no_rpcm = np.rint( no_rpcm_0 * no_rpcm_scale_factor ).astype(int)
+        ### REMOVE
+        print("{no_rpcm[0]} {no_rpcm[1]}" )
+        print(f"{no_rpcm[0]} {no_rpcm[1]}" )
+        
+        no_rpcm_scale_factors_lvl_wise[j] = no_rpcm_scale_factor
         no_rpt_should += no_rpcm * grid.no_cells[0]
         
     ### create SIP ensemble for this level -> list of 
@@ -1442,7 +1439,7 @@ def initialize_grid_and_particles_SinSIP(
             m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
                 gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
                         mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
-                        grid.volume_cell, kappa, eta, weak_threshold, r_critmin,
+                        grid.volume_cell, kappa_dst, eta, weak_threshold, r_critmin,
                         m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
                         setseed=False)
 #        elif dist == "expo":
@@ -1822,7 +1819,10 @@ def initialize_grid_and_particles_SinSIP(
     print("mode real_part_placed real_part_should diff_real_should:")
     
     if no_modes == 1:
-        print(0, np.sum(xi), no_rpt_should, np.sum(xi) - no_rpt_should)
+#        print(0, np.sum(xi), no_rpt_should, np.sum(xi) - no_rpt_should)
+        print(0, f"{np.sum(xi):.3e}",
+              f"{no_rpt_should:.3e}",
+              f"{np.sum(xi) - no_rpt_should:.3e}")
     else:
         for mode_n in range(no_modes):
             ind_mode = modes == mode_n
@@ -1946,9 +1946,40 @@ def initialize_grid_and_particles_SinSIP(
                                  m_w, m_s, xi,
                                  active_ids, save_path)
     
+    np.save(save_path + "modes_0", modes)
+    np.save(save_path + "no_rpcm_scale_factors_lvl_wise",
+            no_rpcm_scale_factors_lvl_wise)
+    
 #    save_grid_and_particles_full(t, grid, pos, cell_list, vel,
 #                                 m_w_flat, m_s_flat, xi_flat,
 #                                 active_ids, removed_ids, save_path)
+    
+    paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
+             Theta_l, DNC0, no_spcm, dist,
+             dst_par, kappa_dst, eta, eta_threshold,
+             r_critmin, m_high_over_m_low,
+             eta, rnd_seed, S_init_max, dt_init,
+             Newton_iterations, iter_cnt_limit]
+    para_names = "x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, " \
+    + "r_tot_0, Theta_l, DNC0, no_super_particles_cell_mode, dist, " \
+    + "mu_m_log, sigma_m_log, kappa_dst, eta, eta_threshold, " \
+    + "r_critmin, m_high_over_m_low, rnd_seed, S_init_max, dt_init, " \
+    + "Newton_iterations_init, iter_cnt_limit"
+    
+    grid_para_file = save_path + "grid_paras.txt"
+    with open(grid_para_file, "w") as f:
+        f.write( para_names + '\n' )
+        for item in paras:
+            type_ = type(item)
+            if type_ is list or type_ is np.ndarray or type_ is tuple:
+                for el in item:
+                    tp_e = type(el)
+                    if tp_e is list or tp_e is np.ndarray or tp_e is tuple:
+                        for el_ in el:
+                            f.write( f'{el_} ' )
+                    else:
+                        f.write( f'{el} ' )
+            else: f.write( f'{item} ' )        
     
     if logfile:
         sys.stdout = sys.__stdout__

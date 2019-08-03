@@ -800,7 +800,7 @@ def integrate_subloop_n_steps_np(grid_scalar_fields, grid_mat_prop, grid_velocit
     # subloop 1 end    
 integrate_subloop_n_steps = njit()(integrate_subloop_n_steps_np)
 
-def integrate_grid_and_condens_one_adv_step_np(
+def integrate_adv_and_cond_one_adv_step_np(
         grid_scalar_fields, grid_mat_prop, grid_velocity,
         grid_mass_flux_air_dry, p_ref, p_ref_inv,
         grid_no_cells, grid_ranges,
@@ -899,8 +899,8 @@ def integrate_grid_and_condens_one_adv_step_np(
                                 delta_Theta_ad, delta_r_v_ad,
                                 delta_m_l, delta_Q_p,
                                 grid_volume_cell)    
-integrate_grid_and_condens_one_adv_step = \
-    njit()(integrate_grid_and_condens_one_adv_step_np)
+integrate_adv_and_cond_one_adv_step = \
+    njit()(integrate_adv_and_cond_one_adv_step_np)
 
 #%% SIMULATE INTERVAL
 
@@ -960,7 +960,7 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
 
             dump_N +=1
             
-        integrate_grid_and_condens_one_adv_step(
+        integrate_adv_and_cond_one_adv_step(
             grid_scalar_fields, grid_mat_prop, grid_velocity,
             grid_mass_flux_air_dry, p_ref, p_ref_inv,
             grid_no_cells, grid_ranges,
@@ -1029,7 +1029,7 @@ def simulate_interval_wout_col_np(grid_scalar_fields, grid_mat_prop, grid_veloci
             # traced_grid_fields[dump_N,1] = np.copy(grid_scalar_fields[4])
             dump_N +=1
             
-        integrate_grid_and_condens_one_adv_step(
+        integrate_adv_and_cond_one_adv_step(
                 grid_scalar_fields, grid_mat_prop, grid_velocity,
                 grid_mass_flux_air_dry, p_ref, p_ref_inv,
                 grid_no_cells, grid_ranges,
@@ -1181,8 +1181,8 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     # traced_grid_fields =\
     #     np.zeros((dump_factor, 2, grid_no_cells[0], grid_no_cells[1]))
     
-    sim_paras = [dt, dt_sub, Newton_iter]
-    sim_par_names = "dt dt_sub Newton_iter"
+    sim_paras = [dt, dt_sub, Newton_iter, rnd_seed]
+    sim_par_names = "dt dt_sub Newton_iter rnd_seed_sim"
     # sim_paras = [dt, dt_sub, Newton_iter, no_trace_ids]
     # sim_par_names = "dt dt_sub Newton_iter no_trace_ids"
     # sim_para_file = path + "sim_paras_t_" + str(t_start) + ".txt"
