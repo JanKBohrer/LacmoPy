@@ -96,8 +96,8 @@ import constants as c
 # from analysis import compare_functions_run_time
 
 ### storage directories -> need to assign "simdata_path" and "fig_path"
-my_OS = "Linux_desk"
-# my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -105,10 +105,11 @@ if(my_OS == "Linux_desk"):
 #    sim_data_path = home_path + "OneDrive/python/sim_data/"
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
-    home_path = "/Users/bohrer/"
-    simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
-    fig_path =\
-        home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
+    simdata_path = "/Users/bohrer/sim_data_cloudMP_col/"
+#    home_path = "/Users/bohrer/"
+#    simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
+#    fig_path =\
+#        home_path + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 
 
 
@@ -157,7 +158,7 @@ no_cells = compute_no_grid_cells_from_step_sizes(
                ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
 
 reseed = False
-seed_SIP_gen = 3717
+seed_SIP_gen = 3725
 #rnd_seed = seed
 
 grid_folder =\

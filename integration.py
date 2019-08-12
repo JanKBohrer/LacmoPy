@@ -1203,10 +1203,12 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
         t = t_start + frame_N * frame_every * dt 
         update_grid_r_l(m_w, xi, cells,
                         grid_scalar_fields[5],
-                        grid_scalar_fields[8])
+                        grid_scalar_fields[8],
+                        active_ids,
+                        id_list)
         save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
         dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path)
-        
+        np.save(path + f"no_cols_{int(t)}.npy", no_cols)
         if act_collisions:
             simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -1252,9 +1254,12 @@ def simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     t = t_start + no_grid_frames * frame_every * dt
     update_grid_r_l(m_w, xi, cells,
                    grid_scalar_fields[5],
-                   grid_scalar_fields[8])
+                   grid_scalar_fields[8],
+                   active_ids,
+                   id_list)
     save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)        
     dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path)
+    np.save(path + f"no_cols_{int(t)}.npy", no_cols)
     dump_particle_data(t, pos[:,trace_ids], vel[:,trace_ids],
                        m_w[trace_ids], m_s[trace_ids], xi[trace_ids],
                        grid_scalar_fields[0], grid_scalar_fields[4], path)
@@ -1457,11 +1462,13 @@ def simulate_wout_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
         t = t_start + frame_N * frame_every * dt 
         update_grid_r_l(m_w, xi, cells,
                         grid_scalar_fields[5],
-                        grid_scalar_fields[8])
+                        grid_scalar_fields[8],
+                        active_ids,
+                        id_list)
         save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
         dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path)
-
-        simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
+        simulate_interval_wout_col(grid_scalar_fields, grid_mat_prop,
+                                   grid_velocity,
                                  grid_mass_flux_air_dry, p_ref, p_ref_inv,
                                  grid_no_cells, grid_ranges,
                                  grid_steps, grid_volume_cell,
@@ -1474,7 +1481,6 @@ def simulate_wout_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
                                  dump_every, trace_ids,
                                  traced_vectors, traced_scalars,
                                  traced_xi, traced_water
-                                 # , traced_grid_fields
                                  )        
         time_block =\
             np.arange(t, t + frame_every * dt, dump_every * dt).astype(int)
@@ -1488,7 +1494,9 @@ def simulate_wout_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
     t = t_start + no_grid_frames * frame_every * dt
     update_grid_r_l(m_w, xi, cells,
                    grid_scalar_fields[5],
-                   grid_scalar_fields[8])
+                   grid_scalar_fields[8],
+                   active_ids,
+                   id_list)
     save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)        
     dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path)
     dump_particle_data(t, pos[:,trace_ids], vel[:,trace_ids],

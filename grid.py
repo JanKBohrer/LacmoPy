@@ -176,10 +176,11 @@ def interpolate_velocity_from_position_bilinear(pos,
     return interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                 grid_vel, grid_no_cells)
 
-def update_grid_r_l_np(m_w, xi, cells, grid_r_l, grid_mass_dry_inv):
-    no_sp = len(m_w)
+def update_grid_r_l_np(m_w, xi, cells, grid_r_l, grid_mass_dry_inv, active_ids,
+                       id_list):
+#    no_sp = len(m_w)
     grid_r_l.fill(0.0)
-    for ID in range(no_sp):
+    for ID in id_list[active_ids]:
         # cell = tuple(cells[0,ID], cells[1,ID])
         grid_r_l[cells[0,ID], cells[1,ID]] += m_w[ID] * xi[ID]
     grid_r_l *= 1.0E-18 * grid_mass_dry_inv

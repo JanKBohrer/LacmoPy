@@ -74,8 +74,8 @@ from file_handling import load_grid_and_particles_full
 from integration import simulate_wout_col, simulate_col 
 
 ### STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -85,7 +85,7 @@ if(my_OS == "Linux_desk"):
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
 #    home_path = "/Users/bohrer/sim_data_cloudMP/test_gen_grid_and_pt/"
-    simdata_path = "/Users/bohrer/sim_data_cloudMP/test_gen_grid_and_pt/"
+    simdata_path = "/Users/bohrer/sim_data_cloudMP_col/"
 #    simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
 #    fig_path = home_path \
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
@@ -135,7 +135,9 @@ no_spcm = np.array([16, 24])
 no_cells = (75, 75)
 
 # seed of the SIP generation -> needed for the right grid folder
-seed_SIP_gen = 3711
+# 3711, 3713, 3715, 3717
+# 3719, 3721, 3723, 3725
+seed_SIP_gen = 3725
 
 ### SET
 # load grid and particle list from directory
@@ -146,17 +148,22 @@ seed_SIP_gen = 3711
 grid_folder =\
     f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
     + f"{seed_SIP_gen}/"
+#    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
+#    + f"{seed_SIP_gen}/spin_up_wo_col_wo_grav/"
 #    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" 
 
 # the seed is added later automatically for collision simulations
-save_folder = "no_spin_up_col_speed_test/"
+#save_folder = "no_spin_up_with_col/"
+#save_folder = "no_spin_up_with_col_speedtest/"
+#save_folder = "w_spin_up_col/"
+save_folder = "spin_up_wo_col_wo_grav/"
 #save_folder = simdata_path + grid_folder + "no_spin_up_col_speed_test/"
 
 
 #%% COLLISIONS PARAMS
 
-#act_collisions = False
-act_collisions = True
+act_collisions = False
+#act_collisions = True
 
 kernel_method = "Ecol_grid_R"
 
@@ -198,8 +205,10 @@ t_start = 0.0
 #t_end = 14400.0 # s
 #t_end = 7200.0 # s
  
-#t_end = 3600.0 # s
-t_end = 6.0 # s
+t_end = 7200.0 # s
+#t_end = 7200.0+2.0 # s
+#t_end = 7200.0*2 # s
+#t_end = 2.0 # s
 #t_end = 1800.0 # s
 #t_end = 20.0 # s
 
@@ -208,8 +217,8 @@ dt = 1.0 # s # timestep of advection
 # timescale "scale_dt" = of subloop with timestep dt_sub = dt/(2 * scale_dt)
 # => scale_dt = dt/(2 dt_sub)
 # with implicit Newton:
-# from experience: dt_sub <= 0.1 s, then depending on dt, e.g. 1.0, 5.0 or 10.0:
-# => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR N = 10.0/0.2 = 50
+# from experience: dt_sub <= 0.1 s, then depends on dt, e.g. 1.0, 5.0 or 10.0:
+# => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR 10.0/0.2 = 50
 scale_dt = 5
 
 Newton_iter = 3 # number of root finding iterations for impl. mass integration
@@ -219,8 +228,9 @@ Newton_iter = 3 # number of root finding iterations for impl. mass integration
 # grid frames are taken at
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
 #frame_every = 1200
+frame_every = 300
 #frame_every = 600
-frame_every = 1
+#frame_every = 1
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
@@ -229,13 +239,13 @@ trace_ids = 40
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
 # dump_every must be <= frame_every and frame_every/dump_every must be integer
-#dump_every = 10
-dump_every = 1
+dump_every = 10
+#dump_every = 1
 #dump_every = 5
 
 # g must be positive (9.8...) or 0.0 (for spin up)
-#g_set = 0.0
-g_set = c.earth_gravity
+g_set = 0.0
+#g_set = c.earth_gravity
 
 # for collisions
 seed_sim = 3711
@@ -269,7 +279,8 @@ water_removed = np.array([0.0])
 if act_collisions:
     simulate_col(grid, pos, vel, cells, m_w, m_s, xi, water_removed,
                  active_ids,
-                 dt, scale_dt, t_start, t_end, Newton_iter, g_set, act_collisions,
+                 dt, scale_dt, t_start, t_end, Newton_iter, g_set,
+                 act_collisions,
                  frame_every, dump_every, trace_ids, 
                  E_col_grid, no_kernel_bins,
                  R_kernel_low_log, bin_factor_R_log, no_cols, seed_sim,

@@ -1453,7 +1453,9 @@ def initialize_grid_and_particles_SinSIP(
         m_w_lvl = m_p_lvl - m_s_lvl
         dm_l_level += np.sum(m_w_lvl * xi_lvl)
         dm_p_level += np.sum(m_p_lvl * xi_lvl)
-        print("placed", len(xi_lvl), "particles in a mode")        
+        for mode_n in range(no_modes):
+            print("placed", len(xi_lvl[modes_lvl==mode_n]),
+                  f"particles in mode {mode_n}")        
     #####################################################################
     # OLD WORKING                                 
 #        for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
