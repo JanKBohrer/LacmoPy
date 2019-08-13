@@ -22,7 +22,6 @@ Created on Wed May  1 14:07:21 2019
 # particles:
 # pos, vel, masses
 
-
 # set:
 # files for full save
 # files for data output -> which data?

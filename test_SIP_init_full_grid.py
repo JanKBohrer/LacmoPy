@@ -18,9 +18,6 @@ import numpy as np
 #load_path = "/mnt/D/sim_data_cloudMP_col/grid_10_10_spcm_12_12/3711/"
 #load_path = "/mnt/D/sim_data_cloudMP_col/grid_10_10_spcm_0_4/3711/"
 
-
-
-
 #%% CHECK INITIAL DISTRIBUTIONS
 
 ### STORAGE DIRECTORIES

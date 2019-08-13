@@ -1439,7 +1439,8 @@ def initialize_grid_and_particles_SinSIP(
             m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
                 gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
                         mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
-                        grid.volume_cell, kappa_dst, eta, weak_threshold, r_critmin,
+                        grid.volume_cell, kappa_dst, eta, weak_threshold,
+                        r_critmin,
                         m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
                         setseed=False)
 #        elif dist == "expo":

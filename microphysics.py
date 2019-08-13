@@ -168,11 +168,28 @@ def compute_solubility_NaCl(temperature_):
     return par_solub[0] + par_solub[1] * temperature_\
          + par_solub[2] * temperature_ * temperature_
 
+
+
 # the supersat factor is a crude approximation
 # such that the EffRH curve fits data from Biskos better
 # there was no math. fitting algorithm included.
 # Just graphical shifting the curve... until value
 # for D_dry = 10 nm fits with fitted curve of Biskos
+# the use here is to get an estimate and LOWER BOUNDARY
+# I.e. the water content will not drop below the border given by this value
+# to remain on the efflorescence fork
+# of course, the supersat factor should be dependent on the dry solute diameter
+# from Biskos for ammonium sulfate:
+# D_p / D_dry is larger for larger D_dry at the effl point
+# (in agreement with Kelvin theory)         
+# since S_eq(w_s, T, a_w, m_s, rho_p, sigma_p)         
+# and rho_p(w_s, T)         
+# sigma_p(w_s, T)          (or take sigma_w(T_p))
+# with S_effl(T_p) given, it is hard to find the corresponding w_s         
+# this is why the same supersat factor is taken for all dry diameters
+# NOTE again that this is only a lower boundary for the water content
+# the initialization and mass rate calculation is done with the full
+# kelvin raoult term         
 supersaturation_factor_NaCl = 1.92
 # efflorescence mass fraction at a given temperature
 # @njit("[float64[:](float64[:]),float64(float64)]")
@@ -188,7 +205,7 @@ def compute_efflorescence_mass_fraction_NaCl(temperature_):
 # < 1 % for w_s < 0.25
 # approx +6 % for w_s = 0.37
 # approx +15 % for w_s = 0.46
-# we overestimate the water activity a_w by 6 % and rising
+# we overestimate the water activity a_w by 6 % and increasing
 # 0.308250118 = M_w/M_s
 par_vH_NaCl = np.array([ 1.55199086,  4.95679863])
 @vectorize("float64(float64)") 

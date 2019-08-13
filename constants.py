@@ -68,18 +68,24 @@ specific_gas_constant_air_dry = 287.06 # J/(kg K)
 ### Densities and molar masses
 mass_density_water_liquid_NTP = 998.2 # kg/m^3
 mass_density_air_dry_NTP = 1.2041 # kg/m^3
-mass_density_NaCl_dry = 2170.0 # kg/m^3
-#US Standard Atmosphere 1976, US Government. Printing
-#Office, Washington DC, pp. 3 and 33, 1976. 
+# CRC 2005:
+mass_density_NaCl_dry = 2163.0 # kg/m^3
+# this is what wiki says for CRC 2011:
+#mass_density_NaCl_dry = 2170.0 # kg/m^3
+# CRC 2005:
+mass_density_AS_dry = 1774.0 # kg/m^3
+# US Standard Atmosphere 1976, US Government. Printing
+# Office, Washington DC, pp. 3 and 33, 1976. 
 # page 9, below table 8, this is the mass at see level...
 # ALSO:
 # ISO 1975 Int. Standard Atmosphere
-# IN WORK: change to molar_mass
 molar_mass_air_dry = 28.9644E-3 # kg/mol
 # CRC 2005
 molar_mass_water = 18.015E-3 # kg/mol
 # CRC 2005
 molar_mass_NaCl = 58.4428E-3 # kg/mol
+# https://pubchem.ncbi.nlm.nih.gov/compound/Ammonium-sulfate
+molar_mass_AS = 132.14
 
 ### Heat capacities
 # molar_heat_capacity_dry_air_NTP = 20.8 # J/(mol K)
