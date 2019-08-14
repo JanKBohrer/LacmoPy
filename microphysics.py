@@ -830,7 +830,7 @@ def compute_mass_rate_and_derivative_np(m_w, m_s, w_s, R_p, T_p, rho_p,
     f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) 
     
     f1f3 = 4.0 * np.pi * R_p * R_p * f3 # in 1E-12
-    
+    # set l_alpha l_beta constant, i.e. neglect their change with m_p here
     dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm*c2
     # use name S_eq = f2
     S_eq = S_amb - S_eq
@@ -848,7 +848,231 @@ compute_mass_rate_and_derivative =\
 njit()(compute_mass_rate_and_derivative_np)
 compute_mass_rate_and_derivative_par =\
 njit(parallel = True)(compute_mass_rate_and_derivative_np)
- 
+
+#%% AMMONIUM SULFATE
+# for ammonium sulfate: fix a maximum border for w_s: w_s_max = 0.78
+# w_s can not get larger than that.
+# the border is chosen, because the approximation of sigma_AS(w_s)
+# is only given for 0 < w_s < 0.78
+w_s_max_AS = 0.78
+
+# par[0] belongs to the largest exponential x^(n-1) for par[i], i = 0, .., n 
+@njit()
+def compute_polynom(par,x):
+    res = par[0] * x + par[1]
+    for a in par[2:]:
+        res = res * x + a
+    return res
+
+# solubility of ammonium sulfate in water as mass fraction w_s_sol
+# saturation mass fraction (kg_solute/kg_solution)    
+# fit to data from CRC 2005 page 8-115
+par_solub_AS = np.array([0.15767235, 0.00092684])
+@vectorize("float64(float64)") 
+def compute_solubility_AS(temperature_):
+    return par_solub_AS[0] + par_solub_AS[1] * temperature_
+
+# formula from Biskos 2006, he took it from Tang, Munkelwitz 1994 NOTE
+# that the citation is wrong in his paper. it is NOT Tang 1997 but (I guess)
+# Tang 1994:
+# Water activities, densities, and refractive indices of aqueous sulfates
+# and sodium nitrate droplets of atmospheric importance     
+# I do not have access however...
+# data from Kim 1994 agree well
+par_wat_act_AS = np.array([1.0, -2.715E-3, 3.113E-5, -2.336E-6, 1.412E-8 ])
+par_wat_act_AS = par_wat_act_AS[::-1]
+
+@njit()  
+def compute_water_activity_AS(w_s):
+    return compute_polynom(par_wat_act_AS, w_s)
+
+# NaCl solution density in kg/m^3
+# data rho(w_s) from Tang 1994 (in Biskos 2006)
+# this is for room temperature (298 K)
+# then temperature effect of water by multiplication    
+par_rho_AS = np.array([ 997.1, 592., -5.036E1, 1.024E1 ] )[::-1] / 997.1
+@vectorize("float64(float64,float64)")  
+def compute_density_AS_solution(mass_fraction_solute_, temperature_):
+    return compute_density_water(temperature_) \
+           * compute_polynom(par_rho_AS, mass_fraction_solute_)
+#  / 997.1 is included in the parameters now
+#    return compute_density_water(temperature_) / 997.1 \
+#           * compute_polynom(par_rho_AS, mass_fraction_solute_)
+
+# formula by Pruppacher 1997, only valid for 0 < w_s < 0.78
+# the first term is surface tension of water for T = 298. K
+# compute_surface_tension_AS(0.78, 298.) = 0.154954
+par_sigma_AS = 0.325
+@vectorize("float64(float64,float64)")
+def compute_surface_tension_AS(w_s, T):
+    return compute_surface_tension_water(T) \
+               * (1.0 + par_sigma_AS * w_s / (1. - w_s))
+#    return compute_surface_tension_water(T) / 0.072 \
+#               * (0.072 + 0.0234 * w_s / (1. - w_s))
+#    if w_s > 0.78:
+#        return compute_surface_tension_water(T) * 0.154954
+#    else:
+#        return compute_surface_tension_water(T) / 0.072 \
+#               * (0.072 + 0.0234 * w_s / (1. - w_s))
+
+# ->> Take again super sat factor for AS such that is fits for D_s = 10 nm 
+# other data from Haemeri 2000 and Onasch 1999 show similar results
+# Haemeri: also 8,10,20 nm, but the transition at effl point not detailed
+# Onasch: temperature dependence: NOT relevant in our range!
+# S_effl does not change significantly in range 273 - 298 Kelvin
+# Increases for smaller temperatures, note however, that they give
+# S_effl = 32% pm 3%, while Cziczo 1997 give 33 % pm 1 % at 298 K           
+# with data from Biskos 2006 -> ASSUME AS LOWER BORDER
+# i.e. it is right for small particles with small growth factor of 1.1
+# at efflorescence
+# larger D_s will have larger growth factors at efflorescence
+# thus larger water mass compared to dry mass and thus SMALLER w_s_effl
+# than W_s_effl of D_s = 10 nm
+# at T = 298., D_s = 10 nm, we find solubility mass fraction of 0.43387067
+# and with ERH approx 35 % a growth factor of approx 1.09
+# corresponding to w_s = 0.91
+# note that Onasch gives w_s_effl of 0.8 for D_s_dry approx 60 to 70
+# i.e. a SMALLER w_s_effl (more water)
+# the super sat factor is thus
+# supersaturation_factor_AS = 0.91/0.43387067
+supersaturation_factor_AS = 2.097
+# this determines the lower border of water contained in the particle
+# the w_s = m_s / (m_s + m_w) can not get larger than w_s_effl
+# (combined with solubility, which is dependent on temperature)
+@njit()
+def compute_efflorescence_mass_fraction_AS(temperature_):
+    return supersaturation_factor_AS * compute_solubility_AS(temperature_)
+
+@vectorize(
+    "float64(float64, float64, float64, float64, float64)")
+def compute_equilibrium_saturation_AS(w_s, R_p, rho_p, T, sigma_w):
+    return compute_water_activity_AS(w_s)\
+           * compute_kelvin_term(R_p, rho_p, T, sigma_w)
+
+@njit()
+def compute_kelvin_raoult_term_mf_AS(mass_fraction_solute_,
+                                     mass_solute_,
+                                      temperature_,
+                                      mass_density_particle_,
+                                      surface_tension_):
+    return compute_water_activity_AS(mass_fraction_solute_) \
+           * compute_kelvin_term_mf(mass_fraction_solute_,
+                                    temperature_,
+                                    mass_solute_,
+                                    mass_density_particle_,
+                                    surface_tension_)
+
+par_rho_deriv_AS = np.copy(par_rho_AS)
+for n in range(len(par_rho_deriv_AS)):
+    par_rho_deriv_AS[n] *= (len(par_rho_deriv_AS)-1-n)
+
+par_wat_act_deriv_AS = np.copy(par_wat_act_AS)
+for n in range(len(par_wat_act_deriv_AS)):
+    par_wat_act_deriv_AS[n] *= (len(par_wat_act_deriv_AS)-1-n)
+    
+# convert now sigma_w to sigma_p (surface tension)
+# return mass rate in fg/s and mass rate deriv in SI: 1/s
+def compute_mass_rate_and_derivative_AS_np(m_w, m_s, w_s, R_p, T_p, rho_p,
+                                           T_amb, p_amb, S_amb, e_s_amb,
+                                           L_v, K, D_v, sigma_p):
+#    R_p_SI = 1.0E-6 * R_p # in SI: meter   
+    
+    # thermal size correction in SI
+    l_alpha_plus_R_p = 1.0E-6 * (R_p + compute_l_alpha_lin(T_amb, p_amb, K))
+    # diffusive size correction in SI
+    l_beta_plus_R_p = 1.0E-6 * (R_p + compute_l_beta_lin(T_amb, D_v) )
+       
+    m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
+    # dont use piecewise for now to avoid discontinuity in density...
+    drho_dm_over_rho = -compute_density_water(T_p) * m_p_inv_SI / rho_p\
+                       * compute_polynom(par_rho_deriv_AS, w_s)
+                           
+    dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
+    dR_p_dm = 1.0E-6 * dR_p_dm_over_R_p * R_p
+    
+    eps_k = compute_kelvin_argument(R_p, T_p, rho_p, sigma_p) # in SI - no unit
+    
+#    vH = compute_vant_Hoff_factor_NaCl(w_s)
+#    dvH_dws = compute_dvH_dws(w_s)
+#    dvH_dws = np.where(w_s < mf_cross_NaCl, np.zeros_like(w_s),
+#                       np.ones_like(w_s) * par_vH_NaCl[1])
+    # dont convert masses here
+#    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
+
+    a_w = compute_water_activity_AS(w_s)
+    
+    da_w_dm = - m_p_inv_SI * compute_polynom(par_wat_act_deriv_AS, w_s)
+    
+    dsigma_dm = -par_sigma_AS * compute_surface_tension_water(T_p) \
+                * m_p_inv_SI * ( w_s / ( (1.-w_s)*(1.-w_s) ) )
+            
+#    S_eq = m_w * h1_inv * np.exp(eps_k)
+    
+    S_eq = a_w * np.exp(eps_k)
+    
+    dSeq_dm =\
+        S_eq * ( da_w_dm / a_w + dsigma_dm / sigma_p - drho_dm_over_rho - dR_p_dm_over_R_p )
+#        S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho )\
+#                - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
+#                  * h1_inv * 1.0E18)
+    
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb )
+    c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
+    # in SI : m^2 s / kg
+    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) 
+    
+    f1f3 = 4.0 * np.pi * R_p * R_p * f3 # in 1E-12
+    # set l_alpha l_beta constant, i.e. neglect their change with m_p here
+    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm*c2
+    # use name S_eq = f2
+    S_eq = S_amb - S_eq
+#    f2 = S_amb - S_eq
+    # NOTE: here S_eq = f2 = S_amb - S_eq
+#    return 1.0E-12 * f1f3\
+#           * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+    return 1.0E6 * f1f3 * S_eq,\
+           1.0E-12 * f1f3\
+           * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+#    return 1.0E6 * f1f3 * f2,\
+#           1.0E-12 * f1f3\
+#           * ( f2 * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+compute_mass_rate_and_derivative_AS =\
+njit()(compute_mass_rate_and_derivative_AS_np)
+compute_mass_rate_and_derivative_AS_par =\
+njit(parallel = True)(compute_mass_rate_and_derivative_AS_np)
+
+#%% TESTING MASS RATE DERIVATIVE FOR AS
+
+
+#T = 298.
+##D_s_list = np.array([6,8,10,20,40,60]) * 1E-3
+##R_s_list = D_s_list * 0.5
+#
+#D_s = 10E-3 # mu = 10 nm
+#R_s = 0.5 * D_s
+#m_s = compute_mass_from_radius_jit(R_s, c.mass_density_AS_dry)
+#
+#w_s = np.logspace(-2., np.log10(0.78), 100)
+#rho_p = compute_density_AS_solution(w_s, T) 
+#m_p = m_s/w_s
+#R_p = compute_radius_from_mass_jit(m_p, rho_p)
+#
+#sigma_p = compute_surface_tension_AS(w_s, T)
+#
+#S_eq = \
+#    compute_kelvin_raoult_term_mf_AS(w_s,
+#                                     m_s,
+#                                     T,
+#                                     rho_p,
+#                                     sigma_p)
+#import matplotlib.pyplot as plt
+#
+#fig, ax = plt.subplots()
+#ax.plot(R_p, S_eq)
+
+
+
+#%%
 ##############################################################################
 ### integration
 # mass:
@@ -1050,6 +1274,11 @@ compute_dml_and_gamma_impl_Newton_full =\
 njit()(compute_dml_and_gamma_impl_Newton_full_np)
 compute_dml_and_gamma_impl_Newton_full_par =\
 njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_np)
+
+
+# for ammonium sulfate:
+# put 
+
 
 #%% NOT UPDATED WITH NUMBA
 # NOT UPDATED WITH NUMBA

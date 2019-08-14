@@ -106,6 +106,7 @@ for i in range(1,len(par_wat_act_AS)):
     par_wat_act_AS[i] *= 100.0**i
     print(par_wat_act_AS[i])
 par_wat_act_AS = par_wat_act_AS[::-1]
+
 @njit()  
 def compute_water_activity_AS(w_s):
     return compute_polynom(par_wat_act_AS, w_s)
@@ -115,13 +116,56 @@ from microphysics import compute_density_water
 # data rho(w_s) from Tang 1994 (in Biskos 2006)
 # this is for room temperature (298 K)
 # then temperature effect of water by multiplication    
-par_rho_AS = np.array([ 997.1, 592., -5.036E1, 1.024E1 ] )[::-1]
+par_rho_AS = np.array([ 997.1, 592., -5.036E1, 1.024E1 ] )[::-1] / 997.1
 @vectorize("float64(float64,float64)")  
 def compute_density_AS_solution(mass_fraction_solute_, temperature_):
-    return compute_density_water(temperature_) / 997.1 \
+    return compute_density_water(temperature_) \
            * compute_polynom(par_rho_AS, mass_fraction_solute_)
+#  / 997.1 is included in the parameters now
+#    return compute_density_water(temperature_) / 997.1 \
+#           * compute_polynom(par_rho_AS, mass_fraction_solute_)
 
-supersaturation_factor_AS = 1.92
+#
+from microphysics import compute_surface_tension_water           
+# formula by Pruppacher 1997, only valid for 0 < w_s < 0.78
+# the first term is surface tension of water for T = 298. K
+# compute_surface_tension_AS(0.78, 298.) = 0.154954
+@vectorize()
+def compute_surface_tension_AS(w_s, T):
+    return compute_surface_tension_water(T) \
+               * (1.0 + 0.325 * w_s / (1. - w_s))
+#    return compute_surface_tension_water(T) / 0.072 \
+#               * (0.072 + 0.0234 * w_s / (1. - w_s))
+#    if w_s > 0.78:
+#        return compute_surface_tension_water(T) * 0.154954
+#    else:
+#        return compute_surface_tension_water(T) / 0.072 \
+#               * (0.072 + 0.0234 * w_s / (1. - w_s))
+
+# ->> Take again super sat factor for AS such that is fits for D_s = 10 nm 
+# other data from Haemeri 2000 and Onasch 1999 show similar results
+# Haemeri: also 8,10,20 nm, but the transition at effl point not detailed
+# Onasch: temperature dependence: NOT relevant in our range!
+# S_effl does not change significantly in range 273 - 298 Kelvin
+# Increases for smaller temperatures, note however, that they give
+# S_effl = 32% pm 3%, while Cziczo 1997 give 33 % pm 1 % at 298 K           
+# with data from Biskos 2006 -> ASSUME AS LOWER BORDER
+# i.e. it is right for small particles with small growth factor of 1.1
+# at efflorescence
+# larger D_s will have larger growth factors at efflorescence
+# thus larger water mass compared to dry mass and thus SMALLER w_s_effl
+# than W_s_effl of D_s = 10 nm
+# at T = 298., D_s = 10 nm, we find solubility mass fraction of 0.43387067
+# and with ERH approx 35 % a growth factor of approx 1.09
+# corresponding to w_s = 0.91
+# note that Onasch gives w_s_effl of 0.8 for D_s_dry approx 60 to 70
+# i.e. a SMALLER w_s_effl (more water)
+# the super sat factor is thus
+# supersaturation_factor_AS = 0.91/0.43387067
+supersaturation_factor_AS = 2.097
+# this determines the lower border of water contained in the particle
+# the w_s = m_s / (m_s + m_w) can not get larger than w_s_effl
+# (combined with solubility, which is dependent on temperature)
 @njit()
 def compute_efflorescence_mass_fraction_AS(temperature_):
     return supersaturation_factor_AS * compute_solubility_AS(temperature_)
@@ -148,8 +192,6 @@ def compute_kelvin_raoult_term_mf_AS(mass_fraction_solute_,
                                     mass_solute_,
                                     mass_density_particle_,
                                     surface_tension_)
-
-
 
 #%%
            
@@ -203,62 +245,115 @@ ax.legend()
 ax.set_title("density of $(NH_4)_2 \, SO_4 - H_2O$ solution vs temperature, "
              + "legend = mass fraction solute")
 
-#%% test S_eq for AS
 
-#import constants as c
-
+#%%
 T = 298.
+#D_s_list = np.array([6,8,10,20,40,60]) * 1E-3
+#R_s_list = D_s_list * 0.5
+
 D_s = 10E-3 # mu = 10 nm
 R_s = 0.5 * D_s
 m_s = mp.compute_mass_from_radius_jit(R_s, c.mass_density_AS_dry)
 
-w_s = np.logspace(-1, 0, 100)
+w_s = np.logspace(-2., np.log10(0.78), 100)
 rho_p = compute_density_AS_solution(w_s, T) 
 m_p = m_s/w_s
 R_p = mp.compute_radius_from_mass_jit(m_p, rho_p)
 
-sigma_w = mp.compute_surface_tension_water(T)
+sigma_p = compute_surface_tension_AS(w_s, T)
 
 S_eq = \
     compute_kelvin_raoult_term_mf_AS(w_s,
                                      m_s,
                                      T,
                                      rho_p,
-                                     sigma_w)
+                                     sigma_p)
+S_eq = \
+    compute_equilibrium_saturation_AS(w_s, R_p, rho_p, T, sigma_p)
+import matplotlib.pyplot as plt
 
-no_rows = 2
-fig, axes = plt.subplots(no_rows, figsize=(10,no_rows*5))
+fig, ax = plt.subplots()
+ax.plot(R_p, S_eq)
 
-ax = axes[0]
+
+#%% test S_eq for AS
+
+#import constants as c
+
+T = 298.
+#D_s = 10E-3 # mu = 10 nm
+D_s_list = np.array([6,8,10,20,40,60]) * 1E-3
+#R_s = 0.5 * D_s
+R_s_list = D_s_list * 0.5
+#m_s = mp.compute_mass_from_radius_jit(R_s, c.mass_density_AS_dry)
+#
+#w_s = np.logspace(-1, 0, 100)
+#rho_p = compute_density_AS_solution(w_s, T) 
+#m_p = m_s/w_s
+#R_p = mp.compute_radius_from_mass_jit(m_p, rho_p)
+#
+#sigma_w = mp.compute_surface_tension_water(T)
+#
+#S_eq = \
+#    compute_kelvin_raoult_term_mf_AS(w_s,
+#                                     m_s,
+#                                     T,
+#                                     rho_p,
+#                                     sigma_w)
+
+w_s = np.logspace(-0.5, np.log10(0.78), 100)
+
+no_rows = 1
+fig, axes = plt.subplots(no_rows, figsize=(10,no_rows*10))
+ax = axes
+
+for i,R_s in enumerate(R_s_list):
+    
+
+    m_s = mp.compute_mass_from_radius_jit(R_s, c.mass_density_AS_dry)
+    rho_p = compute_density_AS_solution(w_s, T) 
+    m_p = m_s/w_s
+    R_p = mp.compute_radius_from_mass_jit(m_p, rho_p)
+    
+#    sigma_w = mp.compute_surface_tension_water(T)
+    
+    sigma_AS = compute_surface_tension_AS(w_s, T)
+    
+    S_eq = \
+        compute_equilibrium_saturation_AS(w_s, R_p, rho_p, T, sigma_AS)
+#    S_eq = \
+#        compute_kelvin_raoult_term_mf_AS(w_s,
+#                                         m_s,
+#                                         T,
+#                                         rho_p,
+#                                         sigma_AS)
+
+    if i == 0:
+        ax.plot(R_p/R_s, w_s, label= r"$w_s$")
 #ax.plot(S_eq, R_p/R_s, "x")
-ax.plot(R_p/R_s, S_eq, "x")
-ax.plot(R_p/R_s, w_s, "x")
-ax.plot(1.09, mp.compute_solubility_NaCl(T), "D")
+    ax.plot(R_p/R_s, S_eq, "x", label=f"{R_s*2E3}")
+    
+#ax.plot(1.09, compute_solubility_AS(T), "D")
+ax.plot(R_p/R_s,
+        np.ones_like(R_p) * compute_efflorescence_mass_fraction_AS(T))
 ax.axvline(1.09)
-ax.axhline(0.91)
-ax.plot(R_p/R_s, np.ones_like(R_p) * mp.compute_solubility_NaCl(T))
+ax.axhline(0.40)
+ax.axhline(0.35)
+ax.axhline(0.33)
+ax.axhline(0.3)
+ax.axhline(0.28)
+ax.plot(R_p/R_s, np.ones_like(R_p) * compute_solubility_AS
+        (T))
+ax.legend()
+ax.set_yticks(np.arange(0.1,1.1,0.1))
+ax.grid()
 ax.set_title("S_eq vs R_p for D_s = 10 nm for SA")
 
-# ->> Take again super sat factor for AS such that is fits for D_s = 10 nm 
-# with data from Biskos 2006 -> ASSUME AS LOWER BORDER
-# i.e. it is right for small particles with small growth factor of 1.1
-# at efflorescence
-# larger D_s will have larger growth factors at efflorescence
-# thus larger water mass compared to dry mass and thus SMALLER w_s_effl
-# than W_s_effl of D_s = 10 nm
-# at T = 298., D_s = 10 nm, we find solubility mass fraction of 0.264557
-# and with ERH approx 35 % a growth factor of approx 1.09
-# corresponding to w_s = 0.91
-# note that Onasch gives w_s_effl of 0.8 for D_s_dry approx 60 to 70
-# i.e. a SMALLER w_s_effl (more water)
-# the super sat factor is thus
-#supersaturation_factor_AS = 0.91/0.264557
-supersaturation_factor_AS = 3.44
-# this determines the lower border of water contained in the particle
-# the w_s = m_s / (m_s + m_w) can not get larger than w_s_effl
-# (combined with solubility, which is)
-# dependent on 
 
+#%%
+
+#for w_s_ in w_s:
+#    print(compute_surface_tension_AS(w_s_,T))
 
 #%%
 

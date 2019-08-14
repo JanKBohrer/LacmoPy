@@ -147,23 +147,23 @@ seed_SIP_gen = 3725
 # folder_load = "grid_75_75_spcm_20_20/spinup/"
 grid_folder =\
     f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
-    + f"{seed_SIP_gen}/"
+    + f"{seed_SIP_gen}/spin_up_wo_col_wo_grav/"
 #    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
-#    + f"{seed_SIP_gen}/spin_up_wo_col_wo_grav/"
+#    + f"{seed_SIP_gen}/"
 #    f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" 
 
 # the seed is added later automatically for collision simulations
 #save_folder = "no_spin_up_with_col/"
 #save_folder = "no_spin_up_with_col_speedtest/"
-#save_folder = "w_spin_up_col/"
-save_folder = "spin_up_wo_col_wo_grav/"
+save_folder = "w_spin_up_col/"
+#save_folder = "spin_up_wo_col_wo_grav/"
 #save_folder = simdata_path + grid_folder + "no_spin_up_col_speed_test/"
 
 
 #%% COLLISIONS PARAMS
 
-act_collisions = False
-#act_collisions = True
+#act_collisions = False
+act_collisions = True
 
 kernel_method = "Ecol_grid_R"
 
@@ -200,14 +200,14 @@ no_cols = np.array((0,0))
 # folder_save = "grid_75_75_spcm_20_20/after_spinup_2/"
 # folder_save = "190511/grid_75_75_spcm_4_4"
 
-t_start = 0.0
-#t_start = 7200.0 # s
+#t_start = 0.0
+t_start = 7200.0 # s
 #t_end = 14400.0 # s
 #t_end = 7200.0 # s
  
-t_end = 7200.0 # s
+#t_end = 7200.0 # s
 #t_end = 7200.0+2.0 # s
-#t_end = 7200.0*2 # s
+t_end = 7200.0*2 # s
 #t_end = 2.0 # s
 #t_end = 1800.0 # s
 #t_end = 20.0 # s
@@ -244,11 +244,11 @@ dump_every = 10
 #dump_every = 5
 
 # g must be positive (9.8...) or 0.0 (for spin up)
-g_set = 0.0
-#g_set = c.earth_gravity
+#g_set = 0.0
+g_set = c.earth_gravity
 
 # for collisions
-seed_sim = 3711
+seed_sim = 3717
 ### SET END
 ####################################
 
