@@ -15,6 +15,8 @@ from collision.kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
                    compute_E_col_Long_Bott
 from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_radius_from_mass_vec
+from microphysics import compute_R_p_w_s_rho_p_AS
+from microphysics import compute_R_p_w_s_rho_p_NaCl
 
 #%% COLLISION ALGORITHMS
 
@@ -605,7 +607,7 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_np(
             xi[mask_ij] = xis
             m_w[mask_ij] = masses   
 
-from microphysics import compute_R_p_w_s_rho_p
+
 
 ################## changed -> wrong radius clac only from m_w
 # keep velocities and mass densities fixed for a collision timestep
@@ -702,11 +704,13 @@ from microphysics import compute_R_p_w_s_rho_p
 #    njit()(collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np)
 #####################################    
     
-    
+## keep velocities and mass densities fixed for a collision timestep
+## the np-method is 2 times faster than the jitted version
+## 1000 collision steps for 75 x 75 cells take 3240 s = 54 min
 def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
         xi, m_w, m_s, vel, grid_temperature, cells, no_cells,
         dt_over_dV, E_col_grid, no_kernel_bins,
-        R_kernel_low_log, bin_factor_R_log, no_cols):
+        R_kernel_low_log, bin_factor_R_log, no_cols, solute_type):
     
     for i in range(no_cells[0]):
         mask_i = (cells[0] == i)
@@ -721,8 +725,12 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
             T_p_cell = grid_temperature[i,j]
 #            mass_densities = np.ones_like(masses) * mass_density
             
-            R_p_cell, w_s_cell, rho_p_cell =\
-                compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_p_cell)
+            if solute_type == "AS":
+                R_p_cell, w_s_cell, rho_p_cell =\
+                    compute_R_p_w_s_rho_p_AS(m_w_cell, m_s_cell, T_p_cell)
+            elif solute_type == "NaCl":
+                R_p_cell, w_s_cell, rho_p_cell =\
+                    compute_R_p_w_s_rho_p_NaCl(m_w_cell, m_s_cell, T_p_cell)
             
 #            radii = compute_radius_from_mass_vec(m_w_cell+m_s_cell,
 #                                                 mass_densities[mask_ij])
@@ -739,5 +747,5 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
             xi[mask_ij] = xi_cell
             m_w[mask_ij] = m_w_cell   
             m_s[mask_ij] = m_s_cell   
-collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp = \
-    njit()(collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np)
+#collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp = \
+#    njit()(collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np)

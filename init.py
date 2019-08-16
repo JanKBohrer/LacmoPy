@@ -16,13 +16,18 @@ import constants as c
 from grid import Grid
 from grid import interpolate_velocity_from_cell_bilinear
 from microphysics import compute_mass_from_radius_jit
-from microphysics import compute_mass_from_radius_vec,\
-                         compute_initial_mass_fraction_solute_NaCl,\
-                         compute_initial_mass_fraction_solute_m_s_NaCl, \
-                         compute_radius_from_mass_vec,\
-                         compute_density_particle,\
-                         compute_dml_and_gamma_impl_Newton_full_np,\
-                         compute_R_p_w_s_rho_p
+from microphysics import compute_initial_mass_fraction_solute_m_s_NaCl
+from microphysics import compute_initial_mass_fraction_solute_m_s_AS, \
+                         compute_dml_and_gamma_impl_Newton_full_NaCl,\
+                         compute_dml_and_gamma_impl_Newton_full_AS,\
+                         compute_R_p_w_s_rho_p_NaCl, \
+                         compute_R_p_w_s_rho_p_AS, \
+                         compute_surface_tension_NaCl, \
+                         compute_surface_tension_AS
+#                         compute_mass_from_radius_vec,\
+#                         compute_radius_from_mass_vec,\
+#                         compute_density_particle,\
+#                         compute_initial_mass_fraction_solute_NaCl,\
                          
 from atmosphere import compute_kappa_air_moist,\
                        compute_diffusion_constant,\
@@ -35,7 +40,7 @@ from atmosphere import compute_kappa_air_moist,\
                        compute_beta_without_liquid
 from file_handling import save_grid_and_particles_full
 
-from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
+#from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
 #from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal_grid
 from generate_SIP_ensemble_dst import \
     gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
@@ -1164,11 +1169,11 @@ def compute_profiles_T_p_rhod_S_without_liquid(
 def initialize_grid_and_particles_SinSIP(
         x_min, x_max, z_min, z_max, dx, dy, dz,
         p_0, p_ref, r_tot_0, Theta_l,
+        solute_type,
         DNC0, no_spcm, no_modes, dist, dst_par,
         eta, eta_threshold, r_critmin, m_high_over_m_low,
         rnd_seed, reseed,
-        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, save_path,
-        logfile = None):
+        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, save_path):
     import os
     if not os.path.exists(save_path):
         os.makedirs(save_path)
@@ -1181,10 +1186,11 @@ def initialize_grid_and_particles_SinSIP(
     # The grid dimensions will be adjusted such that they are
     # AT LEAST x_max - x_min, etc... but may also be larger,
     # if the sizes are no integer multiples of the step sizes
-    if logfile is not None:
-        log_file = save_path + "log_grid.txt"
-        log_handle = open(log_file, "w")
-        sys.stdout = log_handle
+    log_file = save_path + f"log_grid.txt"
+#    if logfile is not None:
+#        log_file = save_path + "log_grid.txt"
+#        log_handle = open(log_file, "w")
+#        sys.stdout = log_handle
         
     grid_ranges = [ [x_min, x_max],
     #                 [y_min, y_max], 
@@ -1193,6 +1199,15 @@ def initialize_grid_and_particles_SinSIP(
 
     grid = Grid( grid_ranges, grid_steps, dy )
     grid.print_info()
+    
+    with open(log_file, "w+") as f:
+        f.write("grid basic parameters:\n")
+        f.write(f"grid ranges [x_min, x_max] [z_min, z_max]:\n")
+        f.write(f"{x_min} {x_max} {z_min} {z_max}\n")
+        f.write("number of cells: ")
+        f.write(f"{grid.no_cells[0]}, {grid.no_cells[1]} \n")
+        f.write("grid steps: ")
+        f.write(f"{dx}, {dy}\n\n")
     ###
 
     ###
@@ -1242,15 +1257,33 @@ def initialize_grid_and_particles_SinSIP(
     print(
       "\n### particle placement and saturation adjustment for each z-level ###")
     print('timestep for sat. adj.: dt_init = ', dt_init)
+    with open(log_file, "a") as f:
+        f.write(
+    "### particle placement and saturation adjustment for each z-level ###\n")
+        f.write(f'solute material = {solute_type}\n')
+        f.write(f'nr of modes in dry distribution = {no_modes}\n')
     ### DERIVED PARAMETERS SIP INIT
     if dist == "lognormal":
         mu_m_log = dst_par[0]
         sigma_m_log = dst_par[1]
         
         # derive scaling parameter kappa from no_spcm
-        kappa_dst = np.rint( no_spcm / 20 * 28) * 0.1
+        kappa_dst = np.ceil( no_spcm / 20 * 28) * 0.1
         kappa_dst = np.maximum(kappa_dst, 0.1)
         print("kappa =", kappa_dst)
+        with open(log_file, "a") as f:
+            f.write("intended SIPs per mode and cell = ")
+            for k_ in no_spcm:
+                f.write(f"{k_:.1f} ")
+            f.write("\n")
+        with open(log_file, "a") as f:
+            f.write("kappa = ")
+            for k_ in kappa_dst:
+                f.write(f"{k_:.1f} ")
+            f.write("\n")
+
+    with open(log_file, "a") as f:
+        f.write(f'timestep for sat. adj.: dt_init = {dt_init}\n')
     
 #    if dist == "expo":
 #        DNC0 = dst_par[0]
@@ -1279,8 +1312,15 @@ def initialize_grid_and_particles_SinSIP(
     no_rpcm_0 =  (np.ceil( V0*DNC0 )).astype(int)
     
     ### REMOVE 
-    print("{no_rpcm_0[0]} {no_rpcm_0[1]}" )
-    print(f"{no_rpcm_0[0]} {no_rpcm_0[1]}" )
+#    print("{no_rpcm_0[0]} {no_rpcm_0[1]}" )
+#    print(f"{no_rpcm_0[0]} {no_rpcm_0[1]}" )
+    print("no_rpcm_0 = ", no_rpcm_0)
+    with open(log_file, "a") as f:
+        f.write("no_rpcm_0 = ")
+        for no_rpcm_ in no_rpcm_0:
+            f.write(f"{no_rpcm_:.2e} ")
+        f.write("\n")
+        f.write("\n")
     no_rpct_0 = np.sum(no_rpcm_0)
     
     # empty cell list
@@ -1418,6 +1458,9 @@ def initialize_grid_and_particles_SinSIP(
         
         print('\n### level', j, "###")
         print('S_env_init0 = ', S_avg)
+        with open(log_file, "a") as f:
+            f.write(f"### level {j} ###\n")
+            f.write(f"S_env_init0 = {S_avg:.5f}\n")
     ########################################################
     ### 3a. (first initialization setting S_eq = S_amb if possible)
     ########################################################
@@ -1426,19 +1469,30 @@ def initialize_grid_and_particles_SinSIP(
         no_rpcm_scale_factor = rho_dry_avg / rho_dry_0
         no_rpcm = np.rint( no_rpcm_0 * no_rpcm_scale_factor ).astype(int)
         ### REMOVE
-        print("{no_rpcm[0]} {no_rpcm[1]}" )
-        print(f"{no_rpcm[0]} {no_rpcm[1]}" )
+#        print("{no_rpcm[0]} {no_rpcm[1]}" )
+#        print(f"{no_rpcm[0]} {no_rpcm[1]}" )
+        print("no_rpcm = ", no_rpcm)
+        with open(log_file, "a") as f:
+            f.write("no_rpcm = ")
+            for no_rpcm_ in no_rpcm:
+                f.write(f"{no_rpcm_:.2e} ")
+            f.write("\n")
         
         no_rpcm_scale_factors_lvl_wise[j] = no_rpcm_scale_factor
         no_rpt_should += no_rpcm * grid.no_cells[0]
         
     ### create SIP ensemble for this level -> list of 
+    
+        if solute_type == "NaCl":
+            mass_density_dry = c.mass_density_NaCl_dry
+        elif solute_type == "AS":
+            mass_density_dry = c.mass_density_AS_dry
         # m_s_lvl = [ m_s[0,j], m_s[1,j], ... ]
         # xi_lvl = ...
         if dist == "lognormal":
             m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
                 gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
-                        mu_m_log, sigma_m_log, c.mass_density_NaCl_dry,
+                        mu_m_log, sigma_m_log, mass_density_dry,
                         grid.volume_cell, kappa_dst, eta, weak_threshold,
                         r_critmin,
                         m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
@@ -1446,8 +1500,12 @@ def initialize_grid_and_particles_SinSIP(
 #        elif dist == "expo":
             
         no_spc[:,j] = no_spc_lvl
-        w_s_lvl = compute_initial_mass_fraction_solute_m_s_NaCl(
-                          m_s_lvl, S_avg, T_avg)
+        if solute_type == "NaCl":
+            w_s_lvl = compute_initial_mass_fraction_solute_m_s_NaCl(
+                              m_s_lvl, S_avg, T_avg)
+        elif solute_type == "AS":            
+            w_s_lvl = compute_initial_mass_fraction_solute_m_s_AS(
+                              m_s_lvl, S_avg, T_avg)
         m_p_lvl = m_s_lvl / w_s_lvl
 #        rho_p_lvl = compute_density_particle(w_s_lvl, T_avg)
 #        R_p_lvl = compute_radius_from_mass_vec(m_p_lvl, rho_p_lvl)
@@ -1455,8 +1513,15 @@ def initialize_grid_and_particles_SinSIP(
         dm_l_level += np.sum(m_w_lvl * xi_lvl)
         dm_p_level += np.sum(m_p_lvl * xi_lvl)
         for mode_n in range(no_modes):
-            print("placed", len(xi_lvl[modes_lvl==mode_n]),
-                  f"particles in mode {mode_n}")        
+            no_pt_mode_ = len(xi_lvl[modes_lvl==mode_n])
+            print("placed", no_pt_mode_,
+                  f"SIPs in mode {mode_n}")
+            with open(log_file, "a") as f:
+                f.write(f"placed {no_pt_mode_} ")
+                f.write(f"SIPs in mode {mode_n}, ")
+                f.write(f"-> {no_pt_mode_/grid.no_cells[0]:.2f} ")
+                f.write("SIPs per cell\n")
+                
     #####################################################################
     # OLD WORKING                                 
 #        for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
@@ -1580,6 +1645,9 @@ def initialize_grid_and_particles_SinSIP(
         
         print('S_env_init after placement =', S_avg)
         print("sat. adj. start")
+        with open(log_file, "a") as f:
+            f.write(f"S_env_init after placement = {S_avg:.5f}\n")
+            f.write("sat. adj. start\n")
         # need to define criterium -> use relative change in liquid water
         while ( np.abs(dm_l_level/mass_water_liquid_level) > 1e-5
                 and iter_cnt < iter_cnt_limit ):
@@ -1591,7 +1659,6 @@ def initialize_grid_and_particles_SinSIP(
             K = compute_thermal_conductivity_air(T_avg)
             # c_p = compute_specific_heat_capacity_air_moist(r_v_avg)
             L_v = compute_heat_of_vaporization(T_avg)
-            sigma_w = compute_surface_tension_water(T_avg)
     
             for i in range(grid.no_cells[0]):
                 cell = (i,j)
@@ -1607,15 +1674,29 @@ def initialize_grid_and_particles_SinSIP(
                 m_w_cell = m_w_lvl[ind_x]
                 m_s_cell = m_s_lvl[ind_x]
                 
-                R_p_cell, w_s_cell, rho_p_cell =\
-                    compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_avg)
+                if solute_type == "NaCl":
+                    R_p_cell, w_s_cell, rho_p_cell =\
+                        compute_R_p_w_s_rho_p_NaCl(m_w_cell, m_s_cell, T_avg)
+                    sigma_p_cell = compute_surface_tension_water(T_avg)
+                    dm_l, gamma_ =\
+                    compute_dml_and_gamma_impl_Newton_full_NaCl(
+                        dt_init, Newton_iterations, m_w_cell,
+                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+                        rho_p_cell,
+                        T_avg, p_avg, S_avg2, e_s_avg,
+                        L_v, K, D_v, sigma_p_cell)
+                elif solute_type == "AS":
+                    R_p_cell, w_s_cell, rho_p_cell =\
+                        compute_R_p_w_s_rho_p_AS(m_w_cell, m_s_cell, T_avg)
+                    sigma_p_cell = compute_surface_tension_AS(w_s_cell, T_avg)
+                    dm_l, gamma_ =\
+                    compute_dml_and_gamma_impl_Newton_full_AS(
+                        dt_init, Newton_iterations, m_w_cell,
+                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+                        rho_p_cell,
+                        T_avg, p_avg, S_avg2, e_s_avg,
+                        L_v, K, D_v, sigma_p_cell)
                 
-                dm_l, gamma_ =\
-                compute_dml_and_gamma_impl_Newton_full_np(
-                    dt_init, Newton_iterations, m_w_cell,
-                    m_s_cell, w_s_cell, R_p_cell, T_avg,
-                    rho_p_cell,
-                    T_avg, p_avg, S_avg2, e_s_avg, L_v, K, D_v, sigma_w)
                 
                 m_w_lvl[ind_x] += dm_l
 #                m_w[l][cell] += dm_l
@@ -1714,6 +1795,7 @@ def initialize_grid_and_particles_SinSIP(
             grid.mixing_ratio_water_liquid[:,j].fill(0.0)
             for i in range(grid.no_cells[0]):
                 cell = (i,j)
+                ind_x = cells_x_lvl == i
                 grid.mixing_ratio_water_liquid[cell] +=\
                     np.sum(m_w_lvl[ind_x] * xi_lvl[ind_x])
                 
@@ -1741,6 +1823,8 @@ def initialize_grid_and_particles_SinSIP(
             
             iter_cnt += 1
         
+#        print(grid.mixing_ratio_water_vapor[:,j])
+        
         if iter_cnt_max < iter_cnt: 
             iter_cnt_max = iter_cnt
             iter_cnt_max_level = j
@@ -1751,7 +1835,13 @@ def initialize_grid_and_particles_SinSIP(
               ', m_l_level = ', mass_water_liquid_level,
               '\ndm_l_level/mass_water_liquid_level = ',
               dm_l_level/mass_water_liquid_level)
-        
+        with open(log_file, "a") as f:
+            f.write(f'sat. adj. end: iter_cnt = {iter_cnt}, ')
+            f.write(f"S_avg_end = {S_avg:.5f}\n")
+            f.write(f"dm_l_level = {dm_l_level}\n")
+            f.write(f"m_l_level = {mass_water_liquid_level}\n")
+            f.write(f"dm_l_level/mass_water_liquid_level = ")
+            f.write(f"{dm_l_level/mass_water_liquid_level}\n\n")
         mass_water_liquid_levels.append(mass_water_liquid_level)
         mass_water_vapor_levels.append( mass_water_vapor_level )
     
@@ -1781,6 +1871,7 @@ def initialize_grid_and_particles_SinSIP(
     modes = np.concatenate(modes)   
     
     print('')
+    print("### Saturation adjustment ended for all lvls ###")
     print('iter count max = ', iter_cnt_max, ' level = ', iter_cnt_max_level)
     # total number of particles in grid
     no_particles_tot = np.size(m_w)
@@ -1790,6 +1881,18 @@ def initialize_grid_and_particles_SinSIP(
     #       no_super_particles_tot  )
     print('no_cells x N_p_cell_tot =', np.sum(no_rpct_0)*grid.no_cells[0]\
                                                         *grid.no_cells[1] )
+    
+    with open(log_file, "a") as f:
+        f.write("\n")
+        f.write("### Saturation adjustment ended for all lvls ###\n")
+        f.write(f'iter cnt max = {iter_cnt_max}, at lvl {iter_cnt_max_level}')
+        f.write("\n")
+        f.write(f'last particle ID = {len(m_w) - 1}\n' )
+        f.write(f'no_super_particles_tot placed = {no_particles_tot}\n')
+        f.write('no_cells x N_p_cell_tot = ')
+        f.write(
+        f"{np.sum(no_rpct_0) * grid.no_cells[0] * grid.no_cells[1]:.3e}\n")
+    
     for i in range(grid.no_cells[0]):
         grid.pressure[i] = p_env_init_center
         grid.temperature[i] = T_env_init_center
@@ -1819,19 +1922,36 @@ def initialize_grid_and_particles_SinSIP(
     print()
     print("placed ", len(m_w.flatten()), "super particles" )
     print("representing ", np.sum(xi.flatten()), "real particles:" )
-    print("mode real_part_placed real_part_should diff_real_should:")
+    print("mode real_part_placed, real_part_should, " + 
+          "rel_dev:")
+    
+    with open(log_file, "a") as f:
+        f.write("\n")
+        f.write(f"placed {len(m_w.flatten())} super particles\n")
+        f.write(f"representing {np.sum(xi.flatten()):.3e} real particles:\n")
+        f.write("mode real_part_placed, real_part_should, ")
+        f.write("rel dev:\n")
     
     if no_modes == 1:
 #        print(0, np.sum(xi), no_rpt_should, np.sum(xi) - no_rpt_should)
         print(0, f"{np.sum(xi):.3e}",
               f"{no_rpt_should:.3e}",
               f"{np.sum(xi) - no_rpt_should:.3e}")
+        with open(log_file, "a") as f:
+            f.write(f"0 {np.sum(xi):.3e} {no_rpt_should:.3e} ")
+            f.write(f"{(np.sum(xi) - no_rpt_should)/no_rpt_should:.3e}\n")
     else:
         for mode_n in range(no_modes):
             ind_mode = modes == mode_n
+            rel_dev_ = (np.sum(xi[ind_mode]) - no_rpt_should[mode_n])\
+                      /no_rpt_should[mode_n]
             print(mode_n, f"{np.sum(xi[ind_mode]):.3e}",
                   f"{no_rpt_should[mode_n]:.3e}",
-                  f"{np.sum(xi[ind_mode]) - no_rpt_should[mode_n]:.3e}")
+                  f"{rel_dev_:.3e}")
+            with open(log_file, "a") as f:
+                f.write(f"{mode_n} {np.sum(xi[ind_mode]):.3e} ")
+                f.write(f"{no_rpt_should[mode_n]:.3e} ")
+                f.write(f"{rel_dev_:.3e}\n")
     
 #    l_ = 0
 #    for l, N_l in enumerate( no_spcm ):
@@ -1842,6 +1962,19 @@ def initialize_grid_and_particles_SinSIP(
 #        else:
 #            print( l, 0, no_rpt_should[l], -no_rpt_should[l])
     
+    r_tot_err =\
+        np.sum(np.abs(grid.mixing_ratio_water_liquid
+                      + grid.mixing_ratio_water_vapor
+                      - r_tot_0))
+    print()
+    print(f"accumulated abs. error"
+          + "|(r_l + r_v) - r_tot_should| over all cells = "
+          + f"{r_tot_err:.4e}")
+    with open(log_file, "a") as f:
+        f.write("\n")
+        f.write(f"accumulated abs. error |(r_l + r_v) - r_tot_should| ")
+        f.write(f"over all cells ")
+        f.write(f"= {r_tot_err:.4e}\n")
     ########################################################
     ### 4. set mass flux and velocity grid
     ######################################################## 
@@ -1852,6 +1985,8 @@ def initialize_grid_and_particles_SinSIP(
     print()
     print('j_max')
     print(j_max)
+    with open(log_file, "a") as f:
+        f.write(f"\nj_max = {j_max}")
     grid.mass_flux_air_dry =\
         compute_initial_mass_flux_air_dry_kinematic_2D_ICMW_2012_case1( grid,
                                                                         j_max )
@@ -1984,9 +2119,9 @@ def initialize_grid_and_particles_SinSIP(
                         f.write( f'{el} ' )
             else: f.write( f'{item} ' )        
     
-    if logfile:
-        sys.stdout = sys.__stdout__
-        log_handle.close()
+#    if logfile:
+#        sys.stdout = sys.__stdout__
+#        log_handle.close()
     
     return grid, pos, cells, cells_comb, vel, m_w, m_s, xi,\
            active_ids 

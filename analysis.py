@@ -546,10 +546,11 @@ def sample_masses(m_w, m_s, xi, cells, target_cell, no_cells_x, no_cells_z):
     return m_wat, m_dry, multi, i, j
 
 from microphysics import compute_radius_from_mass_vec,\
-                         compute_R_p_w_s_rho_p
+                         compute_R_p_w_s_rho_p_NaCl,\
+                         compute_R_p_w_s_rho_p_AS
 import constants as c
 # we always assume the only quantities stored are m_s, m_w, xi
-def sample_radii(m_w, m_s, xi, cells, grid_temperature,
+def sample_radii_NaCl(m_w, m_s, xi, cells, grid_temperature,
                  target_cell, no_cells_x, no_cells_z):
     m_wat, m_dry, multi, i, j = sample_masses(m_w, m_s, xi, cells,
                                         target_cell, no_cells_x, no_cells_z)
@@ -561,7 +562,7 @@ def sample_radii(m_w, m_s, xi, cells, grid_temperature,
     # print(multi)
     R_s = compute_radius_from_mass_vec(m_dry, c.mass_density_NaCl_dry)
     T_p = grid_temperature[i,j]
-    R, w_s, rho_p = compute_R_p_w_s_rho_p(m_wat, m_dry, T_p)
+    R, w_s, rho_p = compute_R_p_w_s_rho_p_NaCl(m_wat, m_dry, T_p)
     return R, R_s, multi        
 
 #%% PLOTTING
