@@ -1499,7 +1499,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                    active_ids,
                    id_list)
     save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)        
-    dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path)
+    dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, path)
     np.save(path + f"no_cols_{int(t)}.npy", no_cols)
     dump_particle_data(t, pos[:,trace_ids], vel[:,trace_ids],
                        m_w[trace_ids], m_s[trace_ids], xi[trace_ids],
