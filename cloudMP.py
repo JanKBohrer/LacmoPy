@@ -75,8 +75,8 @@ from integration import simulate
 #from integration import simulate_wout_col, simulate_col 
 
 ### STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -119,21 +119,21 @@ seed_SIP_gen = 3717
 # "spin up": g_set = 0.0, without collisions
 # "wo_collisions": g_set = 9.805.., without collisions
 # "with_collisions": g_set = 9.805.., with collisions
-simulation_mode = "spin_up"
+#simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
-#simulation_mode = "with_collision"
+simulation_mode = "with_collision"
  
 # set True when starting from a spin-up state
-#spin_up_before = True
-spin_up_before = False
+spin_up_before = True
+#spin_up_before = False
 
-t_start = 0.0
+#t_start = 0.0
 #t_start = 600.0
-#t_start = 7200.0 # s
+t_start = 7200.0 # s
 
-t_end = 7200.0 # s
+#t_end = 7200.0 # s
 #t_end = 7200.0+2.0 # s
-#t_end = 7200.0*2 # s
+t_end = 7200.0*2 # s
 #t_end = 60.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
@@ -174,7 +174,7 @@ dump_every = 10
 #%% COLLISIONS PARAMS
 
 # for collisions
-seed_sim = 3711
+seed_sim = 4711
 
 kernel_type = "Long_Bott"
 kernel_method = "Ecol_grid_R"
