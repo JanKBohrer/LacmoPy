@@ -550,8 +550,8 @@ from microphysics import compute_radius_from_mass_vec,\
                          compute_R_p_w_s_rho_p_AS
 import constants as c
 # we always assume the only quantities stored are m_s, m_w, xi
-def sample_radii_NaCl(m_w, m_s, xi, cells, grid_temperature,
-                 target_cell, no_cells_x, no_cells_z):
+def sample_radii(m_w, m_s, xi, cells, grid_temperature,
+                 target_cell, no_cells_x, no_cells_z, solute_type):
     m_wat, m_dry, multi, i, j = sample_masses(m_w, m_s, xi, cells,
                                         target_cell, no_cells_x, no_cells_z)
     # print("m_wat")
@@ -560,9 +560,14 @@ def sample_radii_NaCl(m_w, m_s, xi, cells, grid_temperature,
     # print(m_wat)
     # print(m_dry)
     # print(multi)
-    R_s = compute_radius_from_mass_vec(m_dry, c.mass_density_NaCl_dry)
     T_p = grid_temperature[i,j]
-    R, w_s, rho_p = compute_R_p_w_s_rho_p_NaCl(m_wat, m_dry, T_p)
+    if solute_type == "AS":
+        mass_density_dry = c.mass_density_AS_dry
+        R, w_s, rho_p = compute_R_p_w_s_rho_p_AS(m_wat, m_dry, T_p)
+    elif solute_type == "NaCl":
+        mass_density_dry = c.mass_density_AS_dry
+        R, w_s, rho_p = compute_R_p_w_s_rho_p_NaCl(m_wat, m_dry, T_p)
+    R_s = compute_radius_from_mass_vec(m_dry, mass_density_dry)
     return R, R_s, multi        
 
 #%% PLOTTING
@@ -596,12 +601,13 @@ def plot_scalar_field_2D( grid_centers_x_, grid_centers_y_, field_,
                                 no_ticks_[1] ) )
     plt.colorbar(CS, fraction=colorbar_fraction_ , pad=colorbar_pad_)
     
-def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
+def plot_particle_size_spectra(m_w, m_s, xi, cells, grid, solute_type,
                           target_cell, no_cells_x, no_cells_z,
                           no_rows=1, no_cols=1, TTFS=12, LFS=10, TKFS=10,
                           fig_path = None):
     R, Rs, multi = sample_radii(m_w, m_s, xi, cells, grid.temperature,
-                                    target_cell, no_cells_x, no_cells_z)
+                                    target_cell, no_cells_x, no_cells_z,
+                                    solute_type)
 
     log_R = np.log10(R)
     log_Rs = np.log10(Rs)
@@ -709,9 +715,9 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
     ax.set_ylabel(r"concentration (${\mathrm{cm}^{3}}$)", fontsize = LFS)
     # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
     # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
-    ax.set_title( f'height = {height} m' +
-                 f" tg cell ({target_cell[0]} {target_cell[1]}) "
-                    + f"+ ({no_cells_x}, {no_cells_z})",
+    ax.set_title( f'h = {height} m ' +
+                 f"tg cell ({target_cell[0]} {target_cell[1]}) "
+                    + f"no cells ({no_cells_x}, {no_cells_z})",
                     fontsize = TTFS )
     
     # X = np.linspace(1E-2,1.0,1000)
@@ -737,7 +743,177 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid,
 #        fig.savefig(fig_path + "spectrum_" + str(height) +".pdf")
         fig.savefig(fig_path
                     + f"spectrum_cell_{target_cell[0]}_{target_cell[1]}_"
-                    + f"pl_{no_cells_x}_{no_cells_z}.pdf")
+                    + f"no_cells_{no_cells_x}_{no_cells_z}.pdf")
+
+def plot_particle_size_spectra_tg_list(
+        t, m_w, m_s, xi, cells,
+        grid_volume_cell,
+        grid_step_z,
+        grid_temperature,
+        solute_type,
+        target_cell_list, no_cells_x, no_cells_z,
+        no_rows, no_cols,
+        TTFS=12, LFS=10, TKFS=10,
+        fig_path = None):
+    
+    i_list = target_cell_list[0]
+    j_list = target_cell_list[1]
+    
+#    no_rows = len(i_list)
+#    no_cols = len(j_list)
+    
+    def cm2inch(*tupl):
+        inch = 2.54
+        if isinstance(tupl[0], tuple):
+            return tuple(i/inch for i in tupl[0])
+        else:
+            return tuple(i/inch for i in tupl)
+    
+    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
+                             figsize = (no_cols*5, no_rows*4) )
+#    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
+#                             figsize = cm2inch(10.8,9.3))
+    
+    plot_n = -1
+    for row_n in range(no_rows)[::-1]:
+        for col_n in range(no_cols):
+            plot_n += 1
+            target_cell = (i_list[plot_n], j_list[plot_n])
+            if no_cols == 1:
+                ax = axes[row_n]
+            else:
+                ax = axes[row_n, col_n]
+            
+            R, Rs, multi = sample_radii(m_w, m_s, xi, cells, grid_temperature,
+                                            target_cell, no_cells_x, no_cells_z,
+                                            solute_type)
+        
+            log_R = np.log10(R)
+            log_Rs = np.log10(Rs)
+            multi = np.array(multi)
+            if no_cells_x % 2 == 0: no_cells_x += 1
+            if no_cells_z % 2 == 0: no_cells_z += 1
+            
+            V_an = no_cells_x * no_cells_z * grid_volume_cell * 1.0E6
+            # V_an = (no_neighbors_x * 2 + 1) * (no_neighbors_z * 2 + 1)
+            # * grid.volume_cell * 1.0E6
+            
+            no_bins = 40
+            no_bins_s = 30
+            bins = np.empty(no_bins)
+            
+            R_min = 1E-2
+            Rs_max = 0.3
+            # R_max = 12.0
+            R_max = 120.0
+            
+            R_min_log = np.log10(R_min)
+            Rs_max_log = np.log10(Rs_max)
+            R_max_log = np.log10(R_max)
+            
+            # print(log_R.shape)
+            # print(log_Rs.shape)
+            # print(multi.shape)
+            
+            h1, bins1 = np.histogram( log_R, bins=no_bins,  weights=multi/V_an )
+            h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,  weights=multi/V_an )
+            # h1, bins1 = np.histogram(log_R, bins=no_bins,
+            #                          range=(R_min_log,R_max_log), weights=multi/V_an)
+            # h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,
+            #                           range=(R_min_log, Rs_max_log),
+            #                           weights=multi/V_an )
+            bins1 = 10 ** bins1
+            bins2 = 10 ** bins2
+            d_bins1 = np.diff(bins1)
+            d_bins2 = np.diff(bins2)
+            
+            #########################
+            
+            # # title size (pt)
+            # TTFS = 22
+            # # labelsize (pt)
+            # LFS = 20
+            # # ticksize (pt)
+            # TKFS = 18
+            
+            # figsize_x = cm2inch(10.8)
+            # figsize_y = cm2inch(10.3)
+            # figsize_y = 8
+            
+            # no_rows = 1
+            # no_cols = 1
+        
+    
+        
+    
+    #    ax = axes
+        # ax.hist(R, bins = bins1, weights = multi/d_bins1)
+            ax.bar(bins1[:-1], h1, width = d_bins1, align = 'edge',
+            # ax.bar(bins1[:-1], h1/d_bins1, width = d_bins1, align = 'edge',
+            #        fill = False,
+            #        color = None,
+                    alpha = 0.05,
+                   linewidth = 0,
+            #        color = (0,0,1,0.05),
+            #        edgecolor = (0,0,0,0.0),
+                   
+                  )
+            ax.bar(bins2[:-1], h2, width = d_bins2, align = 'edge', 
+            # ax.bar(bins2[:-1], h2/d_bins2, width = d_bins2, align = 'edge',
+            #        fill = False,
+            #        color = None,
+                    alpha = 0.1,
+                   linewidth = 0,
+            #        color = (1,0,0,0.05),
+            #        edgecolor = (1,0,0,1.0),
+                  )
+            LW = 2
+            ax.plot(np.repeat(bins1,2)[:],
+                    np.hstack( [[0.001], np.repeat(h1,2)[:], [0.001] ] ),
+                    linewidth = LW, zorder = 6, label = "wet")
+            ax.plot(np.repeat(bins2,2)[:],
+                    np.hstack( [[0.001], np.repeat(h2,2)[:], [0.001] ] ),
+                    linewidth = LW, label = "dry")
+            
+            
+            ax.tick_params(axis='both', which='major', labelsize=TKFS, length = 5)
+            ax.tick_params(axis='both', which='minor', labelsize=TKFS, length = 3)
+            
+#            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
+            height = int((target_cell[1]+0.5)*grid_step_z)
+            ax.set_xlabel(r"particle radius (mu)", fontsize = LFS)
+            ax.set_ylabel(r"concentration (${\mathrm{cm}^{3}}$)", fontsize = LFS)
+            # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
+            # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
+            ax.set_title( f'h = {height} m ' +
+                         f"tg cell ({target_cell[0]} {target_cell[1]}) "
+                            + f"no cells ({no_cells_x}, {no_cells_z})",
+                            fontsize = TTFS )
+            
+            # X = np.linspace(1E-2,1.0,1000)
+            # Y = np.log(X)
+            # Z = gaussian(Y, np.log(0.075), np.log(1.6))
+            
+            # ax.plot(X,Z*11,'--',c="k")
+            
+            # ax.set_xticks(bins1)
+            ax.set_xscale("log")
+            # ax.set_xticks(bins1)
+            ax.set_yscale("log")
+            ax.set_ylim( [0.01,50] )
+            ax.grid(linestyle="dashed")
+            
+            handles, labels = ax.get_legend_handles_labels()
+            # ax.legend(handles[::-1], labels[::-1], title='Line', loc='upper left')
+            ax.legend(handles[::-1], labels[::-1], ncol = 2, prop={'size': TKFS},
+                      loc='upper center', bbox_to_anchor=(0.5, 1.04), frameon = False)
+    fig.tight_layout()
+#    plt.show()
+    if fig_path is not None:
+#        fig.savefig(fig_path + "spectrum_" + str(height) +".pdf")
+        fig.savefig(fig_path 
+                    + f"spectrum_cell_list_j_from_{j_list[0]}_to_{j_list[-1]}_" 
+                    + f"no_cells_{no_cells_x}_{no_cells_z}_t_{int(t)}.pdf")
 
 #%% PLOT GRID SCALAR FIELDS WITH TIME
 

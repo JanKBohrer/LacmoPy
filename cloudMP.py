@@ -81,13 +81,9 @@ my_OS = "Linux_desk"
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
     simdata_path = "/mnt/D/sim_data_cloudMP/"
-#    simdata_path = "/mnt/D/sim_data_cloudMP/test_gen_grid_and_pt/"
-#    sim_data_path = home_path + "OneDrive/python/sim_data/"
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
-#    home_path = "/Users/bohrer/sim_data_cloudMP/test_gen_grid_and_pt/"
     simdata_path = "/Users/bohrer/sim_data_cloudMP/"
-#    simdata_path = home_path + "OneDrive - bwedu/python/sim_data/"
 #    fig_path = home_path \
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 

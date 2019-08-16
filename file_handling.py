@@ -64,13 +64,15 @@ def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):#,
     np.save(filename_grid, (T_grid, rv_grid) )
     print("particle data saved at t =", t)
     
-def dump_particle_data_all(t, pos, vel, m_w, m_s, xi, path):
+def dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, path):
                        #start_time):
     filename_pt_vec = path + "particle_vector_data_all_" + str(int(t)) + ".npy"
+    filename_pt_cells = path + "particle_cells_data_all_" + str(int(t)) + ".npy"
     filename_pt_scal = path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
     filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
     # filename_grid = path + "grid_T_rv_" + str(int(t)) + ".npy"
     np.save(filename_pt_vec, (pos, vel) )
+    np.save(filename_pt_cells, cells)
     np.save(filename_pt_scal, (m_w, m_s) )
     np.save(filename_pt_xi, xi )
     # np.save(filename_grid, (T_grid, rv_grid) )
@@ -216,6 +218,13 @@ def save_grid_arrays_to_npy_file(grid, filename1, filename2):
     np.save(filename2, arr2)
 
 # @njit()
+# save fields in this order:
+# 0 = r_v
+# 1 = r_l
+# 2 = Theta    
+# 3 = T
+# 4 = p
+# 5 = S
 def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
     filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
     np.save(filename,

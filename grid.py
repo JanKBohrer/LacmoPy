@@ -315,7 +315,7 @@ class Grid:
     def compute_location(self, i, j, rloc_x, rloc_y):
         x = (i + rloc_x) * self.steps[0] + self.ranges[0][0]
         y = (j + rloc_y) * self.steps[1] + self.ranges[1][0]
-        return np.array(  [x, y]  )
+        return np.array( [x, y] )
     
 ########################## VELOCITY INTERPOLATION
 #     "Standard field"
@@ -441,52 +441,53 @@ class Grid:
               
         fig.tight_layout()
     
-    def plot_thermodynamic_scalar_fields(self, no_ticks_ = [5,5],
-                         no_contour_colors_ = 10, no_contour_lines_ = 5,
-                         colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
-        fields = [self.pressure, self.temperature, self.mass_density_air_dry,
-                  self.saturation, self.mixing_ratio_water_vapor,
-                  self.mixing_ratio_water_liquid]
-                  
-        field_names = ['pressure', 'temperature', 'mass_density_air_dry',
-                       'saturation', 
-                       'mixing_ratio_water_vapor', 'mixing_ratio_water_liquid']
-        nfields = len(fields)
-        ncols = 2
-        nrows = int(np.ceil( nfields/ncols ))
-        
-        grid_centers_x_, grid_centers_y_ = self.centers[0], self.centers[1]
-        tick_ranges_ = self.ranges
-        
-        fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize = (10,5*nrows))
-        n = 0
-        for i in range(nrows):
-            for j in range(ncols):
-                field = fields[n]
-                
-                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
-                       field, no_contour_lines_, colors = 'black')
-                ax[i,j].clabel(contours, inline=True, fontsize=8)
-                CS = ax[i,j].contourf( grid_centers_x_, grid_centers_y_,
-                                 field,
-                                 levels = no_contour_colors_,
-                                 vmax = field.max(),
-                                 vmin = field.min(),
-                                cmap = plt.cm.coolwarm)
-                ax[i,j].set_xticks( np.linspace( tick_ranges_[0,0],
-                                                 tick_ranges_[0,1],
-                                                 no_ticks_[0] ) )
-                ax[i,j].set_yticks( np.linspace( tick_ranges_[1,0],
-                                                 tick_ranges_[1,1],
-                                                 no_ticks_[1] ) )
-                ax[i,j].set_title( field_names[n] )
-                plt.colorbar(CS, fraction=colorbar_fraction_ ,
-                             pad=colorbar_pad_, ax=ax[i,j])
-                n += 1
-              
-        fig.tight_layout()
+#    def plot_thermodynamic_scalar_fields(self, no_ticks_ = [5,5],
+#                         no_contour_colors_ = 10, no_contour_lines_ = 5,
+#                         colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
+#        fields = [self.pressure, self.temperature, self.mass_density_air_dry,
+#                  self.saturation, self.mixing_ratio_water_vapor,
+#                  self.mixing_ratio_water_liquid]
+#                  
+#        field_names = ['pressure', 'temperature', 'mass_density_air_dry',
+#                       'saturation', 
+#                       'mixing_ratio_water_vapor', 'mixing_ratio_water_liquid']
+#        nfields = len(fields)
+#        ncols = 2
+#        nrows = int(np.ceil( nfields/ncols ))
+#        
+#        grid_centers_x_, grid_centers_y_ = self.centers[0], self.centers[1]
+#        tick_ranges_ = self.ranges
+#        
+#        fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize = (10,5*nrows))
+#        n = 0
+#        for i in range(nrows):
+#            for j in range(ncols):
+#                field = fields[n]
+#                
+#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
+#                       field, no_contour_lines_, colors = 'black')
+#                ax[i,j].clabel(contours, inline=True, fontsize=8)
+#                CS = ax[i,j].contourf( grid_centers_x_, grid_centers_y_,
+#                                 field,
+#                                 levels = no_contour_colors_,
+#                                 vmax = field.max(),
+#                                 vmin = field.min(),
+#                                cmap = plt.cm.coolwarm)
+#                ax[i,j].set_xticks( np.linspace( tick_ranges_[0,0],
+#                                                 tick_ranges_[0,1],
+#                                                 no_ticks_[0] ) )
+#                ax[i,j].set_yticks( np.linspace( tick_ranges_[1,0],
+#                                                 tick_ranges_[1,1],
+#                                                 no_ticks_[1] ) )
+#                ax[i,j].set_title( field_names[n] )
+#                plt.colorbar(CS, fraction=colorbar_fraction_ ,
+#                             pad=colorbar_pad_, ax=ax[i,j])
+#                n += 1
+#              
+#        fig.tight_layout()
 
-    def plot_thermodynamic_scalar_fields_grid(self, no_ticks_ = [5,5]):
+    def plot_thermodynamic_scalar_fields(self, no_ticks_ = [5,5],
+                                              t = 0, fig_path = None):
 #                         no_contour_colors_ = 10, no_contour_lines_ = 5,
 #                         colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
         fields = [self.pressure * 0.01, self.temperature,
@@ -545,8 +546,8 @@ class Grid:
                 n += 1
               
         fig.tight_layout()
-       
-            
+        if fig_path is not None:
+            fig.savefig(fig_path + f"scalar_fields_grid_t_{int(t)}.png")
     
     def plot_scalar_field_2D(self, field_,
                          no_ticks_ = [5,5],
