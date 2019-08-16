@@ -110,7 +110,7 @@ no_spcm = np.array([16, 24])
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
-seed_SIP_gen = 3717
+seed_SIP_gen = 3711
 
 #%% SIMULATION PARAMETERS
 
@@ -119,20 +119,20 @@ seed_SIP_gen = 3717
 # "spin up": g_set = 0.0, without collisions
 # "wo_collisions": g_set = 9.805.., without collisions
 # "with_collisions": g_set = 9.805.., with collisions
-simulation_mode = "spin_up"
+#simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
-#simulation_mode = "with_collision"
+simulation_mode = "with_collision"
  
 # set True when starting from a spin-up state
-#spin_up_before = True
-spin_up_before = False
-
-t_start = 0.0
+spin_up_before = True
+#spin_up_before = False
+#
+#t_start = 0.0
 #t_start = 600.0
-#t_start = 7200.0 # s
+t_start = 7200.0 # s
 
 t_end = 7200.0 # s
-#t_end = 7200.0+2.0 # s
+t_end = 7200.0+2.0 # s
 #t_end = 7200.0*2 # s
 #t_end = 60.0 # s
 #t_end = 1200.0 # s
@@ -156,9 +156,9 @@ Newton_iter = 3 # number of root finding iterations for impl. mass integration
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
 #frame_every = 1200
 #frame_every = 600
-frame_every = 300
+#frame_every = 300
 #frame_every = 30
-#frame_every = 1
+frame_every = 1
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
@@ -167,14 +167,14 @@ trace_ids = 40
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
 # dump_every must be <= frame_every and frame_every/dump_every must be integer
-dump_every = 10
+#dump_every = 10
 #dump_every = 5
-#dump_every = 1
+dump_every = 1
 
 #%% COLLISIONS PARAMS
 
-# for collisions
-seed_sim = 3711
+# for collisons
+seed_sim = 4711
 
 kernel_type = "Long_Bott"
 kernel_method = "Ecol_grid_R"
