@@ -1507,7 +1507,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                        m_w[trace_ids], m_s[trace_ids], xi[trace_ids],
                        grid_scalar_fields[0], grid_scalar_fields[4], path)
     
-    np.save(f"water_removed_{int(t)}", water_removed)
+    np.save(path + f"water_removed_{int(t)}", water_removed)
     
     # full save at t_end
     grid.temperature = grid_scalar_fields[0]
