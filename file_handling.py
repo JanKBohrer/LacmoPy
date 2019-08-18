@@ -64,17 +64,21 @@ def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):#,
     np.save(filename_grid, (T_grid, rv_grid) )
     print("particle data saved at t =", t)
     
-def dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, path):
+def dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, path):
                        #start_time):
     filename_pt_vec = path + "particle_vector_data_all_" + str(int(t)) + ".npy"
     filename_pt_cells = path + "particle_cells_data_all_" + str(int(t)) + ".npy"
     filename_pt_scal = path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
     filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
+    filename_pt_act_ids = path + \
+        "particle_active_ids_data_all_" + str(int(t)) + ".npy"
     # filename_grid = path + "grid_T_rv_" + str(int(t)) + ".npy"
     np.save(filename_pt_vec, (pos, vel) )
     np.save(filename_pt_cells, cells)
     np.save(filename_pt_scal, (m_w, m_s) )
     np.save(filename_pt_xi, xi )
+    np.save(filename_pt_act_ids, active_ids )
+    
     # np.save(filename_grid, (T_grid, rv_grid) )
     print("all particle data saved at t =", t)
     #, "sim time:", datetime.now()-start_time)
@@ -136,25 +140,75 @@ def load_particle_data(path, save_times):
 
 def load_particle_data_all(path, save_times):
     vec_data = []
+    cells_data = []
     scal_data = []
     xi_data = []
+    active_ids_data = []
     for t in save_times:
         filename_pt_vec =\
             path + "particle_vector_data_all_" + str(int(t)) + ".npy"
+        filename_pt_cells =\
+            path + "particle_cells_data_all_" + str(int(t)) + ".npy"                    
         filename_pt_scal =\
             path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
         filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
+        filename_pt_act_ids = path + \
+            "particle_active_ids_data_all_" + str(int(t)) + ".npy"        
         # filename = path + "grid_scalar_fields_t_" + str(int(t_)) + ".npy"
         vec = np.load(filename_pt_vec)
+        cells = np.load(filename_pt_cells)
         scal = np.load(filename_pt_scal)
         xi = np.load(filename_pt_xi)
+        act_ids = np.load(filename_pt_act_ids)
+        
         vec_data.append(vec)
+        cells_data.append(cells)
         scal_data.append(scal)
         xi_data.append(xi)
+        active_ids_data.append(act_ids)
+        
     vec_data = np.array(vec_data)
     scal_data = np.array(scal_data)
     xi_data = np.array(xi_data)
-    return vec_data, scal_data, xi_data
+    cells_data = np.array(cells_data)
+    active_ids_data = np.array(active_ids_data)
+    return vec_data, cells_data, scal_data, xi_data, active_ids_data
+
+def load_particle_data_all_old(path, save_times):
+    vec_data = []
+#    cells_data = []
+    scal_data = []
+    xi_data = []
+#    active_ids_data = []
+    for t in save_times:
+        filename_pt_vec =\
+            path + "particle_vector_data_all_" + str(int(t)) + ".npy"
+#        filename_pt_cells =\
+#            path + "particle_cells_data_all_" + str(int(t)) + ".npy"                    
+        filename_pt_scal =\
+            path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
+        filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
+#        filename_pt_act_ids = path + \
+#            "particle_active_ids_data_all_" + str(int(t)) + ".npy"        
+        # filename = path + "grid_scalar_fields_t_" + str(int(t_)) + ".npy"
+        vec = np.load(filename_pt_vec)
+#        cells = np.load(filename_pt_cells)
+        scal = np.load(filename_pt_scal)
+        xi = np.load(filename_pt_xi)
+#        act_ids = np.load(filename_pt_act_ids)
+        
+        vec_data.append(vec)
+#        cells_data.append(cells)
+        scal_data.append(scal)
+        xi_data.append(xi)
+#        active_ids_data.append(act_ids)
+        
+    vec_data = np.array(vec_data)
+    scal_data = np.array(scal_data)
+    xi_data = np.array(xi_data)
+#    cells_data = np.array(cells_data)
+#    active_ids_data = np.array(active_ids_data)
+    return vec_data, scal_data, xi_data 
     
 def load_particle_data_from_blocks(path, grid_save_times,
                                    pt_dumps_per_grid_frame):

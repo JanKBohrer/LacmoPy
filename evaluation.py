@@ -21,8 +21,8 @@ from microphysics import compute_radius_from_mass_vec
 from file_handling import load_grid_and_particles_full,\
                           load_grid_scalar_fields\
                           
-from analysis import plot_scalar_field_frames, plot_pos_vel_pt, \
-                     plot_particle_size_spectra
+
+#                     plot_particle_size_spectra
 # from integration import compute_dt_max_from_CFL
 #from grid import compute_no_grid_cells_from_step_sizes
 
@@ -68,15 +68,18 @@ no_spcm = np.array([16, 24])
 # 3719, 3721, 3723, 3725
 seed_SIP_gen = 3711
 
+# for collisons
+seed_sim = 4711
+
 simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
 #simulation_mode = "with_collision"
 
-spin_up_before = True
-#spin_up_before = False
+spin_up_finished = True
+#spin_up_finished = False
 
 # path = simdata_path + folder_load_base
-t = 0
+t_grid = 0
 #t = 60
 #t = 3600
 #t = 7200
@@ -86,20 +89,23 @@ t = 0
 t_start = 0
 #t_start = 7200
 
-t_end = 60
+#t_end = 60
 #t_end = 3600
-#t_end = 7200
+t_end = 7200
 # t_end = 10800
 #t_end = 14400
 
-#args_plot = [1,1,1,1]
-args_plot = [0,1,0,0,0]
+args_plot = [1,1,1,1,1]
+#args_plot = [0,1,0,0,0]
+#args_plot = [0,0,1,0,0]
+#args_plot = [0,0,0,1,0]
+#args_plot = [0,0,0,0,1]
 
 act_plot_scalar_fields_once = args_plot[0]
 act_plot_spectra = args_plot[1]
 act_plot_particle_trajectories = args_plot[2]
 act_plot_particle_positions = args_plot[3]
-act_plot_scalar_fields = args_plot[4]
+act_plot_scalar_field_frames = args_plot[4]
 
 #%% LOAD GRID AND PARTICLES AT TIME t
 
@@ -111,18 +117,18 @@ grid_folder =\
 if simulation_mode == "spin_up":
     save_folder = "spin_up_wo_col_wo_grav/"
 elif simulation_mode == "wo_collision":
-    if spin_up_before:
+    if spin_up_finished:
         save_folder = "w_spin_up_wo_col/"
     else:
         save_folder = "wo_spin_up_wo_col/"
 elif simulation_mode == "with_collision":
-    if spin_up_before:
+    if spin_up_finished:
         save_folder = "w_spin_up_w_col/"
     else:
         save_folder = "wo_spin_up_w_col/"
 
 # load grid and particles full from grid_path at time t
-if int(t) == 0:        
+if int(t_grid) == 0:        
     grid_path = simdata_path + grid_folder
 else:    
     grid_path = simdata_path + grid_folder + save_folder
@@ -133,7 +139,7 @@ load_path = simdata_path + grid_folder + save_folder
 #
 #if reload:
 grid, pos, cells, vel, m_w, m_s, xi, active_ids  = \
-    load_grid_and_particles_full(t, grid_path)
+    load_grid_and_particles_full(t_grid, grid_path)
 
 if solute_type == "AS":
     compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
@@ -149,7 +155,7 @@ R_s = compute_radius_from_mass_vec(m_s, mass_density_dry)
 #%% GRID THERMODYNAMIC FIELDS
 if act_plot_scalar_fields_once:
     fig_path = load_path
-    grid.plot_thermodynamic_scalar_fields(t=t, fig_path = fig_path)
+    grid.plot_thermodynamic_scalar_fields(t=t_grid, fig_path = fig_path)
 
 #%% PARTICLE SPECTRA
 
@@ -158,6 +164,7 @@ from analysis import plot_particle_size_spectra_tg_list
 plt.ioff()
 
 if act_plot_spectra:
+    t = t_grid
     fig_path = load_path
     
     target_cell = (0,0)
@@ -239,24 +246,26 @@ if act_plot_particle_trajectories:
                                                       pt_dumps_per_grid_frame)
     
     from analysis import plot_particle_trajectories
-    fig_name = load_path + "particle_trajectories.png"
+    fig_name = load_path + "particle_trajectories_" \
+               + f"t_{int(t_start)}_" \
+               + f"{int(t_end)}.png"
     plot_particle_trajectories(vecs[:,0], grid, MS=2.0, arrow_every=5,
                                fig_name=fig_name, figsize=(10,10),
                                TTFS=14, LFS=12, TKFS=12,
                                t_start=t_start, t_end=t_end)
 
-#%% PARTICLE "DENSITIES"
+#%% PARTICLE POSITIONS AND VELOCITIES
 
 if act_plot_particle_positions:
     from file_handling import load_particle_data_all
-    from analysis import plot_pos_vel_pt_with_time
-    
+    from file_handling import load_particle_data_all_old
+    from analysis import plot_pos_vel_pt_with_time, plot_pos_vel_pt
     # plot only every x IDs
-    ID_every = 8
+    ID_every = 40
     # plot a series of "frames" defined by grid_save_times OR just one frame at
     # the time of the current loaded grid and particles
     plot_time_series = True
-    plot_frame_every = 1
+    plot_frame_every = 4
     
     frame_every, no_grid_frames, dump_every = \
         np.load(load_path+"data_saving_paras.npy")
@@ -267,32 +276,36 @@ if act_plot_particle_positions:
     #     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
     print("grid_save_times")
     print(grid_save_times)
-    
+    fig_name = load_path + "particle_positions_" \
+               + f"t_{grid_save_times[0]}_" \
+               + f"{grid_save_times[-1]}.png"
     if plot_time_series:
-        vec_data, scal_data, xi_data = \
-            load_particle_data_all(load_path, grid_save_times)
+        vec_data, scal_data, xi_data  = \
+            load_particle_data_all_old(load_path, grid_save_times)
+#        vec_data, cells_data, scal_data, xi_data, active_ids_data = \
+#            load_particle_data_all(load_path, grid_save_times)
         pos_data = vec_data[:,0]
         vel_data = vec_data[:,1]
         pos2 = pos_data[::plot_frame_every,:,::ID_every]
         vel2 = vel_data[::plot_frame_every,:,::ID_every]
-        fig_name = load_path + "particle_positions.png"
-        plot_pos_vel_pt_with_time(pos2, vel2, grid, grid_save_times,
+        plot_pos_vel_pt_with_time(pos2, vel2, grid,
+                                  grid_save_times[::plot_frame_every],
                             figsize=(8,8*len(pos2)), no_ticks = [6,6],
                             MS = 1.0, ARRSCALE=20, fig_name=fig_name)
     else:
         pos2 = pos[:,::ID_every]
         vel2 = vel[:,::ID_every]
         
-        fig_name = load_path + "particle_positions.png"
         plot_pos_vel_pt(pos2, vel2, grid,
                             figsize=(8,8), no_ticks = [6,6],
                             MS = 1.0, ARRSCALE=30, fig_name=fig_name)
     
 #%% PLOT GRID SCALAR FIELD FRAMES OVER TIME
 
-if act_plot_scalar_fields:
+if act_plot_scalar_field_frames:
+    from analysis import plot_scalar_field_frames
     #path = simdata_path + load_folder
-    plot_frame_every = 1
+    plot_frame_every = 2
     # field_ind = np.arange(6)
     field_ind = np.array((0,1,2,5))
     
@@ -309,6 +322,8 @@ if act_plot_scalar_fields:
     
     # grid_save_times =\
     #     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
+    print()
+    print("plot scalar field frames with times:")
     print("grid_save_times")
     print(grid_save_times)
     
@@ -318,7 +333,10 @@ if act_plot_scalar_fields:
     
     no_ticks=[6,6]
     
-    fig_name = load_path + "scalar_fields.png"
+    fig_name = load_path \
+               + f"scalar_fields_" \
+               + f"t_{grid_save_times[0]}_" \
+               + f"{grid_save_times[-1]}.png"
     # fig_name = None
     
     plot_scalar_field_frames(grid, fields, grid_save_times,
