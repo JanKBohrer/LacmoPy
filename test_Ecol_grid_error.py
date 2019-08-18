@@ -1,58 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  1 14:07:21 2019
+Created on Fri Aug 16 23:45:21 2019
 
-@author: jdesk
+@author: bohrer
 """
 
-### IN WORK: make main file, which can be executed with "python cloudMP.py"
-# give textfile to program, with type of simulation:
-# generate grid and particles = yes, no; spinup = yes, no; 
-# simulation: include gravity, condensation, collision, which type of collision
-#
-
-# 1. init()
-# 2. spinup()
-# 3. simulate()
-
-## output:
-## full saves:
-# grid_parameters, grid_scalars, grid_vectors
-# pos, cells, vel, masses, xi
-## data:
-# grid:
-# initial: p, T, Theta, S, r_v, r_l, rho_dry, e_s
-# continuous
-# p, T, Theta, S, r_v, r_l, 
-# particles:
-# pos, vel, masses
-
-# set:
-# files for full save
-# files for data output -> which data?
-
-# 1. generate grid and particles + save initial to file
-# grid, pos, cells, vel, masses, xi = init()
-
-# 2. changes grid, pos, cells, vel, masses and save to file after spin up
-# data output during spinup if desired
-# spinup(grid, pos, cells, vel, masses, xi)
-# in here:
-# advection(grid) (grid, dt_adv) spread over particle time step h
-# propagation(pos, vel, masses, grid) (particles) # switch gravity on/off here!
-# condensation() (particle <-> grid) maybe do together with collision 
-# collision() maybe do together with condensation
-
-# 3. changes grid, pos, cells, vel, masses,
-# data output to file and 
-# save to file in intervals chosen
-# need to set start time, end time, integr. params, interval of print,
-# interval of full save, ...)
-# simulate(grid, pos, vel, masses, xi)
-
-#%% MODULE IMPORTS
-### BUILT IN
 import math
 import numpy as np
 #import matplotlib.pyplot as plt
@@ -126,24 +79,18 @@ simulation_mode = "with_collision"
 # set True when starting from a spin-up state
 spin_up_before = True
 #spin_up_before = False
-<<<<<<< HEAD
 
-=======
 #
->>>>>>> 0722d0f4d540454295051bce5a10eff0af6b1500
 #t_start = 0.0
 #t_start = 600.0
 t_start = 7200.0 # s
 
-<<<<<<< HEAD
 #t_end = 7200.0 # s
 #t_end = 7200.0+2.0 # s
-t_end = 7200.0*2 # s
-=======
-t_end = 7200.0 # s
+#t_end = 7200.0*2 # s
+#t_end = 7200.0 # s
 t_end = 7200.0+2.0 # s
 #t_end = 7200.0*2 # s
->>>>>>> 0722d0f4d540454295051bce5a10eff0af6b1500
 #t_end = 60.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
@@ -183,11 +130,7 @@ dump_every = 1
 
 #%% COLLISIONS PARAMS
 
-<<<<<<< HEAD
-# for collisions
-=======
 # for collisons
->>>>>>> 0722d0f4d540454295051bce5a10eff0af6b1500
 seed_sim = 4711
 
 kernel_type = "Long_Bott"
@@ -269,25 +212,8 @@ if not os.path.exists(save_path):
 
 water_removed = np.array([0.0])
 
-#%% SIMULATION
 
-#if act_collisions:
-simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
-         water_removed,
-         active_ids,
-         dt, scale_dt, t_start, t_end, Newton_iter, g_set,
-         act_collisions,
-         frame_every, dump_every, trace_ids, 
-         E_col_grid, no_kernel_bins,
-         R_kernel_low_log, bin_factor_R_log,
-         kernel_type, kernel_method,
-         no_cols, seed_sim,
-         save_path, simulation_mode)             
-#else:
-#    simulate_wout_col(grid,
-#        pos, vel, cells, m_w, m_s, xi, solute_type, water_removed,
-#        active_ids,
-#        dt, scale_dt, t_start, t_end,
-#        Newton_iter, g_set,
-#        frame_every, dump_every, trace_ids,
-#        save_path, simulation_mode)
+path_01 = "/Users/bohrer/sim_data_cloudMP/Ecol_grid_data/Long_Bott/"
+
+
+EC = np.load(path_01 + "E_col_grid.npy")
