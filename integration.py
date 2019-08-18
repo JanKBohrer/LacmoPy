@@ -470,7 +470,7 @@ update_cells_and_rel_pos_par = njit(parallel=True)(update_cells_and_rel_pos_np)
 def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, cells,
                                  water_removed,
                                  id_list, active_ids,
-                                 grid_ranges, dt):
+                                 grid_ranges, grid_steps, dt):
     z_min = grid_ranges[1,0]
     # removed = False
     pos += dt * vel
@@ -480,6 +480,7 @@ def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, cells,
     # because then x will stay 1500.0 and the calc. cell will be 75,
     # i.e. one too large for eg.g grid.centers
     pos[0] = pos[0] % grid_ranges[0,1]
+    # dont allow particles to cross z_max (upper domain boundary)
     pos[1] = np.minimum(pos[1], grid_ranges[1,1]*0.999999)
     # if particle hits ground, set xi = 0
     # this is the indicator that the particle has "vanished"
@@ -490,7 +491,8 @@ def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, cells,
     for ID in id_list[active_ids]:
         if pos[1,ID] <= z_min:
 #            xi[ID] = 0
-            pos[1,ID] = z_min
+            # keep z-position constant just below ground
+            pos[1,ID] = z_min - 0.01 * grid_steps[1]
             vel[0,ID] = 0.0
             vel[1,ID] = 0.0
             active_ids[ID] = False
@@ -834,7 +836,7 @@ def propagate_particles_subloop_step_NaCl_np(grid_scalar_fields, grid_mat_prop,
     update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
                               water_removed, id_list,
                               active_ids,
-                              grid_ranges, dt_sub_pos)
+                              grid_ranges, grid_steps, dt_sub_pos)
 
     # update_pos_from_vel_BC_PS(pos, vel, xi, grid_ranges, dt_sub_pos)
     ### 11.
@@ -933,7 +935,7 @@ def propagate_particles_subloop_step_AS_np(grid_scalar_fields, grid_mat_prop,
     update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
                               water_removed, id_list,
                               active_ids,
-                              grid_ranges, dt_sub_pos)
+                              grid_ranges, grid_steps, dt_sub_pos)
 
     # update_pos_from_vel_BC_PS(pos, vel, xi, grid_ranges, dt_sub_pos)
     ### 11.
@@ -1032,7 +1034,7 @@ def integrate_adv_and_cond_one_adv_step_np(
     # removed_ids_step = []        
     update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
                               water_removed, id_list,
-                              active_ids, grid_ranges,
+                              active_ids, grid_ranges, grid_steps,
                               dt_sub_half)
     update_cells_and_rel_pos(pos, cells, rel_pos,
                              active_ids,

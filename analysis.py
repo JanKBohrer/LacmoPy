@@ -996,3 +996,128 @@ def plot_scalar_field_frames(grid, fields,
     fig.tight_layout()
     if fig_path is not None:
         fig.savefig(fig_path)
+
+# fields = [fields_t0, fields_t1, ...]
+# fields_ti =
+# (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
+#  grid.potential_temperature, grid.temperature,
+#  grid.pressure, grid.saturation)
+# input:
+# field_indices = (idx1, idx2, ...)  (tuple of int)
+# time_indices = (idx1, idx2, ...)  (tuple of int)
+# title size (pt)
+# TTFS = 18
+# labelsize (pt)
+# LFS = 18
+# ticksize (pt)
+# TKFS = 18
+        
+# need grid for dry air density and ?
+# fields are with time
+# m_s, w_s, xi       
+@njit()
+def update_T_p(grid_temp, cells, T_p):
+    for ID in range(len(T_p)):
+        # T_p_ = grid_temp[cells[0,ID],cells[1,ID]]
+        T_p[ID] = grid_temp[cells[0,ID],cells[1,ID]]    
+# OLd REFERS TO: no cells and active ids stored with time ("all_particle_data")
+def plot_scalar_field_frames_Arabas_old(grid, fields, m_s, m_w, xi, pos,
+                                    solute_type,
+                                    save_times, field_indices, time_indices,
+                                    no_ticks=[6,6], fig_path=None,
+                                    TTFS = 12, LFS = 10, TKFS = 10,):
+    
+    
+    if solute_type == "AS":
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+    elif solute_type == "NaCl":
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+    
+    no_rows = len(time_indices)
+    no_cols = len(field_indices)
+   
+    no_SIPs = len(xi[0])
+    T_p = np.zeros(no_SIPs, dtype = np.float64)
+    
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                           figsize = (4.5*no_cols, 4*no_rows))
+    # load particle data: stored data: m_s, m_w, xi
+    # need R_p -> need rho_p -> need w_s and T_p
+    # classify droplets per cell by R_p:
+    # aerosol: R_p < 0.5 mu
+    # cloud drops: 0.5 < R_p < 25 mu
+    # rain drops: 25 mu < R_p
+    bins_drop_class = [0.5,25]
+    
+    for t_n, idx_t in enumerate(time_indices):
+        pos_ = pos[idx_t]
+        # DEACTIVATE LATER... -> need active ids and cells from storage...
+        cells = np.array( [np.floor(pos_[0]/grid.steps[0]),
+                           np.floor(pos_[1]/grid.steps[1])] ).astype(int)
+        update_T_p(fields[idx_t, 3], cells, T_p)        
+        
+        R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w[idx_t], m_s[idx_t], T_p)
+        
+        idx_R_p = np.digitize(R_p, bins_drop_class)
+        idx_classification = np.arange(3).reshape((3,1))
+        
+        masks_R_p = idx_classification == idx_R_p
+        
+        
+        
+                
+    field_names = ["r_v", "r_l", "Theta", "T", "p", "S"]
+    scales = [1000, 1000, 1, 1, 0.01, 1]
+    units = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
+    
+    tick_ranges = grid.ranges
+    
+    for i in range(no_rows):
+        for j in range(no_cols):
+            ax = axes[i,j]
+            idx_t = time_indices[i]
+            idx_f = field_indices[j]
+            # print("idx_t")
+            # print(idx_t)
+            # print("idx_f")
+            # print(idx_f)
+            field = fields[idx_t, idx_f]*scales[idx_f]
+            field_min = field.min()
+            if idx_f == 1: field_min = 0.001
+            field_max = field.max()
+            if idx_f in [2,3,4]: 
+                cmap = "coolwarm"
+                alpha = None
+            else: 
+                cmap = "rainbow"
+                alpha = 0.7
+#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
+#                       field, no_contour_lines_, colors = 'black')
+#                ax[i,j].clabel(contours, inline=True, fontsize=8)
+            CS = ax.pcolormesh(*grid.corners, field, cmap=cmap, alpha=alpha,
+                                    vmin=field_min, vmax=field_max,
+                                    edgecolor="face", zorder=1)
+            CS.cmap.set_under("white")
+            if idx_f == 1:
+                cbar = fig.colorbar(CS, ax=ax, extend = "min")
+            else: cbar = fig.colorbar(CS, ax=ax)
+            cbar.ax.tick_params(labelsize=TKFS)
+            ax.set_title(
+                field_names[idx_f] + ' (' + units[idx_f] + '), t = '
+                + str(int(save_times[idx_t]//60)) + " min", fontsize = TTFS )
+            ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                             tick_ranges[0,1],
+                                             no_ticks[0] ) )
+            ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                             tick_ranges[1,1],
+                                             no_ticks[1] ) )
+            ax.tick_params(axis='both', which='major', labelsize=TKFS)
+            if i == no_rows-1:
+                ax.set_xlabel(r'x (m)', fontsize = LFS)
+            if j == 0:
+                ax.set_ylabel(r'z (m)', fontsize = LFS)
+            ax.grid(color='gray', linestyle='dashed', zorder = 2)
+          
+    fig.tight_layout()
+    if fig_path is not None:
+        fig.savefig(fig_path)
