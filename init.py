@@ -1268,8 +1268,15 @@ def initialize_grid_and_particles_SinSIP(
         sigma_m_log = dst_par[1]
         
         # derive scaling parameter kappa from no_spcm
-        kappa_dst = np.ceil( no_spcm / 20 * 28) * 0.1
-        kappa_dst = np.maximum(kappa_dst, 0.1)
+        if no_modes == 1:
+            kappa_dst = np.ceil( no_spcm / 20 * 28) * 0.1
+            kappa_dst = np.maximum(kappa_dst, 0.1)
+        elif no_modes == 2:        
+            kappa_dst = np.ceil( no_spcm / 20 * np.array([33,25])) * 0.1
+            kappa_dst = np.maximum(kappa_dst, 0.1)
+        else:        
+            kappa_dst = np.ceil( no_spcm / 20 * 28) * 0.1
+            kappa_dst = np.maximum(kappa_dst, 0.1)
         print("kappa =", kappa_dst)
         with open(log_file, "a") as f:
             f.write("intended SIPs per mode and cell = ")

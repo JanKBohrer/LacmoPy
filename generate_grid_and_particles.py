@@ -156,7 +156,7 @@ solute_type = "AS"
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([16, 24])
+no_spcm = np.array([20, 30])
 #no_spcm = np.array([20, 20])
 
 reseed = False

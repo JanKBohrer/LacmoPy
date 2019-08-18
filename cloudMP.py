@@ -75,8 +75,8 @@ from integration import simulate
 #from integration import simulate_wout_col, simulate_col 
 
 ### STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
-my_OS = "Mac"
+my_OS = "Linux_desk"
+#my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -105,7 +105,9 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
 #no_spcm = np.array([12, 12])
-no_spcm = np.array([16, 24])
+#no_spcm = np.array([16, 24])
+#no_spcm = np.array([18, 26])
+no_spcm = np.array([20, 30])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
@@ -124,30 +126,20 @@ seed_SIP_gen = 3711
 simulation_mode = "with_collision"
  
 # set True when starting from a spin-up state
-spin_up_before = True
-#spin_up_before = False
-<<<<<<< HEAD
+#spin_up_before = True
+spin_up_before = False
 
-=======
-#
->>>>>>> 0722d0f4d540454295051bce5a10eff0af6b1500
-#t_start = 0.0
+t_start = 0.0
 #t_start = 600.0
-t_start = 7200.0 # s
+#t_start = 7200.0 # s
 
-<<<<<<< HEAD
 #t_end = 7200.0 # s
 #t_end = 7200.0+2.0 # s
-t_end = 7200.0*2 # s
-=======
-t_end = 7200.0 # s
-t_end = 7200.0+2.0 # s
 #t_end = 7200.0*2 # s
->>>>>>> 0722d0f4d540454295051bce5a10eff0af6b1500
 #t_end = 60.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
-#t_end = 2.0 # s
+t_end = 5.0 # s
 #t_end = 20.0 # s
 
 dt = 1.0 # s # timestep of advection
@@ -183,11 +175,7 @@ dump_every = 1
 
 #%% COLLISIONS PARAMS
 
-<<<<<<< HEAD
-# for collisions
-=======
 # for collisons
->>>>>>> 0722d0f4d540454295051bce5a10eff0af6b1500
 seed_sim = 4711
 
 kernel_type = "Long_Bott"
