@@ -74,7 +74,7 @@ from file_handling import load_grid_and_particles_full
 from integration import simulate
 #from integration import simulate_wout_col, simulate_col 
 
-### STORAGE DIRECTORIES
+#%% STORAGE DIRECTORIES
 my_OS = "Linux_desk"
 #my_OS = "Mac"
 

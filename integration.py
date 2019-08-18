@@ -5,6 +5,17 @@ Created on Wed May  1 14:28:39 2019
 
 @author: jdesk
 """
+
+#%% NOTES
+### IN WORK:
+## 1
+# add recycling process for removed particles and particles for which xi is 
+# too small
+## 2
+# add implementation for solutes consisting of multiple materials
+# -> simple chemistry
+# -> surface tension, water activity of (w_s1, w_s2, ...) etc. 
+
 #%% MODULE IMPORTS
 import math
 import numpy as np

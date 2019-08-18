@@ -95,7 +95,7 @@ import constants as c
 #                         save_particles_to_files,\
 # from analysis import compare_functions_run_time
 
-### storage directories -> need to assign "simdata_path" and "fig_path"
+#%% storage directories -> need to assign "simdata_path" and "fig_path"
 my_OS = "Linux_desk"
 #my_OS = "Mac"
 

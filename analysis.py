@@ -6,9 +6,28 @@ Created on Tue May  7 15:17:55 2019
 @author: jdesk
 """
 
-from numba import njit
+import math
 import numpy as np
 import matplotlib.pyplot as plt
+from numba import njit
+
+# in unit (kg/kg)
+@njit()
+def update_mixing_ratio(mixing_ratio, m_w, xi, cells, mass_dry_inv, 
+                        id_list, mask):
+    mixing_ratio.fill(0.0)
+    for ID in id_list[mask]:
+        mixing_ratio[cells[0,ID],cells[1,ID]] += m_w[ID] * xi[ID]
+    mixing_ratio *= 1.0E-18 * mass_dry_inv  
+
+# in unit (1/kg)
+@njit()
+def update_number_concentration_per_dry_mass(conc, xi, cells, mass_dry_inv, 
+                        id_list, mask):
+    conc.fill(0.0)
+    for ID in id_list[mask]:
+        conc[cells[0,ID],cells[1,ID]] += xi[ID]
+    conc *= mass_dry_inv 
 
 #%% RUNTIME OF FUNCTIONS
 # functions is list of strings,
@@ -997,6 +1016,40 @@ def plot_scalar_field_frames(grid, fields,
     if fig_path is not None:
         fig.savefig(fig_path)
 
+#%% PLOT SCALAR FIELD FRAMES WITH r_aero, r_c, r_r
+
+def compute_order_of_magnitude(x):
+    a, b = '{:.2e}'.format(x).split('e')
+    b = int(b)
+    return b  
+
+import matplotlib as mpl
+import matplotlib.ticker as mticker
+import cmocean.cm as cmo
+#cmap = "rainbow"
+#cmap = "gist_rainbow_r"
+#cmap = "nipy_spectral"
+#cmap = "nipy_spectral_r"
+#cmap = "gist_ncar_r"
+#cmap = "cubehelix_r"
+#cmap = "viridis_r"
+#cmap = "plasma_r"
+#cmap = "magma_r"
+#cmap = cmo.rain
+#alpha = 0.7
+
+colors1 = plt.cm.get_cmap('gist_ncar_r', 256)
+#top = plt.cm.get_cmap('gist_rainbow_r', 256)
+colors2 = plt.cm.get_cmap('rainbow', 256)
+#top = plt.cm.get_cmap('Greys', 128)
+#bottom = plt.cm.get_cmap('Blues', 128)
+
+newcolors = np.vstack((colors1(np.linspace(0, 0.16, 24)),
+                       colors2(np.linspace(0, 1, 256))))
+#newcolors = np.vstack((top(np.linspace(0, 1, 128)),
+#                       bottom(np.linspace(0, 1, 128))))
+cmap_new = mpl.colors.ListedColormap(newcolors, name='my_rainbow')
+
 # fields = [fields_t0, fields_t1, ...]
 # fields_ti =
 # (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
@@ -1020,27 +1073,30 @@ def update_T_p(grid_temp, cells, T_p):
     for ID in range(len(T_p)):
         # T_p_ = grid_temp[cells[0,ID],cells[1,ID]]
         T_p[ID] = grid_temp[cells[0,ID],cells[1,ID]]    
-# OLd REFERS TO: no cells and active ids stored with time ("all_particle_data")
-def plot_scalar_field_frames_Arabas_old(grid, fields, m_s, m_w, xi, pos,
+# ind_ext = [i1, i2, ...]
+# 0: r_aero
+# 1: r_cloud
+# 2: r_rain        
+def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
+                                    active_ids,
                                     solute_type,
                                     save_times, field_indices, time_indices,
+                                    extension_indices,
                                     no_ticks=[6,6], fig_path=None,
-                                    TTFS = 12, LFS = 10, TKFS = 10,):
-    
-    
+                                    TTFS = 12, LFS = 10, TKFS = 10,
+                                    cbar_precision = 2):
+#    print(save_times)
     if solute_type == "AS":
         compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
         compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
     
     no_rows = len(time_indices)
-    no_cols = len(field_indices)
-   
-    no_SIPs = len(xi[0])
-    T_p = np.zeros(no_SIPs, dtype = np.float64)
+    no_cols = len(field_indices) + len(extension_indices)
+    no_fields_orig_chosen = len(field_indices)
     
-    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
-                           figsize = (4.5*no_cols, 4*no_rows))
+    no_fields_ext = 6
+    
     # load particle data: stored data: m_s, m_w, xi
     # need R_p -> need rho_p -> need w_s and T_p
     # classify droplets per cell by R_p:
@@ -1048,63 +1104,131 @@ def plot_scalar_field_frames_Arabas_old(grid, fields, m_s, m_w, xi, pos,
     # cloud drops: 0.5 < R_p < 25 mu
     # rain drops: 25 mu < R_p
     bins_drop_class = [0.5,25]
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                           figsize = (4.5*no_cols, 4*no_rows))
     
-    for t_n, idx_t in enumerate(time_indices):
-        pos_ = pos[idx_t]
-        # DEACTIVATE LATER... -> need active ids and cells from storage...
-        cells = np.array( [np.floor(pos_[0]/grid.steps[0]),
-                           np.floor(pos_[1]/grid.steps[1])] ).astype(int)
-        update_T_p(fields[idx_t, 3], cells, T_p)        
+#    for t_n, idx_t in enumerate(time_indices):
+#        pos_ = pos[idx_t]
+#        # DEACTIVATE LATER... -> need active ids and cells from storage...
+#        cells = np.array( [np.floor(pos_[0]/grid.steps[0]),
+#                           np.floor(pos_[1]/grid.steps[1])] ).astype(int)
+#        update_T_p(fields[idx_t, 3], cells, T_p)        
         
+    field_names = ["r_v", "r_l", "\Theta", "T", "p", "S"]
+    scales = [1000, 1000, 1, 1, 0.01, 1]
+    units = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
+    
+    field_names_ext = ["r_\mathrm{aero}", "r_c", "r_r",
+                       "n_\mathrm{aero}", "n_c", "n_r"]
+    units_ext = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg"]
+    scales_ext = [1000, 1000, 1000, 1E-6, 1E-6, 1E-6]
+    
+#    field_names += field_names_ext
+    
+    tick_ranges = grid.ranges
+    for i in range(no_rows):
+        idx_t = time_indices[i]
+        no_SIPs = len(xi[idx_t])
+        T_p = np.zeros(no_SIPs, dtype = np.float64)
+        id_list = np.arange(no_SIPs)
+        update_T_p(fields[idx_t, 3], cells[idx_t], T_p)
         R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w[idx_t], m_s[idx_t], T_p)
-        
         idx_R_p = np.digitize(R_p, bins_drop_class)
         idx_classification = np.arange(3).reshape((3,1))
         
         masks_R_p = idx_classification == idx_R_p
+               
+        fields_ext = np.zeros((no_fields_ext, grid.no_cells[0],
+                               grid.no_cells[1]),
+                              dtype = np.float64)
         
+        for mask_n in range(3):
+            mask = np.logical_and(masks_R_p[mask_n], active_ids[idx_t])
+            update_mixing_ratio(fields_ext[mask_n],
+                                m_w[idx_t], xi[idx_t], cells[idx_t],
+                                grid.mass_dry_inv, 
+                                id_list, mask)   
+            update_number_concentration_per_dry_mass(fields_ext[mask_n+3],
+                                xi[idx_t], cells[idx_t],
+                                grid.mass_dry_inv, 
+                                id_list, mask)
         
-        
-                
-    field_names = ["r_v", "r_l", "Theta", "T", "p", "S"]
-    scales = [1000, 1000, 1, 1, 0.01, 1]
-    units = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
-    
-    tick_ranges = grid.ranges
-    
-    for i in range(no_rows):
         for j in range(no_cols):
             ax = axes[i,j]
-            idx_t = time_indices[i]
-            idx_f = field_indices[j]
-            # print("idx_t")
-            # print(idx_t)
-            # print("idx_f")
-            # print(idx_f)
-            field = fields[idx_t, idx_f]*scales[idx_f]
-            field_min = field.min()
-            if idx_f == 1: field_min = 0.001
-            field_max = field.max()
-            if idx_f in [2,3,4]: 
-                cmap = "coolwarm"
-                alpha = None
+            if j < no_fields_orig_chosen:
+                idx_f = field_indices[j]
+                field = fields[idx_t, idx_f]*scales[idx_f]
+                ax_title = field_names[idx_f]
+                unit = units[idx_f]
+                if idx_f in [2,3,4]:
+                    cmap = "coolwarm"
+                    alpha = 1.0
+                else:
+                    cmap = "rainbow"
+                    alpha = 0.8
             else: 
+                idx_f = extension_indices[j-no_fields_orig_chosen]
+                field = fields_ext[idx_f]*scales_ext[idx_f]
+                ax_title = field_names_ext[idx_f]
+                unit = units_ext[idx_f]
                 cmap = "rainbow"
-                alpha = 0.7
-#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
-#                       field, no_contour_lines_, colors = 'black')
-#                ax[i,j].clabel(contours, inline=True, fontsize=8)
-            CS = ax.pcolormesh(*grid.corners, field, cmap=cmap, alpha=alpha,
-                                    vmin=field_min, vmax=field_max,
-                                    edgecolor="face", zorder=1)
+                alpha = 0.8
+            field_max = field.max()
+            field_min = field.min()
+    #        oom_max = compute_order_of_magnitude(field_max)
+            oom_max = oom = int(math.log10(field_max))
+            
+            my_format = False
+            oom_factor = 1.0
+            
+            if oom_max > 2 or oom_max < 0:
+                my_format = True
+                oom_factor = 10**(-oom)
+                
+                field_min *= oom_factor
+                field_max *= oom_factor            
+            
+            if oom_max in [1,2]: str_format = "%.1f"
+            else: str_format = "%.2f"
+#            def fmt_cbar(x, pos):
+#        #        a, b = '{:.2e}'.format(x).split('e')
+#        #        a = float(a)
+#        #        b = int(b) - oom_max
+#                return r'${0:.{prec}f}$'.format(x, prec=cbar_precision) 
+            
+            if field_min/field_max < 1E-4:
+                cmap = cmap_new
+                alpha = 0.8
+            # REMOVE APLHA HERE
+            alpha = 1.0
+            norm_ = mpl.colors.Normalize 
+            if ax_title in ["r_r", "n_r"] and field_max > 1.:
+                norm_ = mpl.colors.LogNorm
+                field_min = 0.01
+                if ax_title == "r_r":
+                    field_max = 1.
+                elif ax_title == "n_r":
+                    field_max = 10.
+            else: norm_ = mpl.colors.Normalize   
+            
+            if ax_title == "r_c":
+                field_min = 0.0
+                field_max = 1.3
+            if ax_title == "n_c":
+                field_min = 0.0
+                field_max = 150.
+            if ax_title == "n_\mathrm{aero}":
+                field_min = 0.0
+                field_max = 150.
+                
+            
+            CS = ax.pcolormesh(*grid.corners, field*oom_factor,
+                               cmap=cmap, alpha=alpha,
+                                edgecolor="face", zorder=1,
+                                norm = norm_(vmin=field_min, vmax=field_max)
+                                )
             CS.cmap.set_under("white")
-            if idx_f == 1:
-                cbar = fig.colorbar(CS, ax=ax, extend = "min")
-            else: cbar = fig.colorbar(CS, ax=ax)
-            cbar.ax.tick_params(labelsize=TKFS)
-            ax.set_title(
-                field_names[idx_f] + ' (' + units[idx_f] + '), t = '
-                + str(int(save_times[idx_t]//60)) + " min", fontsize = TTFS )
+            
             ax.set_xticks( np.linspace( tick_ranges[0,0],
                                              tick_ranges[0,1],
                                              no_ticks[0] ) )
@@ -1112,11 +1236,82 @@ def plot_scalar_field_frames_Arabas_old(grid, fields, m_s, m_w, xi, pos,
                                              tick_ranges[1,1],
                                              no_ticks[1] ) )
             ax.tick_params(axis='both', which='major', labelsize=TKFS)
-            if i == no_rows-1:
-                ax.set_xlabel(r'x (m)', fontsize = LFS)
-            if j == 0:
-                ax.set_ylabel(r'z (m)', fontsize = LFS)
             ax.grid(color='gray', linestyle='dashed', zorder = 2)
+            ax.set_xlabel(r'x (m)', fontsize = LFS)
+            ax.set_ylabel(r'z (m)', fontsize = LFS)
+            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
+                         int(save_times[idx_t]/60)),
+                         fontsize = TTFS)
+#            ax.set_title( r"${0}$ ({1})".format(field_names[j], units[j]),
+#                         fontsize = TTFS)
+            
+#            cbar = plt.colorbar(CS, ax=ax, extend = "min",
+#                                format=mticker.FuncFormatter(fmt_cbar))
+            cbar = plt.colorbar(CS, ax=ax,
+                                format=mticker.FormatStrFormatter(str_format))
+            if my_format:
+                cbar.ax.text(field_min - (field_max-field_min),
+                             field_max + (field_max-field_min)*0.01,
+                             r'$\times\,10^{{{}}}$'.format(oom_max),
+                             va='bottom', ha='left', fontsize = TKFS)
+#            cbar.ax.text(-2.3*(field_max-field_min), field_max*1.01,
+#                         r'$\times\,10^{{{}}}$'.format(oom_max),
+#                         va='bottom', ha='left', fontsize = TKFS)
+#            cbar.ax.text(0,1,
+#                         r'$\times\,10^{{{}}}$'.format(oom_max),
+#                         va='bottom', ha='left', fontsize = TKFS)
+            
+#            if oom_max == 2:
+#                ticks_cbar = np.arange( int(10*field_min)*0.1,
+#                                      (int(10*field_max)+1)*0.1,
+#                                             int(1*(field_max-field_min)) / 5)
+#            else:
+#                ticks_cbar = np.arange( int(10*field_min)*0.1,
+#                                  (int(10*field_max)+1)*0.1,
+#                                         int(10*(field_max-field_min)) / 50)
+#            print(i,j,ticks_cbar)
+#            cbar.set_ticks(np.arange( int(10*field_min)*0.1,
+#                                         (int(10*field_max)+1)*0.1),
+#                                         int(10*(field_max-field_min)) / 80 )
+            cbar.ax.tick_params(labelsize=TKFS)
+            
+
+
+#            field_min = field.min()
+#            if idx_f == 1: field_min = 0.001
+#            field_max = field.max()
+#            if idx_f in [2,3,4]: 
+#                cmap = "coolwarm"
+#                alpha = None
+#            else: 
+#                cmap = "rainbow"
+#                alpha = 0.7
+#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
+#                       field, no_contour_lines_, colors = 'black')
+#                ax[i,j].clabel(contours, inline=True, fontsize=8)
+#            CS = ax.pcolormesh(*grid.corners, field, cmap=cmap, alpha=alpha,
+#                                    vmin=field_min, vmax=field_max,
+#                                    edgecolor="face", zorder=1)
+#            CS.cmap.set_under("white")
+#            if idx_f == 1:
+#                cbar = fig.colorbar(CS, ax=ax, extend = "min")
+#            else: cbar = fig.colorbar(CS, ax=ax)
+#            cbar.ax.tick_params(labelsize=TKFS)
+#            ax.set_title(
+#                field_names[idx_f] + ' (' + units[idx_f] + '), t = '
+#                + str(int(save_times[idx_t]//60)) + " min", fontsize = TTFS )
+#            ax.set_xticks( np.linspace( tick_ranges[0,0],
+#                                             tick_ranges[0,1],
+#                                             no_ticks[0] ) )
+#            ax.set_yticks( np.linspace( tick_ranges[1,0],
+#                                             tick_ranges[1,1],
+#                                             no_ticks[1] ) )
+#            ax.tick_params(axis='both', which='major', labelsize=TKFS)
+#            if i == no_rows-1:
+#                ax.set_xlabel(r'x (m)', fontsize = LFS)
+#            if j == 0:
+#                ax.set_ylabel(r'z (m)', fontsize = LFS)
+#            ax.grid(color='gray', linestyle='dashed', zorder = 2)
           
     fig.tight_layout()
     if fig_path is not None:

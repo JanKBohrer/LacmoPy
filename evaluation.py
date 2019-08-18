@@ -26,7 +26,7 @@ from file_handling import load_grid_and_particles_full,\
 # from integration import compute_dt_max_from_CFL
 #from grid import compute_no_grid_cells_from_step_sizes
 
-### STORAGE DIRECTORIES
+#%% STORAGE DIRECTORIES
 my_OS = "Linux_desk"
 #my_OS = "Mac"
 
@@ -71,9 +71,9 @@ seed_SIP_gen = 3711
 # for collisons
 seed_sim = 4711
 
-simulation_mode = "spin_up"
+#simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
-#simulation_mode = "with_collision"
+simulation_mode = "with_collision"
 
 spin_up_finished = True
 #spin_up_finished = False
@@ -86,27 +86,28 @@ t_grid = 0
 #t = 14400
 # t = 10800
 
-t_start = 0
-#t_start = 7200
+#t_start = 0
+t_start = 7200
 
 #t_end = 60
 #t_end = 3600
-t_end = 7200
+#t_end = 7200
 # t_end = 10800
-#t_end = 14400
+t_end = 14400
 
-args_plot = [1,1,1,1,1]
+#args_plot = [1,1,1,1,1,1]
 #args_plot = [0,1,0,0,0]
 #args_plot = [0,0,1,0,0]
 #args_plot = [0,0,0,1,0]
 #args_plot = [0,0,0,0,1]
+args_plot = [0,0,0,0,0,1]
 
 act_plot_scalar_fields_once = args_plot[0]
 act_plot_spectra = args_plot[1]
 act_plot_particle_trajectories = args_plot[2]
 act_plot_particle_positions = args_plot[3]
 act_plot_scalar_field_frames = args_plot[4]
-
+act_plot_scalar_field_frames_ext = args_plot[5]
 #%% LOAD GRID AND PARTICLES AT TIME t
 
 grid_folder =\
@@ -123,9 +124,9 @@ elif simulation_mode == "wo_collision":
         save_folder = "wo_spin_up_wo_col/"
 elif simulation_mode == "with_collision":
     if spin_up_finished:
-        save_folder = "w_spin_up_w_col/"
+        save_folder = f"w_spin_up_w_col/{seed_sim}/"
     else:
-        save_folder = "wo_spin_up_w_col/"
+        save_folder = f"wo_spin_up_w_col/{seed_sim}/"
 
 # load grid and particles full from grid_path at time t
 if int(t_grid) == 0:        
@@ -159,11 +160,11 @@ if act_plot_scalar_fields_once:
 
 #%% PARTICLE SPECTRA
 
-from analysis import plot_particle_size_spectra_tg_list
 
 plt.ioff()
 
 if act_plot_spectra:
+    from analysis import plot_particle_size_spectra_tg_list
     t = t_grid
     fig_path = load_path
     
@@ -341,3 +342,66 @@ if act_plot_scalar_field_frames:
     
     plot_scalar_field_frames(grid, fields, grid_save_times,
                              field_ind, time_ind, no_ticks, fig_name)
+
+#%% PLOT GRID SCALAR FIELD FRAMES OVER TIME
+
+if act_plot_scalar_field_frames_ext:
+    from analysis import plot_scalar_field_frames_extend    
+    from file_handling import load_particle_data_all
+
+    plot_frame_every = 6
+
+    field_ind = np.array((2,5,0,1))
+#    field_ind_ext = np.array((0,1,2))
+    field_ind_ext = np.array((0,1,2,3,4,5))
+    
+    frame_every, no_grid_frames, dump_every = \
+        np.load(load_path+"data_saving_paras.npy")
+    pt_dumps_per_grid_frame = frame_every // dump_every
+    grid_save_times = np.load(load_path+"grid_save_times.npy")
+    time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
+    
+    fields = load_grid_scalar_fields(load_path, grid_save_times)
+    print("fields.shape")
+    print(fields.shape)
+    
+    vec_data, cells_with_time, scal_data, xi_with_time, active_ids_with_time =\
+        load_particle_data_all(load_path, grid_save_times)
+    
+    m_w_with_time = scal_data[:,0]
+    m_s_with_time = scal_data[:,1]
+    
+    print("m_w_with_time.shape")
+    print(m_w_with_time.shape)
+    print("m_s_with_time.shape")
+    print(m_s_with_time.shape)
+    
+    # grid_save_times =\
+    #     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
+    print()
+    print("plot scalar field frames with times:")
+    print("grid_save_times")
+    print(grid_save_times)
+    
+    print("grid_save_times indices and times chosen:")
+    for idx_t in time_ind:
+        print(idx_t, grid_save_times[idx_t])
+    
+    no_ticks=[6,6]
+    
+    fig_name = load_path \
+               + f"scalar_fields_ext_" \
+               + f"t_{grid_save_times[0]}_" \
+               + f"{grid_save_times[-1]}.png"    
+    plot_scalar_field_frames_extend(grid, fields,
+                                    m_s_with_time, m_w_with_time,
+                                    xi_with_time, cells_with_time,
+                                    active_ids_with_time,
+                                    solute_type,
+                                    grid_save_times, field_ind, time_ind,
+                                    field_ind_ext,
+                                    no_ticks=no_ticks, fig_path=fig_name,
+                                    TTFS = 12, LFS = 10, TKFS = 10,
+                                    cbar_precision = 2)
+    
+    
