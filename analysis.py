@@ -1025,7 +1025,7 @@ def compute_order_of_magnitude(x):
 
 import matplotlib as mpl
 import matplotlib.ticker as mticker
-import cmocean.cm as cmo
+#import cmocean.cm as cmo
 #cmap = "rainbow"
 #cmap = "gist_rainbow_r"
 #cmap = "nipy_spectral"
@@ -1081,7 +1081,7 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
                                     active_ids,
                                     solute_type,
                                     save_times, field_indices, time_indices,
-                                    extension_indices,
+                                    derived_indices,
                                     no_ticks=[6,6], fig_path=None,
                                     TTFS = 12, LFS = 10, TKFS = 10,
                                     cbar_precision = 2):
@@ -1092,7 +1092,7 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
         compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
     
     no_rows = len(time_indices)
-    no_cols = len(field_indices) + len(extension_indices)
+    no_cols = len(field_indices) + len(derived_indices)
     no_fields_orig_chosen = len(field_indices)
     
     no_fields_ext = 6
@@ -1103,7 +1103,7 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
     # aerosol: R_p < 0.5 mu
     # cloud drops: 0.5 < R_p < 25 mu
     # rain drops: 25 mu < R_p
-    bins_drop_class = [0.5,25]
+    bins_drop_class = [0.5,25.]
     fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
                            figsize = (4.5*no_cols, 4*no_rows))
     
@@ -1167,7 +1167,7 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
                     cmap = "rainbow"
                     alpha = 0.8
             else: 
-                idx_f = extension_indices[j-no_fields_orig_chosen]
+                idx_f = derived_indices[j-no_fields_orig_chosen]
                 field = fields_ext[idx_f]*scales_ext[idx_f]
                 ax_title = field_names_ext[idx_f]
                 unit = units_ext[idx_f]
@@ -1316,3 +1316,323 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
     fig.tight_layout()
     if fig_path is not None:
         fig.savefig(fig_path)
+
+
+
+@njit()
+def compute_moment_R_grid(n, R_p, xi, cells, active_ids, id_list, no_cells):
+    moment = np.zeros( (no_cells[0], no_cells[1]), dtype = np.float64 )
+    for ID in id_list[active_ids]:
+        moment[cells[0,ID],cells[1,ID]] += xi[ID] * R_p[ID]**n
+    return moment
+    
+
+from file_handling import load_grid_scalar_fields, load_particle_data_all
+
+
+# possible field indices:
+#0: r_v
+#1: r_l
+#2: Theta
+#3: T
+#4: p
+#5: S
+# possibe derived indices:
+# 0: r_aero
+# 1: r_cloud
+# 2: r_rain     
+# 3: n_aero
+# 4: n_c
+# 5: n_r 
+# 6: R_eff = 3rd moment/ 2nd moment of R-distribution
+
+
+# NOTE that time_indices must be an array because of indexing below     
+def generate_field_frame_data_avg(load_path_list,
+                                  field_indices, time_indices,
+                                  derived_indices,
+                                  mass_dry_inv,
+                                  no_cells, solute_type):
+    # output: fields_with_time = [ [time0: all fields[] ],
+    #                              [time1],
+    #                              [time2], .. ]
+    # for collected fields:
+    # unit_list
+    # name_list
+    # scales_list
+    # save_times
+    if solute_type == "AS":
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+    elif solute_type == "NaCl":
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+    
+    bins_R_p_drop_classif = [0.5, 25.]
+    
+    field_names_orig = ["r_v", "r_l", "\Theta", "T", "p", "S"]
+    scales_orig = [1000., 1000., 1, 1, 0.01, 1]
+    units_orig = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
+    
+    field_names_deri = ["r_\mathrm{aero}", "r_c", "r_r",
+                       "n_\mathrm{aero}", "n_c", "n_r", r"R_\mathrm{eff}"]
+    units_deri = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg", r"$\mu\,m$"]
+    scales_deri = [1000., 1000., 1000., 1E-6, 1E-6, 1E-6, 1.]    
+    
+    no_seeds = len(load_path_list)
+    no_times = len(time_indices)
+    no_fields_orig = len(field_indices)
+    no_fields_derived = len(derived_indices)
+    no_fields = no_fields_orig + no_fields_derived
+    
+#    print(no_fields_orig)
+#    print(no_fields_derived)
+#    print(no_fields)
+    
+    fields_with_time = np.zeros( (no_times, no_fields,
+                                  no_cells[0], no_cells[1]),
+                                dtype = np.float64)
+    
+    
+    load_path = load_path_list[0]
+    frame_every, no_grid_frames, dump_every = \
+        np.load(load_path+"data_saving_paras.npy")
+    grid_save_times = np.load(load_path+"grid_save_times.npy")
+    
+    save_times_out = np.zeros(no_times, dtype = np.int64)
+    
+    field_names_out = []
+    units_out = []
+    scales_out = []
+    
+    for cnt in range(no_fields_orig):
+        idx_f = field_indices[cnt]
+        field_names_out.append(field_names_orig[idx_f])
+        units_out.append(units_orig[idx_f])
+        scales_out.append(scales_orig[idx_f])
+    
+    for cnt in range(no_fields_derived):
+        idx_f = derived_indices[cnt]
+        field_names_out.append(field_names_deri[idx_f])
+        units_out.append(units_deri[idx_f])
+        scales_out.append(scales_deri[idx_f])         
+    
+    for time_n in range(no_times):
+        idx_t = time_indices[time_n]
+        save_times_out[time_n] = grid_save_times[idx_t]
+    
+    for seed_n, load_path in enumerate(load_path_list):
+        
+        fields = load_grid_scalar_fields(load_path, grid_save_times)
+        vec_data, cells_with_time, scal_data, xi_with_time, active_ids_with_time =\
+            load_particle_data_all(load_path, grid_save_times)
+        m_w_with_time = scal_data[:,0]
+        m_s_with_time = scal_data[:,1]
+        
+        for cnt in range(no_fields_orig):
+            idx_f = field_indices[cnt]
+            fields_with_time[:,cnt] += fields[time_indices,idx_f]
+        
+        for time_n in range(no_times):
+            idx_t = time_indices[time_n]
+            
+            no_SIPs = len(xi_with_time[idx_t])
+            T_p = np.zeros(no_SIPs, dtype = np.float64)
+            id_list = np.arange(no_SIPs)
+            update_T_p(fields[idx_t, 3], cells_with_time[idx_t], T_p)
+            R_p, w_s, rho_p = \
+                compute_R_p_w_s_rho_p(m_w_with_time[idx_t],
+                                      m_s_with_time[idx_t], T_p)
+            idx_R_p = np.digitize(R_p, bins_R_p_drop_classif)
+            idx_classification = np.arange(3).reshape((3,1))
+            
+            masks_R_p = idx_classification == idx_R_p
+                   
+            fields_derived = np.zeros((no_fields_derived, no_cells[0],
+                                       no_cells[1]),
+                                       dtype = np.float64)
+            
+            for cnt in range(no_fields_derived):
+                idx_f = derived_indices[cnt]
+                if idx_f < 6:
+                    mask = np.logical_and(masks_R_p[idx_f%3],
+                                          active_ids_with_time[idx_t])
+                    if idx_f in range(3):
+                        update_mixing_ratio(fields_derived[cnt],
+                                            m_w_with_time[idx_t],
+                                            xi_with_time[idx_t],
+                                            cells_with_time[idx_t],
+                                            mass_dry_inv, 
+                                            id_list, mask)   
+                    elif idx_f in range(3,6):
+                        update_number_concentration_per_dry_mass(
+                                fields_derived[cnt],
+                                xi_with_time[idx_t],
+                                cells_with_time[idx_t],
+                                mass_dry_inv, 
+                                id_list, mask)
+                elif idx_f == 6: # IN WORK: R_eff
+                    mom2 = compute_moment_R_grid(2, R_p, xi_with_time[idx_t],
+                                                 cells_with_time[idx_t],
+                                                 active_ids_with_time[idx_t],
+                                                 id_list, no_cells)
+                    mom3 = compute_moment_R_grid(3, R_p, xi_with_time[idx_t],
+                                                 cells_with_time[idx_t],
+                                                 active_ids_with_time[idx_t],
+                                                 id_list, no_cells)
+                    fields_derived[cnt] = mom3/mom2
+                
+                        
+            
+#            for mask_n in range(3):
+#                mask = np.logical_and(masks_R_p[mask_n],
+#                                      active_ids_with_time[idx_t])
+#                update_mixing_ratio(fields_derived[mask_n],
+#                                    m_w_with_time[idx_t],
+#                                    xi_with_time[idx_t],
+#                                    cells_with_time[idx_t],
+#                                    mass_dry_inv, 
+#                                    id_list, mask)   
+#                update_number_concentration_per_dry_mass(
+#                        fields_derived[mask_n+3],
+#                        xi_with_time[idx_t],
+#                        cells_with_time[idx_t],
+#                        mass_dry_inv, 
+#                        id_list, mask)
+#            for cnt in range(no_fields_derived):
+#                fields_with_time[idx_t,cnt+no_fields_orig] += \
+#                    fields_derived[cnt]
+                
+#            print(fields_with_time.shape)    
+#            print(fields_derived.shape)    
+            fields_with_time[time_n,no_fields_orig:no_fields] += \
+                fields_derived
+    
+    
+    fields_with_time /= no_seeds
+    
+    
+    return fields_with_time, save_times_out, field_names_out, units_out, \
+           scales_out 
+
+#%%
+def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
+                                        save_times,
+                                        field_names,
+                                        units,
+                                        scales,
+                                        solute_type,
+                                        simulation_mode, # for time in label
+                                        fig_path=None,
+                                        no_ticks=[6,6],
+                                        alpha = 1.0,
+                                        TTFS = 12, LFS = 10, TKFS = 10,
+                                        cbar_precision = 2):
+    
+    tick_ranges = grid.ranges
+    
+    no_rows = len(save_times)
+    no_cols = len(field_names)
+    
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                       figsize = (4.5*no_cols, 4*no_rows))
+    
+    for time_n in range(no_rows):
+        for field_n in range(no_cols):
+            ax = axes[time_n,field_n]
+            field = fields_with_time[time_n, field_n] * scales[field_n]
+            ax_title = field_names[field_n]
+            unit = units[field_n]
+            if ax_title in ["T","p",r"\Theta"]:
+                cmap = "coolwarm"
+                alpha = 1.0
+            else :
+                cmap = "rainbow"
+#                alpha = 0.8
+                
+            field_max = field.max()
+            field_min = field.min()
+            
+            norm_ = mpl.colors.Normalize 
+            if ax_title in ["r_r", "n_r"] and field_max > 1E-2:
+                norm_ = mpl.colors.LogNorm
+                field_min = 0.01
+                if ax_title == "r_r":
+                    field_max = 1.
+                elif ax_title == "n_r":
+                    field_max = 10.
+            else: norm_ = mpl.colors.Normalize   
+            
+            if ax_title == "r_c":
+                field_min = 0.0
+                field_max = 1.3
+            if ax_title == "n_c":
+                field_min = 0.0
+                field_max = 150.
+            if ax_title == "n_\mathrm{aero}":
+                field_min = 0.0
+                field_max = 150.
+            if ax_title == "R_\mathrm{eff}":
+                field_min = 1.5
+                field_max = 20.
+                cmap = cmap_new
+                
+                
+            oom_max = oom = int(math.log10(field_max))
+            
+            my_format = False
+            oom_factor = 1.0
+            
+            if oom_max > 2 or oom_max < 0:
+                my_format = True
+                oom_factor = 10**(-oom)
+                
+                field_min *= oom_factor
+                field_max *= oom_factor            
+            
+            if oom_max ==2: str_format = "%.1f"
+            else: str_format = "%.2f"
+            
+            if field_min/field_max < 1E-4:
+                cmap = cmap_new
+#                alpha = 0.8
+            
+            # REMOVE FIX APLHA HERE
+#            alpha = 1.0
+            
+            CS = ax.pcolormesh(*grid.corners, field*oom_factor,
+                               cmap=cmap, alpha=alpha,
+                                edgecolor="face", zorder=1,
+                                norm = norm_(vmin=field_min, vmax=field_max)
+                                )
+            CS.cmap.set_under("white")
+            
+            ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                             tick_ranges[0,1],
+                                             no_ticks[0] ) )
+            ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                             tick_ranges[1,1],
+                                             no_ticks[1] ) )
+            ax.tick_params(axis='both', which='major', labelsize=TKFS)
+            ax.grid(color='gray', linestyle='dashed', zorder = 2)
+            ax.set_xlabel(r'x (m)', fontsize = LFS)
+            ax.set_ylabel(r'z (m)', fontsize = LFS)
+            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
+                         int(save_times[time_n]/60)),
+                         fontsize = TTFS)
+            cbar = plt.colorbar(CS, ax=ax,
+                                format=mticker.FormatStrFormatter(str_format))
+            # my_format dos not work with log scale here!!
+            if my_format:
+                cbar.ax.text(field_min - (field_max-field_min),
+                             field_max + (field_max-field_min)*0.01,
+                             r'$\times\,10^{{{}}}$'.format(oom_max),
+                             va='bottom', ha='left', fontsize = TKFS)
+            cbar.ax.tick_params(labelsize=TKFS)
+
+    fig.tight_layout()
+    if fig_path is not None:
+        fig.savefig(fig_path)    
+    
+    
+    
+    
+    

@@ -17,8 +17,8 @@ from atmosphere import compute_heat_of_vaporization,\
                        compute_specific_heat_capacity_air_moist,\
                        compute_viscosity_air,\
                        compute_surface_tension_water
-# from plotting import plot_scalar_field_2D
-from analysis import plot_scalar_field_2D
+from plotting import plot_scalar_field_2D
+#from analysis import plot_scalar_field_2D
 
 omega = 0.3
 def u_rot_field(x_, y_):

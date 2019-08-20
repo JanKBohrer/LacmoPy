@@ -27,8 +27,8 @@ from file_handling import load_grid_and_particles_full,\
 #from grid import compute_no_grid_cells_from_step_sizes
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -67,9 +67,11 @@ no_spcm = np.array([16, 24])
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
 seed_SIP_gen = 3711
+seed_SIP_gen_list = [3711, 3713, 3715, 3717]
 
 # for collisons
 seed_sim = 4711
+seed_sim_list = [4711, 4711, 4711, 4711]
 
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
@@ -100,7 +102,7 @@ t_end = 14400
 #args_plot = [0,0,1,0,0]
 #args_plot = [0,0,0,1,0]
 #args_plot = [0,0,0,0,1]
-args_plot = [0,0,0,0,0,1]
+args_plot = [0,0,0,0,0,0,1]
 
 act_plot_scalar_fields_once = args_plot[0]
 act_plot_spectra = args_plot[1]
@@ -108,6 +110,7 @@ act_plot_particle_trajectories = args_plot[2]
 act_plot_particle_positions = args_plot[3]
 act_plot_scalar_field_frames = args_plot[4]
 act_plot_scalar_field_frames_ext = args_plot[5]
+act_plot_grid_frames_avg = args_plot[6]
 #%% LOAD GRID AND PARTICLES AT TIME t
 
 grid_folder =\
@@ -359,7 +362,12 @@ if act_plot_scalar_field_frames_ext:
         np.load(load_path+"data_saving_paras.npy")
     pt_dumps_per_grid_frame = frame_every // dump_every
     grid_save_times = np.load(load_path+"grid_save_times.npy")
-    time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
+    
+#    time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
+    
+    time_ind = np.array((0,2,4,6,8))
+    
+    
     
     fields = load_grid_scalar_fields(load_path, grid_save_times)
     print("fields.shape")
@@ -392,7 +400,7 @@ if act_plot_scalar_field_frames_ext:
     fig_name = load_path \
                + f"scalar_fields_ext_" \
                + f"t_{grid_save_times[0]}_" \
-               + f"{grid_save_times[-1]}.png"    
+               + f"{grid_save_times[time_ind[-1]]}_fr_{len(time_ind)}.png"    
     plot_scalar_field_frames_extend(grid, fields,
                                     m_s_with_time, m_w_with_time,
                                     xi_with_time, cells_with_time,
@@ -404,4 +412,79 @@ if act_plot_scalar_field_frames_ext:
                                     TTFS = 12, LFS = 10, TKFS = 10,
                                     cbar_precision = 2)
     
+
+#%%
+
+load_path_list = []    
+if act_plot_grid_frames_avg:
+    from analysis import generate_field_frame_data_avg
+    from analysis import plot_scalar_field_frames_extend_avg
+
+    plot_frame_every = 6
+
+    field_ind = np.array((2,5,0,1))
+#    field_ind_ext = np.array((0,1,2))
+    field_ind_deri = np.array((0,1,2,3,4,5,6))
+    
+#    time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
+    
+    time_ind = np.array((0,2,4,6,8,10,12))
+    
+    no_seeds = len(seed_SIP_gen_list)
+    for seed_n in range(no_seeds):
+        seed_SIP_gen_ = seed_SIP_gen_list[seed_n]
+        seed_sim_ = seed_sim_list[seed_n]
+        
+        grid_folder_ =\
+            f"{solute_type}" \
+            + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
+            + f"{seed_SIP_gen_}/"
+        
+        if simulation_mode == "spin_up":
+            save_folder_ = "spin_up_wo_col_wo_grav/"
+        elif simulation_mode == "wo_collision":
+            if spin_up_finished:
+                save_folder_ = "w_spin_up_wo_col/"
+            else:
+                save_folder_ = "wo_spin_up_wo_col/"
+        elif simulation_mode == "with_collision":
+            if spin_up_finished:
+                save_folder_ = f"w_spin_up_w_col/{seed_sim_}/"
+            else:
+                save_folder_ = f"wo_spin_up_w_col/{seed_sim_}/"        
+                load_path_list.append()
+        
+        load_path_list.append(simdata_path + grid_folder_ + save_folder_)
+        
+    fields_with_time, save_times_out, field_names_out, units_out, \
+           scales_out = generate_field_frame_data_avg(load_path_list,
+                                                        field_ind, time_ind,
+                                                        field_ind_deri,
+                                                        grid.mass_dry_inv,
+                                                        grid.no_cells,
+                                                        solute_type)
+    
+    grid_folder_ =\
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"
+         
+    fig_name = simdata_path + grid_folder_ \
+               + f"scalar_fields_avg_" \
+               + f"t_{save_times_out[0]}_" \
+               + f"{save_times_out[-1]}_Nfr_{len(save_times_out)}_" \
+               + f"Nfields_{len(field_names_out)}.png" 
+               
+    plot_scalar_field_frames_extend_avg(grid, fields_with_time,
+                                           save_times_out,
+                                           field_names_out,
+                                           units_out,
+                                           scales_out,
+                                           solute_type,
+                                           simulation_mode, # for time in label
+                                           fig_path=fig_name,
+                                           no_ticks=[6,6], 
+                                           alpha = 1.0,
+                                           TTFS = 12, LFS = 10, TKFS = 10,
+                                           cbar_precision = 2)    
+        
     
