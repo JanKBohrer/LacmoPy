@@ -76,8 +76,8 @@ act_gen_Ecol_grid = bool(args_gen[4])
 
 # SET args for simulation
 #args_sim = [0,0,0,0]
-args_sim = [1,0,0,0]
-#args_sim = [0,1,1,1]
+#args_sim = [1,0,0,0]
+args_sim = [0,1,1,1]
 #args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
 
@@ -92,13 +92,14 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 #kappa_list=[3.5]
 #kappa_list=[5,10]
 #kappa_list=[5,10,20,40,60,100]
-#kappa_list=[5,10,20,40,60,100,200]
+#kappa_list=[5,10,20,40,60,100,200,400]
 #kappa_list=[3,3.5,5,10,20,40,60,100,200,400]
-kappa_list=[800]
-#kappa_list=[5,10,20,40,60,100,200,400,600,800]
+#kappa_list=[800]
+kappa_list=[5,10,20,40,60,100,200,400,600,800]
 #kappa_list=[200,400,600,800]
 
 no_sims = 100
+#no_sims = 500
 #no_sims = 10
 #no_sims = 400
 start_seed = 3711

@@ -519,7 +519,8 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
     
     fig_name = f"moments_vs_time_kappa_var_{no_kappas}"
     # fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
-    fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
+#    fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
+    fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.pdf"
     no_rows = 4
     
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows), sharex=True)

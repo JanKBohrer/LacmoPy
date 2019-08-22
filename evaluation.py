@@ -696,7 +696,9 @@ print(m_w_trace.shape)
 
 # possible ids: 39, 2, 25, 9
 
-trace_id_n1 = 39
+#trace_id_n1 = 9
+trace_id_n1 = 25
+#trace_id_n1 = 39
 
 m_w1 = m_w_trace[:,trace_id_n1]
 m_s1 = m_s_trace[:,trace_id_n1]
@@ -722,21 +724,31 @@ T_p[-1] = T_grid[-1, cells1[0,-1], cells1[1,-1] ]
 
 R_p1, w_s1, rho_p1 = compute_R_p_w_s_rho_p_AS(m_w1, m_s1, T_p)
 
+R_s1 = \
+compute_radius_from_mass_vec(m_s1, c.mass_density_AS_dry)
+
 fig_name = load_path + f"traj_tracer_{trace_id_n1}.pdf"
+from analysis import plot_particle_trajectories
 plot_particle_trajectories( pos1, grid, MS=2.0, arrow_every=5,
+                           ARROW_SCALE=20,ARROW_WIDTH=0.005,
                            fig_name=fig_name, figsize=(10,10),
                            TTFS=14, LFS=12, TKFS=12,
                            t_start=t_start, t_end=t_end)
 
 pos1_shift = np.copy(pos1)
-pos1_shift[:,0] += 750.
-pos1_shift[:,0] = pos1_shift[:,0] % 1500.
+if pos1[0,0] < 375.:
+    pos1_shift[:,0] += 750.
+    pos1_shift[:,0] = pos1_shift[:,0] % 1500.
+
+### IN WORK: shift und spiegeln??
 
 fig_name = load_path + f"R_p_vs_t_tracer_{trace_id_n1}.pdf"
 fig, ax = plt.subplots(figsize=(8,8))
 ax.plot(trace_times, R_p1)
 ax.plot(trace_times, pos1_shift[:,0]*1E-2)
 ax.plot(trace_times, pos1[:,1]*1E-2)
+
+fig.savefig(fig_name)
 
 #plt.close("all")
 
