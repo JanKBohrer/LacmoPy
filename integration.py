@@ -1533,7 +1533,7 @@ def simulate_interval_wout_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
 def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                  water_removed,
                  active_ids,
-                 dt, scale_dt_cond, t_start, t_end, Newton_iter, g_set,
+                 dt, dt_col, scale_dt_cond, t_start, t_end, Newton_iter, g_set,
                  act_collisions,
                  frame_every, dump_every, trace_ids, 
                  E_col_grid, no_kernel_bins,
@@ -1596,6 +1596,8 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
     
     dt_sub = dt/(2 * scale_dt_cond)
     dt_sub_half = 0.5 * dt_sub
+    print("dt = ", dt)
+    print("dt_col = ", dt_col)
     print("dt_sub = ", dt_sub)
     with open(log_file, "w+") as f:
         f.write(f"simulation mode = {simulation_mode}\n")
@@ -1604,6 +1606,8 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
         f.write(f"kernel_type = {kernel_type}\n")
         f.write(f"kernel_method = {kernel_method}\n")
         f.write(f"solute material = {solute_type}\n")        
+        f.write(f"dt = {dt}\n")    
+        f.write(f"dt_col = {dt_col}\n")    
         f.write(f"dt_sub = {dt_sub}\n")    
     cnt_max = (t_end - t_start) /dt
     no_grid_frames = int(math.ceil(cnt_max / frame_every))

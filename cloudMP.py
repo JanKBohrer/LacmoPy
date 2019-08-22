@@ -75,8 +75,8 @@ from integration import simulate
 #from integration import simulate_wout_col, simulate_col 
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -112,7 +112,11 @@ no_spcm = np.array([16, 24])
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
-seed_SIP_gen = 3711
+seed_SIP_gen = 3717
+
+# for collisons
+# seed start with 6 for dt_col = 0.5 dt_adv
+seed_sim = 6717
 
 #%% SIMULATION PARAMETERS
 
@@ -124,7 +128,7 @@ seed_SIP_gen = 3711
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
 simulation_mode = "with_collision"
- 
+
 # set True when starting from a spin-up state
 spin_up_before = True
 #spin_up_before = False
@@ -144,6 +148,8 @@ t_end = 10800.0 # s
 #t_end = 20.0 # s
 
 dt = 1.0 # s # timestep of advection
+
+dt_col = 0.5*dt
 
 # timescale "scale_dt" = of subloop with timestep dt_sub = dt/(2 * scale_dt)
 # => scale_dt = dt/(2 dt_sub)
@@ -175,9 +181,6 @@ dump_every = 10
 #dump_every = 1
 
 #%% COLLISIONS PARAMS
-
-# for collisons
-seed_sim = 5711
 
 kernel_type = "Long_Bott"
 kernel_method = "Ecol_grid_R"
@@ -264,7 +267,7 @@ water_removed = np.array([0.0])
 simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
          water_removed,
          active_ids,
-         dt, scale_dt_cond, t_start, t_end, Newton_iter, g_set,
+         dt, dt_col, scale_dt_cond, t_start, t_end, Newton_iter, g_set,
          act_collisions,
          frame_every, dump_every, trace_ids, 
          E_col_grid, no_kernel_bins,
