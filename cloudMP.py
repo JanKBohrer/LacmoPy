@@ -105,9 +105,9 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
 #no_spcm = np.array([12, 12])
-#no_spcm = np.array([16, 24])
+no_spcm = np.array([16, 24])
 #no_spcm = np.array([18, 26])
-no_spcm = np.array([20, 30])
+#no_spcm = np.array([20, 30])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
@@ -126,20 +126,21 @@ seed_SIP_gen = 3711
 simulation_mode = "with_collision"
  
 # set True when starting from a spin-up state
-#spin_up_before = True
-spin_up_before = False
+spin_up_before = True
+#spin_up_before = False
 
-t_start = 0.0
+#t_start = 0.0
 #t_start = 600.0
-#t_start = 7200.0 # s
+t_start = 7200.0 # s
 
 #t_end = 7200.0 # s
-#t_end = 7200.0+2.0 # s
+t_end = 10800.0 # s
+#t_end = 7200.0+5.0 # s
 #t_end = 7200.0*2 # s
 #t_end = 60.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
-t_end = 5.0 # s
+#t_end = 5.0 # s
 #t_end = 20.0 # s
 
 dt = 1.0 # s # timestep of advection
@@ -149,7 +150,7 @@ dt = 1.0 # s # timestep of advection
 # with implicit Newton:
 # from experience: dt_sub <= 0.1 s, then depends on dt, e.g. 1.0, 5.0 or 10.0:
 # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR 10.0/0.2 = 50
-scale_dt = 5
+scale_dt_cond = 5
 Newton_iter = 3 # number of root finding iterations for impl. mass integration
 
 # save grid properties T, p, Theta, r_v, r_l, S every "frame_every" steps dt
@@ -158,9 +159,9 @@ Newton_iter = 3 # number of root finding iterations for impl. mass integration
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
 #frame_every = 1200
 #frame_every = 600
-#frame_every = 300
+frame_every = 300
 #frame_every = 30
-frame_every = 1
+#frame_every = 1
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
@@ -169,14 +170,14 @@ trace_ids = 40
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
 # dump_every must be <= frame_every and frame_every/dump_every must be integer
-#dump_every = 10
+dump_every = 10
 #dump_every = 5
-dump_every = 1
+#dump_every = 1
 
 #%% COLLISIONS PARAMS
 
 # for collisons
-seed_sim = 4711
+seed_sim = 5711
 
 kernel_type = "Long_Bott"
 kernel_method = "Ecol_grid_R"
@@ -263,7 +264,7 @@ water_removed = np.array([0.0])
 simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
          water_removed,
          active_ids,
-         dt, scale_dt, t_start, t_end, Newton_iter, g_set,
+         dt, scale_dt_cond, t_start, t_end, Newton_iter, g_set,
          act_collisions,
          frame_every, dump_every, trace_ids, 
          E_col_grid, no_kernel_bins,
