@@ -21,7 +21,8 @@ from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_radius_from_mass_vec
 
 from .AON import collision_step_Long_Bott_m
-from .AON import collision_step_Long_Bott_Ecol_grid_R
+from .AON import collision_step_Ecol_grid_R
+#from .AON import collision_step_Long_Bott_Ecol_grid_R
 from .AON import collision_step_Long_Bott_kernel_grid_m
 
 #%% DEFINITIONS
@@ -32,7 +33,7 @@ def simulate_collisions(SIP_quantities,
                         dV, dt, t_end, dt_save, no_cols, seed, save_dir):
     if kernel_name == "Long_Bott":
         if kernel_method == "Ecol_grid_R":
-            collision_step = collision_step_Long_Bott_Ecol_grid_R
+            collision_step = collision_step_Ecol_grid_R
             (xis, masses, radii, vel, mass_densities) = SIP_quantities
             (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
                 kernel_quantities
@@ -44,6 +45,14 @@ def simulate_collisions(SIP_quantities,
         elif kernel_method == "analytic":
             collision_step = collision_step_Long_Bott_m
             (xis, masses, mass_density) = SIP_quantities
+
+    if kernel_name == "Hall_Bott":
+        if kernel_method == "Ecol_grid_R":
+            collision_step = collision_step_Ecol_grid_R
+            (xis, masses, radii, vel, mass_densities) = SIP_quantities
+            (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
+                kernel_quantities
+                
 #    if kernel_name == "Golovin":
 #        collision_step = collision_step_Golovin
     np.random.seed(seed)
@@ -478,9 +487,14 @@ gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
 ### PLOT MOMENTS VS TIME for several kappa
 
 # TTFS, LFS, TKFS: title, labels, ticks font size
+#def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
+#                           kernel_name, gen_method,
+#                           dist, start_seed, ref_data_path, sim_data_path,
+#                           result_path_add,
+#                           fig_dir, TTFS, LFS, TKFS):
 def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                            kernel_name, gen_method,
-                           dist, start_seed, ref_data_path, sim_data_path,
+                           dist, start_seed, ref_data_list, sim_data_path,
                            result_path_add,
                            fig_dir, TTFS, LFS, TKFS):
     mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
@@ -493,7 +507,8 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
 
     # Wang 2007: s = 16 -> kappa = 53.151 = s * log_2(10)
     t_Wang = np.linspace(0,60,7)
-    moments_vs_time_Wang = np.loadtxt(ref_data_path)
+#    moments_vs_time_Wang = np.loadtxt(ref_data_path)
+    moments_vs_time_Wang = np.array(ref_data_list)
 #        sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/Wang2007_results2.txt")
     moments_vs_time_Wang = np.reshape(moments_vs_time_Wang,(4,7)).T
     moments_vs_time_Wang[:,0] *= 1.0E6

@@ -115,6 +115,9 @@ no_spcm = np.array([16, 24])
 seed_SIP_gen = 3717
 
 # for collisons
+# seed start with 4 for dt_col = dt_adv
+#seed_sim = 4711
+
 # seed start with 6 for dt_col = 0.5 dt_adv
 seed_sim = 6717
 

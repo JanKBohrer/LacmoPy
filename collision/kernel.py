@@ -289,7 +289,7 @@ def compute_E_col_Hall_Bott(R_i, R_j):
         if R_col <= 0.0:
             return Hall_Bott_E_col[0,0]
         else:
-            R_ratio = R_j/R_i
+            R_ratio = R_i/R_j
         # R_ratio = R_i/R_j
     else:
         R_col = R_i
@@ -298,10 +298,11 @@ def compute_E_col_Hall_Bott(R_i, R_j):
         else:
             R_ratio = R_j/R_i
         # R_ratio = R_j/R_i
-    ind_ratio = int(R_ratio/dratio)
+    ind_ratio = min(int(R_ratio/dratio), Hall_Bott_R_col_ratio.shape[0]-1)
     # ind_R is index of R_collection,
     # which indicates the row of Hall_Bott_E_col 
-    ind_R = int(R_col/dR_ipol)
+    ind_R = min(int(R_col/dR_ipol), Hall_Bott_R_col.shape[0]-1)
+    
     if ind_R == Hall_Bott_R_col.shape[0]-1:
         if ind_ratio == Hall_Bott_R_col_ratio.shape[0]-1:
             return 4.0
@@ -418,7 +419,7 @@ def generate_and_save_kernel_grid_Long_Bott(R_low, R_high, no_bins_10,
     
     return kernel_grid, vel_grid, mass_grid, radius_grid
 
-def generate_E_col_grid_Long_Bott_np(R_low, R_high, no_bins_10):
+def generate_E_col_grid_R_np(R_low, R_high, no_bins_10, kernel_name):
 
     bin_factor = 10**(1.0/no_bins_10)
     no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
@@ -435,23 +436,109 @@ def generate_E_col_grid_Long_Bott_np(R_low, R_high, no_bins_10):
     
     E_col_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
     
-    for j in range(0,no_bins):
-        R_j = radius_grid[j]
-        for i in range(j+1):
-            E_col_grid[j,i] = compute_E_col_Long_Bott(radius_grid[i], R_j)
-            E_col_grid[i,j] = E_col_grid[j,i]
+    if kernel_name == "Long_Bott":
+        for j in range(0,no_bins):
+            R_j = radius_grid[j]
+            for i in range(j+1):
+                E_col_grid[j,i] = compute_E_col_Long_Bott(radius_grid[i], R_j)
+                E_col_grid[i,j] = E_col_grid[j,i]
+    elif kernel_name == "Hall_Bott":
+        for j in range(0,no_bins):
+            R_j = radius_grid[j]
+            for i in range(j+1):
+                E_col_grid[j,i] = compute_E_col_Hall_Bott(radius_grid[i], R_j)
+                E_col_grid[i,j] = E_col_grid[j,i]
+    
     
     return E_col_grid, radius_grid
 #    return E_col_grid, radius_grid, vel_grid
-generate_E_col_grid_Long_Bott = \
-    njit()(generate_E_col_grid_Long_Bott_np)
+generate_E_col_grid_R = \
+    njit()(generate_E_col_grid_R_np)
 
-def generate_and_save_E_col_grid_Long_Bott(R_low, R_high,
-                                           no_bins_10, save_dir):
+def generate_E_col_grid_R_from_R_grid_np(radius_grid, kernel_name):
+
+#    bin_factor = 10**(1.0/no_bins_10)
+#    no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
+#    radius_grid = np.zeros( no_bins, dtype = np.float64 )
+#    
+#    radius_grid[0] = R_low
+#    for bin_n in range(1,no_bins):
+#        radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor
+    
+    # vel grid ONLY for testing...
+#    vel_grid = np.zeros( no_bins, dtype = np.float64 )
+#    for i in range(no_bins):
+#        vel_grid[i] = kernel.compute_terminal_velocity_Beard(radius_grid[i])
+    no_bins = len(radius_grid)
+    
+    E_col_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
+    
+    if kernel_name == "Long_Bott":
+        for j in range(0,no_bins):
+            R_j = radius_grid[j]
+            for i in range(j+1):
+                E_col_grid[j,i] = compute_E_col_Long_Bott(radius_grid[i], R_j)
+                E_col_grid[i,j] = E_col_grid[j,i]
+    elif kernel_name == "Hall_Bott":
+        for j in range(0,no_bins):
+            R_j = radius_grid[j]
+            for i in range(j+1):
+                E_col_grid[j,i] = compute_E_col_Hall_Bott(radius_grid[i], R_j)
+                E_col_grid[i,j] = E_col_grid[j,i]
+    
+    
+    return E_col_grid, radius_grid
+#    return E_col_grid, radius_grid, vel_grid
+generate_E_col_grid_R_from_R_grid = \
+    njit()(generate_E_col_grid_R_from_R_grid_np)
+    
+### OLD WORKING FOR LONG BOTT ONLY    
+#def generate_E_col_grid_Long_Bott_np(R_low, R_high, no_bins_10):
+#
+#    bin_factor = 10**(1.0/no_bins_10)
+#    no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
+#    radius_grid = np.zeros( no_bins, dtype = np.float64 )
+#    
+#    radius_grid[0] = R_low
+#    for bin_n in range(1,no_bins):
+#        radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor
+#    
+#    # vel grid ONLY for testing...
+##    vel_grid = np.zeros( no_bins, dtype = np.float64 )
+##    for i in range(no_bins):
+##        vel_grid[i] = kernel.compute_terminal_velocity_Beard(radius_grid[i])
+#    
+#    E_col_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
+#    
+#    for j in range(0,no_bins):
+#        R_j = radius_grid[j]
+#        for i in range(j+1):
+#            E_col_grid[j,i] = compute_E_col_Long_Bott(radius_grid[i], R_j)
+#            E_col_grid[i,j] = E_col_grid[j,i]
+#    
+#    return E_col_grid, radius_grid
+##    return E_col_grid, radius_grid, vel_grid
+#generate_E_col_grid_Long_Bott = \
+#    njit()(generate_E_col_grid_Long_Bott_np)
+
+def generate_and_save_E_col_grid_R(R_low, R_high,
+                                   no_bins_10, kernel_name,
+                                   save_dir):
     E_col_grid, radius_grid = \
-        generate_E_col_grid_Long_Bott(R_low, R_high, no_bins_10)
+        generate_E_col_grid_R(R_low, R_high, no_bins_10, kernel_name)
     
     np.save(save_dir + "radius_grid_out.npy", radius_grid)
     np.save(save_dir + "E_col_grid.npy", E_col_grid)
     
     return E_col_grid, radius_grid
+
+# WORKING VERSION FOR LONG BOTT ONLY
+#def generate_and_save_E_col_grid_Long_Bott(R_low, R_high,
+#                                           no_bins_10, save_dir):
+#    E_col_grid, radius_grid = \
+#        generate_E_col_grid_Long_Bott(R_low, R_high, no_bins_10)
+#    
+#    np.save(save_dir + "radius_grid_out.npy", radius_grid)
+#    np.save(save_dir + "E_col_grid.npy", E_col_grid)
+#    
+#    return E_col_grid, radius_grid

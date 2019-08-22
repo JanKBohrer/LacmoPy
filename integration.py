@@ -1305,6 +1305,8 @@ integrate_adv_cond_coll_one_adv_step = \
 # with subloop integration with timestep dt_sub
 # since coll step is 2 times faster in np-version, there is no njit() here
 # the np version is the "normal" version
+# test also to use numpy version of integrate_adv_cond_coll_one_adv_step_np
+# should not make much of a difference, but who knows?    
 def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          grid_mass_flux_air_dry, p_ref, p_ref_inv,
                          grid_no_cells, grid_ranges,
