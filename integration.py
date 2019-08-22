@@ -1193,6 +1193,7 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
             traced_vectors[dump_N,1] = vel[:,trace_ids]
             traced_scalars[dump_N,0] = m_w[trace_ids]
             traced_scalars[dump_N,1] = m_s[trace_ids]
+            traced_scalars[dump_N,2] = T_p[trace_ids]
             traced_xi[dump_N] = xi[trace_ids]
             traced_water[dump_N] = water_removed[0]
             # traced_grid_fields[dump_N,0] = np.copy(grid_scalar_fields[0])
@@ -1264,6 +1265,7 @@ def simulate_interval_wout_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
             traced_vectors[dump_N,1] = vel[:,trace_ids]
             traced_scalars[dump_N,0] = m_w[trace_ids]
             traced_scalars[dump_N,1] = m_s[trace_ids]
+            traced_scalars[dump_N,2] = T_p[trace_ids]
             traced_xi[dump_N] = xi[trace_ids]
             traced_water[dump_N] = water_removed[0]
             # traced_grid_fields[dump_N,0] = np.copy(grid_scalar_fields[0])
@@ -1426,7 +1428,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
         f.write( f"dump_every, dump_factor\n" )
         f.write( f"{dump_every} {dump_factor}\n" )
     traced_vectors = np.zeros((dump_factor, 2, 2, no_trace_ids))
-    traced_scalars = np.zeros((dump_factor, 2, no_trace_ids))
+    traced_scalars = np.zeros((dump_factor, 3, no_trace_ids))
     traced_xi = np.zeros((dump_factor, no_trace_ids))
     traced_water = np.zeros(dump_factor)
 #    traced_water = np.zeros(dump_factor)

@@ -125,12 +125,15 @@ def plot_particle_trajectories(traj, grid, selection=None,
     
     tick_ranges = grid.ranges
     fig, ax = plt.subplots(figsize=figsize)
-    if selection == None: selection=range(len(traj[0,0]))
+    if traj[0,0].size == 1:
+        ax.plot(traj[:,0], traj[:,1] ,"o", markersize = MS)
     # print(selection)
-    for ID in selection:
-        x = traj[:,0,ID]
-        z = traj[:,1,ID]
-        ax.plot(x,z,"o", markersize = MS)
+    else:        
+        if selection == None: selection=range(len(traj[0,0]))
+        for ID in selection:
+            x = traj[:,0,ID]
+            z = traj[:,1,ID]
+            ax.plot(x,z,"o", markersize = MS)
     ax.quiver(pos_x, pos_z, vel_x, vel_z,
               pivot = 'mid',
               width = ARROW_WIDTH, scale = ARROW_SCALE, zorder=99 )
@@ -529,65 +532,204 @@ def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
     if fig_name is not None:
         fig.savefig(fig_name)
         
-# @njit()
-def sample_masses(m_w, m_s, xi, cells, target_cell, no_cells_x, no_cells_z):
-    m_dry = []
-    m_wat = []
-    multi = []
+# active ids not necessary: choose target cell and no_cells_x
+# such that the region is included in the valid domain
+@njit()
+def sample_masses(m_w, m_s, xi, cells, id_list, grid_temperature,
+                  target_cell, no_cells_x, no_cells_z):
     
-    i_p = []
-    j_p = []
+#    m_dry = []
+#    m_wat = []
+#    multi = []
+#    
+#    i_p = []
+#    j_p = []
     
     dx = no_cells_x // 2
     dz = no_cells_z // 2
     
-    i_an = range(target_cell[0] - dx, target_cell[0] + dx + 1)
-    j_an = range(target_cell[1] - dz, target_cell[1] + dz + 1)
-    # print("cells.shape in sample masses")
-    # print(cells.shape)
+    i_low = target_cell[0] - dx
+    i_high = target_cell[0] + dx
+    j_low = target_cell[0] - dz
+    j_high = target_cell[0] + dz
     
-    for ID, m_s_ in enumerate(m_s):
-        # print(ID)
-        i = cells[0,ID]
-        j = cells[1,ID]
-        if i in i_an and j in j_an:
-            m_dry.append(m_s_)
-            m_wat.append(m_w[ID])
-            multi.append(xi[ID])
-            i_p.append(i)
-            j_p.append(j)
-    m_wat = np.array(m_wat)
-    m_dry = np.array(m_dry)
-    multi = np.array(multi)
-    i = np.array(i)
-    j = np.array(j)
+    mask =   ((cells[0] >= i_low) & (cells[0] <= i_high)) \
+           & ((cells[1] >= j_low) & (cells[1] <= j_high))
     
-    return m_wat, m_dry, multi, i, j
+    no_masses = mask.sum()
+    
+    m_s_out = np.zeros(no_masses, dtype = np.float64)
+    m_w_out = np.zeros(no_masses, dtype = np.float64)
+    xi_out = np.zeros(no_masses, dtype = np.float64)
+    T_p = np.zeros(no_masses, dtype = np.float64)
+    
+    for cnt, ID in enumerate(id_list[mask]):
+        m_s_out[cnt] = m_s[ID]
+        m_w_out[cnt] = m_w[ID]
+        xi_out[cnt] = xi[ID]
+        T_p[cnt] = grid_temperature[ cells[0,ID], cells[1,ID] ]
+    
+    return m_w_out, m_s_out, xi_out, T_p
+
+
+# active ids not necessary: choose target cell and no_cells_x
+# such that the region is included in the valid domain
+# weights_out = xi/mass_dry_inv (in that respective cell) 
+# weights_out in number/kg_dry_air
+@njit()
+def sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
+                            grid_mass_dry_inv,
+                  target_cell, no_cells_x, no_cells_z):
+    
+#    m_dry = []
+#    m_wat = []
+#    multi = []
+#    
+#    i_p = []
+#    j_p = []
+    
+    dx = no_cells_x // 2
+    dz = no_cells_z // 2
+    
+    i_low = target_cell[0] - dx
+    i_high = target_cell[0] + dx
+    j_low = target_cell[1] - dz
+    j_high = target_cell[1] + dz
+    
+    no_cells_eval = (dx * 2 + 1) * (dz * 2 + 1)
+    
+    mask =   ((cells[0] >= i_low) & (cells[0] <= i_high)) \
+           & ((cells[1] >= j_low) & (cells[1] <= j_high))
+    
+    no_masses = mask.sum()
+    
+    m_s_out = np.zeros(no_masses, dtype = np.float64)
+    m_w_out = np.zeros(no_masses, dtype = np.float64)
+    xi_out = np.zeros(no_masses, dtype = np.float64)
+    weights_out = np.zeros(no_masses, dtype = np.float64)
+    T_p = np.zeros(no_masses, dtype = np.float64)
+    
+    for cnt, ID in enumerate(id_list[mask]):
+        m_s_out[cnt] = m_s[ID]
+        m_w_out[cnt] = m_w[ID]
+        xi_out[cnt] = xi[ID]
+        weights_out[cnt] = xi[ID] * grid_mass_dry_inv[cells[0,ID], cells[1,ID]]
+        T_p[cnt] = grid_temperature[ cells[0,ID], cells[1,ID] ]
+    
+    return m_w_out, m_s_out, xi_out, weights_out, T_p, no_cells_eval
+
+
+## @njit()
+#def sample_masses(m_w, m_s, xi, cells, target_cell, no_cells_x, no_cells_z):
+#    m_dry = []
+#    m_wat = []
+#    multi = []
+#    
+#    i_p = []
+#    j_p = []
+#    
+#    dx = no_cells_x // 2
+#    dz = no_cells_z // 2
+#    
+#    i_an = range(target_cell[0] - dx, target_cell[0] + dx + 1)
+#    j_an = range(target_cell[1] - dz, target_cell[1] + dz + 1)
+#    # print("cells.shape in sample masses")
+#    # print(cells.shape)
+#    
+#    for ID, m_s_ in enumerate(m_s):
+#        # print(ID)
+#        i = cells[0,ID]
+#        j = cells[1,ID]
+#        if i in i_an and j in j_an:
+#            m_dry.append(m_s_)
+#            m_wat.append(m_w[ID])
+#            multi.append(xi[ID])
+#            i_p.append(i)
+#            j_p.append(j)
+#    m_wat = np.array(m_wat)
+#    m_dry = np.array(m_dry)
+#    multi = np.array(multi)
+#    i = np.array(i)
+#    j = np.array(j)
+#    
+#    return m_wat, m_dry, multi, i, j
 
 from microphysics import compute_radius_from_mass_vec,\
                          compute_R_p_w_s_rho_p_NaCl,\
                          compute_R_p_w_s_rho_p_AS
 import constants as c
 # we always assume the only quantities stored are m_s, m_w, xi
-def sample_radii(m_w, m_s, xi, cells, grid_temperature,
-                 target_cell, no_cells_x, no_cells_z, solute_type):
-    m_wat, m_dry, multi, i, j = sample_masses(m_w, m_s, xi, cells,
-                                        target_cell, no_cells_x, no_cells_z)
+def sample_radii(m_w, m_s, xi, cells, solute_type, id_list,
+                 grid_temperature, target_cell, no_cells_x, no_cells_z):
+    m_w_out, m_s_out, xi_out, T_p = sample_masses(m_w, m_s, xi, cells, id_list,
+                                                  grid_temperature,
+                                                  target_cell, no_cells_x,
+                                                  no_cells_z)
     # print("m_wat")
     # print("m_dry")
     # print("multi")
     # print(m_wat)
     # print(m_dry)
     # print(multi)
-    T_p = grid_temperature[i,j]
+#    T_p = grid_temperature[i,j]
     if solute_type == "AS":
         mass_density_dry = c.mass_density_AS_dry
-        R, w_s, rho_p = compute_R_p_w_s_rho_p_AS(m_wat, m_dry, T_p)
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
+        mass_density_dry = c.mass_density_NaCl_dry
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+    
+    R_s = compute_radius_from_mass_vec(m_s_out, mass_density_dry)
+    R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_out, m_s_out, T_p)
+    
+    return R_p, R_s, xi_out        
+
+# weights_out in number/kg_dry_air
+# we always assume the only quantities stored are m_s, m_w, xi
+def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
+                 grid_temperature, grid_mass_dry_inv,
+                 target_cell, no_cells_x, no_cells_z):
+    m_w_out, m_s_out, xi_out, weights_out, T_p, no_cells_eval = \
+        sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
+                                grid_mass_dry_inv,
+                                target_cell, no_cells_x, no_cells_z)
+    # print("m_wat")
+    # print("m_dry")
+    # print("multi")
+    # print(m_wat)
+    # print(m_dry)
+    # print(multi)
+#    T_p = grid_temperature[i,j]
+    if solute_type == "AS":
         mass_density_dry = c.mass_density_AS_dry
-        R, w_s, rho_p = compute_R_p_w_s_rho_p_NaCl(m_wat, m_dry, T_p)
-    R_s = compute_radius_from_mass_vec(m_dry, mass_density_dry)
-    return R, R_s, multi        
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+    elif solute_type == "NaCl":
+        mass_density_dry = c.mass_density_NaCl_dry
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+    
+    R_s = compute_radius_from_mass_vec(m_s_out, mass_density_dry)
+    R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_out, m_s_out, T_p)
+    
+    return R_p, R_s, xi_out, weights_out, no_cells_eval        
+#def sample_radii(m_w, m_s, xi, cells, grid_temperature,
+#                 target_cell, no_cells_x, no_cells_z, solute_type):
+#    m_wat, m_dry, multi, i, j = sample_masses(m_w, m_s, xi, cells,
+#                                        target_cell, no_cells_x, no_cells_z)
+#    # print("m_wat")
+#    # print("m_dry")
+#    # print("multi")
+#    # print(m_wat)
+#    # print(m_dry)
+#    # print(multi)
+#    T_p = grid_temperature[i,j]
+#    if solute_type == "AS":
+#        mass_density_dry = c.mass_density_AS_dry
+#        R, w_s, rho_p = compute_R_p_w_s_rho_p_AS(m_wat, m_dry, T_p)
+#    elif solute_type == "NaCl":
+#        mass_density_dry = c.mass_density_AS_dry
+#        R, w_s, rho_p = compute_R_p_w_s_rho_p_NaCl(m_wat, m_dry, T_p)
+#    R_s = compute_radius_from_mass_vec(m_dry, mass_density_dry)
+#    return R, R_s, multi        
 
 #%% PLOTTING
 
@@ -799,7 +941,10 @@ def plot_particle_size_spectra_tg_list(
             plot_n += 1
             target_cell = (i_list[plot_n], j_list[plot_n])
             if no_cols == 1:
-                ax = axes[row_n]
+                if no_rows == 1:
+                    ax = axes
+                else:                    
+                    ax = axes[row_n]
             else:
                 ax = axes[row_n, col_n]
             
@@ -1325,10 +1470,8 @@ def compute_moment_R_grid(n, R_p, xi, cells, active_ids, id_list, no_cells):
     for ID in id_list[active_ids]:
         moment[cells[0,ID],cells[1,ID]] += xi[ID] * R_p[ID]**n
     return moment
-    
 
 from file_handling import load_grid_scalar_fields, load_particle_data_all
-
 
 # possible field indices:
 #0: r_v
@@ -1345,8 +1488,6 @@ from file_handling import load_grid_scalar_fields, load_particle_data_all
 # 4: n_c
 # 5: n_r 
 # 6: R_eff = 3rd moment/ 2nd moment of R-distribution
-
-
 # NOTE that time_indices must be an array because of indexing below     
 def generate_field_frame_data_avg(load_path_list,
                                   field_indices, time_indices,
@@ -1513,7 +1654,6 @@ def generate_field_frame_data_avg(load_path_list,
     return fields_with_time, save_times_out, field_names_out, units_out, \
            scales_out 
 
-#%%
 def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                                         save_times,
                                         field_names,
@@ -1525,7 +1665,12 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                                         no_ticks=[6,6],
                                         alpha = 1.0,
                                         TTFS = 12, LFS = 10, TKFS = 10,
-                                        cbar_precision = 2):
+                                        cbar_precision = 2,
+                                        show_target_cells = False,
+                                        target_cell_list = None,
+                                        no_cells_x = 0,
+                                        no_cells_z = 0
+                                        ):
     
     tick_ranges = grid.ranges
     
@@ -1627,12 +1772,493 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                              r'$\times\,10^{{{}}}$'.format(oom_max),
                              va='bottom', ha='left', fontsize = TKFS)
             cbar.ax.tick_params(labelsize=TKFS)
+            
+            if show_target_cells:
+                ### ad the target cells
+                no_neigh_x = no_cells_x // 2
+                no_neigh_z = no_cells_z // 2
+                dx = grid.steps[0]
+                dz = grid.steps[1]
+                
+                no_tg_cells = len(target_cell_list[0])
+                LW_rect = 2.
+                for tg_cell_n in range(no_tg_cells):
+                    x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+                    z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+                    
+            #        dx *= no_cells_x
+            #        dz *= no_cells_z
+                    
+                    rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                         fill=False,
+                                         linewidth = LW_rect,
+        #                                 linestyle = "dashed",
+                                         edgecolor='k',
+                                         zorder = 99)        
+                    ax.add_patch(rect)
 
     fig.tight_layout()
     if fig_path is not None:
         fig.savefig(fig_path)    
     
     
+# for one seed only for now...
+# load_path_list = [[load_path0]] 
+# target_cell_list = [ [tgc1], [tgc2], ... ]; tgc1 = [i1, j1]
+# ind_time = [it1, it2, ..] = ind. of save times belonging to tgc1, tgc2, ...
+# -> to create one cycle cf with particle trajectories
+
+def generate_size_spectra_R_Arabas(load_path_list,
+                                   ind_time,
+                                   grid_mass_dry_inv,
+                                   grid_no_cells,
+                                   solute_type,
+                                   target_cell_list,
+                                   no_cells_x, no_cells_z,
+                                   no_bins_R_p, no_bins_R_s):                                   
+
+#    if solute_type == "AS":
+#        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+#    elif solute_type == "NaCl":
+#        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+    
+    no_seeds = len(load_path_list)
+    no_times = len(ind_time)
+    no_tg_cells = len(target_cell_list[0])
+    
+#    print(no_fields_orig)
+#    print(no_fields_derived)
+#    print(no_fields)
+    
+    load_path = load_path_list[0]
+    frame_every, no_grid_frames, dump_every = \
+        np.load(load_path+"data_saving_paras.npy")
+    grid_save_times = np.load(load_path+"grid_save_times.npy")
+    
+    save_times_out = np.zeros(no_times, dtype = np.int64)
+    
+#    i_list = target_cell_list[0]
+#    j_list = target_cell_list[1]    
     
     
+    R_p_list = []
+    R_s_list = []
+    weights_list = []
+    R_min_list =[]    
+    R_max_list =[]    
     
+    grid_r_l_list = np.zeros( (no_times, grid_no_cells[0], grid_no_cells[1]),
+                        dtype = np.float64)
+    
+#    for tg_cell_n in no_tg_cells:
+    
+    for tg_cell_n in range(no_tg_cells):
+        R_p_list.append([])
+        R_s_list.append([])
+        weights_list.append([])
+        save_times_out[tg_cell_n] = grid_save_times[ind_time[tg_cell_n]]
+        
+    for seed_n, load_path in enumerate(load_path_list):
+#        fields = load_grid_scalar_fields(load_path, grid_save_times)
+        fields = load_grid_scalar_fields(load_path, grid_save_times)
+        # ?????????????????????
+        # IN WORK
+        grid_temperature_with_time = fields[:,3] #??
+        
+        grid_r_l_with_time = fields[:,1]
+        
+        vec_data, cells_with_time, scal_data,\
+        xi_with_time, active_ids_with_time =\
+            load_particle_data_all(load_path, grid_save_times)
+        m_w_with_time = scal_data[:,0]
+        m_s_with_time = scal_data[:,1]    
+        
+        for tg_cell_n in range(no_tg_cells):
+            target_cell = target_cell_list[:,tg_cell_n]
+            idx_t = ind_time[tg_cell_n]
+            
+            
+            id_list = np.arange(len(xi_with_time[idx_t]))
+            
+#            print("seed")
+#            print(seed_n)
+#            print("no_tg_cells, tg_cell_n")
+#            print(no_tg_cells, tg_cell_n)
+#            print("target_cell")
+#            print(target_cell)
+            
+            R_p_tg, R_s_tg, xi_tg, weights_tg, no_cells_eval = \
+                sample_radii_per_m_dry(m_w_with_time[idx_t],
+                                       m_s_with_time[idx_t],
+                                       xi_with_time[idx_t],
+                                       cells_with_time[idx_t],
+                                       solute_type, id_list,
+                                       grid_temperature_with_time[idx_t],
+                                       grid_mass_dry_inv,
+                                       target_cell, no_cells_x, no_cells_z)
+#            print("R_p_tg")
+#            print(R_p_tg)
+                
+            R_p_list[tg_cell_n].append(R_p_tg)
+            R_s_list[tg_cell_n].append(R_s_tg)
+            weights_list[tg_cell_n].append(weights_tg)
+            
+            grid_r_l_list[tg_cell_n] += grid_r_l_with_time[idx_t]
+    
+    grid_r_l_list /= no_seeds
+        
+    f_R_p_list = np.zeros( (no_tg_cells, no_seeds, no_bins_R_p),
+                          dtype = np.float64 )
+    f_R_s_list = np.zeros( (no_tg_cells, no_seeds, no_bins_R_s),
+                          dtype = np.float64 )
+    bins_R_p_list = np.zeros( (no_tg_cells, no_bins_R_p+1),
+                             dtype = np.float64 )
+    bins_R_s_list = np.zeros( (no_tg_cells, no_bins_R_s+1),
+                             dtype = np.float64 )
+    
+    for tg_cell_n in range(no_tg_cells):
+#        R_p_tg = np.concatenate(R_p_list[tg_cell_n])
+#        R_s_tg = np.concatenate(R_s_list[tg_cell_n])
+#        weights_tg = np.concatenate(weights_list[tg_cell_n])
+            
+        R_p_min = np.amin(np.concatenate(R_p_list[tg_cell_n]))
+        R_p_max = np.amax(np.concatenate(R_p_list[tg_cell_n]))
+        
+        R_min_list.append(R_p_min)
+        R_max_list.append(R_p_max)
+        
+#        print("tg_cell_n, R_p_min, R_p_max")
+#        print(tg_cell_n, R_p_min, R_p_max)
+        
+        R_s_min = np.amin(np.concatenate(R_s_list[tg_cell_n]))
+        R_s_max = np.amax(np.concatenate(R_s_list[tg_cell_n]))
+        
+#        R_p_min = np.amin(R_p_list[tg_cell_n])
+#        R_p_max = np.amax(R_p_list[tg_cell_n])
+#        
+#        R_s_min = np.amin(R_s_list[tg_cell_n])
+#        R_s_max = np.amax(R_s_list[tg_cell_n])
+    
+        bins_R_p = np.logspace(np.log10(R_p_min*0.999),
+                               np.log10(R_p_max*1.001), no_bins_R_p+1 )
+        
+        bins_R_p_list[tg_cell_n] = np.copy(bins_R_p )
+        
+        bins_width_R_p = bins_R_p[1:] - bins_R_p[:-1]
+
+        bins_R_s = np.logspace(np.log10(R_s_min*0.999),
+                               np.log10(R_s_max*1.001), no_bins_R_s+1 )
+    
+        bins_width_R_s = bins_R_s[1:] - bins_R_s[:-1]
+
+        bins_R_s_list[tg_cell_n] = np.copy(bins_R_s)
+        
+        for seed_n in range(no_seeds):
+            R_p_tg = R_p_list[tg_cell_n][seed_n]
+            R_s_tg = R_s_list[tg_cell_n][seed_n]
+            weights_tg = weights_list[tg_cell_n][seed_n]
+    
+            h_p, b_p = np.histogram(R_p_tg, bins_R_p, weights= weights_tg)
+
+#            f_R_p = 1E-6 * h_p / bins_width_R_p / no_tg_cells
+        #            f_R_p_min = f_R_p.min()
+        #            f_R_p_max = f_R_p.max()            
+            
+            # convert from 1/(kg*micrometer) to unit 1/(milligram * micro_meter)
+            f_R_p_list[tg_cell_n, seed_n] =\
+                1E-6 * h_p / bins_width_R_p / no_cells_eval
+        
+            h_s, b_s = np.histogram(R_s_tg, bins_R_s, weights= weights_tg)
+            
+#            f_R_s = 1E-6 * h_s / bins_width_R_s / no_tg_cells
+#            f_R_s_min = f_R_s.min()
+#            f_R_s_max = f_R_s.max()
+            
+            # convert from 1/(kg*micrometer) to unit 1/(milligram * micro_meter)
+            f_R_s_list[tg_cell_n, seed_n] =\
+                1E-6 * h_s / bins_width_R_s / no_cells_eval
+    
+    return f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, \
+           save_times_out, grid_r_l_list, R_min_list, R_max_list
+
+def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
+                               bins_R_p_list, bins_R_s_list,
+                               grid_r_l_list,
+                               R_min_list, R_max_list,
+                               save_times_out,
+                               solute_type,
+                               grid,                               
+                               target_cell_list,
+                               no_cells_x, no_cells_z,
+                               no_bins_R_p, no_bins_R_s,
+                               no_rows, no_cols,
+                               TTFS=12, LFS=10, TKFS=10, LW = 4.0,
+                               fig_path = None,
+                               show_target_cells = False,
+                               fig_path_tg_cells = None,
+                               fig_path_R_eff = None
+                               ):
+    
+#    f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, save_times_out = \
+#        generate_size_spectra_R_Arabas(load_path_list,
+#                                       ind_time,
+#                                       grid_mass_dry_inv,
+#                                       solute_type,
+#                                       target_cell_list,
+#                                       no_cells_x, no_cells_z,
+#                                       no_bins_R_p, no_bins_R_s)  
+    grid_steps = grid.steps
+    no_seeds = len(f_R_p_list[0])
+    no_times = len(save_times_out)
+    no_tg_cells = len(target_cell_list[0])    
+
+    f_R_p_avg = np.average(f_R_p_list, axis=1)
+    f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1)
+    f_R_s_avg = np.average(f_R_s_list, axis=1)
+    f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1)
+
+    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
+                             figsize = (no_cols*5, no_rows*4) )
+    
+    plot_n = -1
+    for row_n in range(no_rows)[::-1]:
+        for col_n in range(no_cols):
+            plot_n += 1
+            if no_cols == 1:
+                if no_rows == 1:
+                    ax = axes
+                else:                    
+                    ax = axes[row_n]
+            else:
+                ax = axes[row_n, col_n]        
+            
+            target_cell = target_cell_list[:,plot_n]
+            
+            f_R_p = f_R_p_avg[plot_n]
+            f_R_s = f_R_s_avg[plot_n]
+            f_R_p_err = f_R_p_std[plot_n]
+            f_R_s_err = f_R_s_std[plot_n]
+            
+            bins_R_p = bins_R_p_list[plot_n]
+            bins_R_s = bins_R_s_list[plot_n]
+            
+            f_R_p_min = f_R_p.min()
+            f_R_p_max = f_R_p.max()
+            f_R_s_min = f_R_s.min()
+            f_R_s_max = f_R_s.max()            
+            
+            ax.plot(np.repeat(bins_R_p,2),
+                    np.hstack( [[f_R_p_min*1E-1],
+                                np.repeat(f_R_p,2),
+                                [f_R_p_min*1E-1] ] ),
+                    linewidth = LW, label = "wet")
+            ax.plot(np.repeat(bins_R_s,2),
+                    np.hstack( [[f_R_s_min*1E-1],
+                                np.repeat(f_R_s,2),
+                                [f_R_s_min*1E-1] ] ),
+                    linewidth = LW, label = "dry")            
+    
+#            ax.vlines(0.5, f_R_s_min, f_R_s_max)
+            ax.axvline(0.5, c ="k", linewidth=1.0)
+            ax.axvline(25., c ="k", linewidth=1.0)
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            ax.set_xlim( [2E-3, 1E2] )    
+            ax.set_ylim( [8E-3, 4E3] )    
+#            ax.set_xlim( [2E-3, 3E2] )    
+#            ax.set_ylim( [1E-5, 4E3] )    
+            
+            ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                           length = 5)
+            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+                           length = 3)
+            
+#            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
+            xx = int((target_cell[0])*grid_steps[0])
+            height = int((target_cell[1])*grid_steps[1])
+#            xx = int((target_cell[0]+0.5)*grid_steps[1])
+#            height = int((target_cell[1]+0.5)*grid_steps[1])
+            ax.set_xlabel(r"particle radius ($\mathrm{\mu m}$)",
+                          fontsize = LFS)
+            ax.set_ylabel(r"distribution (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
+                          fontsize = LFS)
+            # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
+            # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
+            ax.set_title( f'x = {xx}, h = {height} m ' +
+                         f"cell ({target_cell[0]} {target_cell[1]}) "
+                            + f"Nc ({no_cells_x}, {no_cells_z}) "
+                            +f"t = {save_times_out[plot_n]//60} min",
+                            fontsize = TTFS )            
+            ax.grid()
+            ax.legend(loc='upper right')
+            
+            ax.annotate(f"({R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e})",
+                        (8.,50.))
+            
+            #ax.set_ylim( [f_R_min*0.5,4E3] )
+    fig.tight_layout()
+    
+    if fig_path is not None:
+#        fig_name =\
+#            fig_path \
+#            + f"spectrum_cell_list_j_from_{j_low}_to_{j_high}_" \
+#            + f"Ntgcells_{no_tg_cells}_no_cells_{no_cells_x}_{no_cells_z}_" \
+#            + f"Nseeds_{no_seeds}.pdf"
+        fig.savefig(fig_path)
+    
+    ### CALC EFFECTIVE RADIUS = MOMENT3/MOMENT2 FROM ANALYSIS OF f_R
+    R_eff_list = np.zeros((no_tg_cells, 3), dtype = np.float64)
+    no_rows = 1
+    no_cols = 1      
+    fig3, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
+                 figsize = (no_cols*6, no_rows*5) )
+    for tg_cell_n in range(no_tg_cells):
+        bins_log = np.log(bins_R_p_list[tg_cell_n])
+        bins_width = bins_R_p_list[tg_cell_n,1:] - bins_R_p_list[tg_cell_n,:-1]
+        bins_width_log = bins_log[1:] - bins_log[:-1]
+        bins_center_log = 0.5 * (bins_log[1:] + bins_log[:-1])
+        bins_center_log_lin = np.exp(bins_center_log)
+        
+        mom0 = np.sum( f_R_p_list[tg_cell_n] * bins_width)
+        mom1 = np.sum( f_R_p_list[tg_cell_n] * bins_width
+                       * bins_center_log_lin)
+        mom2 = np.sum( f_R_p_list[tg_cell_n] * bins_width
+                       * bins_center_log_lin * bins_center_log_lin)
+        mom3 = np.sum( f_R_p_list[tg_cell_n] * bins_width
+                       * bins_center_log_lin**3)
+#        R_eff0 = mom1/mom0
+#        R_eff1 = mom2/mom1
+#        R_eff2 = mom3/mom2
+        
+        R_eff_list[tg_cell_n,0] = mom1/mom0
+        R_eff_list[tg_cell_n,1] = mom2/mom1
+        R_eff_list[tg_cell_n,2] = mom3/mom2
+    
+    for mom_n in range(3):        
+        axes.plot( np.arange(1,no_tg_cells+1), R_eff_list[:,mom_n], "o",
+                  label = f"mom {mom_n}")
+        if mom_n == 2:
+            for tg_cell_n in range(no_tg_cells):
+                axes.annotate(f"({target_cell_list[0,tg_cell_n]} "
+                              + f" {target_cell_list[1,tg_cell_n]})",
+                              (tg_cell_n+1, 3. + R_eff_list[tg_cell_n,mom_n]),
+                              fontsize=8)
+    axes.legend()        
+    if fig_path is not None:
+        fig3.savefig(fig_path_R_eff)            
+    
+    ### PLOT TARGET CELLS IN EXTRA PLOT
+    
+    if show_target_cells:
+        grid_r_l = grid_r_l_list[0]*1E3
+        no_rows = 1
+        no_cols = 1  
+        cmap = cmap_new
+#        cmap = "my_rainbow"
+        alpha = 0.7
+        no_ticks = [6,6]
+        str_format = "%.2f"
+        
+        tick_ranges = grid.ranges
+        fig2, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
+                         figsize = (no_cols*9, no_rows*8) )
+        ax = axes
+        
+        field_min = 0.0
+        field_max = grid_r_l.max()
+        CS = ax.pcolormesh(*grid.corners, grid_r_l,
+                           cmap=cmap, alpha=alpha,
+                            edgecolor="face", zorder=1,
+                            vmin=field_min, vmax=field_max
+#                            norm = norm_(vmin=field_min, vmax=field_max)
+                            )
+        CS.cmap.set_under("white")
+        
+#        ax.axis("equal", "box")
+
+        ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                         tick_ranges[0,1],
+                                         no_ticks[0] ) )
+        ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                         tick_ranges[1,1],
+                                         no_ticks[1] ) )
+#        ax.set_xlim()
+
+#        ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
+#                     int(save_times[time_n]/60)),
+#                     fontsize = TTFS)
+#        cax = fig2.add_axes([ax.get_position().x1+0.01,
+#                            ax.get_position().y0,0.02,
+#                            ax.get_position().height])
+        cbar = plt.colorbar(CS, ax=ax, fraction =.045,
+                            format=mticker.FormatStrFormatter(str_format))    
+        
+        ### add vel. field
+        ARROW_WIDTH= 0.004
+        ARROW_SCALE = 20.0
+        no_arrows_u=16
+        no_arrows_v=16
+        if no_arrows_u < grid.no_cells[0]:
+            arrow_every_x = grid.no_cells[0] // (no_arrows_u - 1)
+        else:
+            arrow_every_x = 1
+
+        if no_arrows_v < grid.no_cells[1]:
+            arrow_every_y = grid.no_cells[1] // (no_arrows_v - 1)
+        else:
+            arrow_every_y = 1
+        centered_u_field = ( grid.velocity[0][0:-1,0:-1]\
+                             + grid.velocity[0][1:,0:-1] ) * 0.5
+        centered_w_field = ( grid.velocity[1][0:-1,0:-1]\
+                             + grid.velocity[1][0:-1,1:] ) * 0.5
+        ax.quiver(
+            grid.centers[0][arrow_every_y//2::arrow_every_y,
+                        arrow_every_x//2::arrow_every_x],
+            grid.centers[1][arrow_every_y//2::arrow_every_y,
+                        arrow_every_x//2::arrow_every_x],
+            centered_u_field[::arrow_every_y,::arrow_every_x],
+            centered_w_field[::arrow_every_y,::arrow_every_x],
+                  pivot = 'mid',
+                  width = ARROW_WIDTH, scale = ARROW_SCALE, zorder=3 )                            
+        
+        ### ad the target cells
+        no_neigh_x = no_cells_x // 2
+        no_neigh_z = no_cells_z // 2
+        dx = grid_steps[0]
+        dz = grid_steps[1]
+        
+        LW_rect = 2.
+        
+        for tg_cell_n in range(no_tg_cells):
+            x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+            z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+            
+    #        dx *= no_cells_x
+    #        dz *= no_cells_z
+            
+            rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z, fill=False,
+                                 linewidth = LW_rect,
+#                                 linestyle = "dashed",
+                                 edgecolor='k',
+                                 zorder = 99)        
+            ax.add_patch(rect)
+            
+        ax.tick_params(axis='both', which='major', labelsize=TKFS)
+        ax.grid(color='gray', linestyle='dashed', zorder = 2)
+        ax.set_title(r"$r_l$ (g/kg), t = {} min".format(save_times_out[0]//60))
+        ax.set_xlabel(r'x (m)', fontsize = LFS)
+        ax.set_ylabel(r'z (m)', fontsize = LFS)  
+#        ax.axis("equal")
+        ax.axis("scaled")
+#        ax.set(xlim=grid.ranges[0], ylim=grid.ranges[1])          
+        ax.set_xlim((0,1500))
+        ax.set_ylim((0,1500))
+#        ax.set_aspect('equal', 'box')
+        
+        fig2.tight_layout(pad = 2.)
+        
+        if fig_path_tg_cells is not None:
+            fig2.savefig(fig_path_tg_cells)
+    
+        
+        
