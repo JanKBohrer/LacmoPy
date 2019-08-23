@@ -75,8 +75,8 @@ from integration import simulate
 #from integration import simulate_wout_col, simulate_col 
 
 #%% STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
-my_OS = "Mac"
+my_OS = "Linux_desk"
+#my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -112,14 +112,14 @@ no_spcm = np.array([16, 24])
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
-seed_SIP_gen = 3717
+seed_SIP_gen = 3711
 
 # for collisons
 # seed start with 4 for dt_col = dt_adv
 #seed_sim = 4711
 
 # seed start with 6 for dt_col = 0.5 dt_adv
-seed_sim = 6717
+seed_sim = 6711
 
 #%% SIMULATION PARAMETERS
 
@@ -138,12 +138,13 @@ spin_up_before = True
 
 #t_start = 0.0
 #t_start = 600.0
-t_start = 7200.0 # s
+#t_start = 7200.0 # s
+t_start = 10800.0 # s
 
 #t_end = 7200.0 # s
-t_end = 10800.0 # s
+#t_end = 10800.0 # s
 #t_end = 7200.0+5.0 # s
-#t_end = 7200.0*2 # s
+t_end = 7200.0*2 # s
 #t_end = 60.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
@@ -240,7 +241,10 @@ grid_folder =\
 save_path = simdata_path + grid_folder + save_folder
 
 if spin_up_before:
-    grid_folder += "spin_up_wo_col_wo_grav/"
+    if t_start <= 7200.:
+        grid_folder += "spin_up_wo_col_wo_grav/"
+    elif simulation_mode == "with_collision":
+        grid_folder += f"w_spin_up_w_col/{seed_sim}/"
 
 # the seed is added later automatically for collision simulations
 #save_folder = "no_spin_up_with_col/"
@@ -263,6 +267,8 @@ if not os.path.exists(save_path):
 #################################### 
 
 water_removed = np.array([0.0])
+if t_start > 0.:
+    water_removed = np.load(simdata_path + grid_folder + f"water_removed_{int(t_start)}.npy")
 
 #%% SIMULATION
 
