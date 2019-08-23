@@ -96,8 +96,8 @@ import constants as c
 # from analysis import compare_functions_run_time
 
 #%% storage directories -> need to assign "simdata_path" and "fig_path"
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -156,7 +156,8 @@ solute_type = "AS"
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([20, 30])
+no_spcm = np.array([26, 38])
+#no_spcm = np.array([20, 30])
 #no_spcm = np.array([20, 20])
 
 reseed = False
