@@ -7,7 +7,7 @@ Created on Mon May 13 12:28:30 2019
 """
 
 #%% MODULE IMPORTS & LOAD GRID
-
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 # import os
@@ -27,8 +27,8 @@ from file_handling import load_grid_and_particles_full,\
 #from grid import compute_no_grid_cells_from_step_sizes
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -61,7 +61,8 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
 #no_spcm = np.array([12, 12])
-no_spcm = np.array([16, 24])
+#no_spcm = np.array([16, 24])
+no_spcm = np.array([20, 30])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
@@ -74,10 +75,15 @@ seed_SIP_gen_list = [3711, 3713, 3715, 3717]
 seed_sim = 4711
 #seed_sim_list = [4711, 4711]
 seed_sim_list = [4711, 4711, 4711, 4711]
+#seed_sim_list = [6711, 6713, 6715, 6717]
+#seed_sim_list = [4711, 4713, 4715, 4717]
 
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
 simulation_mode = "with_collision"
+
+#dt_col = 0.5
+dt_col = 1.0
 
 spin_up_finished = True
 #spin_up_finished = False
@@ -96,12 +102,14 @@ t_start = 7200
 # t_end = 10800
 t_end = 14400
 
+#%% PLOTTING PARAMETERS 
+
 #args_plot = [1,1,1,1,1,1]
 #args_plot = [0,1,0,0,0]
 #args_plot = [0,0,1,0,0]
 #args_plot = [0,0,0,1,0]
 #args_plot = [0,0,0,0,1]
-args_plot = [0,0,0,0,0,0,0,0]
+args_plot = [0,0,0,0,0,0,0,0,1]
 #args_plot = [0,0,0,0,0,0,1,1]
 
 act_plot_scalar_fields_once = args_plot[0]
@@ -112,7 +120,10 @@ act_plot_scalar_field_frames = args_plot[4]
 act_plot_scalar_field_frames_ext = args_plot[5]
 act_plot_grid_frames_avg = args_plot[6]
 act_plot_spectra_avg_Arabas = args_plot[7]
+act_plot_life_cycle = args_plot[8]
 
+
+### target cells for spectra analysis
 #    i_tg = [20,40,60]
 #    j_tg = [20,40,50,60,65,70]
 
@@ -121,13 +132,13 @@ i_tg = [16,58,66]
 #    j_tg = [20]
 #    j_tg = [20,40]
 #    j_tg = [40,60]
-j_tg = [27, 44, 46, 51, 73]
+j_tg = [27, 44, 46, 51, 73][::-1]
 
 i_list, j_list = np.meshgrid(i_tg,j_tg, indexing = "xy")
 target_cell_list = np.array([i_list.flatten(), j_list.flatten()])
 
 #    print(target_cell_list)
-
+# region range of spectra analysis
 no_cells_x = 3
 no_cells_z = 3
 
@@ -446,12 +457,12 @@ if act_plot_grid_frames_avg:
 
     field_ind = np.array((2,5,0,1))
 #    field_ind_ext = np.array((0,1,2))
-    field_ind_deri = np.array((0,1,2,3,4,5,6))
+    field_ind_deri = np.array((0,1,2,3,4,5,6,7,8))
     
 #    time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
     
-#    time_ind = np.array((0,2,4,6,8,10,12))
-    time_ind = np.array((0,3,6,9))
+    time_ind = np.array((0,2,4,6,8,10,12))
+#    time_ind = np.array((0,3,6,9))
     
     show_target_cells = True
 #    i_tg = [20,40,60]
@@ -509,14 +520,20 @@ if act_plot_grid_frames_avg:
     
     grid_folder_ =\
         f"{solute_type}" \
-        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"plots/{simulation_mode}/dt_col_{dt_col}/"
+    
+    fig_path = simdata_path + grid_folder_
+    
+    if not os.path.exists(fig_path):
+        os.makedirs(fig_path) 
          
-    fig_name = simdata_path + grid_folder_ \
+    fig_name = fig_path \
                + f"scalar_fields_avg_" \
                + f"t_{save_times_out[0]}_" \
                + f"{save_times_out[-1]}_Nfr_{len(save_times_out)}_" \
                + f"Nfields_{len(field_names_out)}_" \
-               + f"Nseeds_{no_seeds}.png" 
+               + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}.png" 
                
     plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                                         save_times_out,
@@ -534,16 +551,14 @@ if act_plot_grid_frames_avg:
                                         target_cell_list = target_cell_list,
                                         no_cells_x = no_cells_x,
                                         no_cells_z = no_cells_z)    
-
+    plt.close("all")
+    
 #%% PLOT SPECTRA AVG 
 
 if act_plot_spectra_avg_Arabas:
     from analysis import sample_masses, sample_radii
     from analysis import sample_masses_per_m_dry , sample_radii_per_m_dry
     from analysis import plot_size_spectra_R_Arabas, generate_size_spectra_R_Arabas
-    
-    
-
     
     no_bins_R_p = 30
     no_bins_R_s = 30
@@ -608,9 +623,13 @@ if act_plot_spectra_avg_Arabas:
     
     grid_folder_ =\
         f"{solute_type}" \
-        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"plots/{simulation_mode}/dt_col_{dt_col}/"
          
     fig_path = simdata_path + grid_folder_
+    
+    if not os.path.exists(fig_path):
+        os.makedirs(fig_path) 
     
     fig_name =\
         fig_path \
@@ -645,6 +664,7 @@ if act_plot_spectra_avg_Arabas:
                                fig_path_tg_cells = fig_path_tg_cells   ,
                                fig_path_R_eff = fig_path_R_eff
                                )        
+    plt.close("all")
 
 #%% TRACED PARTICLE ANALYSIS
 if act_plot_life_cycle:    
@@ -675,7 +695,8 @@ if act_plot_life_cycle:
                                                       grid_save_times,
                                                       pt_dumps_per_grid_frame)
     
-    trace_times = np.arange(0, 7201, 10)
+#    trace_times = np.arange(0, 7201, 10)
+    trace_times = np.arange(7200, 14401, 10)
     
     pos_trace = vecs[:,0]
     vel_trace = vecs[:,1]
@@ -685,19 +706,36 @@ if act_plot_life_cycle:
     print(pos_trace.shape)
     print(m_w_trace.shape)
     
-    #fig, ax = plt.subplots(figsize=(8,8))
-    #for cnt, trace_id in enumerate(trace_ids):
-    #    ax.plot( pos_trace[::2,0, cnt], pos_trace[::2,1, cnt], "o", markersize=1 )
-    ##    ax.annotate(f"({cnt} {trace_id})",
-    #    ax.annotate(f"({cnt})",
-    #                (pos_trace[0,0, cnt], pos_trace[0,1, cnt]))
-    #
-    #fig.savefig(load_path + "positions_with_id_annotate.pdf")
+    act_traj_all = False
+    if act_traj_all:
+        fig, ax = plt.subplots(figsize=(8,8))
+        
+        for cnt, trace_id in enumerate(trace_ids):
+            ax.plot( pos_trace[::2,0, cnt], pos_trace[::2,1, cnt], "o", markersize=1 )
+        #    ax.annotate(f"({cnt} {trace_id})",
+            ax.annotate(f"({cnt})",
+                        (pos_trace[0,0, cnt], pos_trace[0,1, cnt]))
+        
+        fig.savefig(load_path + "positions_with_id_annotate.pdf")
     
     # possible ids: 39, 2, 25, 9
     
+    # for 20_30: 3711, 4711 try trace_id_n1 = 36
+    
     #trace_id_n1 = 9
-    trace_id_n1 = 25
+    
+    trace_id_n1 = 36
+
+    save_folder_ =\
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"plots/{simulation_mode}/dt_col_{dt_col}/"\
+        + f"gen_{seed_SIP_gen_list[0]}_sim_{seed_sim_list[0]}/"
+    
+    fig_path = simdata_path + save_folder_
+    if not os.path.exists(fig_path):
+        os.makedirs(fig_path)     
+#    trace_id_n1 = 25
     #trace_id_n1 = 39
     
     m_w1 = m_w_trace[:,trace_id_n1]
@@ -708,11 +746,25 @@ if act_plot_life_cycle:
     
     fields = load_grid_scalar_fields(load_path, grid_save_times)
     
+    
     T_grid = fields[:, 3]
     
+    # NOTE that for pos = [ pos_t0, pos_t1, .. ]
+    # BUT cells1 = [ cells_x_vs_t, cells_z_vs_t ]
     cells1, rel_pos1 = grid.compute_cell_and_relative_location(pos1[:,0],
                                                                pos1[:,1])
     
+    # the same as tg_cells_tracer below...
+    cells1_at_grid_save_times = cells1[:,::pt_dumps_per_grid_frame]
+    scalar_fields_at_tg_cells = np.zeros((len(grid_save_times),
+                                         len(fields[0])), dtype = np.float64)
+    
+    for stime_n, save_time in enumerate(grid_save_times):
+        scalar_fields_at_tg_cells[stime_n] = \
+            fields[stime_n,:, cells1_at_grid_save_times[0,stime_n],
+                   cells1_at_grid_save_times[1,stime_n]]
+
+
     T_p = np.zeros_like(xi1)
     
     ttime_n = 0
@@ -721,13 +773,16 @@ if act_plot_life_cycle:
             T_p[ttime_n] = T_grid[stime_n, cells1[0,ttime_n], cells1[1,ttime_n] ]
             ttime_n += 1
     T_p[-1] = T_grid[-1, cells1[0,-1], cells1[1,-1] ]
+
     
     R_p1, w_s1, rho_p1 = compute_R_p_w_s_rho_p_AS(m_w1, m_s1, T_p)
     
     R_s1 = \
     compute_radius_from_mass_vec(m_s1, c.mass_density_AS_dry)
     
-    fig_name = load_path + f"traj_tracer_{trace_id_n1}.pdf"
+    fig_name = fig_path + f"traj_tracer_{trace_id_n1}.pdf"
+#    fig_name = load_path + f"traj_tracer_{trace_id_n1}.pdf"
+    
     from analysis import plot_particle_trajectories
     plot_particle_trajectories( pos1, grid, MS=2.0, arrow_every=5,
                                ARROW_SCALE=20,ARROW_WIDTH=0.005,
@@ -736,26 +791,253 @@ if act_plot_life_cycle:
                                t_start=t_start, t_end=t_end)
     
     pos1_shift = np.copy(pos1)
-    if pos1[0,0] < 375.:
-        pos1_shift[:,0] += 750.
-        pos1_shift[:,0] = pos1_shift[:,0] % 1500.
     
-    ### IN WORK: shift und spiegeln??
+    field_names = ["r_v", "r_l", "\Theta", "T", "p", "S"]
+#    scales = [1000, 1000, 1, 1, 0.001, 1]
+#    scales = [1000/7.5, 1000/1.0, 1./289, 1./289, 1E-5, 1.]
+    scales = [1000./7.5, 1000./1., 10., 1., 1E-5, 1.]
+#    field_shifts = [6.5E-3, 0., 289., 273., 0., 0. ]
+    field_shifts = [0., 0., 289., 273., 0., 0. ]
+    units = ["g/kg", "g/kg", "K", "K", "mPa", "-"]    
     
-    fig_name = load_path + f"R_p_vs_t_tracer_{trace_id_n1}.pdf"
-    fig, ax = plt.subplots(figsize=(8,8))
-    ax.plot(trace_times, R_p1)
-    ax.plot(trace_times, pos1_shift[:,0]*1E-2)
-    ax.plot(trace_times, pos1[:,1]*1E-2)
+    marker_list = ("o","x", "+", "D", "s", "^", "P"  )
     
+    linestyle_list = ("-", "-", "--", ":", "-.", "-" )
+#    linestyle_list = ("-", "-", "--", ":", "-.",  (0, (3, 5, 1, 5, 1, 5)) )
+
+    scale_pos = 1E-3
+    # not nec for now
+#    if pos1[0,0] < 375.:
+#        pos1_shift[:,0] += 750.
+#        pos1_shift[:,0] = pos1_shift[:,0] % 1500.
+    
+    ### IN WORK: shift und spiegeln?? -> not nec: found better tracer ;P
+    
+    MS = 5.
+    
+    prop_cycle = plt.rcParams['axes.prop_cycle']
+    colors_default = prop_cycle.by_key()['color']
+#    fig_name = load_path + f"R_p_vs_t_tracer_{trace_id_n1}.pdf"
+    fig_name = fig_path + f"R_p_vs_t_tracer_{trace_id_n1}.pdf"
+    
+    fig, axes = plt.subplots(nrows = 2, figsize=(4,4), sharex=True,
+                             gridspec_kw={'height_ratios': [1, 2]})
+    
+    ax = axes[0]
+    ax.plot(trace_times/60, R_p1, c = "k", label = r"$R_p$")
+    field_n = 1
+    ax.plot(grid_save_times/60,
+            (scalar_fields_at_tg_cells[:,field_n])
+            * scales[field_n]*10,
+            "o-", label = r"${}$".format(field_names[field_n]),
+            c = colors_default[0], fillstyle = "none")
+    ax2 = ax.twinx()
+    ax2.plot(trace_times/60, pos1_shift[:,0]*scale_pos,
+             c = colors_default[1], linestyle = "--", label = "x")
+    ax2.plot(trace_times/60, pos1_shift[:,1]*scale_pos,
+             c = colors_default[2], linestyle = ":", label = "z")
+    ax.grid()
+#    ax.legend()
+    bbox_y_pos = 1.8
+    ax.legend(loc = "upper left", bbox_to_anchor=(-0.1, bbox_y_pos), ncol = 2)
+#    ax.legend(loc = "lower left", bbox_to_anchor=(-0.1, 1.1), ncol = 2)
+    ax.set_xticks(grid_save_times[::2]/60)
+    ax.set_xlim((grid_save_times[0]/60, grid_save_times[-1]/60))
+#    ax2.legend(loc='upper right', bbox_to_anchor=(0.8, 1.))
+    ax2.legend(loc = "upper right", bbox_to_anchor=(1.1, bbox_y_pos), ncol = 2)
+#    ax2.legend(loc = "lower right", bbox_to_anchor=(1.1, 1.1), ncol = 2)
+
+
+    ax = axes[1]
+    
+    
+#    for field_n in (0,1,2,3,4,5):
+    for field_n in (0,4,5):
+        if field_n == 1:
+            ax.plot(-1,1.0, marker=marker_list[field_n],
+                label = r"${}$".format(field_names[field_n]))
+        else:
+            ax.plot(grid_save_times/60,
+                    (scalar_fields_at_tg_cells[:,field_n] - field_shifts[field_n])
+                    * scales[field_n],
+#                    scalar_fields_at_tg_cells[:,field_n] * scales[field_n],
+                    marker=marker_list[field_n],
+                    label = r"${}$".format(field_names[field_n]),
+                    fillstyle = "none", markersize = MS,
+                    linestyle = linestyle_list[field_n],
+                    c = colors_default[field_n])
+    ax2 = ax.twinx()
+    for field_n in (2,3):
+        ax2.plot(grid_save_times/60,
+#                        (scalar_fields_at_tg_cells[:,field_n]),
+                        (scalar_fields_at_tg_cells[:,field_n] - field_shifts[field_n])
+                    * scales[field_n],
+    #                    scalar_fields_at_tg_cells[:,field_n] * scales[field_n],
+                        marker=marker_list[field_n],
+                        label = r"${}$".format(field_names[field_n]),
+                        fillstyle = "none", markersize = MS,
+                        linestyle = linestyle_list[field_n],
+                        c = colors_default[field_n])
+    
+#    ax2 = ax.twinx()
+#    ax2.plot(grid_save_times/60,
+#                scalar_fields_at_tg_cells[:,field_n] * scales[field_n],
+#                "x-", label = r"${}$".format(field_names[field_n]),
+#                c = "orange")
+    bbox_y_pos = 1.3
+    ax.set_xticks(grid_save_times[::2]/60)
+    ax.set_xlim((grid_save_times[0]/60, grid_save_times[-1]/60))
+    ax.legend(loc = "upper left", bbox_to_anchor=(-0.1, bbox_y_pos), ncol = 3)
+#    ax.legend(loc = "lower left", bbox_to_anchor=(-0.1, bbox_y_pos), ncol = 3)
+    ax.grid()
+    ax.tick_params(axis='both', which='major', labelsize=8)
+    ax2.tick_params(axis='both', which='major', labelsize=8)
+    
+    ax2.legend(loc = "upper right", bbox_to_anchor=(1.1, bbox_y_pos), ncol = 2)
+#    ax2.legend(loc = "lower right", bbox_to_anchor=(1.1, bbox_y_pos), ncol = 2)
+#    ax2.legend(loc = "best")
+    
+    fig.tight_layout()
     fig.savefig(fig_name)
+    plt.close("all")
     
+    #%%
     #plt.close("all")
+    
+    # get the cells at the grid_save_times
+    
+    # this has to picked individually for each tracer!
+    ind_tracer_grid_times = np.arange(5,len(grid_save_times)-5)
+    
+    #    no_rows = len(save_times_out)
+    # len(save_times) = 25 for 2h sim with 1 frame per 5 min
+    no_rows = 5 
+    no_cols = 3
+    
+    tg_cells_tracer = cells1[:,::pt_dumps_per_grid_frame][:,ind_tracer_grid_times]
+    
+    ind_traj_first_t = ind_tracer_grid_times[0]*pt_dumps_per_grid_frame
+    ind_traj_last_t = ind_tracer_grid_times[-1]*pt_dumps_per_grid_frame
+    
+#    ind_time = np.arange(grid_save_times.shape[0])
+    ind_time = ind_tracer_grid_times
+    
+    no_bins_R_p = 30
+    no_bins_R_s = 30
+    
+    load_path_list = []    
+#    no_seeds = len(seed_SIP_gen_list)
+    no_seeds = 1
+    for seed_n in range(no_seeds):
+        seed_SIP_gen_ = seed_SIP_gen_list[seed_n]
+        seed_sim_ = seed_sim_list[seed_n]
+        
+        grid_folder_ =\
+            f"{solute_type}" \
+            + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
+            + f"{seed_SIP_gen_}/"
+        
+        if simulation_mode == "spin_up":
+            save_folder_ = "spin_up_wo_col_wo_grav/"
+        elif simulation_mode == "wo_collision":
+            if spin_up_finished:
+                save_folder_ = "w_spin_up_wo_col/"
+            else:
+                save_folder_ = "wo_spin_up_wo_col/"
+        elif simulation_mode == "with_collision":
+            if spin_up_finished:
+                save_folder_ = f"w_spin_up_w_col/{seed_sim_}/"
+            else:
+                save_folder_ = f"wo_spin_up_w_col/{seed_sim_}/"        
+                load_path_list.append()
+        
+        load_path_list.append(simdata_path + grid_folder_ + save_folder_)
+    
+    #print(load_path_list)
+    
+    #%%
+    f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, save_times_out,\
+    grid_r_l_list, R_min_list, R_max_list = \
+        generate_size_spectra_R_Arabas(load_path_list,
+                                       ind_time,
+                                       grid.mass_dry_inv,
+                                       grid.no_cells,
+                                       solute_type,
+                                       tg_cells_tracer,
+                                       no_cells_x, no_cells_z,
+                                       no_bins_R_p, no_bins_R_s)  
+
+    # for fig name
+    if no_cells_x % 2 == 0: no_cells_x += 1
+    if no_cells_z % 2 == 0: no_cells_z += 1  
+    j_low = tg_cells_tracer[1].min()
+    j_high = tg_cells_tracer[1].max()
+    t_low = save_times_out.min()
+    t_high = save_times_out.max()
+    no_tg_cells = len(save_times_out)
+    
+#    grid_folder_ =\
+#        f"{solute_type}" \
+#        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+#        + f"plots/{simulation_mode}/dt_col_{dt_col}/tracer_{trace_id_n1}/"
+#         
+#    save_folder_ =\
+#        f"{solute_type}" \
+#        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+#        + f"plots/{simulation_mode}/dt_col_{dt_col}/"\
+#        + f"gen_{seed_SIP_gen_list[0]}_sim_{seed_sim_list[0]}/"        
+        
+#    fig_path = simdata_path + save_folder_
+#    fig_path = simdata_path + grid_folder_
+    
+#    if not os.path.exists(fig_path):
+#        os.makedirs(fig_path) 
+    
+    fig_name =\
+        fig_path \
+        + f"spectra_tracer_{trace_id_n1}_" \
+        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
+        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
+    fig_path_tg_cells =\
+        fig_path \
+        + f"tg_cell_posi_tracer_{trace_id_n1}_" \
+        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
+        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
+    fig_path_R_eff =\
+        fig_path \
+        + f"R_eff_tracer_{trace_id_n1}_" \
+        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
+        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
+    
+    
+
+    
+    from analysis import plot_size_spectra_R_Arabas
+    
+    plot_size_spectra_R_Arabas(
+            f_R_p_list, f_R_s_list,
+            bins_R_p_list, bins_R_s_list,
+            grid_r_l_list,
+            R_min_list, R_max_list,
+            save_times_out,
+            solute_type,
+            grid,
+            tg_cells_tracer,
+            no_cells_x, no_cells_z,
+            no_bins_R_p, no_bins_R_s,
+            no_rows, no_cols,
+            TTFS=12, LFS=10, TKFS=10, LW = 2.0,
+            fig_path = fig_name,
+            show_target_cells = True,
+            fig_path_tg_cells = fig_path_tg_cells   ,
+            fig_path_R_eff = fig_path_R_eff,
+            trajectory = pos1_shift[ind_traj_first_t:ind_traj_last_t] )
 
 
 
-
-
-
-
+    plt.close("all")
+    
+    
+    
+    
 

@@ -1467,8 +1467,12 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
 @njit()
 def compute_moment_R_grid(n, R_p, xi, cells, active_ids, id_list, no_cells):
     moment = np.zeros( (no_cells[0], no_cells[1]), dtype = np.float64 )
-    for ID in id_list[active_ids]:
-        moment[cells[0,ID],cells[1,ID]] += xi[ID] * R_p[ID]**n
+    if n == 0:
+        for ID in id_list[active_ids]:
+            moment[cells[0,ID],cells[1,ID]] += xi[ID]
+    else:
+        for ID in id_list[active_ids]:
+            moment[cells[0,ID],cells[1,ID]] += xi[ID] * R_p[ID]**n
     return moment
 
 from file_handling import load_grid_scalar_fields, load_particle_data_all
@@ -1514,9 +1518,11 @@ def generate_field_frame_data_avg(load_path_list,
     units_orig = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
     
     field_names_deri = ["r_\mathrm{aero}", "r_c", "r_r",
-                       "n_\mathrm{aero}", "n_c", "n_r", r"R_\mathrm{eff}"]
-    units_deri = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg", r"$\mu\,m$"]
-    scales_deri = [1000., 1000., 1000., 1E-6, 1E-6, 1E-6, 1.]    
+                       "n_\mathrm{aero}", "n_c", "n_r",
+                       r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]
+    units_deri = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg",
+                  r"$\mathrm{\mu m}$", r"$\mathrm{\mu m}$", r"$\mathrm{\mu m}$"]
+    scales_deri = [1000., 1000., 1000., 1E-6, 1E-6, 1E-6, 1., 1., 1.]    
     
     no_seeds = len(load_path_list)
     no_times = len(time_indices)
@@ -1591,6 +1597,23 @@ def generate_field_frame_data_avg(load_path_list,
                                        no_cells[1]),
                                        dtype = np.float64)
             
+            mom0 = compute_moment_R_grid(0, R_p, xi_with_time[idx_t],
+                                         cells_with_time[idx_t],
+                                         active_ids_with_time[idx_t],
+                                         id_list, no_cells)
+            mom1 = compute_moment_R_grid(1, R_p, xi_with_time[idx_t],
+                                         cells_with_time[idx_t],
+                                         active_ids_with_time[idx_t],
+                                         id_list, no_cells)
+            mom2 = compute_moment_R_grid(2, R_p, xi_with_time[idx_t],
+                                         cells_with_time[idx_t],
+                                         active_ids_with_time[idx_t],
+                                         id_list, no_cells)
+            mom3 = compute_moment_R_grid(3, R_p, xi_with_time[idx_t],
+                                         cells_with_time[idx_t],
+                                         active_ids_with_time[idx_t],
+                                         id_list, no_cells)
+
             for cnt in range(no_fields_derived):
                 idx_f = derived_indices[cnt]
                 if idx_f < 6:
@@ -1610,15 +1633,14 @@ def generate_field_frame_data_avg(load_path_list,
                                 cells_with_time[idx_t],
                                 mass_dry_inv, 
                                 id_list, mask)
-                elif idx_f == 6: # IN WORK: R_eff
-                    mom2 = compute_moment_R_grid(2, R_p, xi_with_time[idx_t],
-                                                 cells_with_time[idx_t],
-                                                 active_ids_with_time[idx_t],
-                                                 id_list, no_cells)
-                    mom3 = compute_moment_R_grid(3, R_p, xi_with_time[idx_t],
-                                                 cells_with_time[idx_t],
-                                                 active_ids_with_time[idx_t],
-                                                 id_list, no_cells)
+                elif idx_f == 6:
+                    # R_mean
+                    fields_derived[cnt] = mom1/mom0
+                elif idx_f == 7:
+                    # R_2/1
+                    fields_derived[cnt] = mom2/mom1
+                elif idx_f == 8:
+                    # R_eff
                     fields_derived[cnt] = mom3/mom2
                 
                         
@@ -1715,8 +1737,9 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
             if ax_title == "n_\mathrm{aero}":
                 field_min = 0.0
                 field_max = 150.
-            if ax_title == "R_\mathrm{eff}":
-                field_min = 1.5
+            if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+                field_min = 0.
+#                field_min = 1.5
                 field_max = 20.
                 cmap = cmap_new
                 
@@ -1938,16 +1961,19 @@ def generate_size_spectra_R_Arabas(load_path_list,
 #        
 #        R_s_min = np.amin(R_s_list[tg_cell_n])
 #        R_s_max = np.amax(R_s_list[tg_cell_n])
-    
-        bins_R_p = np.logspace(np.log10(R_p_min*0.999),
-                               np.log10(R_p_max*1.001), no_bins_R_p+1 )
+        
+        R_min_factor = 0.5
+        R_max_factor = 2.
+        
+        bins_R_p = np.logspace(np.log10(R_p_min*R_min_factor),
+                               np.log10(R_p_max*R_max_factor), no_bins_R_p+1 )
         
         bins_R_p_list[tg_cell_n] = np.copy(bins_R_p )
         
         bins_width_R_p = bins_R_p[1:] - bins_R_p[:-1]
 
-        bins_R_s = np.logspace(np.log10(R_s_min*0.999),
-                               np.log10(R_s_max*1.001), no_bins_R_s+1 )
+        bins_R_s = np.logspace(np.log10(R_s_min*R_min_factor),
+                               np.log10(R_s_max*R_max_factor), no_bins_R_s+1 )
     
         bins_width_R_s = bins_R_s[1:] - bins_R_s[:-1]
 
@@ -1992,11 +2018,12 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                no_cells_x, no_cells_z,
                                no_bins_R_p, no_bins_R_s,
                                no_rows, no_cols,
-                               TTFS=12, LFS=10, TKFS=10, LW = 4.0,
+                               TTFS=12, LFS=10, TKFS=10, LW = 4.0, MS = 3.0,
                                fig_path = None,
                                show_target_cells = False,
                                fig_path_tg_cells = None,
-                               fig_path_R_eff = None
+                               fig_path_R_eff = None,
+                               trajectory = None
                                ):
     
 #    f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, save_times_out = \
@@ -2021,7 +2048,7 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                              figsize = (no_cols*5, no_rows*4) )
     
     plot_n = -1
-    for row_n in range(no_rows)[::-1]:
+    for row_n in range(no_rows):
         for col_n in range(no_cols):
             plot_n += 1
             if no_cols == 1:
@@ -2091,9 +2118,10 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                             fontsize = TTFS )            
             ax.grid()
             ax.legend(loc='upper right')
-            
-            ax.annotate(f"({R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e})",
-                        (8.,50.))
+
+#            ax.annotate(f"({R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e})",
+            ax.annotate(f"$R_{{min/max}}$\n{R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e}",            
+                        (12.,40.))
             
             #ax.set_ylim( [f_R_min*0.5,4E3] )
     fig.tight_layout()
@@ -2110,7 +2138,7 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                              figsize = (no_cols*5, no_rows*4) )
     
     plot_n = -1
-    for row_n in range(no_rows)[::-1]:
+    for row_n in range(no_rows):
         for col_n in range(no_cols):
             plot_n += 1
             if no_cols == 1:
@@ -2181,8 +2209,8 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
             ax.grid()
             ax.legend(loc='upper right')
             
-            ax.annotate(f"({R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e})",
-                        (8.,50.))
+            ax.annotate(f"$R_{{min/max}}$\n{R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e}",
+                        (25.,6.))
             
             #ax.set_ylim( [f_R_min*0.5,4E3] )
     fig.tight_layout()
@@ -2331,7 +2359,13 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                  edgecolor='k',
                                  zorder = 99)        
             ax.add_patch(rect)
-            
+        
+#        MS = 2
+        if trajectory is not None:
+#            print("should plot here")
+            ax.plot(trajectory[:,0],trajectory[:,1],"o",
+                    markersize = MS, c="k")
+        
         ax.tick_params(axis='both', which='major', labelsize=TKFS)
         ax.grid(color='gray', linestyle='dashed', zorder = 2)
         ax.set_title(r"$r_l$ (g/kg), t = {} min".format(save_times_out[0]//60))
