@@ -2105,6 +2105,95 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
 #            + f"Ntgcells_{no_tg_cells}_no_cells_{no_cells_x}_{no_cells_z}_" \
 #            + f"Nseeds_{no_seeds}.pdf"
         fig.savefig(fig_path)
+
+    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
+                             figsize = (no_cols*5, no_rows*4) )
+    
+    plot_n = -1
+    for row_n in range(no_rows)[::-1]:
+        for col_n in range(no_cols):
+            plot_n += 1
+            if no_cols == 1:
+                if no_rows == 1:
+                    ax = axes
+                else:                    
+                    ax = axes[row_n]
+            else:
+                ax = axes[row_n, col_n]        
+            
+            target_cell = target_cell_list[:,plot_n]
+            
+            f_R_p = f_R_p_avg[plot_n]
+            f_R_s = f_R_s_avg[plot_n]
+            f_R_p_err = f_R_p_std[plot_n]
+            f_R_s_err = f_R_s_std[plot_n]
+            
+            bins_R_p = bins_R_p_list[plot_n]
+            bins_R_s = bins_R_s_list[plot_n]
+            
+            f_R_p_min = f_R_p.min()
+            f_R_p_max = f_R_p.max()
+            f_R_s_min = f_R_s.min()
+            f_R_s_max = f_R_s.max()            
+            
+            ax.plot(np.repeat(bins_R_p,2),
+                    np.hstack( [[f_R_p_min*1E-1],
+                                np.repeat(f_R_p,2),
+                                [f_R_p_min*1E-1] ] ),
+                    linewidth = LW, label = "wet")
+            ax.plot(np.repeat(bins_R_s,2),
+                    np.hstack( [[f_R_s_min*1E-1],
+                                np.repeat(f_R_s,2),
+                                [f_R_s_min*1E-1] ] ),
+                    linewidth = LW, label = "dry")            
+    
+#            ax.vlines(0.5, f_R_s_min, f_R_s_max)
+            ax.axvline(0.5, c ="k", linewidth=1.0)
+            ax.axvline(25., c ="k", linewidth=1.0)
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+#            ax.set_xlim( [2E-3, 1E2] )    
+#            ax.set_ylim( [8E-3, 4E3] )    
+            ax.set_xlim( [2E-3, 3E2] )    
+            ax.set_ylim( [1E-5, 4E3] )    
+            
+            ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                           length = 5)
+            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+                           length = 3)
+            
+#            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
+            xx = int((target_cell[0])*grid_steps[0])
+            height = int((target_cell[1])*grid_steps[1])
+#            xx = int((target_cell[0]+0.5)*grid_steps[1])
+#            height = int((target_cell[1]+0.5)*grid_steps[1])
+            ax.set_xlabel(r"particle radius ($\mathrm{\mu m}$)",
+                          fontsize = LFS)
+            ax.set_ylabel(r"distribution (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
+                          fontsize = LFS)
+            # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
+            # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
+            ax.set_title( f'x = {xx}, h = {height} m ' +
+                         f"cell ({target_cell[0]} {target_cell[1]}) "
+                            + f"Nc ({no_cells_x}, {no_cells_z}) "
+                            +f"t = {save_times_out[plot_n]//60} min",
+                            fontsize = TTFS )            
+            ax.grid()
+            ax.legend(loc='upper right')
+            
+            ax.annotate(f"({R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e})",
+                        (8.,50.))
+            
+            #ax.set_ylim( [f_R_min*0.5,4E3] )
+    fig.tight_layout()
+    
+    if fig_path is not None:
+#        fig_name =\
+#            fig_path \
+#            + f"spectrum_cell_list_j_from_{j_low}_to_{j_high}_" \
+#            + f"Ntgcells_{no_tg_cells}_no_cells_{no_cells_x}_{no_cells_z}_" \
+#            + f"Nseeds_{no_seeds}.pdf"
+        fig.savefig(fig_path[:-4] + "_ext.pdf")
     
     ### CALC EFFECTIVE RADIUS = MOMENT3/MOMENT2 FROM ANALYSIS OF f_R
     R_eff_list = np.zeros((no_tg_cells, 3), dtype = np.float64)

@@ -616,17 +616,17 @@ if act_plot_spectra_avg_Arabas:
         fig_path \
         + f"spectra_at_tg_cells_j_from_{j_low}_to_{j_high}_" \
         + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
-        + f"Nseeds_{no_seeds}_t_{t_low}_{t_high}.pdf"
+        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
     fig_path_tg_cells =\
         fig_path \
-        + f"spectra_t_g_cell_pos_j_from_{j_low}_to_{j_high}_" \
+        + f"tg_cell_posi_j_from_{j_low}_to_{j_high}_" \
         + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
-        + f"Nseeds_{no_seeds}_t_{t_low}_{t_high}.pdf"
+        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
     fig_path_R_eff =\
         fig_path \
         + f"R_eff_{j_low}_to_{j_high}_" \
         + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
-        + f"Nseeds_{no_seeds}_t_{t_low}_{t_high}.pdf"
+        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
     
     plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                bins_R_p_list, bins_R_s_list,
@@ -647,110 +647,110 @@ if act_plot_spectra_avg_Arabas:
                                )        
 
 #%% TRACED PARTICLE ANALYSIS
+if act_plot_life_cycle:    
+    print(load_path)
     
-print(load_path)
-
-trace_ids = np.load(load_path + "trace_ids.npy")
-print(trace_ids)
-
-frame_every, no_grid_frames, dump_every = \
-    np.load(load_path+"data_saving_paras.npy")
-pt_dumps_per_grid_frame = frame_every // dump_every
-grid_save_times = np.load(load_path+"grid_save_times.npy")
-
-# grid_save_times =\
-#     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
-print("grid_save_times")
-print(grid_save_times)
-
-#traced_vectors[dump_N,0] = pos[:,trace_ids]
-#traced_vectors[dump_N,1] = vel[:,trace_ids]
-#traced_scalars[dump_N,0] = m_w[trace_ids]
-#traced_scalars[dump_N,1] = m_s[trace_ids]
-#traced_xi[dump_N] = xi[trace_ids]
-#traced_water[dump_N] = water_removed[0]
-
-from file_handling import load_particle_data_from_blocks
-vecs, scals, xis = load_particle_data_from_blocks(load_path,
-                                                  grid_save_times,
-                                                  pt_dumps_per_grid_frame)
-
-trace_times = np.arange(0, 7201, 10)
-
-pos_trace = vecs[:,0]
-vel_trace = vecs[:,1]
-m_w_trace = scals[:,0]
-m_s_trace = scals[:,1]
-
-print(pos_trace.shape)
-print(m_w_trace.shape)
-
-#fig, ax = plt.subplots(figsize=(8,8))
-#for cnt, trace_id in enumerate(trace_ids):
-#    ax.plot( pos_trace[::2,0, cnt], pos_trace[::2,1, cnt], "o", markersize=1 )
-##    ax.annotate(f"({cnt} {trace_id})",
-#    ax.annotate(f"({cnt})",
-#                (pos_trace[0,0, cnt], pos_trace[0,1, cnt]))
-#
-#fig.savefig(load_path + "positions_with_id_annotate.pdf")
-
-# possible ids: 39, 2, 25, 9
-
-#trace_id_n1 = 9
-trace_id_n1 = 25
-#trace_id_n1 = 39
-
-m_w1 = m_w_trace[:,trace_id_n1]
-m_s1 = m_s_trace[:,trace_id_n1]
-xi1 = xis[:,trace_id_n1]
-pos1 = pos_trace[:,:,trace_id_n1]
-vel1 = pos_trace[:,:,trace_id_n1]
-
-fields = load_grid_scalar_fields(load_path, grid_save_times)
-
-T_grid = fields[:, 3]
-
-cells1, rel_pos1 = grid.compute_cell_and_relative_location(pos1[:,0],
-                                                           pos1[:,1])
-
-T_p = np.zeros_like(xi1)
-
-ttime_n = 0
-for stime_n, save_time in enumerate(grid_save_times[:-1]):
-    for cnt in range(30):
-        T_p[ttime_n] = T_grid[stime_n, cells1[0,ttime_n], cells1[1,ttime_n] ]
-        ttime_n += 1
-T_p[-1] = T_grid[-1, cells1[0,-1], cells1[1,-1] ]
-
-R_p1, w_s1, rho_p1 = compute_R_p_w_s_rho_p_AS(m_w1, m_s1, T_p)
-
-R_s1 = \
-compute_radius_from_mass_vec(m_s1, c.mass_density_AS_dry)
-
-fig_name = load_path + f"traj_tracer_{trace_id_n1}.pdf"
-from analysis import plot_particle_trajectories
-plot_particle_trajectories( pos1, grid, MS=2.0, arrow_every=5,
-                           ARROW_SCALE=20,ARROW_WIDTH=0.005,
-                           fig_name=fig_name, figsize=(10,10),
-                           TTFS=14, LFS=12, TKFS=12,
-                           t_start=t_start, t_end=t_end)
-
-pos1_shift = np.copy(pos1)
-if pos1[0,0] < 375.:
-    pos1_shift[:,0] += 750.
-    pos1_shift[:,0] = pos1_shift[:,0] % 1500.
-
-### IN WORK: shift und spiegeln??
-
-fig_name = load_path + f"R_p_vs_t_tracer_{trace_id_n1}.pdf"
-fig, ax = plt.subplots(figsize=(8,8))
-ax.plot(trace_times, R_p1)
-ax.plot(trace_times, pos1_shift[:,0]*1E-2)
-ax.plot(trace_times, pos1[:,1]*1E-2)
-
-fig.savefig(fig_name)
-
-#plt.close("all")
+    trace_ids = np.load(load_path + "trace_ids.npy")
+    print(trace_ids)
+    
+    frame_every, no_grid_frames, dump_every = \
+        np.load(load_path+"data_saving_paras.npy")
+    pt_dumps_per_grid_frame = frame_every // dump_every
+    grid_save_times = np.load(load_path+"grid_save_times.npy")
+    
+    # grid_save_times =\
+    #     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
+    print("grid_save_times")
+    print(grid_save_times)
+    
+    #traced_vectors[dump_N,0] = pos[:,trace_ids]
+    #traced_vectors[dump_N,1] = vel[:,trace_ids]
+    #traced_scalars[dump_N,0] = m_w[trace_ids]
+    #traced_scalars[dump_N,1] = m_s[trace_ids]
+    #traced_xi[dump_N] = xi[trace_ids]
+    #traced_water[dump_N] = water_removed[0]
+    
+    from file_handling import load_particle_data_from_blocks
+    vecs, scals, xis = load_particle_data_from_blocks(load_path,
+                                                      grid_save_times,
+                                                      pt_dumps_per_grid_frame)
+    
+    trace_times = np.arange(0, 7201, 10)
+    
+    pos_trace = vecs[:,0]
+    vel_trace = vecs[:,1]
+    m_w_trace = scals[:,0]
+    m_s_trace = scals[:,1]
+    
+    print(pos_trace.shape)
+    print(m_w_trace.shape)
+    
+    #fig, ax = plt.subplots(figsize=(8,8))
+    #for cnt, trace_id in enumerate(trace_ids):
+    #    ax.plot( pos_trace[::2,0, cnt], pos_trace[::2,1, cnt], "o", markersize=1 )
+    ##    ax.annotate(f"({cnt} {trace_id})",
+    #    ax.annotate(f"({cnt})",
+    #                (pos_trace[0,0, cnt], pos_trace[0,1, cnt]))
+    #
+    #fig.savefig(load_path + "positions_with_id_annotate.pdf")
+    
+    # possible ids: 39, 2, 25, 9
+    
+    #trace_id_n1 = 9
+    trace_id_n1 = 25
+    #trace_id_n1 = 39
+    
+    m_w1 = m_w_trace[:,trace_id_n1]
+    m_s1 = m_s_trace[:,trace_id_n1]
+    xi1 = xis[:,trace_id_n1]
+    pos1 = pos_trace[:,:,trace_id_n1]
+    vel1 = pos_trace[:,:,trace_id_n1]
+    
+    fields = load_grid_scalar_fields(load_path, grid_save_times)
+    
+    T_grid = fields[:, 3]
+    
+    cells1, rel_pos1 = grid.compute_cell_and_relative_location(pos1[:,0],
+                                                               pos1[:,1])
+    
+    T_p = np.zeros_like(xi1)
+    
+    ttime_n = 0
+    for stime_n, save_time in enumerate(grid_save_times[:-1]):
+        for cnt in range(30):
+            T_p[ttime_n] = T_grid[stime_n, cells1[0,ttime_n], cells1[1,ttime_n] ]
+            ttime_n += 1
+    T_p[-1] = T_grid[-1, cells1[0,-1], cells1[1,-1] ]
+    
+    R_p1, w_s1, rho_p1 = compute_R_p_w_s_rho_p_AS(m_w1, m_s1, T_p)
+    
+    R_s1 = \
+    compute_radius_from_mass_vec(m_s1, c.mass_density_AS_dry)
+    
+    fig_name = load_path + f"traj_tracer_{trace_id_n1}.pdf"
+    from analysis import plot_particle_trajectories
+    plot_particle_trajectories( pos1, grid, MS=2.0, arrow_every=5,
+                               ARROW_SCALE=20,ARROW_WIDTH=0.005,
+                               fig_name=fig_name, figsize=(10,10),
+                               TTFS=14, LFS=12, TKFS=12,
+                               t_start=t_start, t_end=t_end)
+    
+    pos1_shift = np.copy(pos1)
+    if pos1[0,0] < 375.:
+        pos1_shift[:,0] += 750.
+        pos1_shift[:,0] = pos1_shift[:,0] % 1500.
+    
+    ### IN WORK: shift und spiegeln??
+    
+    fig_name = load_path + f"R_p_vs_t_tracer_{trace_id_n1}.pdf"
+    fig, ax = plt.subplots(figsize=(8,8))
+    ax.plot(trace_times, R_p1)
+    ax.plot(trace_times, pos1_shift[:,0]*1E-2)
+    ax.plot(trace_times, pos1[:,1]*1E-2)
+    
+    fig.savefig(fig_name)
+    
+    #plt.close("all")
 
 
 
