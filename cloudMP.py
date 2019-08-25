@@ -75,8 +75,8 @@ from integration import simulate
 #from integration import simulate_wout_col, simulate_col 
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -105,21 +105,22 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
 #no_spcm = np.array([12, 12])
-no_spcm = np.array([16, 24])
+no_spcm = np.array([26, 38])
+#no_spcm = np.array([16, 24])
 #no_spcm = np.array([18, 26])
 #no_spcm = np.array([20, 30])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
-seed_SIP_gen = 3711
+seed_SIP_gen = 3717
 
 # for collisons
 # seed start with 4 for dt_col = dt_adv
 #seed_sim = 4711
 
 # seed start with 6 for dt_col = 0.5 dt_adv
-seed_sim = 6711
+seed_sim = 6717
 
 #%% SIMULATION PARAMETERS
 
@@ -136,15 +137,17 @@ simulation_mode = "with_collision"
 spin_up_before = True
 #spin_up_before = False
 
+#if simulation_mode
+
 #t_start = 0.0
 #t_start = 600.0
-#t_start = 7200.0 # s
-t_start = 10800.0 # s
+t_start = 7200.0 # s
+#t_start = 10800.0 # s
 
 #t_end = 7200.0 # s
-#t_end = 10800.0 # s
+t_end = 10800.0 # s
 #t_end = 7200.0+5.0 # s
-t_end = 7200.0*2 # s
+#t_end = 7200.0*2 # s
 #t_end = 60.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
