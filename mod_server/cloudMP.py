@@ -58,7 +58,6 @@ os.environ["OMP_NUM_THREADS"] = "1"
 import math
 import numpy as np
 #import matplotlib.pyplot as plt
-#import os
 
 import sys
 # from datetime import datetime
@@ -93,9 +92,6 @@ elif (my_OS == "Mac"):
     simdata_path = "/Users/bohrer/sim_data_cloudMP/"
 elif (my_OS == "TROPOS_server"):
     simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
-
-#    fig_path = home_path \
-#               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 
 #%% SET PARAMETERS
 

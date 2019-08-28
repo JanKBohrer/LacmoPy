@@ -53,10 +53,11 @@ Created on Wed May  1 14:07:21 2019
 
 #%% MODULE IMPORTS
 ### BUILT IN
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
 import math
 import numpy as np
 #import matplotlib.pyplot as plt
-import os
 
 import sys
 # from datetime import datetime
@@ -91,15 +92,13 @@ elif (my_OS == "Mac"):
     simdata_path = "/Users/bohrer/sim_data_cloudMP/"
 elif (my_OS == "TROPOS_server"):
     simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"    
-#    fig_path = home_path \
-#               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 
 #%% SET PARAMETERS
 
 #%% GRID PARAMETERS
-no_cells = (10, 10)
+#no_cells = (10, 10)
 #no_cells = (15, 15)
-#no_cells = (75, 75)
+no_cells = (75, 75)
 
 #%% PARTICLE PARAMETERS
 
@@ -111,9 +110,9 @@ solute_type = "AS"
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([6, 8])
+#no_spcm = np.array([6, 8])
 #no_spcm = np.array([12, 12])
-#no_spcm = np.array([26, 38])
+no_spcm = np.array([26, 38])
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([18, 26])
 #no_spcm = np.array([20, 30])
@@ -163,14 +162,14 @@ t_start = 0.0
 #t_start = 7200.0 # s
 #t_start = 10800.0 # s
 
-#t_end = 7200.0 # s
+t_end = 7200.0 # s
 #t_end = 10800.0 # s
 #t_end = 7200.0+5.0 # s
 #t_end = 7200.0*2 # s
 #t_end = 300.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
-t_end = 5.0 # s
+#t_end = 5.0 # s
 #t_end = 20.0 # s
 
 if len(sys.argv) > 5:
@@ -196,9 +195,9 @@ Newton_iter = 3 # number of root finding iterations for impl. mass integration
 # t = t_start, t_start + n * frame_every * dt AND additionally at t = t_end
 #frame_every = 1200
 #frame_every = 600
-#frame_every = 300
+frame_every = 300
 #frame_every = 30
-frame_every = 1
+#frame_every = 1
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
@@ -207,9 +206,9 @@ trace_ids = 40
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
 # dump_every must be <= frame_every and frame_every/dump_every must be integer
-#dump_every = 10
+dump_every = 10
 #dump_every = 5
-dump_every = 1
+#dump_every = 1
 
 #%% COLLISIONS PARAMS
 

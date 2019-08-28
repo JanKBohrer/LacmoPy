@@ -47,11 +47,11 @@ Created on Wed May  1 14:07:21 2019
 
 #%% MODULE IMPORTS
 
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 # import math
 #import matplotlib.pyplot as plt
-import os
-
 import sys
 # from datetime import datetime
 # import timeit
@@ -134,18 +134,22 @@ z_min = 0.0
 z_max = 1500.0
 
 # grid steps
-#dx = 20.0
-#dy = 1.0
-#dz = 20.0
+dx = 20.0
+dy = 1.0
+dz = 20.0
+
 #dx = 50.0
 #dy = 1.0
 #dz = 50.0
+
 #dx = 100.0
 #dy = 1.0
 #dz = 100.0
-dx = 150.0
-dy = 1.0
-dz = 150.0
+
+#dx = 150.0
+#dy = 1.0
+#dz = 150.0
+
 #dx = 500.0
 #dy = 1.0
 #dz = 500.0
@@ -171,18 +175,17 @@ solute_type = "AS"
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([4, 4])
+#no_spcm = np.array([4, 4])
 #no_spcm = np.array([6, 8])
-#no_spcm = np.array([26, 38])
+no_spcm = np.array([26, 38])
 #no_spcm = np.array([20, 30])
 #no_spcm = np.array([20, 20])
 
 reseed = False
-seed_SIP_gen = 3711
+seed_SIP_gen = 3721
 
 if len(sys.argv) > 2:
     seed_SIP_gen = int(sys.argv[2])
-#    print("seed SIP gen entered = ", seed_SIP_gen)
 
 ###
 grid_folder =\
@@ -196,14 +199,6 @@ if not os.path.exists(grid_path):
     
 sys.stdout = open(grid_path + "std_out.log", 'w')
 
-if len(sys.argv) > 1:
-#    my_OS = sys.argv[2]
-    print("my OS entered = ", my_OS)
-if len(sys.argv) > 2:
-#    seed_SIP_gen = int(sys.argv[2])
-    print("seed SIP gen entered = ", seed_SIP_gen)
-###
-    
 dist = "lognormal"
 #dist = "expo"
 
@@ -232,13 +227,12 @@ elif dist == "expo":
     # we need to hack here a little because of the units of m_mean and LWC0
     LWC0_over_DNC0 = m_mean
     DNC0_over_LWC0 = 1.0/m_mean
-    print("dist = expo", f"DNC0 = {DNC0:.3e}", "LWC0 =", LWC0,
-          "m_mean = ", m_mean)
+
     dst_par = (DNC0, DNC0_over_LWC0)
 
 #%% SINGLE SIP INITIALIZATION PARAMETERS
 
-eta = 1E-10
+eta = 5E-10
 #eta_threshold = "weak"
 eta_threshold = "fix"
 
@@ -285,7 +279,6 @@ if no_modes == 1:
 else:    
     no_spcm = no_spcm[idx_mode_nonzero]
 
-print("no_modes, idx_mode_nonzero:", no_modes, ",", idx_mode_nonzero)
 
 if dist == "lognormal":
     if no_modes == 1:
@@ -318,8 +311,23 @@ if dist == "lognormal":
 # folder = "grid_75_75_spcm_20_20/"
 
 
-#%% GENERATE GRID AND PARTICLES
+if len(sys.argv) > 1:
+    print("my OS entered = ", my_OS)
+if len(sys.argv) > 2:
+    print("seed SIP gen entered = ", seed_SIP_gen)
 
+if dist == "expo":
+    print("dist = expo", f"DNC0 = {DNC0:.3e}", "LWC0 =", LWC0,
+          "m_mean = ", m_mean)
+elif dist == "lognormal":
+    print("dist = lognormal", "DNC0 =", DNC0,
+          "mu_R =", mu_R, "sigma_R =", sigma_R,
+           "r_critmin =", r_critmin,
+           "m_high_over_m_low =", m_high_over_m_low)
+
+print("no_modes, idx_mode_nonzero:", no_modes, ",", idx_mode_nonzero)
+
+#%% GENERATE GRID AND PARTICLES
 
 #if act_gen_grid:
 grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids  = \

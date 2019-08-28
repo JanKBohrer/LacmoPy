@@ -47,11 +47,11 @@ Created on Wed May  1 14:07:21 2019
 
 #%% MODULE IMPORTS
 
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 # import math
 #import matplotlib.pyplot as plt
-import os
-
 import sys
 # from datetime import datetime
 # import timeit
@@ -171,6 +171,7 @@ solute_type = "AS"
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
+#no_spcm = np.array([4, 4])
 #no_spcm = np.array([6, 8])
 no_spcm = np.array([26, 38])
 #no_spcm = np.array([20, 30])
@@ -192,6 +193,7 @@ grid_folder =\
 grid_path = simdata_path + grid_folder
 if not os.path.exists(grid_path):
     os.makedirs(grid_path)
+
 sys.stdout = open(grid_path + "std_out.log", 'w')
 
 if len(sys.argv) > 1:
