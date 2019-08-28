@@ -1,7 +1,7 @@
 #!/bin/bash
 # execute generate grid and particles n times with different seeds
 
-sseed=9709
+sseed=9719
 #system = "TROPOS_server"
 system="Mac"
 

@@ -21,26 +21,34 @@ elif (my_OS == "TROPOS_server"):
     simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
 
-no_cells = np.array((10,10))
-#no_cells = np.array((75,75))
+#no_cells = np.array((10,10))
+no_cells = np.array((75,75))
 
 no_spcm = np.array((26,38))
 
 solute_type = "AS"
 #seed_SIP_gen = 3711
-seed_SIP_gen = 9711
+#seed_SIP_gen = 9711
+seed_SIP_gen_list = [9711,9713,9715,9717]
 
 t = 0
 
-grid_folder =\
-    f"{solute_type}/" \
-    + f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
-    + f"{seed_SIP_gen}/"
+for seed_SIP_gen in seed_SIP_gen_list:
 
-load_path = simdata_path + grid_folder
+    grid_folder =\
+        f"{solute_type}/" \
+        + f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
+        + f"{seed_SIP_gen}/"
+    
+    load_path = simdata_path + grid_folder
+    
+    xi = np.load(load_path + f"multiplicity_{int(t)}.npy")
+    cells = np.load(load_path + f"particle_cells_{int(t)}.npy")
+    
+    
+    print (len(xi))
+    print (xi.min())
 
-xi = np.load(load_path + f"multiplicity_{int(t)}.npy")
-cells = np.load(load_path + f"particle_cells_{int(t)}.npy")
 #print("hello")
 
 #%%
