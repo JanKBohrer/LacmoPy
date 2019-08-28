@@ -134,18 +134,18 @@ z_min = 0.0
 z_max = 1500.0
 
 # grid steps
-#dx = 20.0
-#dy = 1.0
-#dz = 20.0
+dx = 20.0
+dy = 1.0
+dz = 20.0
 #dx = 50.0
 #dy = 1.0
 #dz = 50.0
 #dx = 100.0
 #dy = 1.0
 #dz = 100.0
-dx = 150.0
-dy = 1.0
-dz = 150.0
+#dx = 150.0
+#dy = 1.0
+#dz = 150.0
 #dx = 500.0
 #dy = 1.0
 #dz = 500.0
@@ -171,16 +171,15 @@ solute_type = "AS"
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-no_spcm = np.array([4, 4])
 #no_spcm = np.array([6, 8])
-#no_spcm = np.array([26, 38])
+no_spcm = np.array([26, 38])
 #no_spcm = np.array([20, 30])
 #no_spcm = np.array([20, 20])
 
 reseed = False
 seed_SIP_gen = 3711
 
-if len(sys.argv) > 2:
+if len(sys.argv) > 1:
     seed_SIP_gen = int(sys.argv[2])
 #    print("seed SIP gen entered = ", seed_SIP_gen)
 
@@ -193,13 +192,12 @@ grid_folder =\
 grid_path = simdata_path + grid_folder
 if not os.path.exists(grid_path):
     os.makedirs(grid_path)
-    
 sys.stdout = open(grid_path + "std_out.log", 'w')
 
 if len(sys.argv) > 1:
 #    my_OS = sys.argv[2]
     print("my OS entered = ", my_OS)
-if len(sys.argv) > 2:
+if len(sys.argv) > 1:
 #    seed_SIP_gen = int(sys.argv[2])
     print("seed SIP gen entered = ", seed_SIP_gen)
 ###

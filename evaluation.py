@@ -61,9 +61,9 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
 #no_spcm = np.array([12, 12])
-#no_spcm = np.array([16, 24])
+no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-no_spcm = np.array([26, 38])
+#no_spcm = np.array([26, 38])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
@@ -73,18 +73,19 @@ seed_SIP_gen = 3711
 seed_SIP_gen_list = [3711, 3713, 3715, 3717]
 
 # for collisons
-seed_sim = 6711
+seed_sim = 4711
+#seed_sim = 6711
 #seed_sim_list = [4711, 4711]
-#seed_sim_list = [4711, 4711, 4711, 4711]
-seed_sim_list = [6711, 6713, 6715, 6717]
+seed_sim_list = [4711, 4711, 4711, 4711]
+#seed_sim_list = [6711, 6713, 6715, 6717]
 #seed_sim_list = [4711, 4713, 4715, 4717]
 
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
 simulation_mode = "with_collision"
 
-dt_col = 0.5
-#dt_col = 1.0
+#dt_col = 0.5
+dt_col = 1.0
 
 spin_up_finished = True
 #spin_up_finished = False
@@ -92,8 +93,8 @@ spin_up_finished = True
 # path = simdata_path + folder_load_base
 #t_grid = 0
 #t_grid = 7200
-t_grid = 10800
-#t_grid = 14400
+#t_grid = 10800
+t_grid = 14400
 
 #t_start = 0
 t_start = 7200
@@ -101,8 +102,8 @@ t_start = 7200
 #t_end = 60
 #t_end = 3600
 #t_end = 7200
-t_end = 10800
-#t_end = 14400
+#t_end = 10800
+t_end = 14400
 
 #%% PLOTTING PARAMETERS 
 
@@ -111,7 +112,7 @@ t_end = 10800
 #args_plot = [0,0,1,0,0]
 #args_plot = [0,0,0,1,0]
 #args_plot = [0,0,0,0,1]
-args_plot = [0,0,0,0,0,0,1,1,0]
+args_plot = [0,0,0,0,0,0,1,1,1]
 #args_plot = [0,0,0,0,0,0,1,1]
 
 act_plot_scalar_fields_once = args_plot[0]
