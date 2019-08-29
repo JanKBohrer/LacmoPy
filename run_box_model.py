@@ -55,8 +55,8 @@ from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
 
 #%% SET PARAMETERS 
 
-OS = "LinuxDesk"
-# OS = "MacOS"
+#OS = "LinuxDesk"
+OS = "MacOS"
 #OS = "LinuxNote"
 
 
@@ -64,7 +64,7 @@ OS = "LinuxDesk"
 # SET args for SIP ensemble generation AND Kernel-grid generation
 #args_gen = [1,1,1,1,1]
 #args_gen = [1,0,0,0,0]
-args_gen = [0,0,0,0,0]
+args_gen = [0,0,0,0,1]
 #args_gen = [1,1,1,0,0]
 
 act_gen_SIP = bool(args_gen[0])
@@ -75,9 +75,9 @@ act_gen_kernel_grid = bool(args_gen[3])
 act_gen_Ecol_grid = bool(args_gen[4])
 
 # SET args for simulation
-#args_sim = [0,0,0,0]
+args_sim = [0,0,0,0]
 #args_sim = [1,0,0,0]
-args_sim = [0,1,1,1]
+#args_sim = [0,1,1,1]
 #args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
 

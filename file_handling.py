@@ -7,9 +7,11 @@ Created on Wed May  1 14:43:19 2019
 """
 
 import pickle
+#import os
+#os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 from grid import Grid
-from numba import jit, njit
+#from numba import jit, njit
 # from grid import save_grid_to_files
 # from grid import load_grid_from_files
 # from particle_class import save_particle_list_to_files

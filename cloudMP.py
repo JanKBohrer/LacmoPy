@@ -54,7 +54,7 @@ Created on Wed May  1 14:07:21 2019
 #%% MODULE IMPORTS
 ### BUILT IN
 import os
-os.environ["OMP_NUM_THREADS"] = "1"
+#os.environ["OMP_NUM_THREADS"] = "1"
 import math
 import numpy as np
 #import matplotlib.pyplot as plt
@@ -75,7 +75,7 @@ from file_handling import load_grid_and_particles_full
 # from analysis import compare_functions_run_time
 
 from integration import simulate
-os.environ["OMP_NUM_THREADS"] = "1"
+#os.environ["OMP_NUM_THREADS"] = "1"
 #from integration import simulate_wout_col, simulate_col 
 
 #%% STORAGE DIRECTORIES

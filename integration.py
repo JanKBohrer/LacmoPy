@@ -17,6 +17,8 @@ Created on Wed May  1 14:28:39 2019
 # -> surface tension, water activity of (w_s1, w_s2, ...) etc. 
 
 #%% MODULE IMPORTS
+#import os
+#os.environ["OMP_NUM_THREADS"] = "1"
 import math
 import numpy as np
 from numba import njit,jit

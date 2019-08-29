@@ -48,7 +48,7 @@ Created on Wed May  1 14:07:21 2019
 #%% MODULE IMPORTS
 
 import os
-os.environ["OMP_NUM_THREADS"] = "1"
+#os.environ["OMP_NUM_THREADS"] = "1"
 import numpy as np
 # import math
 #import matplotlib.pyplot as plt
@@ -74,7 +74,7 @@ from init import initialize_grid_and_particles_SinSIP
 from microphysics import compute_mass_from_radius_vec
 from microphysics import compute_mass_from_radius_jit
 import constants as c
-os.environ["OMP_NUM_THREADS"] = "1"
+#os.environ["OMP_NUM_THREADS"] = "1"
 #                          compute_R_p_w_s_rho_p
 #                          compute_initial_mass_fraction_solute_NaCl,\
 #                          compute_density_particle,\
@@ -233,7 +233,8 @@ elif dist == "expo":
 
 #%% SINGLE SIP INITIALIZATION PARAMETERS
 
-eta = 6E-10
+#eta = 6E-10
+eta = 1E-10
 #eta_threshold = "weak"
 eta_threshold = "fix"
 
