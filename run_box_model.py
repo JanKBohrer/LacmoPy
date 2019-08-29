@@ -53,18 +53,36 @@ from init_SIPs import analyze_ensemble_data
 from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_expo
 from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
 
+import sys
+
+
+
 #%% SET PARAMETERS 
 
+set_log_file = True
+
 #OS = "LinuxDesk"
-OS = "MacOS"
+OS = "Mac"
+#OS = "TROPOS_server"
 #OS = "LinuxNote"
+
+if OS == "Mac":
+#    sim_data_path = "/Users/bohrer/sim_data_cloudMP/"
+    sim_data_path = "/Users/bohrer/sim_data_col_box_mod/"
+elif OS == "LinuxDesk" or OS == "LinuxNote":
+    sim_data_path = "/mnt/D/sim_data_col_box_mod/"
+elif OS == "TROPOS_server":
+    sim_data_path = "/vols/fs1/work/bohrer/sim_data_col_box_mod/" 
+    
+
 
 
 ############################################################################################
 # SET args for SIP ensemble generation AND Kernel-grid generation
 #args_gen = [1,1,1,1,1]
 #args_gen = [1,0,0,0,0]
-args_gen = [0,0,0,0,1]
+#args_gen = [0,0,0,0,1]
+args_gen = [0,0,0,0,0]
 #args_gen = [1,1,1,0,0]
 
 act_gen_SIP = bool(args_gen[0])
@@ -75,8 +93,8 @@ act_gen_kernel_grid = bool(args_gen[3])
 act_gen_Ecol_grid = bool(args_gen[4])
 
 # SET args for simulation
-args_sim = [0,0,0,0]
-#args_sim = [1,0,0,0]
+#args_sim = [0,0,0,0]
+args_sim = [1,0,0,0]
 #args_sim = [0,1,1,1]
 #args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
@@ -90,19 +108,19 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 
 #kappa_list=[3.5]
-#kappa_list=[5,10]
+kappa_list=[5,10]
 #kappa_list=[5,10,20,40,60,100]
 #kappa_list=[5,10,20,40,60,100,200,400]
 #kappa_list=[3,3.5,5,10,20,40,60,100,200,400]
 #kappa_list=[800]
-kappa_list=[5,10,20,40,60,100,200,400,600,800]
+#kappa_list=[5,10,20,40,60,100,200,400,600,800]
 #kappa_list=[200,400,600,800]
 
-no_sims = 100
-#no_sims = 500
+#no_sims = 100
+no_sims = 500
 #no_sims = 10
 #no_sims = 400
-start_seed = 3711
+start_seed = 8711
 
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
@@ -135,11 +153,7 @@ mass_density = 1E3 # approx for water
 #mass_density = c.mass_density_water_liquid_NTP
 #mass_density = c.mass_density_NaCl_dry
 
-if OS == "MacOS":
-    sim_data_path = "/Users/bohrer/sim_data/"
-elif OS == "LinuxDesk" or OS == "LinuxNote":
-    sim_data_path = "/mnt/D/sim_data_col_box_mod/"
-#    sim_data_path = "/mnt/D/sim_data_unif/col_box_mod/"
+
 
 ############################################################################################
 ### SET PARAMETERS FOR SIP ENSEMBLES
@@ -250,6 +264,7 @@ f"{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}/ensembles/"
 result_path_add =\
 f"{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 /results/{kernel_name}/{kernel_method}/"
+
 
 #%% KERNEL/ECOL GRID GENERATION
 if act_gen_kernel_grid:
@@ -393,6 +408,10 @@ if act_analysis_ensembles:
 
 #%% SIMULATE COLLISIONS
 if act_sim:
+    if set_log_file:
+        sys.stdout = open(sim_data_path + result_path_add
+                          + f"std_out_kappa_{kappa_list[0]}_{kappa_list[-1]}_dt_{int(dt)}"
+                          + ".log", 'w')
 #%% SIMULATION DATA LOAD
     if kernel_method == "kernel_grid_m":
         # convert to 1E-18 kg if mass grid is given in kg...
