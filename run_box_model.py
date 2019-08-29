@@ -409,6 +409,8 @@ if act_analysis_ensembles:
 #%% SIMULATE COLLISIONS
 if act_sim:
     if set_log_file:
+        if not os.path.exists(sim_data_path + result_path_add):
+            os.makedirs(sim_data_path + result_path_add)
         sys.stdout = open(sim_data_path + result_path_add
                           + f"std_out_kappa_{kappa_list[0]}_{kappa_list[-1]}_dt_{int(dt)}"
                           + ".log", 'w')
