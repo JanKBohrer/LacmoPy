@@ -202,7 +202,7 @@ frame_every = 300
 
 # number of particles to be traced, evenly distributed over "active_ids"
 # can also be an explicit array( [ID0, ID1, ...] )
-trace_ids = 40
+trace_ids = 80
 
 # positions and velocities of traced particles are saved at
 # t = t_start, t_start + n * dump_every * dt AND additionally at t = t_end
