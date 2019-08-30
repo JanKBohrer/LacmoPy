@@ -1608,8 +1608,10 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
         f.write(f"gravitation const = {g_set}\n")
         f.write(f"collisions activated = {act_collisions}\n")
         f.write(f"kernel_type = {kernel_type}\n")
-        f.write(f"kernel_method = {kernel_method}\n")
-        f.write(f"solute material = {solute_type}\n")        
+        f.write(f"kernel_method = {kernel_method}")
+        if kernel_method == "Ecol_const":
+            f.write(f", E_col = {E_col_grid}")
+        f.write(f"\nsolute material = {solute_type}\n")        
         f.write(f"dt = {dt}\n")    
         f.write(f"dt_col = {dt_col}\n")    
         f.write(f"dt_sub = {dt_sub}\n")    

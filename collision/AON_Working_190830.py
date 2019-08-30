@@ -454,6 +454,7 @@ collision_step_Long_Bott_Ecol_grid_R_2D = \
     njit()(collision_step_Long_Bott_Ecol_grid_R_2D_np)
     
     
+######## WRONG CALC OF PART RADIUS ONLY FROM M_W    
 # given E_col grid for radii
 # given velocities "vel"
 # updates masses AND radii
@@ -502,7 +503,6 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
                 m_w[ind_min] = m_w_min + p_crit * m_w_max
                 m_s[ind_min] = m_s_min + p_crit * m_s_max
                 # mass changed: update radius
-                # IMPORTANT: need to but (m_w + m_s) in paranthesis for jit
                 radii[ind_min] =\
                     compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
                                                  mass_densities[ind_min])
@@ -562,119 +562,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
 collision_step_Long_Bott_Ecol_grid_R_2D_multicomp = \
     njit()(collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np)
 
-
-# given constant E_col value by "E_col_grid" (name chosen for simplicity)
-# given velocities "vel"
-# updates masses AND radii
-# assume mass densities constant (but varying for diff SIPs) during coll step
-def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
-        xis, m_w, m_s, radii, vel, mass_densities,
-        dt_over_dV, E_col_grid,
-        no_cols ):
-    no_SIPs = xis.shape[0]
-
-    rnd = np.random.rand( (no_SIPs*(no_SIPs-1))//2 )
-    
-#    ind_kernel = create_kernel_index_array(
-#                     radii, no_SIPs,
-#                     R_kernel_low_log, bin_factor_R_log, no_kernel_bins)
-    
-    # check each i-j combination for a possible collection event
-    cnt = 0
-    for i in range(0, no_SIPs-1):
-        for j in range(i+1, no_SIPs):
-            if xis[i] <= xis[j]:
-                ind_min = i
-                ind_max = j
-            else:
-                ind_min = j
-                ind_max = i
-            xi_min = xis[ind_min] # = nu_i in Unt
-            xi_max = xis[ind_max] # = nu_j in Unt
-            m_w_min = m_w[ind_min] # = mu_i in Unt, not necc. the smaller mass
-            m_w_max = m_w[ind_max] # = mu_j in Unt, not necc. the larger mass
-            m_s_min = m_s[ind_min] # = mu_i in Unt, not necc. the smaller mass
-            m_s_max = m_s[ind_max] # = mu_j in Unt, not necc. the larger mass
-            
-
-            p_crit = xi_max * dt_over_dV \
-                     * compute_kernel_hydro(
-                           radii[i], radii[j],
-                           E_col_grid,
-                           # abs difference of 2D vectors
-                           math.sqrt( (vel[0,i] - vel[0,j])**2
-                                      + (vel[1,i] - vel[1,j])**2 ) )
-
-            if p_crit > 1.0:
-                # multiple collection
-                xi_col = p_crit * xi_min # p_crit = xi_col / xi_min
-                m_w[ind_min] = m_w_min + p_crit * m_w_max
-                m_s[ind_min] = m_s_min + p_crit * m_s_max
-                # mass changed: update radius
-                # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
-                radii[ind_min] =\
-                    compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
-                                                 mass_densities[ind_min])
-#                radii[ind_min] =\
-#                    compute_radius_from_mass_jit(m_w[ind_min] + m_s[ind_min],
-#                                                 mass_densities[ind_min])
-                xis[ind_max] -= xi_col
-                # rad of ind_min changed -> update kernel index:
-#                ind_kernel[ind_min] = \
-#                    compute_kernel_index(radii[ind_min], R_kernel_low_log,
-#                                         bin_factor_R_log, no_kernel_bins)
-                no_cols[1] += 1
-            elif p_crit > rnd[cnt]:
-                no_cols[0] += 1
-                xi_rel_dev = (xi_max-xi_min)/xi_max
-                if xi_rel_dev < 1.0E-5:
-                    print("xi_i approx xi_j, xi_rel_dev =",
-                          xi_rel_dev,
-                          " in collision")
-                    xi_ges = xi_min + xi_max
-                    m_w[ind_min] = 2.0 * ( xi_min*m_w_min + xi_max*m_w_max ) \
-                                      / xi_ges
-                    m_s[ind_min] = 2.0 * ( xi_min*m_s_min + xi_max*m_s_max ) \
-                                      / xi_ges
-                    m_w[ind_max] = m_w[ind_min]
-                    m_s[ind_max] = m_s[ind_min]
-                    # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
-                    radii[ind_min] =\
-                        compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
-                                                     mass_densities[ind_min])
-#                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_s[ind_min],
-#                                                     mass_densities[ind_min])
-                    radii[ind_max] = radii[ind_min]
-                    xis[ind_max] = 0.5 * 0.7 * xi_ges
-                    xis[ind_min] = 0.5 * xi_ges - xis[ind_max]
-                    # radius of ind_min AND ind_max changed to same radii
-                    # -> update kernel ind:
-#                    ind_kernel[ind_min] = \
-#                        compute_kernel_index(radii[ind_min], R_kernel_low_log,
-#                                             bin_factor_R_log, no_kernel_bins)
-#                    ind_kernel[ind_max] = ind_kernel[ind_min]
-                else:
-                    m_w[ind_min] += m_w_max
-                    m_s[ind_min] += m_s_max
-                    # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
-                    radii[ind_min] =\
-                        compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
-                                                     mass_densities[ind_min])
-#                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_w[ind_min],
-#                                                     mass_densities[ind_min])
-                    xis[ind_max] -= xi_min
-                    # rad of ind_min changed -> update kernel index:
-#                    ind_kernel[ind_min] = \
-#                        compute_kernel_index(radii[ind_min], R_kernel_low_log,
-#                                             bin_factor_R_log, no_kernel_bins)
-            cnt += 1
-collision_step_Long_Bott_Ecol_const_2D_multicomp = \
-    njit()(collision_step_Long_Bott_Ecol_const_2D_multicomp_np)
-
-####### the radius calc. does not work here, because m_w + m_s is not in
-# paranthesis in the argument... -> jit bug
+####### "right" version 
 ## given E_col grid for radii
 ## given velocities "vel"
 ## updates masses AND radii
@@ -940,14 +828,11 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
             
             ### IN WORK: SAFETY: IS THERE A PARTICLE IN THE CELL AT ALL?
             
-            if isinstance(E_col_grid, float):
-                pass
-            else:
-                collision_step_Long_Bott_Ecol_grid_R_2D_multicomp(
-                        xi_cell, m_w_cell, m_s_cell, R_p_cell, vels,
-                        rho_p_cell,
-                        dt_over_dV, E_col_grid, no_kernel_bins,
-                        R_kernel_low_log, bin_factor_R_log, no_cols)            
+            collision_step_Long_Bott_Ecol_grid_R_2D_multicomp(
+                    xi_cell, m_w_cell, m_s_cell, R_p_cell, vels,
+                    rho_p_cell,
+                    dt_over_dV, E_col_grid, no_kernel_bins,
+                    R_kernel_low_log, bin_factor_R_log, no_cols)            
             
             xi[mask_ij] = xi_cell
             m_w[mask_ij] = m_w_cell   

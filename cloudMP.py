@@ -113,15 +113,15 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([6, 8])
 #no_spcm = np.array([12, 12])
-no_spcm = np.array([26, 38])
-#no_spcm = np.array([16, 24])
+#no_spcm = np.array([26, 38])
+no_spcm = np.array([16, 24])
 #no_spcm = np.array([18, 26])
 #no_spcm = np.array([20, 30])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
-seed_SIP_gen = 3717
+seed_SIP_gen = 3711
 
 if len(sys.argv) > 2:
     seed_SIP_gen = int(sys.argv[2])
@@ -131,7 +131,7 @@ if len(sys.argv) > 2:
 #seed_sim = 4711
 
 # seed start with 6 for dt_col = 0.5 dt_adv
-seed_sim = 6717
+seed_sim = 7713
 if len(sys.argv) > 3:
     seed_sim = int(sys.argv[3])
 
@@ -142,9 +142,9 @@ if len(sys.argv) > 3:
 # "spin up": g_set = 0.0, without collisions
 # "wo_collisions": g_set = 9.805.., without collisions
 # "with_collisions": g_set = 9.805.., with collisions
-simulation_mode = "spin_up"
+#simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
-#simulation_mode = "with_collision"
+simulation_mode = "with_collision"
 if len(sys.argv) > 4:
     simulation_mode = sys.argv[4]
 
@@ -158,15 +158,15 @@ if simulation_mode == "spin_up":
 
 #if simulation_mode
 
-t_start = 0.0
+#t_start = 0.0
 #t_start = 600.0
-#t_start = 7200.0 # s
+t_start = 7200.0 # s
 #t_start = 10800.0 # s
 
-t_end = 7200.0 # s
+#t_end = 7200.0 # s
 #t_end = 10800.0 # s
-#t_end = 7200.0+5.0 # s
-#t_end = 7200.0*2 # s
+#t_end = 7200.0+10.0 # s
+t_end = 7200.0*2 # s
 #t_end = 300.0 # s
 #t_end = 1200.0 # s
 #t_end = 1800.0 # s
@@ -215,6 +215,8 @@ dump_every = 10
 
 kernel_type = "Long_Bott"
 kernel_method = "Ecol_grid_R"
+#kernel_method = "Ecol_const"
+E_col_const = 0.5
 
 save_dir_Ecol_grid = simdata_path + f"Ecol_grid_data/{kernel_type}/"
 
@@ -233,6 +235,13 @@ if kernel_method == "Ecol_grid_R":
     R_kernel_low_log = math.log(R_kernel_low)
     bin_factor_R_log = math.log(bin_factor_R)
     no_kernel_bins = len(radius_grid)
+elif kernel_method == "Ecol_const":
+    E_col_grid = E_col_const
+    radius_grid = None
+    R_kernel_low = None
+    R_kernel_low_log = None
+    bin_factor_R_log = None
+    no_kernel_bins = None
 
 no_cols = np.array((0,0))
 
@@ -268,12 +277,11 @@ grid_folder =\
 save_path = simdata_path + grid_folder + save_folder
 
 if spin_up_before:
-    if t_start <= 7200.:
+#    if t_start <= 7200.:
+    if t_start <= 7201.:
         grid_folder += "spin_up_wo_col_wo_grav/"
     elif simulation_mode == "with_collision":
         grid_folder += f"w_spin_up_w_col/{seed_sim}/"
-
-
 
 # the seed is added later automatically for collision simulations
 #save_folder = "no_spin_up_with_col/"
