@@ -27,8 +27,8 @@ from file_handling import load_grid_and_particles_full,\
 #from grid import compute_no_grid_cells_from_step_sizes
 
 #%% STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
-my_OS = "Mac"
+my_OS = "Linux_desk"
+#my_OS = "Mac"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -84,8 +84,8 @@ seed_sim_list = [4711, 4711, 4711, 4711]
 #simulation_mode = "wo_collision"
 simulation_mode = "with_collision"
 
-#dt_col = 0.5
-dt_col = 1.0
+dt_col = 0.5
+#dt_col = 1.0
 
 spin_up_finished = True
 #spin_up_finished = False
@@ -112,7 +112,7 @@ t_end = 14400
 #args_plot = [0,0,1,0,0]
 #args_plot = [0,0,0,1,0]
 #args_plot = [0,0,0,0,1]
-args_plot = [0,0,0,0,0,0,1,1,1]
+args_plot = [0,0,0,0,0,0,1,1,1,0]
 #args_plot = [0,0,0,0,0,0,1,1]
 
 act_plot_scalar_fields_once = args_plot[0]
@@ -121,10 +121,18 @@ act_plot_particle_trajectories = args_plot[2]
 act_plot_particle_positions = args_plot[3]
 act_plot_scalar_field_frames = args_plot[4]
 act_plot_scalar_field_frames_ext = args_plot[5]
-act_plot_grid_frames_avg = args_plot[6]
-act_plot_spectra_avg_Arabas = args_plot[7]
-act_plot_life_cycle = args_plot[8]
+act_gen_grid_frames_avg = args_plot[6]
+#act_plot_grid_frames_avg = args_plot[6]
+act_gen_spectra_avg_Arabas = args_plot[7]
+#act_plot_spectra_avg_Arabas = args_plot[7]
+act_get_grid_data = args_plot[8]
+act_plot_life_cycle = args_plot[9]
 
+### times for grid data
+grid_times = [0,7200,14400]
+
+
+            
 
 ### target cells for spectra analysis
 #    i_tg = [20,40,60]
@@ -450,7 +458,8 @@ if act_plot_scalar_field_frames_ext:
 
 #%% plot_scalar_field_frames_extend_avg
 
-if act_plot_grid_frames_avg:
+#if act_plot_grid_frames_avg:
+if act_gen_grid_frames_avg:
     from analysis import generate_field_frame_data_avg
     from analysis import plot_scalar_field_frames_extend_avg
 
@@ -520,45 +529,84 @@ if act_plot_grid_frames_avg:
                                                         grid.mass_dry_inv,
                                                         grid.no_cells,
                                                         solute_type)
-    
-    grid_folder_ =\
+    ### create only plotting data output to be transfered
+    output_folder = \
         f"{solute_type}" \
         + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
-        + f"plots/{simulation_mode}/dt_col_{dt_col}/"
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}/"
     
-    fig_path = simdata_path + grid_folder_
+    if not os.path.exists(simdata_path + output_folder):
+        os.makedirs(simdata_path + output_folder)    
     
-    if not os.path.exists(fig_path):
-        os.makedirs(fig_path) 
-         
-    fig_name = fig_path \
-               + f"scalar_fields_avg_" \
-               + f"t_{save_times_out[0]}_" \
-               + f"{save_times_out[-1]}_Nfr_{len(save_times_out)}_" \
-               + f"Nfields_{len(field_names_out)}_" \
-               + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}.png" 
-               
-    plot_scalar_field_frames_extend_avg(grid, fields_with_time,
-                                        save_times_out,
-                                        field_names_out,
-                                        units_out,
-                                        scales_out,
-                                        solute_type,
-                                        simulation_mode, # for time in label
-                                        fig_path=fig_name,
-                                        no_ticks=[6,6], 
-                                        alpha = 1.0,
-                                        TTFS = 12, LFS = 10, TKFS = 10,
-                                        cbar_precision = 2,
-                                        show_target_cells = show_target_cells,
-                                        target_cell_list = target_cell_list,
-                                        no_cells_x = no_cells_x,
-                                        no_cells_z = no_cells_z)    
+    np.save(simdata_path + output_folder
+            + "seed_SIP_gen_list",
+            seed_SIP_gen_list)
+    np.save(simdata_path + output_folder
+            + "seed_sim_list",
+            seed_sim_list)
+    
+    np.save(simdata_path + output_folder
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            fields_with_time)
+    np.save(simdata_path + output_folder
+            + f"save_times_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            save_times_out)
+    np.save(simdata_path + output_folder
+            + f"field_names_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            field_names_out)
+    np.save(simdata_path + output_folder
+            + f"units_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            units_out)
+    np.save(simdata_path + output_folder
+            + f"scales_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            scales_out)
+    
+    
+#    grid_folder_ =\
+#        f"{solute_type}" \
+#        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+#        + f"plots/{simulation_mode}/dt_col_{dt_col}/"
+#    
+#    fig_path = simdata_path + grid_folder_
+#    
+#    if not os.path.exists(fig_path):
+#        os.makedirs(fig_path) 
+#         
+#    fig_name = fig_path \
+#               + f"scalar_fields_avg_" \
+#               + f"t_{save_times_out[0]}_" \
+#               + f"{save_times_out[-1]}_Nfr_{len(save_times_out)}_" \
+#               + f"Nfields_{len(field_names_out)}_" \
+#               + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}.png" 
+#               
+#    plot_scalar_field_frames_extend_avg(grid, fields_with_time,
+#                                        save_times_out,
+#                                        field_names_out,
+#                                        units_out,
+#                                        scales_out,
+#                                        solute_type,
+#                                        simulation_mode, # for time in label
+#                                        fig_path=fig_name,
+#                                        no_ticks=[6,6], 
+#                                        alpha = 1.0,
+#                                        TTFS = 12, LFS = 10, TKFS = 10,
+#                                        cbar_precision = 2,
+#                                        show_target_cells = show_target_cells,
+#                                        target_cell_list = target_cell_list,
+#                                        no_cells_x = no_cells_x,
+#                                        no_cells_z = no_cells_z)    
     plt.close("all")
     
 #%% PLOT SPECTRA AVG 
 
-if act_plot_spectra_avg_Arabas:
+#if act_plot_spectra_avg_Arabas:
+if act_gen_spectra_avg_Arabas:
     from analysis import sample_masses, sample_radii
     from analysis import sample_masses_per_m_dry , sample_radii_per_m_dry
     from analysis import plot_size_spectra_R_Arabas, generate_size_spectra_R_Arabas
@@ -615,59 +663,166 @@ if act_plot_spectra_avg_Arabas:
                                        no_cells_x, no_cells_z,
                                        no_bins_R_p, no_bins_R_s)  
     
-    # for fig name
-    if no_cells_x % 2 == 0: no_cells_x += 1
-    if no_cells_z % 2 == 0: no_cells_z += 1  
-    j_low = target_cell_list[1].min()
-    j_high = target_cell_list[1].max()
-    t_low = save_times_out.min()
-    t_high = save_times_out.max()
-    no_tg_cells = len(save_times_out)
-    
-    grid_folder_ =\
+    output_folder = \
         f"{solute_type}" \
         + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
-        + f"plots/{simulation_mode}/dt_col_{dt_col}/"
-         
-    fig_path = simdata_path + grid_folder_
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}/"
     
-    if not os.path.exists(fig_path):
-        os.makedirs(fig_path) 
+    if not os.path.exists(simdata_path + output_folder):
+        os.makedirs(simdata_path + output_folder)    
     
-    fig_name =\
-        fig_path \
-        + f"spectra_at_tg_cells_j_from_{j_low}_to_{j_high}_" \
-        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
-        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
-    fig_path_tg_cells =\
-        fig_path \
-        + f"tg_cell_posi_j_from_{j_low}_to_{j_high}_" \
-        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
-        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
-    fig_path_R_eff =\
-        fig_path \
-        + f"R_eff_{j_low}_to_{j_high}_" \
-        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
-        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
+    np.save(simdata_path + output_folder
+            + "seed_SIP_gen_list",
+            seed_SIP_gen_list)
+    np.save(simdata_path + output_folder
+            + "seed_sim_list",
+            seed_sim_list)
     
-    plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
-                               bins_R_p_list, bins_R_s_list,
-                               grid_r_l_list,
-                               R_min_list, R_max_list,
-                               save_times_out,
-                               solute_type,
-                               grid,
-                               target_cell_list,
-                               no_cells_x, no_cells_z,
-                               no_bins_R_p, no_bins_R_s,
-                               no_rows, no_cols,
-                               TTFS=12, LFS=10, TKFS=10, LW = 2.0,
-                               fig_path = fig_name,
-                               show_target_cells = True,
-                               fig_path_tg_cells = fig_path_tg_cells   ,
-                               fig_path_R_eff = fig_path_R_eff
-                               )        
+    np.save(simdata_path + output_folder
+            + f"f_R_p_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            f_R_p_list)    
+    np.save(simdata_path + output_folder
+            + f"f_R_s_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            f_R_s_list)    
+    np.save(simdata_path + output_folder
+            + f"bins_R_p_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            bins_R_p_list)    
+    np.save(simdata_path + output_folder
+            + f"bins_R_s_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            bins_R_s_list)    
+    np.save(simdata_path + output_folder
+            + f"save_times_out_spectra_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            save_times_out)    
+    np.save(simdata_path + output_folder
+            + f"grid_r_l_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            grid_r_l_list)    
+    np.save(simdata_path + output_folder
+            + f"R_min_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            R_min_list)    
+    np.save(simdata_path + output_folder
+            + f"R_max_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            R_max_list)    
+    np.save(simdata_path + output_folder
+            + f"target_cell_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            target_cell_list)    
+    np.save(simdata_path + output_folder
+            + f"neighbor_cells_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            [no_cells_x, no_cells_z])    
+    
+    
+    
+    # for fig name
+#    if no_cells_x % 2 == 0: no_cells_x += 1
+#    if no_cells_z % 2 == 0: no_cells_z += 1  
+#    j_low = target_cell_list[1].min()
+#    j_high = target_cell_list[1].max()
+#    t_low = save_times_out.min()
+#    t_high = save_times_out.max()
+#    no_tg_cells = len(save_times_out)
+    
+#    grid_folder_ =\
+#        f"{solute_type}" \
+#        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+#        + f"plots/{simulation_mode}/dt_col_{dt_col}/"
+#         
+#    fig_path = simdata_path + grid_folder_
+#    
+#    if not os.path.exists(fig_path):
+#        os.makedirs(fig_path) 
+#    
+#    fig_name =\
+#        fig_path \
+#        + f"spectra_at_tg_cells_j_from_{j_low}_to_{j_high}_" \
+#        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
+#        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
+#    fig_path_tg_cells =\
+#        fig_path \
+#        + f"tg_cell_posi_j_from_{j_low}_to_{j_high}_" \
+#        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
+#        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
+#    fig_path_R_eff =\
+#        fig_path \
+#        + f"R_eff_{j_low}_to_{j_high}_" \
+#        + f"Ntgcells_{no_tg_cells}_N_neigh_{no_cells_x}_{no_cells_z}_" \
+#        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
+#    
+#    plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
+#                               bins_R_p_list, bins_R_s_list,
+#                               grid_r_l_list,
+#                               R_min_list, R_max_list,
+#                               save_times_out,
+#                               solute_type,
+#                               grid,
+#                               target_cell_list,
+#                               no_cells_x, no_cells_z,
+#                               no_bins_R_p, no_bins_R_s,
+#                               no_rows, no_cols,
+#                               TTFS=12, LFS=10, TKFS=10, LW = 2.0,
+#                               fig_path = fig_name,
+#                               show_target_cells = True,
+#                               fig_path_tg_cells = fig_path_tg_cells   ,
+#                               fig_path_R_eff = fig_path_R_eff
+#                               )        
     plt.close("all")
+
+#%%
+    
+if act_get_grid_data:
+    import shutil
+    output_path = \
+        simdata_path \
+        + f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}/"    
+    grid_path_base = \
+        simdata_path \
+        + f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"{seed_SIP_gen_list[0]}/"
+#        _ss_{seed_sim_list[0]}
+    no_grid_times = len(grid_times)
+    
+    for gt in grid_times:
+        if gt == 0:
+            shutil.copy(grid_path_base + "grid_basics_0.txt", output_path)
+            shutil.copy(grid_path_base + "arr_file1_0.npy", output_path)
+            shutil.copy(grid_path_base + "arr_file2_0.npy", output_path)
+        elif gt <= 7200.1:
+            shutil.copy(grid_path_base + "spin_up_wo_col_wo_grav/"
+                         + f"grid_basics_{int(gt)}.txt",
+                         output_path)
+            shutil.copy(grid_path_base + "spin_up_wo_col_wo_grav/"
+                         + f"arr_file1_{int(gt)}.npy",
+                         output_path)
+            shutil.copy(grid_path_base + "spin_up_wo_col_wo_grav/"
+                         + f"arr_file2_{int(gt)}.npy",
+                         output_path)
+        elif gt > 7200.1:
+            shutil.copy(grid_path_base
+                         + f"w_spin_up_w_col/{seed_sim_list[0]}/"
+                         + f"grid_basics_{int(gt)}.txt",
+                         output_path)
+            shutil.copy(grid_path_base
+                         + f"w_spin_up_w_col/{seed_sim_list[0]}/"
+                         + f"arr_file1_{int(gt)}.npy",
+                         output_path)
+            shutil.copy(grid_path_base
+                         + f"w_spin_up_w_col/{seed_sim_list[0]}/"
+                         + f"arr_file2_{int(gt)}.npy",
+                         output_path)
+            
 
 #%% TRACED PARTICLE ANALYSIS
 if act_plot_life_cycle:    

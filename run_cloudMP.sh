@@ -1,13 +1,15 @@
 #!/bin/bash
 # execute generate grid and particles n times with different seeds
 sseed1=3809
-sseed2=8717
+sseed2=6809
 system="TROPOS_server"
 #system="Mac"
-t_start=0.0
-t_end=7200.0
-sim_type="spin_up"
-#sim_type="with_collision"
+#t_start=0.0
+t_start=7200.0
+#t_end=7200.0
+t_end=14400.0
+#sim_type="spin_up"
+sim_type="with_collision"
 
 for x in {1..50}
 do
