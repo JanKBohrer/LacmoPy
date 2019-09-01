@@ -85,6 +85,7 @@ c two-dimensional linear interpolation of the collision efficiency
        do j=1,n
        do i=1,j
           do k=2,15
+c ir = collector radius index (larger radius)
              if (r(j).le.r0(k).and.r(j).ge.r0(k-1)) then
                 ir=k
              elseif (r(j).gt.r0(15)) then

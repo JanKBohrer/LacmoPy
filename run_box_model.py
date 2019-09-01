@@ -61,8 +61,8 @@ import sys
 
 set_log_file = True
 
-#OS = "LinuxDesk"
-OS = "Mac"
+OS = "LinuxDesk"
+#OS = "Mac"
 #OS = "TROPOS_server"
 #OS = "LinuxNote"
 
@@ -73,16 +73,13 @@ elif OS == "LinuxDesk" or OS == "LinuxNote":
     sim_data_path = "/mnt/D/sim_data_col_box_mod/"
 elif OS == "TROPOS_server":
     sim_data_path = "/vols/fs1/work/bohrer/sim_data_col_box_mod/" 
-    
-
-
 
 ############################################################################################
 # SET args for SIP ensemble generation AND Kernel-grid generation
 #args_gen = [1,1,1,1,1]
 #args_gen = [1,0,0,0,0]
-#args_gen = [0,0,0,0,1]
-args_gen = [0,0,0,0,0]
+args_gen = [0,0,0,0,1]
+#args_gen = [0,0,0,0,0]
 #args_gen = [1,1,1,0,0]
 
 act_gen_SIP = bool(args_gen[0])
@@ -93,8 +90,8 @@ act_gen_kernel_grid = bool(args_gen[3])
 act_gen_Ecol_grid = bool(args_gen[4])
 
 # SET args for simulation
-#args_sim = [0,0,0,0]
-args_sim = [1,0,0,0]
+args_sim = [0,0,0,0]
+#args_sim = [1,0,0,0]
 #args_sim = [0,1,1,1]
 #args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
@@ -144,7 +141,7 @@ t_end = 3600.0
 # NOTE that only "auto_bin" is possible for the analysis of the sim data for now
 bin_method_sim_data = "auto_bin"
 
-############################################################################################
+###############################################################################
 ### SET GENERAL PARAMETERS
 
 no_bins = 50
@@ -155,7 +152,7 @@ mass_density = 1E3 # approx for water
 
 
 
-############################################################################################
+###############################################################################
 ### SET PARAMETERS FOR SIP ENSEMBLES
 
 dist = "expo"
@@ -220,7 +217,8 @@ shift_factor = 0.5
 ############################################################################################
 ### SET PARAMETERS FOR KERNEL/ECOL GRID GENERATION AND LOADING
 
-R_low_kernel, R_high_kernel, no_bins_10_kernel = 0.6, 6E3, 200
+#R_low_kernel, R_high_kernel, no_bins_10_kernel = 0.6, 6E3, 200
+R_low_kernel, R_high_kernel, no_bins_10_kernel = 1E-2, 301., 100
 
 save_dir_kernel_grid = sim_data_path + f"{dist}/kernel_grid_data/"
 save_dir_Ecol_grid = sim_data_path + f"{dist}/Ecol_grid_data/{kernel_name}/"
