@@ -27,3 +27,43 @@ def plot_scalar_field_2D( grid_centers_x_, grid_centers_y_, field_,
     ax.set_yticks( np.linspace( tick_ranges_[1,0], tick_ranges_[1,1],
                                 no_ticks_[1] ) )
     plt.colorbar(CS, fraction=colorbar_fraction_ , pad=colorbar_pad_)
+    
+    
+pgf_dict = {
+#    "backend" : "pgf",    
+    "text.usetex": True,
+#    "pgf.rcfonts": False,   # Do not set up fonts from rc parameters.
+#    "pgf.texsystem": "lualatex",
+    "pgf.texsystem": "pdflatex",
+    "pgf.preamble": [
+        r'\usepackage{libertine}',
+        r'\usepackage[libertine]{newtxmath}',
+        r'\usepackage[T1]{fontenc}',
+#        r'\usepackage[no-math]{fontspec}',
+        ],
+    "font.family": "serif"
+}
+    
+def generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI):
+    dict_ = {'lines.linewidth' : LW,
+             'lines.markersize' : MS,
+             'axes.titlesize' : TTFS,
+             'axes.labelsize' : LFS,
+             'legend.fontsize' : LFS,
+             'xtick.labelsize' : TKFS,
+             'ytick.labelsize' : TKFS,
+             #{'center', 'top', 'bottom', 'baseline', 'center_baseline'}
+             #center_baseline seems to be def, center is OK
+             'xtick.alignment' : "center",
+             'ytick.alignment' : "center",
+             'savefig.dpi' : DPI
+             }
+    
+    return dict_
+
+def cm2inch(*tupl):
+    inch = 2.54
+    if isinstance(tupl[0], tuple):
+        return tuple(i/inch for i in tupl[0])
+    else:
+        return tuple(i/inch for i in tupl)
