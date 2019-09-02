@@ -27,8 +27,9 @@ from file_handling import load_grid_and_particles_full,\
 #from grid import compute_no_grid_cells_from_step_sizes
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
+#my_OS = "Linux_desk"
 #my_OS = "Mac"
+my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -38,6 +39,8 @@ elif (my_OS == "Mac"):
     simdata_path = "/Users/bohrer/sim_data_cloudMP/"
 #    fig_path = home_path \
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
+elif (my_OS == "TROPOS_server"):
+    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
 #%% GRID PARAMETERS
 
@@ -61,24 +64,29 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([10, 10])
 #no_spcm = np.array([12, 12])
-no_spcm = np.array([16, 24])
+#no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-#no_spcm = np.array([26, 38])
+no_spcm = np.array([26, 38])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
-seed_SIP_gen = 3711
+seed_SIP_gen = 3811
 #seed_SIP_gen_list = [3711, 3713]
-seed_SIP_gen_list = [3711, 3713, 3715, 3717]
+#seed_SIP_gen_list = [3711, 3713, 3715, 3717]
+no_sims = 50
+seed_SIP_gen_list = np.arange(seed_SIP_gen, seed_SIP_gen + no_sims * 2, 2)
 
 # for collisons
-seed_sim = 4711
+seed_sim = 6811
 #seed_sim = 6711
 #seed_sim_list = [4711, 4711]
-seed_sim_list = [4711, 4711, 4711, 4711]
+#seed_sim_list = [4711, 4711, 4711, 4711]
 #seed_sim_list = [6711, 6713, 6715, 6717]
 #seed_sim_list = [4711, 4713, 4715, 4717]
+#no_sims = 50
+seed_sim_list = np.arange(seed_sim, seed_sim + no_sims * 2, 2)
+
 
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
@@ -143,7 +151,7 @@ i_tg = [16,58,66]
 #    j_tg = [20]
 #    j_tg = [20,40]
 #    j_tg = [40,60]
-j_tg = [27, 44, 46, 51, 73][::-1]
+j_tg = [27, 44, 46, 51, 72][::-1]
 
 i_list, j_list = np.meshgrid(i_tg,j_tg, indexing = "xy")
 target_cell_list = np.array([i_list.flatten(), j_list.flatten()])
@@ -521,7 +529,7 @@ if act_gen_grid_frames_avg:
                 load_path_list.append()
         
         load_path_list.append(simdata_path + grid_folder_ + save_folder_)
-        
+    print(load_path_list)    
     fields_with_time, save_times_out, field_names_out, units_out, \
            scales_out = generate_field_frame_data_avg(load_path_list,
                                                         field_ind, time_ind,
