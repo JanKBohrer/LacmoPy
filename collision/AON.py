@@ -941,7 +941,11 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
             ### IN WORK: SAFETY: IS THERE A PARTICLE IN THE CELL AT ALL?
             
             if isinstance(E_col_grid, float):
-                pass
+                collision_step_Long_Bott_Ecol_const_2D_multicomp(
+                        xi_cell, m_w_cell, m_s_cell, R_p_cell, vels,
+                        rho_p_cell,                        
+                        dt_over_dV, E_col_grid,
+                        no_cols)                
             else:
                 collision_step_Long_Bott_Ecol_grid_R_2D_multicomp(
                         xi_cell, m_w_cell, m_s_cell, R_p_cell, vels,

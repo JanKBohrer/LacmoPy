@@ -113,9 +113,9 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([6, 8])
 #no_spcm = np.array([12, 12])
-no_spcm = np.array([26, 38])
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([18, 26])
+no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
 # seed of the SIP generation -> needed for the right grid folder
@@ -131,7 +131,7 @@ if len(sys.argv) > 2:
 #seed_sim = 4711
 
 # seed start with 6 for dt_col = 0.5 dt_adv
-seed_sim = 7713
+seed_sim = 6711
 if len(sys.argv) > 3:
     seed_sim = int(sys.argv[3])
 
@@ -214,10 +214,12 @@ dump_every = 10
 #%% COLLISIONS PARAMS
 
 #kernel_type = "Long_Bott"
-kernel_type = "Hall_Bott"
-kernel_method = "Ecol_grid_R"
+#kernel_type = "Hall_Bott"
+kernel_type = "Hydro_E_const"
 
-#kernel_method = "Ecol_const"
+#kernel_method = "Ecol_grid_R"
+
+kernel_method = "Ecol_const"
 E_col_const = 0.5
 
 save_dir_Ecol_grid =  f"Ecol_grid_data/{kernel_type}/"
