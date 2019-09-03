@@ -533,12 +533,16 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
         moments_vs_time_avg[:,1] *= 1.0E3
         mom0_last_time[kappa_n] = moments_vs_time_avg[-1,0]
+        
+        if kappa_n < 10: fmt = "x-"
+        else: fmt = "x--"            
+        
         for i,ax in enumerate(axes):
-            ax.plot(save_times/60, moments_vs_time_avg[:,i],"x-",label=f"{kappa}")
+            ax.plot(save_times/60, moments_vs_time_avg[:,i],fmt,label=f"{kappa}")
 
     for i,ax in enumerate(axes):
         ax.plot(t_Wang, moments_vs_time_Wang[:,i],
-                "o", c = "k",fillstyle='none', markersize = 10, mew=3.5, label="Wang")
+                "o", c = "k",fillstyle='none', markersize = 8, mew=2.0, label="Wang")
         if i != 1:
             ax.set_yscale("log")
         ax.grid()

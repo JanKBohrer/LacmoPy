@@ -1824,6 +1824,160 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
     if fig_path is not None:
         fig.savefig(fig_path)    
     
+# the 2D field plots get shifted "to the left" by shift_cells_x cells
+def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
+                                            save_times,
+                                            field_names,
+                                            units,
+                                            scales,
+                                            solute_type,
+                                            simulation_mode, # for time in label
+                                            fig_path=None,
+                                            no_ticks=[6,6],
+                                            alpha = 1.0,
+                                            TTFS = 12, LFS = 10, TKFS = 10,
+                                            cbar_precision = 2,
+                                            show_target_cells = False,
+                                            target_cell_list = None,
+                                            no_cells_x = 0,
+                                            no_cells_z = 0,
+                                            shift_cells_x = 0
+                                            ):
+    
+    tick_ranges = grid.ranges
+    
+    no_rows = len(save_times)
+    no_cols = len(field_names)
+    
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                       figsize = (4.5*no_cols, 4*no_rows))
+    
+    for time_n in range(no_rows):
+        for field_n in range(no_cols):
+            ax = axes[time_n,field_n]
+            field = fields_with_time[time_n, field_n] * scales[field_n]
+            field = np.concatenate( (field[shift_cells_x:,:],
+                                     field[:shift_cells_x,:]),
+                                   axis = 0)
+            ax_title = field_names[field_n]
+            unit = units[field_n]
+            if ax_title in ["T","p",r"\Theta"]:
+                cmap = "coolwarm"
+                alpha = 1.0
+            else :
+                cmap = "rainbow"
+#                alpha = 0.8
+                
+            field_max = field.max()
+            field_min = field.min()
+            
+            norm_ = mpl.colors.Normalize 
+            if ax_title in ["r_r", "n_r"] and field_max > 1E-2:
+                norm_ = mpl.colors.LogNorm
+                field_min = 0.01
+                if ax_title == "r_r":
+                    field_max = 1.
+                elif ax_title == "n_r":
+                    field_max = 10.
+            else: norm_ = mpl.colors.Normalize   
+            
+            if ax_title == "r_c":
+                field_min = 0.0
+                field_max = 1.3
+            if ax_title == "n_c":
+                field_min = 0.0
+                field_max = 150.
+            if ax_title == "n_\mathrm{aero}":
+                field_min = 0.0
+                field_max = 150.
+            if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+                field_min = 0.
+#                field_min = 1.5
+                field_max = 20.
+                cmap = cmap_new
+                
+                
+            oom_max = oom = int(math.log10(field_max))
+            
+            my_format = False
+            oom_factor = 1.0
+            
+            if oom_max > 2 or oom_max < 0:
+                my_format = True
+                oom_factor = 10**(-oom)
+                
+                field_min *= oom_factor
+                field_max *= oom_factor            
+            
+            if oom_max ==2: str_format = "%.1f"
+            else: str_format = "%.2f"
+            
+            if field_min/field_max < 1E-4:
+                cmap = cmap_new
+#                alpha = 0.8
+            
+            # REMOVE FIX APLHA HERE
+#            alpha = 1.0
+            
+            CS = ax.pcolormesh(*grid.corners,
+                               field*oom_factor,
+                               cmap=cmap, alpha=alpha,
+                                edgecolor="face", zorder=1,
+                                norm = norm_(vmin=field_min, vmax=field_max)
+                                )
+            CS.cmap.set_under("white")
+            
+            ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                             tick_ranges[0,1],
+                                             no_ticks[0] ) )
+            ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                             tick_ranges[1,1],
+                                             no_ticks[1] ) )
+            ax.tick_params(axis='both', which='major', labelsize=TKFS)
+            ax.grid(color='gray', linestyle='dashed', zorder = 2)
+            ax.set_xlabel(r'x (m)', fontsize = LFS)
+            ax.set_ylabel(r'z (m)', fontsize = LFS)
+            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
+                         int(save_times[time_n]/60)),
+                         fontsize = TTFS)
+            cbar = plt.colorbar(CS, ax=ax,
+                                format=mticker.FormatStrFormatter(str_format))
+            # my_format dos not work with log scale here!!
+            if my_format:
+                cbar.ax.text(field_min - (field_max-field_min),
+                             field_max + (field_max-field_min)*0.01,
+                             r'$\times\,10^{{{}}}$'.format(oom_max),
+                             va='bottom', ha='left', fontsize = TKFS)
+            cbar.ax.tick_params(labelsize=TKFS)
+            
+            if show_target_cells:
+                ### ad the target cells
+                no_neigh_x = no_cells_x // 2
+                no_neigh_z = no_cells_z // 2
+                dx = grid.steps[0]
+                dz = grid.steps[1]
+                
+                no_tg_cells = len(target_cell_list[0])
+                LW_rect = 2.
+                for tg_cell_n in range(no_tg_cells):
+                    x = ((target_cell_list[0, tg_cell_n]-shift_cells_x) % grid.no_cells[0]
+                         - no_neigh_x - 0.1) * dx
+                    z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+                    
+            #        dx *= no_cells_x
+            #        dz *= no_cells_z
+                    
+                    rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                         fill=False,
+                                         linewidth = LW_rect,
+        #                                 linestyle = "dashed",
+                                         edgecolor='k',
+                                         zorder = 99)        
+                    ax.add_patch(rect)
+
+    fig.tight_layout()
+    if fig_path is not None:
+        fig.savefig(fig_path)    
     
 # for one seed only for now...
 # load_path_list = [[load_path0]] 

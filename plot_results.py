@@ -12,8 +12,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 #my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
@@ -29,13 +29,15 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-args_plot = [1,1]
+#args_plot = [1,1,1]
+args_plot = [0,1,0]
 #args_plot = [1,0]
 #args_plot = [0,1]
 #args_plot = [1,1]
 
 act_plot_grid_frames_avg = args_plot[0]
-act_plot_spectra_avg_Arabas = args_plot[1]
+act_plot_grid_frames_avg_shift = args_plot[1]
+act_plot_spectra_avg_Arabas = args_plot[2]
 #act_get_grid_data = args_plot[2]
 
 #%% GRID PARAMETERS
@@ -43,6 +45,9 @@ act_plot_spectra_avg_Arabas = args_plot[1]
 # needed for filename
 no_cells = (75, 75)
 #no_cells = (3, 3)
+
+shift_cells_x = 18
+#shift_cells_x = 56
 
 #%% PARTICLE PARAMETERS
 
@@ -58,7 +63,7 @@ solute_type = "AS"
 #no_spcm = np.array([20, 30])
 no_spcm = np.array([26, 38])
 
-seed_SIP_gen = 4811
+seed_SIP_gen = 3811
 seed_sim = 6811
 
 #no_seeds = 4
@@ -199,6 +204,62 @@ if act_plot_grid_frames_avg:
                                         no_cells_x = no_cells_x,
                                         no_cells_z = no_cells_z)     
     plt.close("all")   
+
+#%% PLOT AVG GRID FRAMES SHIFT IN X DIRECTION
+
+if act_plot_grid_frames_avg_shift:
+    from analysis import plot_scalar_field_frames_extend_avg_shift
+
+    fields_with_time = np.load(data_path
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    save_times_out_fr = np.load(data_path
+            + f"save_times_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    field_names_out = np.load(data_path
+            + f"field_names_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    units_out = np.load(data_path
+            + f"units_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    scales_out = np.load(data_path
+            + f"scales_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )    
+
+    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
+    fig_name = \
+               f"scalar_fields_avg_shift_{shift_cells_x}_" \
+               + f"t_{save_times_out_fr[0]}_" \
+               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+               + f"Nfie_{len(field_names_out)}_" \
+               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+               + f"ss_{seed_sim_list[0]}.png"
+    if not os.path.exists(fig_path):
+            os.makedirs(fig_path)    
+    plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
+                                        save_times_out_fr,
+                                        field_names_out,
+                                        units_out,
+                                        scales_out,
+                                        solute_type,
+                                        simulation_mode, # for time in label
+                                        fig_path=fig_path+fig_name,
+                                        no_ticks=[6,6], 
+                                        alpha = 1.0,
+                                        TTFS = 12, LFS = 10, TKFS = 10,
+                                        cbar_precision = 2,
+#                                        show_target_cells = False,
+                                        show_target_cells = show_target_cells,
+                                        target_cell_list = target_cell_list,
+                                        no_cells_x = no_cells_x,
+                                        no_cells_z = no_cells_z,
+                                        shift_cells_x = shift_cells_x)     
+#    plt.close("all")   
 
 #%% PLOT SPECTRA AVG 
 

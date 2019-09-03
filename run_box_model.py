@@ -61,9 +61,9 @@ import sys
 
 set_log_file = True
 
-OS = "LinuxDesk"
+#OS = "LinuxDesk"
 #OS = "Mac"
-#OS = "TROPOS_server"
+OS = "TROPOS_server"
 #OS = "LinuxNote"
 
 if OS == "Mac":
@@ -78,8 +78,8 @@ elif OS == "TROPOS_server":
 # SET args for SIP ensemble generation AND Kernel-grid generation
 #args_gen = [1,1,1,1,1]
 #args_gen = [1,0,0,0,0]
-args_gen = [0,0,0,0,1]
-#args_gen = [0,0,0,0,0]
+#args_gen = [0,0,0,0,1]
+args_gen = [0,0,0,0,0]
 #args_gen = [1,1,1,0,0]
 
 act_gen_SIP = bool(args_gen[0])
@@ -90,9 +90,9 @@ act_gen_kernel_grid = bool(args_gen[3])
 act_gen_Ecol_grid = bool(args_gen[4])
 
 # SET args for simulation
-args_sim = [0,0,0,0]
+#args_sim = [0,0,0,0]
 #args_sim = [1,0,0,0]
-#args_sim = [0,1,1,1]
+args_sim = [0,1,1,1]
 #args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
 
@@ -105,25 +105,26 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 
 #kappa_list=[3.5]
-kappa_list=[5,10]
+#kappa_list=[5,10]
 #kappa_list=[5,10,20,40,60,100]
 #kappa_list=[5,10,20,40,60,100,200,400]
 #kappa_list=[3,3.5,5,10,20,40,60,100,200,400]
 #kappa_list=[800]
 #kappa_list=[5,10,20,40,60,100,200,400,600,800]
+kappa_list=[5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 #kappa_list=[200,400,600,800]
 
 #no_sims = 100
 no_sims = 500
 #no_sims = 10
 #no_sims = 400
-start_seed = 8711
+start_seed = 3711
 
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 # kernel_name = "Golovin"
-#kernel_name = "Long_Bott"
-kernel_name = "Hall_Bott"
+kernel_name = "Long_Bott"
+#kernel_name = "Hall_Bott"
 
 #kernel_method = "kernel_grid_m"
 kernel_method = "Ecol_grid_R"
