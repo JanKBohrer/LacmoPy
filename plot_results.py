@@ -58,11 +58,11 @@ solute_type = "AS"
 #no_spcm = np.array([20, 30])
 no_spcm = np.array([26, 38])
 
-seed_SIP_gen = 3711
-seed_sim = 4711
+seed_SIP_gen = 4811
+seed_sim = 6811
 
-no_seeds = 4
-#no_seeds = 50
+#no_seeds = 4
+no_seeds = 50
 
 
 #%% SIM PARAMETERS
