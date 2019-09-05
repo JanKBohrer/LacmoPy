@@ -29,8 +29,8 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-#args_plot = [1,1,1]
-args_plot = [0,1,0]
+args_plot = [1,1,1]
+#args_plot = [0,1,0]
 #args_plot = [1,0]
 #args_plot = [0,1]
 #args_plot = [1,1]
@@ -63,7 +63,7 @@ solute_type = "AS"
 #no_spcm = np.array([20, 30])
 no_spcm = np.array([26, 38])
 
-seed_SIP_gen = 3811
+seed_SIP_gen = 4811
 seed_sim = 6811
 
 #no_seeds = 4
@@ -72,9 +72,9 @@ no_seeds = 50
 
 #%% SIM PARAMETERS
 
-#simulation_mode = "spin_up"
-#simulation_mode = "wo_collision"
-simulation_mode = "with_collision"
+simulation_mode = "spin_up"
+simulation_mode = "wo_collision"
+#simulation_mode = "with_collision"
 
 # for file names
 dt_col = 0.5

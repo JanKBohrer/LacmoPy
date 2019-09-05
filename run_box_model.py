@@ -62,8 +62,8 @@ import sys
 set_log_file = True
 
 #OS = "LinuxDesk"
-#OS = "Mac"
-OS = "TROPOS_server"
+OS = "Mac"
+#OS = "TROPOS_server"
 #OS = "LinuxNote"
 
 if OS == "Mac":
@@ -92,8 +92,8 @@ act_gen_Ecol_grid = bool(args_gen[4])
 # SET args for simulation
 #args_sim = [0,0,0,0]
 #args_sim = [1,0,0,0]
-args_sim = [0,1,1,1]
-#args_sim = [0,0,0,1]
+#args_sim = [0,1,1,1]
+args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
 
 act_sim = bool(args_sim[0])
@@ -105,26 +105,27 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 
 #kappa_list=[3.5]
-#kappa_list=[5,10]
+kappa_list=[5,10]
 #kappa_list=[5,10,20,40,60,100]
 #kappa_list=[5,10,20,40,60,100,200,400]
 #kappa_list=[3,3.5,5,10,20,40,60,100,200,400]
 #kappa_list=[800]
 #kappa_list=[5,10,20,40,60,100,200,400,600,800]
-kappa_list=[5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
+#kappa_list=[5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 #kappa_list=[200,400,600,800]
 
 #no_sims = 100
 no_sims = 500
 #no_sims = 10
 #no_sims = 400
-start_seed = 3711
+#start_seed = 3711
+start_seed = 8711
 
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 # kernel_name = "Golovin"
-kernel_name = "Long_Bott"
-#kernel_name = "Hall_Bott"
+#kernel_name = "Long_Bott"
+kernel_name = "Hall_Bott"
 
 #kernel_method = "kernel_grid_m"
 kernel_method = "Ecol_grid_R"
@@ -524,72 +525,78 @@ if act_plot:
 
 TTFS, LFS, TKFS = 14,14,12
 if act_plot_moments_kappa_var:
-    ref_data_path = sim_data_path + f"{dist}/Wang2007_results2.txt"
-    if kernel_name == "Long_Bott":
-        data_Wang_2007 = [
-                            295.4 ,
-                            287.4 ,
-                            278.4 ,
-                            264.4 ,
-                            151.7 ,
-                            13.41 ,
-                            1.212,
-                            0.999989, 
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            6.739E-9 ,
-                            7.402E-9 ,
-                            8.720E-9 ,
-                            3.132E-7 ,
-                            3.498E-4 ,
-                            1.068E-2 ,
-                            3.199E-2 ,
-                            6.813e-14 ,
-                            9.305e-14 ,
-                            5.710e-13 ,
-                            3.967e-8 ,
-                            1.048e-3 ,
-                            2.542e-1 ,
-                            1.731    
-                            ]
-    elif kernel_name == "Hall_Bott":
-        data_Wang_2007 = [
-                            295.4 ,
-                            287.8 ,
-                            279.9 ,
-                            270.2 ,
-                            231.7 ,
-                            124.5 ,
-                            73.99 ,
-                            0.999989, 
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            0.999989 ,
-                            6.739e-9 ,
-                            7.184e-9 ,
-                            7.999e-9 ,
-                            7.827e-8 ,
-                            1.942e-5 ,
-                            7.928e-4 ,
-                            6.997e-3 ,
-                            6.813e-14 ,
-                            8.282e-14 ,
-                            3.801e-13 ,
-                            2.531e-9 ,
-                            6.107e-6 ,
-                            2.108e-3 ,
-                            1.221e-1  ]               
+    ref_data_path = "collision/ref_data/" \
+                    + f"{kernel_name}/"
+    moments_ref = np.loadtxt(ref_data_path + "Wang_2007_moments.txt")
+    times_ref = np.loadtxt(ref_data_path + "Wang_2007_times.txt")
+    
+#    if kernel_name == "Long_Bott":
+#        data_Wang_2007 = [
+#                            295.4 ,
+#                            287.4 ,
+#                            278.4 ,
+#                            264.4 ,
+#                            151.7 ,
+#                            13.41 ,
+#                            1.212,
+#                            0.999989, 
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            6.739E-9 ,
+#                            7.402E-9 ,
+#                            8.720E-9 ,
+#                            3.132E-7 ,
+#                            3.498E-4 ,
+#                            1.068E-2 ,
+#                            3.199E-2 ,
+#                            6.813e-14 ,
+#                            9.305e-14 ,
+#                            5.710e-13 ,
+#                            3.967e-8 ,
+#                            1.048e-3 ,
+#                            2.542e-1 ,
+#                            1.731    
+#                            ]
+#    elif kernel_name == "Hall_Bott":
+#        data_Wang_2007 = [
+#                            295.4 ,
+#                            287.8 ,
+#                            279.9 ,
+#                            270.2 ,
+#                            231.7 ,
+#                            124.5 ,
+#                            73.99 ,
+#                            0.999989, 
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            0.999989 ,
+#                            6.739e-9 ,
+#                            7.184e-9 ,
+#                            7.999e-9 ,
+#                            7.827e-8 ,
+#                            1.942e-5 ,
+#                            7.928e-4 ,
+#                            6.997e-3 ,
+#                            6.813e-14 ,
+#                            8.282e-14 ,
+#                            3.801e-13 ,
+#                            2.531e-9 ,
+#                            6.107e-6 ,
+#                            2.108e-3 ,
+#                            1.221e-1  ]               
         
     fig_dir = sim_data_path + result_path_add
     plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                            kernel_name, gen_method,
-                           dist, start_seed, data_Wang_2007, sim_data_path,
+                           dist, start_seed,
+                           moments_ref, times_ref,
+                           sim_data_path,
                            result_path_add,
                            fig_dir, TTFS, LFS, TKFS)

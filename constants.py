@@ -7,6 +7,16 @@ Created on Wed May  1 12:23:12 2019
 """
 
 import math
+
+# pyhsical universal constants
+
+# Boltzmann
+k_B = 1.380649E-13 # J/K
+# Avogadro
+avogadro = 6.02214076E23 # 1/mol
+# universal gas constant
+univ_gas = avogadro * k_B # J/(K mol)
+
 # COMPUTE MASS FROM DIAMETER AND DENSITY
 # 1/3
 one_third = 1.0 / 3.0

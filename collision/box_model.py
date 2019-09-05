@@ -494,11 +494,13 @@ gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
 #                           fig_dir, TTFS, LFS, TKFS):
 def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                            kernel_name, gen_method,
-                           dist, start_seed, ref_data_list, sim_data_path,
+                           dist, start_seed,
+                           moments_ref, times_ref,
+                           sim_data_path,
                            result_path_add,
                            fig_dir, TTFS, LFS, TKFS):
-    mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
-                                   5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
+#    mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
+#                                   5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
     
 #    t_Unt = [0,10,20,30,35,40,50,55,60]
 #    lam0_Unt = [2.97E8, 2.92E8, 2.82E8, 2.67E8, 2.1E8, 1.4E8,  1.4E7, 4.0E6, 1.2E6]
@@ -506,14 +508,14 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
 #    lam2_Unt = [8.0E-15, 9.0E-15, 9.5E-15, 6E-13, 2E-10, 7E-9, 2.5E-8]
 
     # Wang 2007: s = 16 -> kappa = 53.151 = s * log_2(10)
-    t_Wang = np.linspace(0,60,7)
-#    moments_vs_time_Wang = np.loadtxt(ref_data_path)
-    moments_vs_time_Wang = np.array(ref_data_list)
-#        sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/Wang2007_results2.txt")
-    moments_vs_time_Wang = np.reshape(moments_vs_time_Wang,(4,7)).T
-    moments_vs_time_Wang[:,0] *= 1.0E6
-    moments_vs_time_Wang[:,2] *= 1.0E-6
-    moments_vs_time_Wang[:,3] *= 1.0E-12
+#    t_Wang = np.linspace(0,60,7)
+##    moments_vs_time_Wang = np.loadtxt(ref_data_path)
+#    moments_vs_time_Wang = np.array(ref_data_list)
+##        sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/Wang2007_results2.txt")
+#    moments_vs_time_Wang = np.reshape(moments_vs_time_Wang,(4,7)).T
+#    moments_vs_time_Wang[:,0] *= 1.0E6
+#    moments_vs_time_Wang[:,2] *= 1.0E-6
+#    moments_vs_time_Wang[:,3] *= 1.0E-12
 
     no_kappas = len(kappa_list)
     
@@ -525,14 +527,14 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
     
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows), sharex=True)
     
-    mom0_last_time = np.zeros(len(kappa_list),dtype=np.float64)
+#    mom0_last_time = np.zeros(len(kappa_list),dtype=np.float64)
     
     for kappa_n,kappa in enumerate(kappa_list):
         load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
         save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
         moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
-        moments_vs_time_avg[:,1] *= 1.0E3
-        mom0_last_time[kappa_n] = moments_vs_time_avg[-1,0]
+#        moments_vs_time_avg[:,1] *= 1.0E3
+#        mom0_last_time[kappa_n] = moments_vs_time_avg[-1,0]
         
         if kappa_n < 10: fmt = "x-"
         else: fmt = "x--"            
@@ -541,8 +543,8 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
             ax.plot(save_times/60, moments_vs_time_avg[:,i],fmt,label=f"{kappa}")
 
     for i,ax in enumerate(axes):
-        ax.plot(t_Wang, moments_vs_time_Wang[:,i],
-                "o", c = "k",fillstyle='none', markersize = 8, mew=2.0, label="Wang")
+        ax.plot(times_ref/60, moments_ref[i],
+                "o", c = "k",fillstyle='none', markersize = 8, mew=1.0, label="Wang")
         if i != 1:
             ax.set_yscale("log")
         ax.grid()
@@ -566,7 +568,7 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
     axes[-1].set_xlabel("time (min)",fontsize=LFS)
     axes[0].set_ylabel(r"$\lambda_0$ = DNC $(\mathrm{m^{-3}})$ ",
                        fontsize=LFS)
-    axes[1].set_ylabel(r"$\lambda_1$ = LWC $(\mathrm{g \, m^{-3}})$ ",
+    axes[1].set_ylabel(r"$\lambda_1$ = LWC $(\mathrm{kg \, m^{-3}})$ ",
                        fontsize=LFS)
     axes[2].set_ylabel(r"$\lambda_2$ $(\mathrm{kg^2 \, m^{-3}})$ ",
                        fontsize=LFS)
@@ -590,10 +592,10 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         
 #    for mom0_last in mom0_last_time:
 #    print(mom0_last_time/mom0_last_time.min())
-    if len(mom0_last_time) >= 3:
-        print(mom0_last_time/mom0_last_time[-2])
-        print(mom0_last_time_Unt/mom0_last_time_Unt.min())
-        print()
+#    if len(mom0_last_time) >= 3:
+#        print(mom0_last_time/mom0_last_time[-2])
+#        print(mom0_last_time_Unt/mom0_last_time_Unt.min())
+#        print()
     title=\
 f"Moments of the distribution for various $\kappa$ (see legend)\n\
 dt={dt:.1e}, eta={eta:.0e}, r_critmin=0.6, no_sims={no_sims}, \
