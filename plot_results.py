@@ -61,9 +61,10 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-no_spcm = np.array([26, 38])
+#no_spcm = np.array([26, 38])
+no_spcm = np.array([52, 76])
 
-seed_SIP_gen = 4811
+seed_SIP_gen = 3811
 seed_sim = 6811
 
 #no_seeds = 4
@@ -72,9 +73,9 @@ no_seeds = 50
 
 #%% SIM PARAMETERS
 
-simulation_mode = "spin_up"
-simulation_mode = "wo_collision"
-#simulation_mode = "with_collision"
+#simulation_mode = "spin_up"
+#simulation_mode = "wo_collision"
+simulation_mode = "with_collision"
 
 # for file names
 dt_col = 0.5
