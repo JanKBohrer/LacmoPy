@@ -77,7 +77,7 @@ no_seeds = 50
 #seed_SIP_gen = 3711
 #seed_SIP_gen_list = [3711, 3713, 3715, 3717]
 
-seed_SIP_gen = 3811
+seed_SIP_gen = 4811
 #no_seeds = 4
 seed_SIP_gen_list = np.arange(seed_SIP_gen, seed_SIP_gen + no_seeds * 2, 2)
 
@@ -86,7 +86,7 @@ seed_SIP_gen_list = np.arange(seed_SIP_gen, seed_SIP_gen + no_seeds * 2, 2)
 #seed_sim = 4711
 #seed_sim_list = [4711, 4711, 4711, 4711]
 
-seed_sim = 6811
+seed_sim = 7811
 seed_sim_list = np.arange(seed_sim, seed_sim + no_seeds * 2, 2)
 
 #%% SIM PARAMETERS
