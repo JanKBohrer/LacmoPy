@@ -1642,21 +1642,21 @@ def generate_field_frame_data_avg(load_path_list,
                              1,
                              R_p[masks_R_p[1]],
                              xi_with_time[idx_t][masks_R_p[1]],
-                             cells_with_time[idx_t][:,[masks_R_p[1]]],
+                             cells_with_time[idx_t][:,masks_R_p[1]],
                              active_ids_with_time[idx_t][masks_R_p[1]],
                              id_list, no_cells)
             mom2_cloud = compute_moment_R_grid(
                              2,
                              R_p[masks_R_p[1]],
                              xi_with_time[idx_t][masks_R_p[1]],
-                             cells_with_time[idx_t][:,[masks_R_p[1]]],
+                             cells_with_time[idx_t][:,masks_R_p[1]],
                              active_ids_with_time[idx_t][masks_R_p[1]],
                              id_list, no_cells)
             mom3_cloud = compute_moment_R_grid(
                              3,
                              R_p[masks_R_p[1]],
                              xi_with_time[idx_t][masks_R_p[1]],
-                             cells_with_time[idx_t][:,[masks_R_p[1]]],
+                             cells_with_time[idx_t][:,masks_R_p[1]],
                              active_ids_with_time[idx_t][masks_R_p[1]],
                              id_list, no_cells)
 #            mom2_cloud = compute_moment_R_grid(3,
