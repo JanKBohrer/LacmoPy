@@ -12,8 +12,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #%% STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
-my_OS = "Mac"
+my_OS = "Linux_desk"
+#my_OS = "Mac"
 #my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
@@ -61,15 +61,14 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-#no_spcm = np.array([26, 38])
-no_spcm = np.array([52, 76])
+no_spcm = np.array([26, 38])
+#no_spcm = np.array([52, 76])
 
-seed_SIP_gen = 3811
-seed_sim = 6811
+seed_SIP_gen = 4811
+seed_sim = 7811
 
 #no_seeds = 4
 no_seeds = 50
-
 
 #%% SIM PARAMETERS
 
@@ -103,11 +102,13 @@ t_end = 14400
 show_target_cells = True
 
 ### SPECTRA
+# if set to "None" the values are loaded from stored files
 #no_rows = 5
 #no_cols = 3
 no_rows = None
 no_cols = None
 
+# if set to "None" the values are loaded from stored files
 #no_bins_R_p = 30
 #no_bins_R_s = 30
 no_bins_R_p = None

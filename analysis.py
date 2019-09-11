@@ -1170,6 +1170,7 @@ def compute_order_of_magnitude(x):
 
 import matplotlib as mpl
 import matplotlib.ticker as mticker
+from matplotlib.colors import hex2color, LinearSegmentedColormap
 #import cmocean.cm as cmo
 #cmap = "rainbow"
 #cmap = "gist_rainbow_r"
@@ -1194,6 +1195,26 @@ newcolors = np.vstack((colors1(np.linspace(0, 0.16, 24)),
 #newcolors = np.vstack((top(np.linspace(0, 1, 128)),
 #                       bottom(np.linspace(0, 1, 128))))
 cmap_new = mpl.colors.ListedColormap(newcolors, name='my_rainbow')
+
+### CREATE COLORMAP LIKE ARABAS 2015
+hex_colors = ['#FFFFFF', '#993399', '#00CCFF', '#66CC00',
+              '#FFFF00', '#FC8727', '#FD0000']
+rgb_colors = [hex2color(c) + tuple([1.0]) for c in hex_colors]
+no_colors = len(rgb_colors)
+
+cdict_lcpp_colors = np.zeros( (3, no_colors, 3) )
+
+for i in range(3):
+    cdict_lcpp_colors[i,:,0] = np.linspace(0.0,1.0,no_colors)
+    for j in range(no_colors):
+        cdict_lcpp_colors[i,j,1] = rgb_colors[j][i]
+        cdict_lcpp_colors[i,j,2] = rgb_colors[j][i]
+
+cdict_lcpp = {"red": cdict_lcpp_colors[0],
+              "green": cdict_lcpp_colors[1],
+              "blue": cdict_lcpp_colors[2]}
+
+cmap_lcpp = LinearSegmentedColormap('testCmap', segmentdata=cdict_lcpp, N=256)
 
 # fields = [fields_t0, fields_t1, ...]
 # fields_ti =
@@ -1342,7 +1363,9 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
 #                return r'${0:.{prec}f}$'.format(x, prec=cbar_precision) 
             
             if field_min/field_max < 1E-4:
-                cmap = cmap_new
+#                cmap = cmap_new
+                # Arabas 2015
+                cmap = cmap_lcpp
                 alpha = 0.8
             # REMOVE APLHA HERE
             alpha = 1.0
@@ -1613,6 +1636,39 @@ def generate_field_frame_data_avg(load_path_list,
                                          cells_with_time[idx_t],
                                          active_ids_with_time[idx_t],
                                          id_list, no_cells)
+            
+            # calculate R_eff only from cloud range (as Arabas 2015)
+            mom1_cloud = compute_moment_R_grid(
+                             1,
+                             R_p[masks_R_p[1]],
+                             xi_with_time[idx_t][masks_R_p[1]],
+                             cells_with_time[idx_t][:,[masks_R_p[1]]],
+                             active_ids_with_time[idx_t][masks_R_p[1]],
+                             id_list, no_cells)
+            mom2_cloud = compute_moment_R_grid(
+                             2,
+                             R_p[masks_R_p[1]],
+                             xi_with_time[idx_t][masks_R_p[1]],
+                             cells_with_time[idx_t][:,[masks_R_p[1]]],
+                             active_ids_with_time[idx_t][masks_R_p[1]],
+                             id_list, no_cells)
+            mom3_cloud = compute_moment_R_grid(
+                             3,
+                             R_p[masks_R_p[1]],
+                             xi_with_time[idx_t][masks_R_p[1]],
+                             cells_with_time[idx_t][:,[masks_R_p[1]]],
+                             active_ids_with_time[idx_t][masks_R_p[1]],
+                             id_list, no_cells)
+#            mom2_cloud = compute_moment_R_grid(3,
+#                                               R_p[masks_R_p[1]],
+#                                               xi_with_time[idx_t][masks_R_p[1]],
+#                                               cells_with_time[idx_t][:,[masks_R_p[1]]],
+#                                               active_ids_with_time[idx_t][masks_R_p[1]],
+#                                               id_list, no_cells)
+#            mom3_cloud = compute_moment_R_grid(3, R_p, xi_with_time[idx_t],
+#                                               cells_with_time[idx_t],
+#                                               active_ids_with_time[idx_t],
+#                                               id_list, no_cells)
 
             for cnt in range(no_fields_derived):
                 idx_f = derived_indices[cnt]
@@ -1638,10 +1694,10 @@ def generate_field_frame_data_avg(load_path_list,
                     fields_derived[cnt] = mom1/mom0
                 elif idx_f == 7:
                     # R_2/1
-                    fields_derived[cnt] = mom2/mom1
+                    fields_derived[cnt] = mom2_cloud/mom1_cloud
                 elif idx_f == 8:
                     # R_eff
-                    fields_derived[cnt] = mom3/mom2
+                    fields_derived[cnt] = mom3_cloud/mom2_cloud
                 
                         
             
@@ -1741,7 +1797,9 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                 field_min = 0.
 #                field_min = 1.5
                 field_max = 20.
-                cmap = cmap_new
+#                cmap = cmap_new
+                # Arabas 2015
+                cmap = cmap_lcpp
                 
                 
             oom_max = oom = int(math.log10(field_max))
@@ -1760,7 +1818,9 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
             else: str_format = "%.2f"
             
             if field_min/field_max < 1E-4:
-                cmap = cmap_new
+#                cmap = cmap_new
+                # Arabas 2015                
+                cmap = cmap_lcpp
 #                alpha = 0.8
             
             # REMOVE FIX APLHA HERE
@@ -1894,7 +1954,9 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
                 field_min = 0.
 #                field_min = 1.5
                 field_max = 20.
-                cmap = cmap_new
+#                cmap = cmap_new
+                # Arabas 2015
+                cmap = cmap_lcpp
                 
                 
             oom_max = oom = int(math.log10(field_max))
@@ -1913,7 +1975,9 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
             else: str_format = "%.2f"
             
             if field_min/field_max < 1E-4:
-                cmap = cmap_new
+#                cmap = cmap_new
+                # Arabas 2015
+                cmap = cmap_lcpp
 #                alpha = 0.8
             
             # REMOVE FIX APLHA HERE
@@ -2424,7 +2488,9 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
         grid_r_l = grid_r_l_list[0]*1E3
         no_rows = 1
         no_cols = 1  
-        cmap = cmap_new
+#        cmap = cmap_new
+        # arabas 2015
+        cmap = cmap_lcpp
 #        cmap = "my_rainbow"
         alpha = 0.7
         no_ticks = [6,6]
