@@ -213,13 +213,13 @@ dump_every = 10
 
 #%% COLLISIONS PARAMS
 
-#kernel_type = "Long_Bott"
+kernel_type = "Long_Bott"
 #kernel_type = "Hall_Bott"
-kernel_type = "Hydro_E_const"
+#kernel_type = "Hydro_E_const"
 
-#kernel_method = "Ecol_grid_R"
+kernel_method = "Ecol_grid_R"
 
-kernel_method = "Ecol_const"
+#kernel_method = "Ecol_const"
 E_col_const = 0.5
 
 save_dir_Ecol_grid =  f"Ecol_grid_data/{kernel_type}/"

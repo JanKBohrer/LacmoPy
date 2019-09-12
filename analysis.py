@@ -1691,13 +1691,15 @@ def generate_field_frame_data_avg(load_path_list,
                                 id_list, mask)
                 elif idx_f == 6:
                     # R_mean
-                    fields_derived[cnt] = mom1/mom0
+                    fields_derived[cnt] = np.where(mom0 == 0.0, 0.0, mom1/mom0)
                 elif idx_f == 7:
                     # R_2/1
-                    fields_derived[cnt] = mom2_cloud/mom1_cloud
+                    fields_derived[cnt] = np.where(mom1_cloud == 0.0, 0.0,
+                                                   mom2_cloud/mom1_cloud)
                 elif idx_f == 8:
                     # R_eff
-                    fields_derived[cnt] = mom3_cloud/mom2_cloud
+                    fields_derived[cnt] = np.where(mom2_cloud == 0.0, 0.0,
+                                                   mom3_cloud/mom2_cloud)
                 
                         
             
@@ -1768,7 +1770,8 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                 cmap = "coolwarm"
                 alpha = 1.0
             else :
-                cmap = "rainbow"
+#                cmap = "rainbow"
+                cmap = cmap_lcpp
 #                alpha = 0.8
                 
             field_max = field.max()
@@ -1778,6 +1781,7 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
             if ax_title in ["r_r", "n_r"] and field_max > 1E-2:
                 norm_ = mpl.colors.LogNorm
                 field_min = 0.01
+                cmap = cmap_lcpp                
                 if ax_title == "r_r":
                     field_max = 1.
                 elif ax_title == "n_r":
@@ -1794,7 +1798,8 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                 field_min = 0.0
                 field_max = 150.
             if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
-                field_min = 0.
+#                field_min = 0.
+                field_min = 1.2
 #                field_min = 1.5
                 field_max = 20.
 #                cmap = cmap_new
@@ -1925,7 +1930,8 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
                 cmap = "coolwarm"
                 alpha = 1.0
             else :
-                cmap = "rainbow"
+#                cmap = "rainbow"
+                cmap = cmap_lcpp
 #                alpha = 0.8
                 
             field_max = field.max()
@@ -1935,6 +1941,7 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
             if ax_title in ["r_r", "n_r"] and field_max > 1E-2:
                 norm_ = mpl.colors.LogNorm
                 field_min = 0.01
+                cmap = cmap_lcpp                
                 if ax_title == "r_r":
                     field_max = 1.
                 elif ax_title == "n_r":
@@ -1951,7 +1958,8 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
                 field_min = 0.0
                 field_max = 150.
             if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
-                field_min = 0.
+#                field_min = 0.
+                field_min = 1.2
 #                field_min = 1.5
                 field_max = 20.
 #                cmap = cmap_new

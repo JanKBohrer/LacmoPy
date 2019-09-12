@@ -37,7 +37,7 @@ MS = 2
 # raster resolution for e.g. .png
 DPI = 600
 
-plt.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
+mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 
 #%%
 
@@ -82,7 +82,7 @@ ax.legend()
 #fig.savefig("test_figs/plt_to_inkscape_01.svg", format = 'svg')
 fig_name = "pltToInkscape03.svg"
 fig.savefig("/home/jdesk/Masterthesis/Figures/test/" + fig_name,
-             format = 'svg')
+            format = 'svg')
 
 #### REMOVE WHITE MARGINS -> makes figure smaller...
 ##fig.savefig("test_figs/plt_latex_pgf.pdf",bbox_inches = 'tight')
