@@ -1913,7 +1913,6 @@ def initialize_grid_and_particles_SinSIP(
                                  
     grid.saturation_pressure =\
         compute_saturation_pressure_vapor_liquid(grid.temperature)
-    
        
     rho_dry_env_init_bottom = 0.5 * ( rho_dry_env_init_center[0:-1]
                                       + rho_dry_env_init_center[1:])

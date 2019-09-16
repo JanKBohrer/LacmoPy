@@ -13,14 +13,16 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 plt.rcParams.update(plt.rcParamsDefault)
 # need to set mpl.use() explicitely (not via rcParams)
-mpl.use("pgf")
+#mpl.use("pgf")
+mpl.use("pdf")
 # this does not work:...:
 #plt.rcParams['backend'] = 'pgf'
 
 from plotting import cm2inch
 from plotting import generate_rcParams_dict
-from plotting import pgf_dict
-plt.rcParams.update(pgf_dict)
+from plotting import pgf_dict, pdf_dict
+#plt.rcParams.update(pgf_dict)
+plt.rcParams.update(pdf_dict)
 
 #%% SET DEFAULT PLOT PARAMETERS (can be changed for specific elements directly)
 # TITLE, LABEL (and legend), TICKLABEL FONTSIZES
@@ -82,11 +84,11 @@ fig.tight_layout()
 #savefig("filename.pdf", bbox_inches = 'tight',
 #    pad_inches = 0)
 
-fig.savefig("test_figs/plt_latex_pgf9.pgf")
+#fig.savefig("test_figs/plt_latex_pdf9.pgf")
 
 ### REMOVE WHITE MARGINS -> makes figure smaller...
 #fig.savefig("test_figs/plt_latex_pgf.pdf",bbox_inches = 'tight')
-fig.savefig("test_figs/plt_latex_pgf9.pdf", 
+fig.savefig("test_figs/plt_latex_pdf_tightl.pdf", 
             bbox_inches = 'tight', pad_inches = 0)
 
-fig.savefig("test_figs/plt_latex_pgf9.png")
+fig.savefig("test_figs/plt_latex_pdf_tightl.png")

@@ -7,14 +7,18 @@ Created on Fri Aug 30 12:05:53 2019
 """
 
 import matplotlib as mpl
-
-#matplotlib.font_manager._rebuild()
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as font_manager
+mpl.rcParams.update(plt.rcParamsDefault)
 
 import numpy as np
+
+from plotting import cm2inch
+from plotting import generate_rcParams_dict
+
+#matplotlib.font_manager._rebuild()
 #import matplotlib
 #matplotlib.rcParams['text.usetex'] = True
-import matplotlib.pyplot as plt
-mpl.rcParams.update(plt.rcParamsDefault)
 #from matplotlib import rc
 
 ### rc params for this script only
@@ -33,91 +37,86 @@ mpl.rcParams.update(plt.rcParamsDefault)
 #sorted([f.name for f in matplotlib.font_manager.fontManager.ttflist])
 
 #%%
-
-from os.path import expanduser
-fontpath = expanduser("~/Library/Fonts/LinLibertine_R.otf")
+#from os.path import expanduser
+# for Mac OS:
+#fontpath = expanduser("~/Library/Fonts/LinLibertine_R.otf")
+# for LinuxDesk
+#fontpath = "/usr/share/fonts/opentype/linux-libertine/LinLibertine_R.otf"
+#fontprop = font_manager.FontProperties(fname=fontpath)
 
 #print(fontpath)
-
-import matplotlib.font_manager as font_manager
-
-fontprop = font_manager.FontProperties(fname=fontpath)
-
 #for font in font_manager.findSystemFonts():
 #    print(font)
 
 #font_manager._rebuild()
 
 #%%
-
-
 mpl.use("pgf")
 
 pgf_with_lualatex = {
     "text.usetex": True,
     "pgf.rcfonts": False,   # Do not set up fonts from rc parameters.
     "pgf.texsystem": "lualatex",
+#    "pgf.texsystem": "pdflatex",
+#    "pgf.texsystem": "xelatex",
     "pgf.preamble": [
-        r'\usepackage{libertine}',
-        r'\usepackage[libertine]{newtxmath}',
-        r'\usepackage[no-math]{fontspec}',
+            r'\PassOptionsToPackage{no-math}{fontspec}',
+            r'\usepackage[ttscale=.9]{libertine}',
+#            r'\usepackage[T1]{fontenc}',
+            r'\usepackage[libertine]{newtxmath}',
+#            r'\usepackage{unicode-math}',
+#            r'\usepackage[]{mathspec}',
+            r'\setmainfont{LinLibertine_R}',
+            r'\setromanfont[]{LinLibertine_R}',
+            r'\setsansfont[]{LinLibertine_R}',
+            r'\DeclareSymbolFont{digits}{TU}{\sfdefault}{m}{n}',
+            r'\DeclareMathSymbol{0}{\mathalpha}{digits}{`0}',
+            r'\DeclareMathSymbol{1}{\mathalpha}{digits}{`1}',
+            r'\DeclareMathSymbol{2}{\mathalpha}{digits}{`2}',
+            r'\DeclareMathSymbol{3}{\mathalpha}{digits}{`3}',
+            r'\DeclareMathSymbol{4}{\mathalpha}{digits}{`4}',
+            r'\DeclareMathSymbol{5}{\mathalpha}{digits}{`5}',
+            r'\DeclareMathSymbol{6}{\mathalpha}{digits}{`6}',
+            r'\DeclareMathSymbol{7}{\mathalpha}{digits}{`7}',
+            r'\DeclareMathSymbol{8}{\mathalpha}{digits}{`8}',
+            r'\DeclareMathSymbol{9}{\mathalpha}{digits}{`9}'           
+#            r'\setromanfont[Mapping=tex-text]{LinLibertine_R}',
+#            r'\setsansfont[Mapping=tex-text]{LinLibertine_R}',
+#            r'\setmathfont{LinLibertine_R}'
+#            r'\setmathfont[range={"0031-"0040}]{LinLibertine_R}'
+#            r'\setmathsfont(Digits){LinLibertine_R}'
+#        r'\usepackage{libertine}',
+#        r'\usepackage[libertine]{newtxmath}',
+#        r'\usepackage[]{fontspec}',
+#        r'\usepackage[no-math]{fontspec}',
         ]
 }
 mpl.rcParams.update(pgf_with_lualatex)
 
-#%%
-
-#plt.rcParams['backend'] = 'wxAgg'
-#
-#
-####
-#
-#font_serif = 'Linux Libertine O'
-##font_serif = 'DejaVu Serif'
-##font_serif = "cmr10"
-##plt.rcParams['font.serif'] = [font_serif]
-#
-#
-##plt.rcParams['font.family'] = fontprop.get_name()
-##plt.rcParams['font.family'] = 'serif'
-#plt.rcParams['font.family'] = font_serif
-#
-####
-##plt.rcParams['font.style'] = 'normal'
-#
-#plt.rcParams['text.usetex'] = True
-#plt.rcParams['text.latex.preamble'] = \
-#    r'\usepackage{lmodern} \usepackage[T1]{fontenc}' 
-#    r'\usepackage{libertine} \usepackage[libertine]{newtxmath} \usepackage[T1]{fontenc}' 
-#    r'\usepackage{libertine} \usepackage[libertine]{newtxmath} \usepackage[T1]{fontenc}' 
-#    r'\usepackage{lmodern}' 
-
-
+#%% SET DEFAULT PLOT PARAMETERS
+# (can be changed lateron for specific elements directly)
+# TITLE, LABEL (and legend), TICKLABEL FONTSIZES
 TTFS = 10
 LFS = 10
 TKFS = 8
-
-LW = 1
-MS = 2
-
-
-#plt.rcParams['lines.linewidth'] = LW
-#plt.rcParams['lines.markersize'] = MS
 
 #TTFS = 16
 #LFS = 12
 #TKFS = 12
 
-#plt.rcParams['axes.titlesize'] = TTFS
-#plt.rcParams['axes.labelsize'] = LFS
-#plt.rcParams['legend.fontsize'] = LFS
-#plt.rcParams['xtick.labelsize'] = TKFS
-#plt.rcParams['ytick.labelsize'] = TKFS
+# LINEWIDTH, MARKERSIZE
+LW = 1.5
+MS = 2
 
+# raster resolution for e.g. .png
+DPI = 600
+
+mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
+
+#%%
 ## alignemnt of ticks
 #plt.rcParams['xtick.alignment'] = "center"
 #plt.rcParams['ytick.alignment'] = "center"
-
 
 #plt.rcParams['savefig.dpi'] = 600
 
@@ -132,10 +131,12 @@ y = np.sin(x)
 
 i = 6
 
+#%%
 
+figname = "plt_latex_pgf2"
 
-
-fig, ax = plt.subplots(figsize=(6, 4), tight_layout=True)
+figsize=(10,10)
+fig, ax = plt.subplots(figsize=( cm2inch(figsize) ), tight_layout=True)
 
 ax.plot(x,y, label = f"$v_{i}$")
 ax.set_xlabel(f"$x_{{{subs}}}$ [$p_1={par1:06.2f}$, $p_2={par2:06.2f}$]")
@@ -150,24 +151,14 @@ ax.set_title("abcdefghijklmnopqrstuvwxyz 01234567890 \n"
 ##    label.set_verticalalignment('baseline')
 #    label.set_verticalalignment('center')
 
-
 ax.grid()
 ax.legend()
-
-#ax.plot(t, s)
-#
-#
-#ax.set_xlabel(r'\textbf{time (s)}')
-#ax.set_ylabel('\\textit{Velocity (\N{DEGREE SIGN}/sec)}', fontsize=16)
-#ax.set_title(r'\TeX\ is Number $\displaystyle\sum_{n=1}^\infty'
-#             r'\frac{-e^{i\pi}}{2^n}$!', fontsize=16, color='r')
-#plt.show()
 
 fig.tight_layout()
 
 
-fig.savefig("test_figs/plt_latex_pgf.pdf")
-fig.savefig("test_figs/plt_latex_pgf.png")
+fig.savefig(f"test_figs/{figname}.pdf")
+fig.savefig(f"test_figs/{figname}.png")
 
 #fig.savefig("test_figs/plt_latex_" + font_serif + ".png")
 #fig.savefig("test_figs/plt_latex_" + font_serif + ".png")

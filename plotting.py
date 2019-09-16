@@ -29,6 +29,20 @@ def plot_scalar_field_2D( grid_centers_x_, grid_centers_y_, field_,
     plt.colorbar(CS, fraction=colorbar_fraction_ , pad=colorbar_pad_)
     
     
+pdf_dict = {
+#    "backend" : "pgf",    
+    "text.usetex": True,
+#    "pgf.rcfonts": False,   # Do not set up fonts from rc parameters.
+#    "pgf.texsystem": "lualatex",
+#    "pgf.texsystem": "pdflatex",
+    "text.latex.preamble": [
+        r'\usepackage[ttscale=.9]{libertine}',
+        r'\usepackage[libertine]{newtxmath}',
+        r'\usepackage[T1]{fontenc}',
+#        r'\usepackage[no-math]{fontspec}',
+        ],
+    "font.family": "serif"
+}
 pgf_dict = {
 #    "backend" : "pgf",    
     "text.usetex": True,
@@ -36,9 +50,10 @@ pgf_dict = {
 #    "pgf.texsystem": "lualatex",
     "pgf.texsystem": "pdflatex",
     "pgf.preamble": [
-        r'\usepackage{libertine}',
+        r'\usepackage[ttscale=.9]{libertine}',
         r'\usepackage[libertine]{newtxmath}',
         r'\usepackage[T1]{fontenc}',
+        r'\usepackage[]{siunitx}',
 #        r'\usepackage[no-math]{fontspec}',
         ],
     "font.family": "serif"
@@ -49,7 +64,7 @@ def generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI):
              'lines.markersize' : MS,
              'axes.titlesize' : TTFS,
              'axes.labelsize' : LFS,
-             'legend.fontsize' : LFS,
+             'legend.fontsize' : LFS-2,
              'xtick.labelsize' : TKFS,
              'ytick.labelsize' : TKFS,
              #{'center', 'top', 'bottom', 'baseline', 'center_baseline'}
