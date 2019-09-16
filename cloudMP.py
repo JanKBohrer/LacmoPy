@@ -99,14 +99,22 @@ elif (my_OS == "TROPOS_server"):
 #%% GRID PARAMETERS
 #no_cells = (10, 10)
 #no_cells = (15, 15)
-no_cells = (75, 75)
+no_cells = np.array((75, 75))
 
+if len(sys.argv) > 2:
+    no_cells[0] = int(sys.argv[2])
+if len(sys.argv) > 3:
+    no_cells[1] = int(sys.argv[3])
+    
 #%% PARTICLE PARAMETERS
 
 # solute material: NaCl OR ammonium sulfate
 #solute_type = "NaCl"
 solute_type = "AS"
 
+if len(sys.argv) > 4:
+    solute_type = sys.argv[4]
+    
 # no_super_particles_cell_mode = [N1,N2] is a list with
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
@@ -118,13 +126,18 @@ solute_type = "AS"
 no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
+if len(sys.argv) > 5:
+    no_spcm[0] = int(sys.argv[5])
+if len(sys.argv) > 6:
+    no_spcm[1] = int(sys.argv[6])
+
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
 seed_SIP_gen = 3711
 
-if len(sys.argv) > 2:
-    seed_SIP_gen = int(sys.argv[2])
+if len(sys.argv) > 7:
+    seed_SIP_gen = int(sys.argv[7])
 
 # for collisons
 # seed start with 4 for dt_col = dt_adv
@@ -132,8 +145,8 @@ if len(sys.argv) > 2:
 
 # seed start with 6 for dt_col = 0.5 dt_adv
 seed_sim = 6711
-if len(sys.argv) > 3:
-    seed_sim = int(sys.argv[3])
+if len(sys.argv) > 8:
+    seed_sim = int(sys.argv[8])
 
 #%% SIMULATION PARAMETERS
 
@@ -145,16 +158,14 @@ if len(sys.argv) > 3:
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
 simulation_mode = "with_collision"
-if len(sys.argv) > 4:
-    simulation_mode = sys.argv[4]
+if len(sys.argv) > 9:
+    simulation_mode = sys.argv[9]
 
 # set True when starting from a spin-up state
 spin_up_before = True
 #spin_up_before = False
 
 
-if simulation_mode == "spin_up":
-    spin_up_before = False
 
 #if simulation_mode
 
@@ -173,21 +184,42 @@ t_end = 7200.0*2 # s
 #t_end = 5.0 # s
 #t_end = 20.0 # s
 
-if len(sys.argv) > 5:
-    t_start = float(sys.argv[5])
-if len(sys.argv) > 6:
-    t_end = float(sys.argv[6])
+
+if len(sys.argv) > 10:
+    t_start = float(sys.argv[10])
+if len(sys.argv) > 11:
+    t_end = float(sys.argv[11])
+
+if simulation_mode == "spin_up" or int(t_start) == 0:
+    spin_up_before = False
 
 dt = 1.0 # s # timestep of advection
 
-dt_col = 0.5*dt
+### SET THIS
+# only even integers possible:
+no_cond_per_adv = 10
 
+
+# number of cond steps per adv step
+# possible values: 1, 2 OR no_cond_per_adv
+no_col_per_adv = 2
+#no_col_per_adv = no_cond_per_adv
+
+if len(sys.argv) > 12:
+    no_col_per_adv = int(sys.argv[12])
+
+### DERIVED
 # timescale "scale_dt" = of subloop with timestep dt_sub = dt/(2 * scale_dt)
 # => scale_dt = dt/(2 dt_sub)
 # with implicit Newton:
 # from experience: dt_sub <= 0.1 s, then depends on dt, e.g. 1.0, 5.0 or 10.0:
 # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR 10.0/0.2 = 50
-scale_dt_cond = 5
+scale_dt_cond = no_cond_per_adv // 2
+
+dt_col = dt / no_col_per_adv
+### DERIVED END
+
+### SET THIS
 Newton_iter = 3 # number of root finding iterations for impl. mass integration
 
 # save grid properties T, p, Theta, r_v, r_l, S every "frame_every" steps dt
@@ -217,7 +249,12 @@ kernel_type = "Long_Bott"
 #kernel_type = "Hall_Bott"
 #kernel_type = "Hydro_E_const"
 
+if len(sys.argv) > 13:
+    kernel_type = sys.argv[13]
+
 kernel_method = "Ecol_grid_R"
+if len(sys.argv) > 14:
+    kernel_method = sys.argv[14]
 
 #kernel_method = "Ecol_const"
 E_col_const = 0.5
@@ -329,11 +366,25 @@ if t_start > 0.:
 
 #%% SIMULATION
 
+#simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
+#                 water_removed,
+#                 active_ids,
+#                 dt, dt_col, scale_dt_cond, no_col_per_adv,
+#                 t_start, t_end, Newton_iter, g_set,
+#                 act_collisions,
+#                 frame_every, dump_every, trace_ids, 
+#                 E_col_grid, no_kernel_bins,
+#                 R_kernel_low_log, bin_factor_R_log,
+#                 kernel_type, kernel_method,
+#                 no_cols,
+#                 rnd_seed,
+#                 path, simulation_mode)
 #if act_collisions:
 simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
          water_removed,
          active_ids,
-         dt, dt_col, scale_dt_cond, t_start, t_end, Newton_iter, g_set,
+         dt, dt_col, scale_dt_cond, no_col_per_adv,
+         t_start, t_end, Newton_iter, g_set,
          act_collisions,
          frame_every, dump_every, trace_ids, 
          E_col_grid, no_kernel_bins,

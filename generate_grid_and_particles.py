@@ -127,6 +127,39 @@ elif (my_OS == "TROPOS_server"):
 #%% I. GENERATE GRID AND PARTICLES
 
 # 1a. generate grid and particles + save initial to file
+
+
+#%% PARTICLE PARAMETERS
+
+
+
+reseed = False
+seed_SIP_gen = 3721
+
+if len(sys.argv) > 2:
+    seed_SIP_gen = int(sys.argv[2])
+
+#solute_type = "NaCl"
+solute_type = "AS"
+
+if len(sys.argv) > 3:
+    solute_type = sys.argv[3]
+
+# no_super_particles_cell_mode = [N1,N2] is a list with
+# N1 = no super part. per cell in mode 1 etc.
+# with init method = SingleSIP, this is only the target value.
+# the true number of particles per cell and mode will fluctuate around this
+#no_spcm = np.array([4, 4])
+#no_spcm = np.array([6, 8])
+no_spcm = np.array([26, 38])
+#no_spcm = np.array([20, 30])
+#no_spcm = np.array([20, 20])
+
+if len(sys.argv) > 4:
+    no_spcm[0] = int(sys.argv[4])
+if len(sys.argv) > 5:
+    no_spcm[1] = int(sys.argv[5])
+
 #%% GRID PARAMETERS
 # domain size
 x_min = 0.0
@@ -155,6 +188,11 @@ dz = 20.0
 #dy = 1.0
 #dz = 500.0
 
+if len(sys.argv) > 6:
+    dx = float(sys.argv[6])
+if len(sys.argv) > 7:
+    dz = float(sys.argv[7])
+
 no_cells = compute_no_grid_cells_from_step_sizes(
                ((x_min, x_max),(z_min, z_max)), (dx, dz) ) 
 
@@ -166,29 +204,8 @@ r_tot_0 = 7.5E-3 # kg water / kg dry air (constant over whole domain in setup)
 # r_tot_0 = 22.5E-3 # kg water / kg dry air
 # r_tot_0 = 7.5E-3 # kg water / kg dry air
 Theta_l = 289.0 # K
-
-#%% PARTICLE PARAMETERS
-
-#solute_type = "NaCl"
-solute_type = "AS"
-
-# no_super_particles_cell_mode = [N1,N2] is a list with
-# N1 = no super part. per cell in mode 1 etc.
-# with init method = SingleSIP, this is only the target value.
-# the true number of particles per cell and mode will fluctuate around this
-#no_spcm = np.array([4, 4])
-#no_spcm = np.array([6, 8])
-no_spcm = np.array([26, 38])
-#no_spcm = np.array([20, 30])
-#no_spcm = np.array([20, 20])
-
-reseed = False
-seed_SIP_gen = 3721
-
-if len(sys.argv) > 2:
-    seed_SIP_gen = int(sys.argv[2])
-
-###
+   
+#%%
 grid_folder =\
     f"{solute_type}/" \
     + f"grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \

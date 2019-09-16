@@ -1029,6 +1029,105 @@ def integrate_subloop_n_steps_np(grid_scalar_fields, grid_mat_prop, grid_velocit
     # subloop 1 end    
 integrate_subloop_n_steps = njit()(integrate_subloop_n_steps_np)
 
+# integrated a number of no_col_steps collision steps in here
+# if 
+def integrate_subloop_w_col_n_steps_np(
+            grid_scalar_fields, grid_mat_prop, grid_velocity,
+            grid_no_cells, grid_ranges, grid_steps,
+            grid_volume_cell, p_ref, p_ref_inv,
+            pos, vel, cells, rel_pos, m_w, m_s, xi,
+            dt_col_over_dV, E_col_grid, no_kernel_bins,
+            R_kernel_low_log, bin_factor_R_log, no_cols,
+            water_removed,
+            id_list, active_ids, T_p,
+            delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+            dt_sub, dt_sub_pos, no_cond_steps, no_col_steps,
+            Newton_iter, g_set, solute_type):
+    
+    
+    if no_col_steps == 1:
+        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+            xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
+            dt_col_over_dV, E_col_grid, no_kernel_bins,
+            R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
+    
+    no_col_steps_larger_one = no_col_steps > 1
+    
+    # d) subloop 1
+    # for n_h = 0, ..., N_h-1
+    if solute_type == "NaCl":
+        for n_sub in range(no_cond_steps):
+            if no_col_steps_larger_one:
+                collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+                    xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
+                    dt_col_over_dV, E_col_grid, no_kernel_bins,
+                    R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
+            # i) for all particles
+            # updates delta_m_l and delta_Q_p
+            propagate_particles_subloop_step_NaCl(
+                grid_scalar_fields, grid_mat_prop,
+                grid_velocity,
+                grid_no_cells, grid_ranges, grid_steps,
+                pos, vel, cells, rel_pos, m_w, m_s, xi,
+                water_removed, id_list, active_ids,
+                T_p,
+                delta_m_l, delta_Q_p,
+                dt_sub, dt_sub_pos,
+                Newton_iter, g_set)
+    
+            # ii) to vii)
+            propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                            p_ref, p_ref_inv,
+                                            delta_Theta_ad, delta_r_v_ad,
+                                            delta_m_l, delta_Q_p,
+                                            grid_volume_cell)
+            
+            # viii) to ix) included in "propagate_particles_subloop"
+            # delta_Q_p.fill(0.0)
+            # delta_m_l.fill(0.0)
+            
+    elif solute_type == "AS":
+        for n_sub in range(no_cond_steps):
+            if no_col_steps_larger_one:
+                collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+                    xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
+                    dt_col_over_dV, E_col_grid, no_kernel_bins,
+                    R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
+            # i) for all particles
+            # updates delta_m_l and delta_Q_p
+            propagate_particles_subloop_step_AS(
+                grid_scalar_fields, grid_mat_prop,
+                grid_velocity,
+                grid_no_cells, grid_ranges, grid_steps,
+                pos, vel, cells, rel_pos, m_w, m_s, xi,
+                water_removed, id_list, active_ids,
+                T_p,
+                delta_m_l, delta_Q_p,
+                dt_sub, dt_sub_pos,
+                Newton_iter, g_set)
+    
+            # ii) to vii)
+            propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
+                                            p_ref, p_ref_inv,
+                                            delta_Theta_ad, delta_r_v_ad,
+                                            delta_m_l, delta_Q_p,
+                                            grid_volume_cell)
+            
+            # viii) to ix) included in "propagate_particles_subloop"
+            # delta_Q_p.fill(0.0)
+            # delta_m_l.fill(0.0)
+        
+        # tau += dt_sub
+    # subloop 1 end    
+    # put the additional col step here, if no_col_steps > no_cond_steps
+    if no_col_steps > no_cond_steps:
+        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+            xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
+            dt_col_over_dV, E_col_grid, no_kernel_bins,
+            R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
+        
+    
+##################################################################
 def integrate_adv_and_cond_one_adv_step_np(
         grid_scalar_fields, grid_mat_prop, grid_velocity,
         grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -1148,6 +1247,7 @@ integrate_adv_and_cond_one_adv_step = \
 #%% INTEGRATE ADV AND CONDENSATION AND COLLISION for one timestep dt = dt_adv
 
 # dt = dt_adv
+# no_col_per_adv = 1,2 OR scale_dt_cond * 2
 def integrate_adv_cond_coll_one_adv_step_np(
         grid_scalar_fields, grid_mat_prop, grid_velocity,
         grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -1157,7 +1257,9 @@ def integrate_adv_cond_coll_one_adv_step_np(
         water_removed,
         id_list, active_ids, T_p,
         delta_m_l, delta_Q_p,
-        dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond, no_adv_steps,
+        dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond,
+        no_col_per_adv,
+#       no_adv_steps,
         Newton_iter, g_set, solute_type,
         E_col_grid, no_kernel_bins,
         R_kernel_low_log, bin_factor_R_log, no_cols):
@@ -1174,12 +1276,6 @@ def integrate_adv_cond_coll_one_adv_step_np(
     update_cells_and_rel_pos(pos, cells, rel_pos,
                              active_ids,
                              grid_ranges, grid_steps)
-    
-    ### b2) added collision here
-    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
-        xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
-        dt_col_over_dV, E_col_grid, no_kernel_bins,
-        R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
 
     # c) advection change of r_v and T
     delta_r_v_ad = -dt_sub\
@@ -1199,23 +1295,64 @@ def integrate_adv_cond_coll_one_adv_step_np(
                          boundary_conditions = np.array([0, 1]))\
                      * grid_scalar_fields[9]
 
+    ### d1) added collision here
+#    if no_col_per_adv == 2:
+#        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+#            xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
+#            dt_col_over_dV, E_col_grid, no_kernel_bins,
+#            R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
     # d) subloop 1
     # for n_h = 0, ..., N_h-1
-    integrate_subloop_n_steps(
-            grid_scalar_fields, grid_mat_prop, grid_velocity,
-            grid_no_cells, grid_ranges, grid_steps,
-            grid_volume_cell, p_ref, p_ref_inv,
-            pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
-            id_list, active_ids, T_p,
-            delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
-            dt_sub, dt_sub, scale_dt_cond, Newton_iter, g_set, solute_type)
+    # in here, we add e.g. 5 = 5 collision steps if no_col_per_adv > 2
+    
+    if no_col_per_adv == 1:
+        no_col_steps = 0
+    elif no_col_per_adv == 2:
+        no_col_steps = 1
+    else: no_col_steps = scale_dt_cond
+    
+    integrate_subloop_w_col_n_steps_np(
+                grid_scalar_fields, grid_mat_prop, grid_velocity,
+                grid_no_cells, grid_ranges, grid_steps,
+                grid_volume_cell, p_ref, p_ref_inv,
+                pos, vel, cells, rel_pos, m_w, m_s, xi,
+                dt_col_over_dV, E_col_grid, no_kernel_bins,
+                R_kernel_low_log, bin_factor_R_log, no_cols,
+                water_removed,
+                id_list, active_ids, T_p,
+                delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                dt_sub, dt_sub, scale_dt_cond, no_col_steps,
+                Newton_iter, g_set, solute_type)
+#    if no_col_per_adv > 2:
+#        integrate_subloop_w_col_n_steps(
+#                grid_scalar_fields, grid_mat_prop, grid_velocity,
+#                grid_no_cells, grid_ranges, grid_steps,
+#                grid_volume_cell, p_ref, p_ref_inv,
+#                pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+#                id_list, active_ids, T_p,
+#                delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+#                dt_sub, dt_sub, scale_dt_cond-1,
+#                Newton_iter, g_set, solute_type)
+#    else:
+#        integrate_subloop_n_steps(
+#                grid_scalar_fields, grid_mat_prop, grid_velocity,
+#                grid_no_cells, grid_ranges, grid_steps,
+#                grid_volume_cell, p_ref, p_ref_inv,
+#                pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+#                id_list, active_ids, T_p,
+#                delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+#                dt_sub, dt_sub, scale_dt_cond-1,
+#                Newton_iter, g_set, solute_type)
+#    integrate_subloop_n_steps(
+#            grid_scalar_fields, grid_mat_prop, grid_velocity,
+#            grid_no_cells, grid_ranges, grid_steps,
+#            grid_volume_cell, p_ref, p_ref_inv,
+#            pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+#            id_list, active_ids, T_p,
+#            delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+#            dt_sub, dt_sub, scale_dt_cond, Newton_iter, g_set, solute_type)
     # subloop 1 end
 
-    ### d2) added collision here
-    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
-        xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
-        dt_col_over_dV, E_col_grid, no_kernel_bins,
-        R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)  
     
     # e) advection change of r_v and T for second subloop
     delta_r_v_ad = -2.0 * dt_sub\
@@ -1235,22 +1372,50 @@ def integrate_adv_cond_coll_one_adv_step_np(
                          boundary_conditions = np.array([0, 1]))\
                      * grid_scalar_fields[9] - delta_Theta_ad
     
+    ### f2) added collision here
+#    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+#        xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
+#        dt_col_over_dV, E_col_grid, no_kernel_bins,
+#        R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)  
     # f) subloop 2
     # for n_h = 0, ..., N_h-2
-    integrate_subloop_n_steps(
-            grid_scalar_fields, grid_mat_prop, grid_velocity,
-            grid_no_cells, grid_ranges, grid_steps,
-            grid_volume_cell, p_ref, p_ref_inv,
-            pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
-            id_list, active_ids, T_p,
-            delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
-            dt_sub, dt_sub, scale_dt_cond-1,
-            Newton_iter, g_set, solute_type)
+    # in here, we add e.g. 5 = 4 + 1 collision steps if no_col_per_adv > 2
+    # the step which is shifted back for particle condensation and acceleration
+    # is already made in here
+    # in this example, we have 5 + 4 + 1 col steps in total per adv step
+#    if no_col_per_adv > 2:
+    if no_col_per_adv in (1,2):
+        no_col_steps = 1
+    else: no_col_steps = scale_dt_cond
+
+    integrate_subloop_w_col_n_steps_np(
+                grid_scalar_fields, grid_mat_prop, grid_velocity,
+                grid_no_cells, grid_ranges, grid_steps,
+                grid_volume_cell, p_ref, p_ref_inv,
+                pos, vel, cells, rel_pos, m_w, m_s, xi,
+                dt_col_over_dV, E_col_grid, no_kernel_bins,
+                R_kernel_low_log, bin_factor_R_log, no_cols,
+                water_removed,
+                id_list, active_ids, T_p,
+                delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+                dt_sub, dt_sub, scale_dt_cond-1, no_col_steps,
+                Newton_iter, g_set, solute_type)
+#    else:
+#        integrate_subloop_n_steps(
+#                grid_scalar_fields, grid_mat_prop, grid_velocity,
+#                grid_no_cells, grid_ranges, grid_steps,
+#                grid_volume_cell, p_ref, p_ref_inv,
+#                pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+#                id_list, active_ids, T_p,
+#                delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
+#                dt_sub, dt_sub, scale_dt_cond-1,
+#                Newton_iter, g_set, solute_type)
     # subloop 2 end
 
     # add one step, where pos is moved only by half timestep x_n+1/2 -> x_n
     # i) for all particles
     # updates delta_m_l and delta_Q_p as well
+    # NOTE that the additional collisions step is already in the method above
     if solute_type == "NaCl":
         propagate_particles_subloop_step_NaCl(
                 grid_scalar_fields, grid_mat_prop,
@@ -1316,7 +1481,8 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
                          id_list, active_ids, T_p,
                          delta_m_l, delta_Q_p,
-                         dt, dt_sub, dt_sub_half, scale_dt_cond, no_adv_steps,
+                         dt, dt_sub, dt_sub_half, dt_col,
+                         scale_dt_cond, no_col_per_adv, no_adv_steps,
                          Newton_iter, g_set,
                          dump_every, trace_ids,
                          traced_vectors, traced_scalars,
@@ -1326,7 +1492,8 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
                          solute_type):
                          # , traced_grid_fields
     # two coll steps per one adv step                         
-    dt_col_over_dV = 0.5 * dt / grid_volume_cell
+    dt_col_over_dV = dt_col / grid_volume_cell
+#    dt_col_over_dV = 0.5 * dt / grid_volume_cell
     dump_N = 0
     for cnt in range(no_adv_steps):
         if cnt % dump_every == 0:
@@ -1341,7 +1508,6 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
             # traced_grid_fields[dump_N,1] = np.copy(grid_scalar_fields[4])
 
             dump_N +=1
-
         integrate_adv_cond_coll_one_adv_step_np(
                 grid_scalar_fields, grid_mat_prop, grid_velocity,
                 grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -1352,10 +1518,26 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
                 id_list, active_ids, T_p,
                 delta_m_l, delta_Q_p,
                 dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond,
-                no_adv_steps,
+                no_col_per_adv,
+        #       no_adv_steps,
                 Newton_iter, g_set, solute_type,
                 E_col_grid, no_kernel_bins,
                 R_kernel_low_log, bin_factor_R_log, no_cols)
+
+#        integrate_adv_cond_coll_one_adv_step_np(
+#                grid_scalar_fields, grid_mat_prop, grid_velocity,
+#                grid_mass_flux_air_dry, p_ref, p_ref_inv,
+#                grid_no_cells, grid_ranges,
+#                grid_steps, grid_volume_cell,
+#                pos, vel, cells, rel_pos, m_w, m_s, xi,
+#                water_removed,
+#                id_list, active_ids, T_p,
+#                delta_m_l, delta_Q_p,
+#                dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond,
+##                no_adv_steps,
+#                Newton_iter, g_set, solute_type,
+#                E_col_grid, no_kernel_bins,
+#                R_kernel_low_log, bin_factor_R_log, no_cols)
             
 #        integrate_adv_and_cond_one_adv_step(
 #            grid_scalar_fields, grid_mat_prop, grid_velocity,
@@ -1537,7 +1719,8 @@ def simulate_interval_wout_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
 def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                  water_removed,
                  active_ids,
-                 dt, dt_col, scale_dt_cond, t_start, t_end, Newton_iter, g_set,
+                 dt, dt_col, scale_dt_cond, no_col_per_adv,
+                 t_start, t_end, Newton_iter, g_set,
                  act_collisions,
                  frame_every, dump_every, trace_ids, 
                  E_col_grid, no_kernel_bins,
@@ -1688,7 +1871,8 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                     pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
                     id_list, active_ids, T_p,
                     delta_m_l, delta_Q_p,
-                    dt, dt_sub, dt_sub_half, scale_dt_cond, frame_every,
+                    dt, dt_sub, dt_sub_half, dt_col,                    
+                    scale_dt_cond, no_col_per_adv, frame_every,
                     Newton_iter, g_set,
                     dump_every, trace_ids,
                     traced_vectors, traced_scalars,
