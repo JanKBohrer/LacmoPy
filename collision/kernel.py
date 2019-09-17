@@ -348,6 +348,13 @@ def compute_kernel_Long_Bott_m(m_i, m_j, mass_density):
     R_j = compute_radius_from_mass_jit(m_j, mass_density)
     return compute_kernel_Long_Bott_R(R_i, R_j)
 
+# Kernel "Golovin" 
+# masses in 1E-18 kg
+# parameter from Unterstrasser 2017 b = 1.5 m^3/(kg s)
+@njit()
+def compute_kernel_Golovin(m_i, m_j):
+    return (m_i + m_j) * 1.5E-18
+    
 #%% GENERATION (DISCRETIZATION) OF KERNEL AND EFFICIENCY GRIDS
     
 # R_low, R_high in mu = 1E-6 m

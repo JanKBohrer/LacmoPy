@@ -37,7 +37,8 @@ from microphysics import compute_radius_from_mass_vec
 #from microphysics import compute_radius_from_mass_jit
 
 from collision.box_model import simulate_collisions,analyze_sim_data
-from collision.box_model import plot_for_given_kappa, plot_moments_kappa_var
+#from collision.box_model import plot_for_given_kappa
+from collision.box_model import plot_moments_kappa_var
 
 #from kernel import compute_terminal_velocity_Beard
 from collision.kernel import compute_terminal_velocity_Beard_vec
@@ -53,9 +54,52 @@ from init_SIPs import analyze_ensemble_data
 from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_expo
 from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
 
+from golovin import dist_vs_time_golo_exp
+
 import sys
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import matplotlib.font_manager as font_manager
+mpl.rcParams.update(plt.rcParamsDefault)
+#mpl.use("pdf")
+mpl.use("pgf")
 
+#import numpy as np
+
+from microphysics import compute_mass_from_radius_vec
+import constants as c
+
+#import numba as 
+
+from plotting import cm2inch
+from plotting import generate_rcParams_dict
+from plotting import pgf_dict, pdf_dict
+plt.rcParams.update(pgf_dict)
+#plt.rcParams.update(pdf_dict)
+
+from file_handling import load_grid_and_particles_full,\
+                          load_grid_scalar_fields\
+
+#%% SET DEFAULT PLOT PARAMETERS
+# (can be changed lateron for specific elements directly)
+# TITLE, LABEL (and legend), TICKLABEL FONTSIZES
+TTFS = 10
+LFS = 10
+TKFS = 8
+
+#TTFS = 16
+#LFS = 12
+#TKFS = 12
+
+# LINEWIDTH, MARKERSIZE
+LW = 1.2
+MS = 2
+
+# raster resolution for e.g. .png
+DPI = 600
+
+mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 
 #%% SET PARAMETERS 
 
@@ -69,7 +113,10 @@ OS = "LinuxDesk"
 if OS == "Mac":
 #    sim_data_path = "/Users/bohrer/sim_data_cloudMP/"
     sim_data_path = "/Users/bohrer/sim_data_col_box_mod/"
-elif OS == "LinuxDesk" or OS == "LinuxNote":
+elif OS == "LinuxDesk":
+    sim_data_path = "/mnt/D/sim_data_col_box_mod/"
+    home_path = "/home/jdesk/"
+elif OS == "LinuxNote":    
     sim_data_path = "/mnt/D/sim_data_col_box_mod/"
 elif OS == "TROPOS_server":
     sim_data_path = "/vols/fs1/work/bohrer/sim_data_col_box_mod/" 
@@ -79,8 +126,8 @@ elif OS == "TROPOS_server":
 #args_gen = [1,1,1,1,1]
 #args_gen = [1,0,0,0,0]
 #args_gen = [0,0,0,0,1]
-#args_gen = [0,0,0,0,0]
-args_gen = [1,1,1,0,0]
+args_gen = [0,0,0,0,0]
+#args_gen = [1,1,1,0,0]
 
 act_gen_SIP = bool(args_gen[0])
 act_analysis_ensembles = bool(args_gen[1])
@@ -91,8 +138,9 @@ act_gen_Ecol_grid = bool(args_gen[4])
 
 # SET args for simulation
 #args_sim = [0,0,0,0]
-args_sim = [1,0,0,0]
+#args_sim = [1,0,0,0]
 #args_sim = [0,1,1,1]
+args_sim = [0,0,1,0]
 #args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
 
@@ -105,10 +153,10 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 
 #kappa_list=[3.5]
-kappa_list=[200]
+#kappa_list=[100]
 #kappa_list=[5,10]
 #kappa_list=[5,10,20,40,60]
-#kappa_list=[5,10,20,40,60,100]
+kappa_list=[5,10,20,40,60,100]
 #kappa_list=[5,10,20,40,60,100,200,400]
 #kappa_list=[3,3.5,5,10,20,40,60,100,200,400]
 #kappa_list=[800]
@@ -266,6 +314,147 @@ f"{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}/ensembles/"
 result_path_add =\
 f"{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 /results/{kernel_name}/{kernel_method}/"
+
+#%% FUNCTION DEF: PLOTTING OF g_ln_R
+# figname is full path
+# time_idx: chosen time indices to plot referring to "save_times"
+#  
+def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
+                                DNC0, m_mean,
+                                kernel_name, gen_method, bin_method, time_idx,
+                                load_dir, figsize, figname):
+#    bG = 1.5E-18 # K = b * (m1 + m2) # b in m^3/(fg s)
+    bG = 1.5 # K = b * (m1 + m2) # b in m^3/(fg s)
+    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    no_times = len(save_times)
+    # bins_mass_centers =
+    bins_mass_centers = np.load(load_dir + f"bins_mass_centers_{no_sims}_no_bins_{no_bins}.npy")
+    bins_rad_centers = np.load(load_dir + f"bins_rad_centers_{no_sims}_no_bins_{no_bins}.npy")
+#    print(no_bins)
+#    no_masses = bins_mass_centers[time_n]
+    
+    add_masses = 4
+    
+    
+#    print(save_times)
+#    print(bins_mass_centers[0])
+    
+    f_m_num_avg_vs_time = np.load(load_dir + f"f_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    g_m_num_avg_vs_time = np.load(load_dir + f"g_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    g_ln_r_num_avg_vs_time = np.load(load_dir + f"g_ln_r_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+
+    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+
+#    fig_name = "fm_gm_glnr_vs_t"
+#    fig_name += f"_kappa_{kappa}_dt_{int(dt)}_no_sims_{no_sims}_no_bins_{no_bins}.png"
+    no_rows = 1
+    fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
+    
+    ax = axes
+#    for time_n in range(no_times):
+    for time_n in time_idx:
+        ax.plot(bins_rad_centers[time_n][0],
+                g_ln_r_num_avg_vs_time[time_n]*1000.0,
+                label = f"{int(save_times[time_n]//60)}")
+    ax.set_prop_cycle(None)
+    for time_n in time_idx:
+        # t in s
+        # x0 (mass mean) in 1E-18 kg
+        # n0 (DNC0) in 1/m^3
+#        print(time_n, bins_mass_centers[time_n])
+        ref_masses = np.zeros(no_bins+add_masses)
+        bin_factor = bins_mass_centers[time_n][0][-1]/bins_mass_centers[time_n][0][-2]
+        ref_masses[:no_bins] = bins_mass_centers[time_n][0]
+        for n in range(add_masses):
+            ref_masses[no_bins+n] = ref_masses[no_bins+n-1]*bin_factor
+#        print(len(ref_masses))
+#        print(ref_masses)
+        f_m_golo = dist_vs_time_golo_exp(ref_masses,
+                                         save_times[time_n],m_mean,DNC0,bG)
+#        print(len(bins_mass_centers[time_n][0]))
+        g_ln_r_golo = f_m_golo * 3 * ref_masses**2
+        ref_radii = 1E6 * (3. * ref_masses / (4. * math.pi * 1E3))**(1./3.)
+#        print(g_ln_r_golo)
+        ax.plot(ref_radii,
+                g_ln_r_golo*1000, linestyle=":", linewidth = 2.5)
+    # ax.plot(bins_rad_centers[0][0], g_ln_r_num_avg_vs_time[0]*1000.0, "x")
+    # ax.plot(R_, g_ln_r_ana_)
+    ax.set_yscale("log")
+    ax.set_xscale("log")
+    ax.set_xlabel("radius ($\si{\micro\meter}$)")
+    ax.set_ylabel(r"$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$")
+    # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
+    # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+    # ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+    # import matplotlib
+    # ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+    # ax.yaxis.set_ticks(np.logspace(-11,0,12))
+    if kernel_name == "Golovin":
+        ax.set_xticks( np.logspace(0,3,4) )
+        # ax.set_yticks( np.logspace(-4,1,6) )
+        ax.set_xlim([1.0,2.0E3])
+        ax.set_ylim([1.0E-4,10.0])
+    elif kernel_name == "Long_Bott":
+        ax.set_xlim([1.0,5.0E3])
+        ax.set_ylim([1.0E-4,10.0])
+    ax.grid(which="major")
+#    ax.legend(ncol=4, prop={'size': 6}, fontsize=20)
+#    ax.legend(ncol=4, handlelength=0.5)
+    ax.legend(ncol=7, handlelength=0.8, handletextpad=0.2,
+              columnspacing=0.8, borderpad=0.2, loc="upper center")
+#    for ax in axes:
+    ax.tick_params(which="both", bottom=True, top=True, left=True, right=True)
+
+#    fig.suptitle(
+#f"dt={dt}, kappa={kappa}, eta={eta:.0e}, no_sims={no_sims}, no_bins={no_bins}\n\
+#gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
+#    fig.tight_layout()
+#    plt.subplots_adjust(top=0.95)
+    
+#    fig.savefig(figname)
+    fig.savefig(figname,
+#                bbox_inches = 0,
+                bbox_inches = 'tight',
+                pad_inches = 0.065
+                )    
+#    ### PLOT MOMENTS VS TIME
+#    t_Unt = [0,10,20,30,35,40,50,55,60]
+#    lam0_Unt = [2.97E8, 2.92E8, 2.82E8, 2.67E8, 2.1E8, 1.4E8,  1.4E7, 4.0E6, 1.2E6]
+#    t_Unt2 = [0,10,20,30,40,50,60]
+#    lam2_Unt = [8.0E-15, 9.0E-15, 9.5E-15, 6E-13, 2E-10, 7E-9, 2.5E-8]
+#    
+##    fig_name = "moments_vs_time"
+##    fig_name += f"_kappa_{kappa}_dt_{int(dt)}_no_sims_{no_sims}_no_bins_{no_bins}.png"
+#    no_rows = 4
+#    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows))
+#    for i,ax in enumerate(axes):
+#        ax.plot(save_times/60, moments_vs_time_avg[:,i],"x-")
+#        if i != 1:
+#            ax.set_yscale("log")
+#        ax.grid()
+#        ax.set_xticks(save_times/60)
+#        ax.set_xlim([save_times[0]/60, save_times[-1]/60])
+#        # ax.tick_params(labelbottom=True, labeltop=False, labelleft=False, labelright=False,
+#        #                  bottom=True, top=False, left=False, right=False)
+#        ax.tick_params(which="both", bottom=True, top=True, left=True, right=True)
+#    if kernel_name == "Golovin":
+#        axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
+#        axes[2].set_yticks( np.logspace(-15,-9,7) )
+#        axes[3].set_yticks( np.logspace(-26,-15,12) )
+#    
+#    axes[0].plot(t_Unt,lam0_Unt, "o")
+#    axes[2].plot(t_Unt2,lam2_Unt, "o")
+#    fig.suptitle(
+#f"dt={dt}, kappa={kappa}, eta={eta:.0e}, no_sims={no_sims}, no_bins={no_bins}\n\
+#gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
+#    fig.tight_layout()
+#    plt.subplots_adjust(top=0.95)
+#    fig.savefig(load_dir + fig_name)
+    plt.close("all")
+
+
 
 
 #%% KERNEL/ECOL GRID GENERATION
@@ -518,13 +707,24 @@ if act_analysis:
         analyze_sim_data(kappa, mass_density, dV, no_sims, start_seed, no_bins, load_dir)
 
 #%% PLOTTING
+
+figpath = home_path + "/Masterthesis/Figures/04Evaluation/"        
+figsize = cm2inch(7.5,7.5)
+# for golovin: 3600 s sim time. frame every 150 s -> 24 + 1 = 25 frames
+time_idx = np.arange(0,25,4)
 if act_plot:
     for kappa in kappa_list:
+        figname = figpath + f"g_ln_R_vs_R_kappa_{kappa}.pdf"
         load_dir =\
             sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
-        plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
-                         kernel_name, gen_method, bin_method_sim_data, load_dir)
-
+#        plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
+#                         kernel_name, gen_method, bin_method_sim_data, load_dir)
+        plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed,
+                                    no_bins, DNC0, m_mean,
+                                     kernel_name, gen_method, bin_method_sim_data,
+                                     time_idx,
+                                     load_dir,
+                                     figsize, figname)
 #%% PLOT MOMENTS VS TIME for several kappa
 # act_plot_moments_kappa_var = True
 

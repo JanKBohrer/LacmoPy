@@ -12,11 +12,23 @@ import numpy as np
 from numba import njit
 #import kernel
 from collision.kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
-                   compute_E_col_Long_Bott
+                   compute_E_col_Long_Bott, compute_kernel_Golovin
 from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_radius_from_mass_vec
 from microphysics import compute_R_p_w_s_rho_p_AS
 from microphysics import compute_R_p_w_s_rho_p_NaCl
+
+#%% HELP FUNCTIONS
+# x is e.g. mass or radius
+# depending on which log-grid is used
+# x_kernel_low_log is the log of the minimum of the discrete kernel grid-range
+@njit()
+def compute_kernel_index(x, x_kernel_low_log,
+                         bin_factor_x_log, no_kernel_bins):
+    ind = int( ( math.log(x) - x_kernel_low_log ) / bin_factor_x_log + 0.5 )
+    if ind < 0 : ind = 0
+    elif ind > no_kernel_bins - 1: ind = no_kernel_bins - 1
+    return ind
 
 #%% COLLISION ALGORITHMS
 
@@ -85,16 +97,72 @@ def collision_step_Long_Bott_m_np(xis, masses, mass_density, dt_over_dV,
             cnt += 1
 collision_step_Long_Bott_m = njit()(collision_step_Long_Bott_m_np)
 
-# x is e.g. mass or radius
-# depending on which log-grid is used
-# x_kernel_low_log is the log of the minimum of the discrete kernel grid-range
-@njit()
-def compute_kernel_index(x, x_kernel_low_log,
-                         bin_factor_x_log, no_kernel_bins):
-    ind = int( ( math.log(x) - x_kernel_low_log ) / bin_factor_x_log + 0.5 )
-    if ind < 0 : ind = 0
-    elif ind > no_kernel_bins - 1: ind = no_kernel_bins - 1
-    return ind
+# one collision step for a number of SIPs in dV during dt
+# the multiplicities are collected in "xis" (rational, non-integer)
+# the SIP-masses are collected in "masses" (in 1E-18 kg)
+# the collection pair (i-j) order is the same as in Unterstrasser
+def collision_step_Golovin_np(xis, masses, dt_over_dV,
+                                  no_cols):
+    # check each i-j combination for a possible collection event
+    no_SIPs = xis.shape[0]
+    # ind = generate_permutation(no_SIPs)
+
+    rnd = np.random.rand( (no_SIPs*(no_SIPs-1))//2 )
+    # print(rnd[0])
+    cnt = 0
+    for i in range(0,no_SIPs-1):
+#        ind_kernel_i = ind_kernel[i]
+        for j in range(i+1, no_SIPs):
+            if xis[i] <= xis[j]:
+                ind_min = i
+                ind_max = j
+            else:
+                ind_min = j
+                ind_max = i
+            xi_min = xis[ind_min] # = nu_i in Unt
+            xi_max = xis[ind_max] # = nu_j in Unt
+            m_min = masses[ind_min] # = mu_i in Unt
+            m_max = masses[ind_max] # = mu_j in Unt
+
+            p_crit = xi_max \
+                     * compute_kernel_Golovin(m_min, m_max) \
+                     * dt_over_dV
+
+            if p_crit > 1.0:
+                # multiple collection
+                no_cols[1] += 1
+                xi_col = p_crit * xi_min
+                masses[ind_min] = (xi_min*m_min + xi_col*m_max) / xi_min
+                xis[ind_max] -= xi_col
+                # print(j,i,p_crit)
+            elif p_crit > rnd[cnt]:
+                no_cols[0] += 1
+                xi_rel_dev = (xi_max-xi_min)/xi_max
+                # if xis are equal (or nearly equal)
+                # the two droplets are diveded in two droplets of the same mass
+                # with xi1 = 0.7 * 0.5 * (xi1 + xi2)
+                # xi2 = 0.3 * 0.5 * (xi1 + xi2)
+                # the separation in weights of 0.7 and 0.3 
+                # is to avoid the same situation for the two droplets during 
+                # the next two collisions
+                if xi_rel_dev < 1.0E-5:
+                    print("xi_i approx xi_j, xi_rel_dev =",
+                          xi_rel_dev,
+                          " in collision")
+                    xi_ges = xi_min + xi_max
+                    masses[ind_min] = 2.0 * ( xi_min*m_min + xi_max*m_max ) \
+                                      / xi_ges
+                    masses[ind_max] = masses[ind_min]
+                    xis[ind_max] = 0.5 * 0.7 * xi_ges
+                    xis[ind_min] = 0.5 * xi_ges - xis[ind_max]
+                else:
+                    masses[ind_min] += m_max
+                    xis[ind_max] -= xi_min
+                # print(j,i,p_crit,rnd[cnt])
+            cnt += 1
+collision_step_Golovin = njit()(collision_step_Golovin_np)
+
+
 
 # x is an array of masses or radii
 @njit()

@@ -20,6 +20,7 @@ from .kernel import update_velocity_Beard
 from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_radius_from_mass_vec
 
+from .AON import collision_step_Golovin
 from .AON import collision_step_Long_Bott_m
 from .AON import collision_step_Ecol_grid_R
 #from .AON import collision_step_Long_Bott_Ecol_grid_R
@@ -53,8 +54,10 @@ def simulate_collisions(SIP_quantities,
             (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
                 kernel_quantities
                 
-#    if kernel_name == "Golovin":
-#        collision_step = collision_step_Golovin
+    if kernel_name == "Golovin":
+        collision_step = collision_step_Golovin
+        (xis, masses) = SIP_quantities
+        
     np.random.seed(seed)
     # save_path = save_dir + f"seed_{seed}/"
     # t = 0.0
@@ -96,15 +99,25 @@ def simulate_collisions(SIP_quantities,
             collision_step(xis, masses, dt_over_dV,
                            kernel_grid, no_kernel_bins,
                            m_kernel_low_log, bin_factor_m_log, no_cols)
-    elif kernel_method == "analytic":            
-        for step_n in range(no_steps):
-            if step_n % dn_save == 0:
-                t = step_n * dt
-                xis_vs_time[save_n] = np.copy(xis)
-                masses_vs_time[save_n] = np.copy(masses)
-                save_times[save_n] = t
-                save_n += 1
-            collision_step(xis, masses, mass_density, dt_over_dV, no_cols)
+    elif kernel_method == "analytic":           
+        if kernel_name == "Golovin":
+            for step_n in range(no_steps):
+                if step_n % dn_save == 0:
+                    t = step_n * dt
+                    xis_vs_time[save_n] = np.copy(xis)
+                    masses_vs_time[save_n] = np.copy(masses)
+                    save_times[save_n] = t
+                    save_n += 1
+                collision_step(xis, masses, dt_over_dV, no_cols)
+        elif kernel_name == "Long_Bott":
+            for step_n in range(no_steps):
+                if step_n % dn_save == 0:
+                    t = step_n * dt
+                    xis_vs_time[save_n] = np.copy(xis)
+                    masses_vs_time[save_n] = np.copy(masses)
+                    save_times[save_n] = t
+                    save_n += 1
+                collision_step(xis, masses, mass_density, dt_over_dV, no_cols)
     
     t = no_steps * dt
 #    t = (step_n+1) * dt
@@ -543,8 +556,9 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
             ax.plot(save_times/60, moments_vs_time_avg[:,i],fmt,label=f"{kappa}")
 
     for i,ax in enumerate(axes):
-        ax.plot(times_ref/60, moments_ref[i],
-                "o", c = "k",fillstyle='none', markersize = 8, mew=1.0, label="Wang")
+        if kernel_name == "Long_Bott" or kernel_name == "Hall_Bott":
+            ax.plot(times_ref/60, moments_ref[i],
+                    "o", c = "k",fillstyle='none', markersize = 8, mew=1.0, label="Wang")
         if i != 1:
             ax.set_yscale("log")
         ax.grid()
