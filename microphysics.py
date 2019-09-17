@@ -800,13 +800,8 @@ par_solub_AS = np.array([0.15767235, 0.00092684])
 def compute_solubility_AS(temperature_):
     return par_solub_AS[0] + par_solub_AS[1] * temperature_
 
-# formula from Biskos 2006, he took it from Tang, Munkelwitz 1994 NOTE
-# that the citation is wrong in his paper. it is NOT Tang 1997 but (I guess)
-# yes it is Tang 1994 also used in Haemeri 200
-# Tang 1994:
-# Water activities, densities, and refractive indices of aqueous sulfates
-# and sodium nitrate droplets of atmospheric importance     
-# I do not have access however...
+# formula from Biskos 2006, he took it from Tang 1997, table (here also 
+# values for NaCl and other)
 # data from Kim 1994 agree well
 par_wat_act_AS = np.array([1.0, -2.715E-1, 3.113E-1, -2.336, 1.412 ])[::-1]
 #par_wat_act_AS = par_wat_act_AS[::-1]
