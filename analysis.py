@@ -731,6 +731,48 @@ def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
 #    R_s = compute_radius_from_mass_vec(m_dry, mass_density_dry)
 #    return R, R_s, multi        
 
+#%%
+def avg_moments_over_boxes(
+        moments_vs_time_all_seeds, no_seeds, idx_t, no_moments,
+        target_cells_x, target_cells_z,
+        no_cells_per_box_x, no_cells_per_box_z):
+    no_times_eval = len(idx_t)
+    no_target_cells_x = len(target_cells_x)
+    no_target_cells_z = len(target_cells_z)
+    di_cell = no_cells_per_box_x // 2
+    dj_cell = no_cells_per_box_z // 2    
+    moments_at_boxes = np.zeros( (no_seeds,no_times_eval,no_moments,
+                                  no_target_cells_x,no_target_cells_z),
+                                 dtype = np.float64)
+
+    for seed_n in range(no_seeds):
+        for time_n, time_ind in enumerate(idx_t):
+            for mom_n in range(no_moments):
+                for box_n_x, tg_cell_x in enumerate(target_cells_x):
+                    for box_n_z , tg_cell_z in enumerate(target_cells_z):
+                        moment_box = 0.
+                        i_tg_corner = tg_cell_x - di_cell
+                        j_tg_corner = tg_cell_z - dj_cell
+                        cells_box_x = np.arange(i_tg_corner, i_tg_corner+no_cells_per_box_x)
+                        cells_box_z = np.arange(j_tg_corner, j_tg_corner+no_cells_per_box_z)
+                        
+#                            print("cells_box_x")
+#                            print(cells_box_x)
+#                            print("cells_box_z")
+#                            print(cells_box_z)
+                        MG = np.meshgrid(cells_box_x, cells_box_z)
+                        
+                        cells_box_x = MG[0].flatten()
+                        cells_box_z = MG[1].flatten()
+                        
+                        moment_box = moments_vs_time_all_seeds[seed_n, time_n, mom_n,
+                                                               cells_box_x, cells_box_z]
+                        
+                        moment_box = np.average(moment_box)
+                        moments_at_boxes[seed_n, time_n, mom_n, box_n_x, box_n_z] = \
+                            moment_box
+    return moments_at_boxes 
+
 #%% PLOTTING
 
 def simple_plot(x_, y_arr_):
@@ -1488,7 +1530,9 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
 
 
 @njit()
-def compute_moment_R_grid(n, R_p, xi, cells, active_ids, id_list, no_cells):
+# V0 = volume grid cell
+def compute_moment_R_grid(n, R_p, xi, V0,
+                          cells, active_ids, id_list, no_cells):
     moment = np.zeros( (no_cells[0], no_cells[1]), dtype = np.float64 )
     if n == 0:
         for ID in id_list[active_ids]:
@@ -1496,7 +1540,7 @@ def compute_moment_R_grid(n, R_p, xi, cells, active_ids, id_list, no_cells):
     else:
         for ID in id_list[active_ids]:
             moment[cells[0,ID],cells[1,ID]] += xi[ID] * R_p[ID]**n
-    return moment
+    return moment / V0
 
 from file_handling import load_grid_scalar_fields, load_particle_data_all
 
@@ -1514,12 +1558,14 @@ from file_handling import load_grid_scalar_fields, load_particle_data_all
 # 3: n_aero
 # 4: n_c
 # 5: n_r 
-# 6: R_eff = 3rd moment/ 2nd moment of R-distribution
+# 6: R_avg
+# 7: R_1/2 = 2nd moment / 1st moment
+# 8: R_eff = 3rd moment/ 2nd moment of R-distribution
 # NOTE that time_indices must be an array because of indexing below     
 def generate_field_frame_data_avg(load_path_list,
                                   field_indices, time_indices,
                                   derived_indices,
-                                  mass_dry_inv,
+                                  mass_dry_inv, grid_volume_cell,
                                   no_cells, solute_type):
     # output: fields_with_time = [ [time0: all fields[] ],
     #                              [time1],
@@ -1529,6 +1575,9 @@ def generate_field_frame_data_avg(load_path_list,
     # name_list
     # scales_list
     # save_times
+    
+    V0 = grid_volume_cell
+    
     if solute_type == "AS":
         compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
@@ -1620,19 +1669,19 @@ def generate_field_frame_data_avg(load_path_list,
                                        no_cells[1]),
                                        dtype = np.float64)
             
-            mom0 = compute_moment_R_grid(0, R_p, xi_with_time[idx_t],
+            mom0 = compute_moment_R_grid(0, R_p, xi_with_time[idx_t], V0,
                                          cells_with_time[idx_t],
                                          active_ids_with_time[idx_t],
                                          id_list, no_cells)
-            mom1 = compute_moment_R_grid(1, R_p, xi_with_time[idx_t],
+            mom1 = compute_moment_R_grid(1, R_p, xi_with_time[idx_t], V0,
                                          cells_with_time[idx_t],
                                          active_ids_with_time[idx_t],
                                          id_list, no_cells)
-            mom2 = compute_moment_R_grid(2, R_p, xi_with_time[idx_t],
+            mom2 = compute_moment_R_grid(2, R_p, xi_with_time[idx_t], V0,
                                          cells_with_time[idx_t],
                                          active_ids_with_time[idx_t],
                                          id_list, no_cells)
-            mom3 = compute_moment_R_grid(3, R_p, xi_with_time[idx_t],
+            mom3 = compute_moment_R_grid(3, R_p, xi_with_time[idx_t], V0,
                                          cells_with_time[idx_t],
                                          active_ids_with_time[idx_t],
                                          id_list, no_cells)
@@ -1641,21 +1690,21 @@ def generate_field_frame_data_avg(load_path_list,
             mom1_cloud = compute_moment_R_grid(
                              1,
                              R_p[masks_R_p[1]],
-                             xi_with_time[idx_t][masks_R_p[1]],
+                             xi_with_time[idx_t][masks_R_p[1]], V0,
                              cells_with_time[idx_t][:,masks_R_p[1]],
                              active_ids_with_time[idx_t][masks_R_p[1]],
                              id_list, no_cells)
             mom2_cloud = compute_moment_R_grid(
                              2,
                              R_p[masks_R_p[1]],
-                             xi_with_time[idx_t][masks_R_p[1]],
+                             xi_with_time[idx_t][masks_R_p[1]], V0,
                              cells_with_time[idx_t][:,masks_R_p[1]],
                              active_ids_with_time[idx_t][masks_R_p[1]],
                              id_list, no_cells)
             mom3_cloud = compute_moment_R_grid(
                              3,
                              R_p[masks_R_p[1]],
-                             xi_with_time[idx_t][masks_R_p[1]],
+                             xi_with_time[idx_t][masks_R_p[1]], V0,
                              cells_with_time[idx_t][:,masks_R_p[1]],
                              active_ids_with_time[idx_t][masks_R_p[1]],
                              id_list, no_cells)
@@ -1733,6 +1782,74 @@ def generate_field_frame_data_avg(load_path_list,
     
     return fields_with_time, save_times_out, field_names_out, units_out, \
            scales_out 
+
+#%%
+
+def generate_moments_avg_std(load_path_list,
+                             no_moments, time_indices,
+                             grid_volume_cell,
+                             no_cells, solute_type):
+
+    if solute_type == "AS":
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+    elif solute_type == "NaCl":
+        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+
+    no_seeds = len(load_path_list)
+    no_times = len(time_indices)
+    
+    moments_vs_time_all_seeds = np.zeros( (no_seeds, no_times, no_moments,
+                                  no_cells[0], no_cells[1]),
+                                dtype = np.float64)
+    
+    load_path = load_path_list[0]
+    frame_every, no_grid_frames, dump_every = \
+        np.load(load_path+"data_saving_paras.npy")
+    grid_save_times = np.load(load_path+"grid_save_times.npy")
+    
+    save_times_out = np.zeros(no_times, dtype = np.int64)
+    
+    for time_n in range(no_times):
+        idx_t = time_indices[time_n]
+        save_times_out[time_n] = grid_save_times[idx_t]
+    
+    V0 = grid_volume_cell
+    
+    for seed_n, load_path in enumerate(load_path_list):
+        
+        fields = load_grid_scalar_fields(load_path, grid_save_times)
+        vec_data, cells_with_time, scal_data, xi_with_time, active_ids_with_time =\
+            load_particle_data_all(load_path, grid_save_times)
+        m_w_with_time = scal_data[:,0]
+        m_s_with_time = scal_data[:,1]
+        
+        for time_n in range(no_times):
+            idx_t = time_indices[time_n]
+            
+            no_SIPs = len(xi_with_time[idx_t])
+            T_p = np.zeros(no_SIPs, dtype = np.float64)
+            id_list = np.arange(no_SIPs)
+            update_T_p(fields[idx_t, 3], cells_with_time[idx_t], T_p)
+            R_p, w_s, rho_p = \
+                compute_R_p_w_s_rho_p(m_w_with_time[idx_t],
+                                      m_s_with_time[idx_t], T_p)
+            
+            for mom_n in range(no_moments):
+            
+                moments_vs_time_all_seeds[seed_n, time_n, mom_n] =\
+                    compute_moment_R_grid(mom_n, R_p, xi_with_time[idx_t], V0,
+                                             cells_with_time[idx_t],
+                                             active_ids_with_time[idx_t],
+                                             id_list, no_cells)
+   
+#    moments_vs_time_avg = np.average(moments_vs_time_all_seeds, axis=0)
+#    moments_vs_time_std = np.std(moments_vs_time_all_seeds, axis=1, ddof=1)
+    
+    return moments_vs_time_all_seeds, save_times_out
+
+
+
+#%% PLOT SCALAR FIELD FRAMES EXTENDED FIELD VARIATY
 
 def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                                         save_times,
@@ -2233,6 +2350,8 @@ def generate_size_spectra_R_Arabas(load_path_list,
     return f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, \
            save_times_out, grid_r_l_list, R_min_list, R_max_list
 
+#%% PLOT SIZE SPECTRA AND TRACER TRAJECTORY AND EFFECTIVE RADIUS
+           
 def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                bins_R_p_list, bins_R_s_list,
                                grid_r_l_list,
@@ -2245,6 +2364,8 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                no_bins_R_p, no_bins_R_s,
                                no_rows, no_cols,
                                TTFS=12, LFS=10, TKFS=10, LW = 4.0, MS = 3.0,
+                               figsize_spectra = None,
+                               figsize_trace_traj = None,
                                fig_path = None,
                                show_target_cells = False,
                                fig_path_tg_cells = None,
@@ -2269,9 +2390,15 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
     f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1)
     f_R_s_avg = np.average(f_R_s_list, axis=1)
     f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1)
-
+    
+    
+    if figsize_spectra is not None:
+        figsize = figsize_spectra
+    else:        
+        figsize = (no_cols*5, no_rows*4)
+    
     fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                             figsize = (no_cols*5, no_rows*4) )
+                             figsize = figsize )
     
     plot_n = -1
     for row_n in range(no_rows):
@@ -2350,7 +2477,7 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                         (12.,40.))
             
             #ax.set_ylim( [f_R_min*0.5,4E3] )
-    fig.tight_layout()
+#    fig.tight_layout()
     
     if fig_path is not None:
 #        fig_name =\
@@ -2360,8 +2487,13 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
 #            + f"Nseeds_{no_seeds}.pdf"
         fig.savefig(fig_path)
 
+    if figsize_spectra is not None:
+        figsize = figsize_spectra
+    else:        
+        figsize = (no_cols*5, no_rows*4)
+
     fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                             figsize = (no_cols*5, no_rows*4) )
+                             figsize = figsize )
     
     plot_n = -1
     for row_n in range(no_rows):
@@ -2439,7 +2571,7 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                         (25.,6.))
             
             #ax.set_ylim( [f_R_min*0.5,4E3] )
-    fig.tight_layout()
+#    fig.tight_layout()
     
     if fig_path is not None:
 #        fig_name =\
@@ -2490,7 +2622,8 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
     if fig_path is not None:
         fig3.savefig(fig_path_R_eff)            
     
-    ### PLOT TARGET CELLS IN EXTRA PLOT
+    ########################################## PLOT TARGET CELLS IN EXTRA PLOT
+    ########################################## PLOT TARGET CELLS IN EXTRA PLOT
     
     if show_target_cells:
         grid_r_l = grid_r_l_list[0]*1E3
@@ -2500,13 +2633,20 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
         # arabas 2015
         cmap = cmap_lcpp
 #        cmap = "my_rainbow"
-        alpha = 0.7
+#        alpha = 0.7
+        alpha = 1.0
         no_ticks = [6,6]
         str_format = "%.2f"
         
         tick_ranges = grid.ranges
+        
+        if figsize_trace_traj is not None:
+            figsize = figsize_trace_traj
+        else:
+            figsize = (no_cols*9, no_rows*8)            
+        
         fig2, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                         figsize = (no_cols*9, no_rows*8) )
+                         figsize = figsize )
         ax = axes
         
         field_min = 0.0
@@ -2514,7 +2654,8 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
         CS = ax.pcolormesh(*grid.corners, grid_r_l,
                            cmap=cmap, alpha=alpha,
                             edgecolor="face", zorder=1,
-                            vmin=field_min, vmax=field_max
+                            vmin=field_min, vmax=field_max,
+                            antialiased=True, linewidth=0.0
 #                            norm = norm_(vmin=field_min, vmax=field_max)
                             )
         CS.cmap.set_under("white")
@@ -2572,7 +2713,7 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
         dx = grid_steps[0]
         dz = grid_steps[1]
         
-        LW_rect = 2.
+        LW_rect = 0.8
         
         for tg_cell_n in range(no_tg_cells):
             x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
@@ -2596,20 +2737,26 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
         
         ax.tick_params(axis='both', which='major', labelsize=TKFS)
         ax.grid(color='gray', linestyle='dashed', zorder = 2)
-        ax.set_title(r"$r_l$ (g/kg), t = {} min".format(save_times_out[0]//60))
+        ax.set_title(r"$r_l$ (g/kg), t = {} min".format(-120 + save_times_out[0]//60))
         ax.set_xlabel(r'x (m)', fontsize = LFS)
         ax.set_ylabel(r'z (m)', fontsize = LFS)  
 #        ax.axis("equal")
-        ax.axis("scaled")
+#        ax.axis("scaled")
 #        ax.set(xlim=grid.ranges[0], ylim=grid.ranges[1])          
         ax.set_xlim((0,1500))
         ax.set_ylim((0,1500))
+        ax.set_aspect('equal')
 #        ax.set_aspect('equal', 'box')
         
-        fig2.tight_layout(pad = 2.)
-        
+#        fig2.tight_layout(pad = 2.)
+#        plt.subplots_adjust(top=1, bottom=1)
         if fig_path_tg_cells is not None:
-            fig2.savefig(fig_path_tg_cells)
-    
+            fig2.savefig(fig_path_tg_cells,
+        #                    bbox_inches = 0,
+                        bbox_inches = 'tight',
+                        pad_inches = 0.04
+                        )   
+        
+        
         
         
