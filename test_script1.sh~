@@ -19,7 +19,10 @@ no_spcm1=38
 no_col_per_adv=2
 sim_type="with_collision"
 
-export OMP_NUM_THREADS=8
-#export MKL_NUM_THREADS=4
-export NUMBA_NUM_THREADS=16
-python3 gen_plot_data.py $system $no_cells_x $no_cells_z $solute_type $no_spcm0 $no_spcm1 $Ns ${gseed} ${sseed} $sim_type $t_start $t_end $no_col_per_adv &
+array1=(a b cc)
+array2=(1 2 10)
+
+for i in {1..3}
+do
+    echo ${array1[0]}
+done    
