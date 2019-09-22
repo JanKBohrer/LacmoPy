@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Mon Sep  2 15:02:06 2019
@@ -10,6 +10,8 @@ Created on Mon Sep  2 15:02:06 2019
 import os
 import numpy as np
 
+import sys
+
 import constants as c
 from microphysics import compute_R_p_w_s_rho_p_AS
 from microphysics import compute_R_p_w_s_rho_p_NaCl
@@ -17,9 +19,12 @@ from microphysics import compute_radius_from_mass_vec
 from file_handling import load_grid_and_particles_full 
 
 #%% STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
+my_OS = "Linux_desk"
 #my_OS = "Mac"
-my_OS = "TROPOS_server"
+#my_OS = "TROPOS_server"
+
+if len(sys.argv) > 1:
+    my_OS = sys.argv[1]
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -34,8 +39,9 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-args_gen = [0,0,0,1]
-#args_gen = [1,1,1,0]
+#args_gen = [0,0,0,1]
+#args_gen = [0,1,0,0]
+args_gen = [1,1,1,1]
 #args_gen = [1,1,1,1]
 
 act_gen_grid_frames_avg = args_gen[0]
@@ -45,13 +51,23 @@ act_gen_moments_all_grid_cells = args_gen[3]
 
 #%% GRID PARAMETERS
 
-no_cells = (75, 75)
+#no_cells = (75, 75)
+no_cells = np.array((75, 75))
+
+if len(sys.argv) > 2:
+    no_cells[0] = int(sys.argv[2])
+if len(sys.argv) > 3:
+    no_cells[1] = int(sys.argv[3])
+
 
 #%% PARTICLE PARAMETERS
 
 # solute material: NaCl OR ammonium sulfate
 #solute_type = "NaCl"
 solute_type = "AS"
+
+if len(sys.argv) > 4:
+    solute_type = sys.argv[4]
 
 # no_super_particles_cell_mode = [N1,N2] is a list with
 # N1 = no super part. per cell in mode 1 etc.
@@ -61,16 +77,33 @@ solute_type = "AS"
 no_spcm = np.array([20, 30])
 #no_spcm = np.array([26, 38])
 
+if len(sys.argv) > 5:
+    no_spcm[0] = int(sys.argv[5])
+if len(sys.argv) > 6:
+    no_spcm[1] = int(sys.argv[6])
+
 no_seeds = 4
 #no_seeds = 50
+
+if len(sys.argv) > 7:
+    no_seeds = int(sys.argv[7])
 
 # seed of the SIP generation -> needed for the right grid folder
 # start seed and also seed for base grid loading
 seed_SIP_gen = 3711
+
+if len(sys.argv) > 8:
+    seed_SIP_gen = int(sys.argv[8])
+
 seed_SIP_gen_list = np.arange(seed_SIP_gen, seed_SIP_gen + no_seeds * 2, 2)
+
 
 # start seed collisions
 seed_sim = 4711
+
+if len(sys.argv) > 9:
+    seed_sim = int(sys.argv[9])
+
 seed_sim_list = np.arange(seed_sim, seed_sim + no_seeds * 2, 2)
 
 #%% SIM PARAMETERS
@@ -78,11 +111,9 @@ seed_sim_list = np.arange(seed_sim, seed_sim + no_seeds * 2, 2)
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
 simulation_mode = "with_collision"
-
-# for file names
-dt_col = 0.5
-#dt_col = 1.0
-
+if len(sys.argv) > 10:
+    simulation_mode = sys.argv[10]
+    
 spin_up_finished = True
 #spin_up_finished = False
 
@@ -101,6 +132,27 @@ t_start = 7200
 #t_end = 7200
 #t_end = 10800
 t_end = 14400
+
+if len(sys.argv) > 11:
+    t_start = float(sys.argv[11])
+if len(sys.argv) > 12:
+    t_end = float(sys.argv[12])
+
+dt = 1.0 # s # timestep of advection
+
+### SET THIS
+# only even integers possible:
+no_cond_per_adv = 10
+
+# number of cond steps per adv step
+# possible values: 1, 2 OR no_cond_per_adv
+no_col_per_adv = 2
+#no_col_per_adv = no_cond_per_adv
+
+if len(sys.argv) > 13:
+    no_col_per_adv = int(sys.argv[13])
+
+dt_col = dt / no_col_per_adv
 
 #%% ANALYSIS PARAMETERS
 
@@ -122,7 +174,8 @@ time_ind = np.arange(0,25,2)
 # target cells for spectra analysis
 i_tg = [16,58,66]
 #i_tg = [20,40,60]
-j_tg = [27, 44, 46, 51, 72][::-1]
+j_tg = [27, 37, 44, 46, 51, 72][::-1]
+#j_tg = [27, 44, 46, 51, 72][::-1]
 #j_tg = [20,40,50,60,65,70]
 
 # target list from ordered mesh grid
@@ -130,8 +183,10 @@ j_tg = [27, 44, 46, 51, 72][::-1]
 i_list, j_list = np.meshgrid(i_tg,j_tg, indexing = "xy")
 target_cell_list = np.array([i_list.flatten(), j_list.flatten()])
 
-no_rows = 5
-no_cols = 3
+no_rows = len(j_tg)
+no_cols = len(i_tg)
+#no_rows = 5
+#no_cols = 3
 
 #    print(target_cell_list)
 # region range of spectra analysis
@@ -157,12 +212,11 @@ no_moments = 4
 time_ind_moments = np.arange(0,25,2)
 
 #%% DERIVED    
-no_seeds = len(seed_SIP_gen_list)
+#no_seeds = len(seed_SIP_gen_list)
 
 #%% LOAD GRID AND PARTICLES AT TIME t_grid
 
-grid_folder =\
-    f"{solute_type}" \
+grid_folder = f"{solute_type}"\
     + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
     + f"{seed_SIP_gen}/"
 
@@ -239,14 +293,15 @@ if act_gen_grid_frames_avg:
         
         load_path_list.append(simdata_path + grid_folder_ + save_folder_)
     print(load_path_list)    
-    fields_with_time, save_times_out, field_names_out, units_out, \
-           scales_out = generate_field_frame_data_avg(load_path_list,
-                                                        field_ind, time_ind,
-                                                        field_ind_deri,
-                                                        grid.mass_dry_inv,
-                                                        grid.volume_cell,
-                                                        grid.no_cells,
-                                                        solute_type)
+    fields_with_time, fields_with_time_std, save_times_out,\
+    field_names_out, units_out, scales_out = \
+        generate_field_frame_data_avg(load_path_list,
+                                        field_ind, time_ind,
+                                        field_ind_deri,
+                                        grid.mass_dry_inv,
+                                        grid.volume_cell,
+                                        grid.no_cells,
+                                        solute_type)
     ### create only plotting data output to be transfered
     output_folder = \
         f"{solute_type}" \
@@ -268,6 +323,10 @@ if act_gen_grid_frames_avg:
             + f"fields_vs_time_avg_Ns_{no_seeds}_"
             + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
             fields_with_time)
+    np.save(simdata_path + output_folder
+            + f"fields_vs_time_std_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+            fields_with_time_std)
     np.save(simdata_path + output_folder
             + f"save_times_out_avg_Ns_{no_seeds}_"
             + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
@@ -505,6 +564,7 @@ if act_gen_moments_all_grid_cells:
                 load_path_list.append()
         
         load_path_list.append(simdata_path + grid_folder_ + save_folder_)
+    print("load_path_list")    
     print(load_path_list)    
 #    moments_vs_time_avg, moments_vs_time_std, save_times_out = \
     moments_vs_time_all_seeds, save_times_out = \

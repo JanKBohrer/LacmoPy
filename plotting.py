@@ -39,6 +39,7 @@ pdf_dict = {
         r'\usepackage[ttscale=.9]{libertine}',
         r'\usepackage[libertine]{newtxmath}',
         r'\usepackage[T1]{fontenc}',
+        r'\usepackage[]{siunitx}',        
 #        r'\usepackage[no-math]{fontspec}',
         ],
     "font.family": "serif"

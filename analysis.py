@@ -741,7 +741,7 @@ def avg_moments_over_boxes(
     no_target_cells_z = len(target_cells_z)
     di_cell = no_cells_per_box_x // 2
     dj_cell = no_cells_per_box_z // 2    
-    moments_at_boxes = np.zeros( (no_seeds,no_times_eval,no_moments,
+    moments_at_boxes_all_seeds = np.zeros( (no_seeds,no_times_eval,no_moments,
                                   no_target_cells_x,no_target_cells_z),
                                  dtype = np.float64)
 
@@ -753,13 +753,15 @@ def avg_moments_over_boxes(
                         moment_box = 0.
                         i_tg_corner = tg_cell_x - di_cell
                         j_tg_corner = tg_cell_z - dj_cell
-                        cells_box_x = np.arange(i_tg_corner, i_tg_corner+no_cells_per_box_x)
-                        cells_box_z = np.arange(j_tg_corner, j_tg_corner+no_cells_per_box_z)
-                        
-#                            print("cells_box_x")
-#                            print(cells_box_x)
-#                            print("cells_box_z")
-#                            print(cells_box_z)
+                        cells_box_x = np.arange(i_tg_corner,
+                                                i_tg_corner+no_cells_per_box_x)
+                        cells_box_z = np.arange(j_tg_corner,
+                                                j_tg_corner+no_cells_per_box_z)
+#                        print()
+#                        print("cells_box_x")
+#                        print(cells_box_x)
+#                        print("cells_box_z")
+#                        print(cells_box_z)
                         MG = np.meshgrid(cells_box_x, cells_box_z)
                         
                         cells_box_x = MG[0].flatten()
@@ -769,9 +771,9 @@ def avg_moments_over_boxes(
                                                                cells_box_x, cells_box_z]
                         
                         moment_box = np.average(moment_box)
-                        moments_at_boxes[seed_n, time_n, mom_n, box_n_x, box_n_z] = \
+                        moments_at_boxes_all_seeds[seed_n, time_n, mom_n, box_n_x, box_n_z] = \
                             moment_box
-    return moments_at_boxes 
+    return moments_at_boxes_all_seeds 
 
 #%% PLOTTING
 
@@ -1609,6 +1611,9 @@ def generate_field_frame_data_avg(load_path_list,
     fields_with_time = np.zeros( (no_times, no_fields,
                                   no_cells[0], no_cells[1]),
                                 dtype = np.float64)
+    fields_with_time_sq = np.zeros( (no_times, no_fields,
+                                  no_cells[0], no_cells[1]),
+                                dtype = np.float64)
     
     
     load_path = load_path_list[0]
@@ -1649,6 +1654,7 @@ def generate_field_frame_data_avg(load_path_list,
         for cnt in range(no_fields_orig):
             idx_f = field_indices[cnt]
             fields_with_time[:,cnt] += fields[time_indices,idx_f]
+            fields_with_time_sq[:,cnt] += (fields[time_indices,idx_f])**2
         
         for time_n in range(no_times):
             idx_t = time_indices[time_n]
@@ -1775,12 +1781,18 @@ def generate_field_frame_data_avg(load_path_list,
 #            print(fields_derived.shape)    
             fields_with_time[time_n,no_fields_orig:no_fields] += \
                 fields_derived
+            fields_with_time_sq[time_n,no_fields_orig:no_fields] += \
+                fields_derived * fields_derived
     
     
     fields_with_time /= no_seeds
     
+    fields_with_time_std = np.sqrt((fields_with_time_sq \
+                                    - no_seeds*fields_with_time**2)\
+                           / (no_seeds * (no_seeds-1)) )
     
-    return fields_with_time, save_times_out, field_names_out, units_out, \
+    return fields_with_time, fields_with_time_std, \
+           save_times_out, field_names_out, units_out, \
            scales_out 
 
 #%%
