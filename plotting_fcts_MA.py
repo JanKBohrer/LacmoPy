@@ -107,127 +107,23 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
 #                                       target_cell_list,
 #                                       no_cells_x, no_cells_z,
 #                                       no_bins_R_p, no_bins_R_s)  
-    scale_x = 1E-3
     
     annotations = ["A", "B", "C", "D", "E", "F",
                    "G", "H", "I", "J", "K", "L",
                    "M", "N", "O", "P", "Q", "R"]
-    
-    grid.steps *= scale_x
-    grid.ranges *= scale_x
-    grid.corners[0] *= scale_x
-    grid.corners[1] *= scale_x
-    grid.centers[0] *= scale_x
-    grid.centers[1] *= scale_x
-    
-    
+    no_seeds = len(f_R_p_list[0])
+    print("no_seeds =", no_seeds)
     grid_steps = grid.steps
 #    no_seeds = len(f_R_p_list[0])
 #    no_times = len(save_times_out)
     no_tg_cells = len(target_cell_list[0])    
 
     f_R_p_avg = np.average(f_R_p_list, axis=1)
-    f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1)
+    f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1) / np.sqrt(no_seeds)
     f_R_s_avg = np.average(f_R_s_list, axis=1)
-    f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1)
+    f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1) / np.sqrt(no_seeds)
 
-#%% SPECTRA    
-#    if figsize_spectra is not None:
-#        figsize = figsize_spectra
-#    else:        
-#        figsize = (no_cols*5, no_rows*4)
-#   
-#    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-#                             figsize = figsize, sharex=True, sharey= True )
-#    
-#    plot_n = -1
-#    for row_n in range(no_rows):
-#        for col_n in range(no_cols):
-#            plot_n += 1
-#            if no_cols == 1:
-#                if no_rows == 1:
-#                    ax = axes
-#                else:                    
-#                    ax = axes[row_n]
-#            else:
-#                ax = axes[row_n, col_n]        
-#            
-#            target_cell = target_cell_list[:,plot_n]
-#            
-#            f_R_p = f_R_p_avg[plot_n]
-#            f_R_s = f_R_s_avg[plot_n]
-#            f_R_p_err = f_R_p_std[plot_n]
-#            f_R_s_err = f_R_s_std[plot_n]
-#            
-#            bins_R_p = bins_R_p_list[plot_n]
-#            bins_R_s = bins_R_s_list[plot_n]
-#            
-#            f_R_p_min = f_R_p.min()
-#            f_R_p_max = f_R_p.max()
-#            f_R_s_min = f_R_s.min()
-#            f_R_s_max = f_R_s.max()            
-#            
-#            ax.plot(np.repeat(bins_R_p,2),
-#                    np.hstack( [[f_R_p_min*1E-1],
-#                                np.repeat(f_R_p,2),
-#                                [f_R_p_min*1E-1] ] ),
-#                    linewidth = LW, label = "wet")
-#            ax.plot(np.repeat(bins_R_s,2),
-#                    np.hstack( [[f_R_s_min*1E-1],
-#                                np.repeat(f_R_s,2),
-#                                [f_R_s_min*1E-1] ] ),
-#                    linewidth = LW, label = "dry")            
-#    
-##            ax.vlines(0.5, f_R_s_min, f_R_s_max)
-#            LW_vline = 1
-#            LS_vline = "--"
-#            ax.axvline(0.5, c ="k", linewidth=LW_vline,ls=LS_vline)
-#            ax.axvline(25., c ="k", linewidth=LW_vline, ls = LS_vline)
-#            ax.set_xscale("log")
-#            ax.set_yscale("log")
-#            ax.set_xlim( [2E-3, 1E2] )    
-#            ax.set_ylim( [8E-3, 4E3] )    
-##            ax.set_xlim( [2E-3, 3E2] )    
-##            ax.set_ylim( [1E-5, 4E3] )    
-#            
-#            ax.tick_params(axis='both', which='major', labelsize=TKFS,
-#                           length = 5)
-#            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
-#                           length = 3)
-#            
-##            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
-#            xx = int((target_cell[0])*grid_steps[0])
-#            height = int((target_cell[1])*grid_steps[1])
-##            xx = int((target_cell[0]+0.5)*grid_steps[1])
-##            height = int((target_cell[1]+0.5)*grid_steps[1])
-#            ax.set_xlabel(r"particle radius ($\mathrm{\mu m}$)",
-#                          fontsize = LFS)
-#            ax.set_ylabel(r"distribution (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
-#                          fontsize = LFS)
-#            # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
-#            # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
-#            ax.set_title( f'x = {xx}, h = {height} m ' +
-#                         f"cell ({target_cell[0]} {target_cell[1]}) "
-#                            + f"Nc ({no_cells_x}, {no_cells_z}) "
-#                            +f"$t$ = {save_times_out[plot_n]//60} min",
-#                            fontsize = TTFS )            
-#            ax.grid()
-#            ax.legend(loc='upper right')
-#
-##            ax.annotate(f"({R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e})",
-##            ax.annotate(f"$R_{{min/max}}$\n{R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e}",            
-##                        (12.,40.))
-#            
-#            #ax.set_ylim( [f_R_min*0.5,4E3] )
-##    fig.tight_layout()
-#    
-#    if fig_path is not None:
-##        fig_name =\
-##            fig_path \
-##            + f"spectrum_cell_list_j_from_{j_low}_to_{j_high}_" \
-##            + f"Ntgcells_{no_tg_cells}_no_cells_{no_cells_x}_{no_cells_z}_" \
-##            + f"Nseeds_{no_seeds}.pdf"
-#        fig.savefig(fig_path)
+
 
 #%% SPECTRA EXTENDED
     if figsize_spectra is not None:
@@ -260,6 +156,9 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
             bins_R_p = bins_R_p_list[plot_n]
             bins_R_s = bins_R_s_list[plot_n]
             
+            bins_centers_R_p = 0.5 * (bins_R_p[1:] + bins_R_p[:-1])
+            bins_centers_R_s = 0.5 * (bins_R_s[1:] + bins_R_s[:-1])            
+            
             f_R_p_min = f_R_p.min()
             f_R_p_max = f_R_p.max()
             f_R_s_min = f_R_s.min()
@@ -276,7 +175,45 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                     np.hstack( [[f_R_s_min*1E-1],
                                 np.repeat(f_R_s,2),
                                 [f_R_s_min*1E-1] ] ),
-                    linewidth = LW_spectra, label = "dry")            
+                    linewidth = LW_spectra, label = "dry")  
+            
+            # added error-regions here
+            ax.fill_between(np.repeat(bins_R_p,2)[1:-1],
+                            np.repeat(f_R_p,2) - np.repeat(f_R_p_err,2),
+                            np.repeat(f_R_p,2) + np.repeat(f_R_p_err,2),
+                            alpha=0.5,
+                            facecolor="lightblue",
+                            edgecolor="blue", lw=0.5,
+                            zorder=0)
+            ax.fill_between(np.repeat(bins_R_s,2)[1:-1],
+                            np.repeat(f_R_s,2) - np.repeat(f_R_s_err,2),
+                            np.repeat(f_R_s,2) + np.repeat(f_R_s_err,2),
+                            alpha=0.4,
+                            facecolor="orange",
+                            edgecolor="darkorange", lw=0.5,
+                            zorder=0)
+#            ax.fill_between(bins_centers_R_s,
+#                            f_R_s - f_R_s_err,
+#                            f_R_s + f_R_s_err,
+#                            alpha=0.4,
+#                            facecolor="orange",
+#                            edgecolor="darkorange", lw=0.5,
+#                            zorder=0)
+#            ax.fill_between(bins_centers_R_p,
+#                            f_R_p - f_R_p_err,
+#                            f_R_p + f_R_p_err,
+#                            alpha=0.4,
+#                            facecolor="lightblue",
+#                            edgecolor="blue", lw=0.5,
+#                            zorder=0)
+#            ax.fill_between(bins_centers_R_s,
+#                            f_R_s - f_R_s_err,
+#                            f_R_s + f_R_s_err,
+#                            alpha=0.4,
+#                            facecolor="orange",
+#                            edgecolor="darkorange", lw=0.5,
+#                            zorder=0)
+            
             ax.annotate(f"\\textbf{{{annotations[plot_n]}}}",
 #                    annotations[plot_n],
                     (2.5E-3, 1E3) )
@@ -648,17 +585,9 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     
-    
     for i,fm in enumerate(field_names):
         print(i,fm)
     print(save_times)
-    scale_x = 1E-3    
-    grid.steps *= scale_x
-    grid.ranges *= scale_x
-    grid.corners[0] *= scale_x
-    grid.corners[1] *= scale_x
-    grid.centers[0] *= scale_x
-    grid.centers[1] *= scale_x    
     
     tick_ranges = grid.ranges
 #    tick_ranges_label = [[0,1.2],[0,1.2]]
@@ -745,6 +674,7 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
 #                cmap = cmap_new
                 # Arabas 2015
                 cmap = cmap_lcpp
+                unit = r"\si{\micro\meter}"
                 
                 
             oom_max = oom = int(math.log10(field_max))
@@ -915,7 +845,7 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                     pad_inches = 0.05,
                     dpi=600
                     )           
-#%% FUNCTION DEF: PLOT SCALAR FIELDS ERRORS
+#%% FUNCTION DEF: PLOT FIELDS STD ERRORS
 def plot_scalar_field_frames_std_MA(grid, fields_with_time,
                                            fields_with_time_std,
                                         save_times,
@@ -924,8 +854,11 @@ def plot_scalar_field_frames_std_MA(grid, fields_with_time,
                                         scales,
                                         solute_type,
                                         simulation_mode, # for time in label
-                                        fig_path,
+                                        fig_path_abs,
+                                        fig_path_rel,
                                         figsize,
+                                        plot_abs=True,
+                                        plot_rel=True,
                                         no_ticks=[6,6],
                                         alpha = 1.0,
                                         TTFS = 12, LFS = 10, TKFS = 10,
@@ -938,23 +871,17 @@ def plot_scalar_field_frames_std_MA(grid, fields_with_time,
     from mpl_toolkits.axes_grid1.inset_locator import inset_axes
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     
-    
     for i,fm in enumerate(field_names):
         print(i,fm)
     print(save_times)
-    scale_x = 1E-3    
-    grid.steps *= scale_x
-    grid.ranges *= scale_x
-    grid.corners[0] *= scale_x
-    grid.corners[1] *= scale_x
-    grid.centers[0] *= scale_x
-    grid.centers[1] *= scale_x    
     
+    std = np.nan_to_num( fields_with_time_std )
 #    rel_std = fields_with_time_std
+    rel_std = np.zeros_like(std)
     
-    rel_std = np.where(fields_with_time == 0.,
-                       0.,
-                       fields_with_time_std / fields_with_time)
+#    rel_std = np.where(fields_with_time == 0.,
+#                       0.,
+#                       fields_with_time_std / fields_with_time)
     
     tick_ranges = grid.ranges
 #    tick_ranges_label = [[0,1.2],[0,1.2]]
@@ -965,280 +892,326 @@ def plot_scalar_field_frames_std_MA(grid, fields_with_time,
 #    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
 #                       figsize = (4.5*no_cols, 4*no_rows),
 #                       sharex=True, sharey=True)    
-    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
-                       figsize = figsize,
-                       sharex=True, sharey=True)
-    
-    field_max_all = np.amax(rel_std, axis=(0,2,3))
-    field_min_all = np.amin(rel_std, axis=(0,2,3))
     
     for time_n in range(no_rows):
         for field_n in range(no_cols):
-            ax = axes[time_n,field_n]
-#            field = rel_std[time_n, field_n] * scales[field_n]
-            field = rel_std[time_n, field_n]
-#            print(time_n,field_n)
-#            print(field)
-            ax_title = field_names[field_n]
-            unit = units[field_n]
-#            if ax_title in ["T","p",r"\Theta"]:
-#                cmap = "coolwarm"
-#                alpha = 1.0
-#            else :
-##                cmap = "rainbow"
-#                cmap = cmap_lcpp
-##                alpha = 0.8
-            
-#            cmap = "coolwarm"
-            cmap = "Greens"
-#            cmap = "Reds"
-            
-            field_max = field_max_all[field_n]
-            field_min = field_min_all[field_n]
-            
-#            field_max = field.max()
-#            field_min = field.min()
-            
-            xticks_major = None
-            xticks_minor = None
+            std[time_n, field_n] *= scales[field_n]
+            fields_with_time[time_n, field_n] *= scales[field_n]
+            rel_std[time_n, field_n] = \
+                np.where(fields_with_time[time_n, field_n] <= 0.,
+                         0.,
+                         std[time_n, field_n] / fields_with_time[time_n, field_n])
 
-            norm_ = mpl.colors.Normalize 
-#            if ax_title in ["r_r", "n_r"]: #and field_max > 1E-2:
-#                norm_ = mpl.colors.LogNorm
-#                field_min = 0.01
-##                cmap = cmap_lcpp                
-#                if ax_title == "r_r":
-#                    field_max = 0.2
-##                    xticks_major = [0.01,0.1,1.]
-#                elif ax_title == "n_r":
-#                    field_max = 1.
-##                    xticks_major = [0.01,0.1,1.,10.]
-##                    xticks_minor = np.concatenate((
-##                            np.linspace(2E-2,1E-1,9),
-##                            np.linspace(2E-1,1,9),
-##                            np.linspace(2,10,9),
-##                            ))
-#            else: norm_ = mpl.colors.Normalize   
-#            
-#            if ax_title == r"\Theta":
-#                field_min = 289.2
-#                field_max = 292.5
-#                xticks_major = [290,291,292]
-#            if ax_title == "r_v":
-#                field_min = 6.5
-#                field_max = 7.6
-#                xticks_minor = [6.75,7.25]
-#            if ax_title == "r_l":
-#                field_min = 0.0
-#                field_max = 1.3
-#                xticks_minor = [0.25,0.75,1.25]
-#                
-#            if ax_title == "r_c":
-#                field_min = 0.0
-#                field_max = 0.2
-##                xticks_major = np.linspace(0,1.2,7)
-#            if ax_title == "n_c":
-#                field_min = 0.0
-#                field_max = 150.
-#            if ax_title == "n_\mathrm{aero}":
-#                field_min = 0.0
-#                field_max = 150.
-#                xticks_minor = [25,75,125]
-#            if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
-##                xticks_major = [1,5,10,15,20]
-##                field_min = 0.
-#                field_min = 0
-##                field_min = 1.5
-#                field_max = 3.
-##                cmap = cmap_new
-#                # Arabas 2015
-##                cmap = cmap_lcpp
-                
-                
-            str_format = "%.2g"
-            
-            my_format = False
-            oom_factor = 1.0
-
-            oom_max = oom = int(math.log10(field_max))
-#            if oom_max > 2 or oom_max < 0:
-#                my_format = True
-#                oom_factor = 10**(-oom)
-#                
-#                field_min *= oom_factor
-#                field_max *= oom_factor            
-#            
-#            if oom_max ==2: str_format = "%.0f"
-##            if oom_max ==2: str_format = "%.1f"
-##            
-#            else: str_format = "%.2g"
-            
-#            else: str_format = "%.2f"
-#            
-#            if field_min/field_max < 1E-4:
-##                cmap = cmap_new
-#                # Arabas 2015                
-#                cmap = cmap_lcpp
-##                alpha = 0.8
-#            
-#            # REMOVE FIX APLHA HERE
-##            alpha = 1.0
-##        CS = ax.pcolormesh(*grid.corners, grid_r_l,
-##                           cmap=cmap, alpha=alpha,
-##                            edgecolor="face", zorder=1,
-##                            vmin=field_min, vmax=field_max,
-##                            antialiased=True, linewidth=0.0
-###                            norm = norm_(vmin=field_min, vmax=field_max)
-##                            )    
-#            minmax = max(abs(field_max), abs(field_min))
-#            CS = ax.pcolormesh(*grid.corners, field*oom_factor,
-#            print("field_max")
-#            print("field_min")
-#            print(field_max)
-#            print(field_min)
-            CS = ax.pcolormesh(*grid.corners, field*oom_factor,
-                               cmap=cmap, alpha=alpha,
-                                edgecolor="face", zorder=1,
-#                                norm = norm_(vmin=-minmax, vmax=minmax),
-                                norm = norm_(vmin=field_min, vmax=field_max),
-#                                norm = norm_(vmin=field_min, vmax=field_max),
-                                rasterized=True,
-                                antialiased=True, linewidth=0.0
-                                )
-            CS.cmap.set_under("white")
-            
-            ax.set_xticks( np.linspace( tick_ranges[0,0],
-                                             tick_ranges[0,1],
-                                             no_ticks[0] ) )
-            ax.set_yticks( np.linspace( tick_ranges[1,0],
-                                             tick_ranges[1,1],
-                                             no_ticks[1] ) )
-
-#            ax.set_xticks( np.linspace( tick_ranges[0,0],
-#                                             tick_ranges[0,1],
-#                                             no_ticks[0] ) )
-#            ax.set_yticks( np.linspace( tick_ranges[1,0],
-#                                             tick_ranges[1,1],
-#                                             no_ticks[1] ) )
-#            ax.tick_params(axis='both', which='major', labelsize=TKFS)
-            ax.tick_params(axis='both', which='major', labelsize=TKFS,
-                           length = 3, width=1)
-#            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
-#                           length = 3)            
-            ax.grid(color='gray', linestyle='dashed', zorder = 2)
-            ax.set_aspect('equal')
-            if time_n == no_rows-1:
-#                tlabels = ax.get_xticklabels()
-#                print(tlabels)
-#                tlabels[-1] = ""
-#                print(tlabels)
-#                ax.set_xticklabels(tlabels)    
-                xticks1 = ax.xaxis.get_major_ticks()
-                xticks1[-1].label1.set_visible(False)
-                ax.set_xlabel(r'$x$ (km)', fontsize = LFS)
-            if field_n == 0:            
-                ax.set_ylabel(r'$z$ (km)', fontsize = LFS)
-#            if time_n == 0:
-#                ax.set_title(
-#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
-#                             fontsize = TTFS)
-#                ax.set_title(
-#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
-#                             fontsize = TTFS)
-#            else:                
-            ax.set_title( r"$t$ = {0} min".format(int(save_times[time_n]/60)),
-                         fontsize = TTFS)
-#            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
-#                         int(save_times[time_n]/60)),
-#                         fontsize = TTFS)
-            if time_n == 0:
-#            if True:
-#            if time_n == no_rows - 1:
-                axins = inset_axes(ax,
-                                   width="90%",  # width = 5% of parent_bbox width
-                                   height="8%",  # height
-                                   loc='lower center',
-                                   bbox_to_anchor=(0.0, 1.35, 1, 1),
-#                                   , 1, 1),
-                                   bbox_transform=ax.transAxes,
-                                   borderpad=0,
-                                   )      
-#                divider = make_axes_locatable(ax)
-#                cax = divider.append_axes("top", size="6%", pad=0.3)
-                
-                cbar = plt.colorbar(CS, cax=axins,
-#                                    fraction=0.046, pad=-0.1,
-                                    format=mticker.FormatStrFormatter(str_format),
-                                    orientation="horizontal"
-                                    )
-#                axins.xaxis.set_ticks_position("bottom")
-                
-                axins.xaxis.set_ticks_position("bottom")
-                axins.tick_params(axis="x",direction="inout",which="both")
-#                axins.tick_params(axis="x",direction="inout")
-                axins.tick_params(axis='x', which='major', labelsize=TKFS,
-                               length = 7, width=1)                
-                axins.tick_params(axis='x', which='minor', labelsize=TKFS,
-                               length = 5, width=0.5,bottom=True)                
-                
-                if xticks_major is not None:
-                    axins.xaxis.set_ticks(xticks_major)
-                if xticks_minor is not None:
-                    axins.xaxis.set_ticks(xticks_minor, minor=True)
-                axins.set_title(r"${0}$ ({1})".format(ax_title, unit))
-            # my_format dos not work with log scale here!!
-
-                if my_format:
-                    cbar.ax.text(1.0,1.0,
-                                 r'$\times\,10^{{{}}}$'.format(oom_max),
-                                 va='bottom', ha='right', fontsize = TKFS,
-                                 transform=ax.transAxes)
-#                    cbar.ax.text(field_min - (field_max-field_min),
-#                                 field_max + (field_max-field_min)*0.01,
-#                                 r'$\times\,10^{{{}}}$'.format(oom_max),
-#                                 va='bottom', ha='left', fontsize = TKFS,
-#                                 transform=ax.transAxes)
-                cbar.ax.tick_params(labelsize=TKFS)
-
-            if show_target_cells:
-                ### ad the target cells
-                no_neigh_x = no_cells_x // 2
-                no_neigh_z = no_cells_z // 2
-                dx = grid.steps[0]
-                dz = grid.steps[1]
-                
-                no_tg_cells = len(target_cell_list[0])
-                LW_rect = .5
-                for tg_cell_n in range(no_tg_cells):
-                    x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
-                    z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
-                    
-            #        dx *= no_cells_x
-            #        dz *= no_cells_z
-                    
-                    rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
-                                         fill=False,
-                                         linewidth = LW_rect,
-        #                                 linestyle = "dashed",
-                                         edgecolor='k',
-                                         zorder = 99)        
-                    ax.add_patch(rect)
-
+    field_max_all = np.amax(std, axis=(0,2,3))
+    field_min_all = np.amin(std, axis=(0,2,3))
+    field_max_all_std = np.amax(rel_std, axis=(0,2,3))
+    field_min_all_std = np.amin(rel_std, axis=(0,2,3))
 
     pad_ax_h = 0.1     
-    pad_ax_v = 0.05
-#    pad_ax_v = 0.005
-    fig.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
-#    fig.subplots_adjust(wspace=pad_ax_v)
-             
-#    fig.tight_layout()
-    if fig_path is not None:
-        fig.savefig(fig_path,
-    #                    bbox_inches = 0,
-                    bbox_inches = 'tight',
-                    pad_inches = 0.05,
-                    dpi=600
-                    )           
+    pad_ax_v = 0.03
+
+    ### PLOT ABS ERROR  
+    if plot_abs:
+        fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                           figsize = figsize,
+                           sharex=True, sharey=True)
+                
+        for time_n in range(no_rows):
+            for field_n in range(no_cols):
+                ax = axes[time_n,field_n]
+    #            field = rel_std[time_n, field_n] * scales[field_n]
+                field = std[time_n, field_n]
+                ax_title = field_names[field_n]
+                unit = units[field_n]
+                
+    #            cmap = "coolwarm"
+    #            cmap = "Greys"
+    #            cmap = "Greens"
+    #            cmap = "Reds"
+                cmap = cmap_lcpp
+                
+                field_max = field_max_all[field_n]
+    #            field_min = field_min_all[field_n]
+                field_min = 0.
+                
+    #            field_max = field.max()
+    #            field_min = field.min()
+                
+                xticks_major = None
+                xticks_minor = None
+    
+                norm_ = mpl.colors.Normalize 
+                    
+                str_format = "%.2g"
+                
+                my_format = False
+                oom_factor = 1.0
+    
+                oom_max = oom = 1
+    
+                CS = ax.pcolormesh(*grid.corners,
+                                   field*oom_factor,
+                                   cmap=cmap, alpha=alpha,
+                                    edgecolor="face", zorder=1,
+    #                                norm = norm_(vmin=-minmax, vmax=minmax),
+                                    norm = norm_(vmin=field_min, vmax=field_max),
+    #                                norm = norm_(vmin=field_min, vmax=field_max),
+                                    rasterized=True,
+                                    antialiased=True, linewidth=0.0
+                                    )
+                CS.cmap.set_under("white")
+                
+                ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                                 tick_ranges[0,1],
+                                                 no_ticks[0] ) )
+                ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                                 tick_ranges[1,1],
+                                                 no_ticks[1] ) )
+    
+                ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                               length = 3, width=1)
+                ax.grid(color='gray', linestyle='dashed', zorder = 2)
+                ax.set_aspect('equal')
+                if time_n == no_rows-1:
+                    xticks1 = ax.xaxis.get_major_ticks()
+                    xticks1[-1].label1.set_visible(False)
+                    ax.set_xlabel(r'$x$ (km)', fontsize = LFS)
+                if field_n == 0:            
+                    ax.set_ylabel(r'$z$ (km)', fontsize = LFS)
+                ax.set_title( r"$t$ = {0} min".format(int(save_times[time_n]/60)),
+                             fontsize = TTFS)
+                if time_n == 0:
+                    axins = inset_axes(ax,
+                                       width="90%",  # width = 5% of parent_bbox width
+                                       height="8%",  # height
+                                       loc='lower center',
+                                       bbox_to_anchor=(0.0, 1.35, 1, 1),
+    #                                   , 1, 1),
+                                       bbox_transform=ax.transAxes,
+                                       borderpad=0,
+                                       )      
+                    cbar = plt.colorbar(CS, cax=axins,
+    #                                    fraction=0.046, pad=-0.1,
+                                        format=mticker.FormatStrFormatter(str_format),
+                                        orientation="horizontal"
+                                        )
+                    axins.xaxis.set_ticks_position("bottom")
+                    axins.tick_params(axis="x",direction="inout",which="both")
+                    axins.tick_params(axis='x', which='major', labelsize=TKFS,
+                                   length = 7, width=1)                
+                    axins.tick_params(axis='x', which='minor', labelsize=TKFS,
+                                   length = 5, width=0.5,bottom=True)                
+                    
+                    if xticks_major is not None:
+                        axins.xaxis.set_ticks(xticks_major)
+                    if xticks_minor is not None:
+                        axins.xaxis.set_ticks(xticks_minor, minor=True)
+                    axins.set_title(r"${0}$ abs. error ({1})".format(ax_title, unit))
+                # my_format dos not work with log scale here!!
+                    
+                    if my_format:
+                        cbar.ax.text(1.0,1.0,
+                                     r'$\times\,10^{{{}}}$'.format(oom_max),
+                                     va='bottom', ha='right', fontsize = TKFS,
+                                     transform=ax.transAxes)
+    #                    cbar.ax.text(field_min - (field_max-field_min),
+    #                                 field_max + (field_max-field_min)*0.01,
+    #                                 r'$\times\,10^{{{}}}$'.format(oom_max),
+    #                                 va='bottom', ha='left', fontsize = TKFS,
+    #                                 transform=ax.transAxes)
+                    cbar.ax.tick_params(labelsize=TKFS)
+    
+                if show_target_cells:
+                    ### ad the target cells
+                    no_neigh_x = no_cells_x // 2
+                    no_neigh_z = no_cells_z // 2
+                    dx = grid.steps[0]
+                    dz = grid.steps[1]
+                    
+                    no_tg_cells = len(target_cell_list[0])
+                    LW_rect = .5
+                    for tg_cell_n in range(no_tg_cells):
+                        x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+                        z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+                        
+                #        dx *= no_cells_x
+                #        dz *= no_cells_z
+                        
+                        rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                             fill=False,
+                                             linewidth = LW_rect,
+            #                                 linestyle = "dashed",
+                                             edgecolor='k',
+                                             zorder = 99)        
+                        ax.add_patch(rect)
+    
+    
+    
+    #    pad_ax_v = 0.005
+        fig.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
+    #    fig.subplots_adjust(wspace=pad_ax_v)
+                 
+    #    fig.tight_layout()
+        if fig_path_abs is not None:
+            fig.savefig(fig_path_abs,
+        #                    bbox_inches = 0,
+                        bbox_inches = 'tight',
+                        pad_inches = 0.05,
+                        dpi=600
+                        )           
+    
+    ### PLOT REL ERROR  
+    if plot_rel:
+        fig2, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                           figsize = figsize,
+                           sharex=True, sharey=True)
+                
+        for time_n in range(no_rows):
+            for field_n in range(no_cols):
+                ax = axes[time_n,field_n]
+                field = rel_std[time_n, field_n]
+    #            field = rel_std[time_n, field_n] * scales[field_n]
+    #            field = std[time_n, field_n]
+                ax_title = field_names[field_n]
+                unit = units[field_n]
+                
+    #            cmap = "coolwarm"
+    #            cmap = "Greys"
+#                cmap = "Greens"
+                cmap = "Reds"
+#                cmap = "YlOrRd"
+    #            cmap = cmap_lcpp
+                
+                field_max = field_max_all_std[field_n]
+    #            field_min = field_min_all_std[field_n]
+                field_min = 0.
+                
+    #            field_max = field.max()
+    #            field_min = field.min()
+                
+                xticks_major = None
+                xticks_minor = None
+    
+                norm_ = mpl.colors.Normalize 
+                    
+                str_format = "%.2g"
+                
+                my_format = False
+                oom_factor = 1.0
+    
+                oom_max = oom = 1
+    
+                CS = ax.pcolormesh(*grid.corners,
+                                   field*oom_factor,
+                                   cmap=cmap, alpha=alpha,
+                                    edgecolor="face", zorder=1,
+    #                                norm = norm_(vmin=-minmax, vmax=minmax),
+                                    norm = norm_(vmin=field_min, vmax=field_max),
+    #                                norm = norm_(vmin=field_min, vmax=field_max),
+                                    rasterized=True,
+                                    antialiased=True, linewidth=0.0
+                                    )
+                CS.cmap.set_under("white")
+                
+                ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                                 tick_ranges[0,1],
+                                                 no_ticks[0] ) )
+                ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                                 tick_ranges[1,1],
+                                                 no_ticks[1] ) )
+    
+                ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                               length = 3, width=1)
+                ax.grid(color='gray', linestyle='dashed', zorder = 2)
+                ax.set_aspect('equal')
+                if time_n == no_rows-1:
+                    xticks1 = ax.xaxis.get_major_ticks()
+                    xticks1[-1].label1.set_visible(False)
+                    ax.set_xlabel(r'$x$ (km)', fontsize = LFS)
+                if field_n == 0:            
+                    ax.set_ylabel(r'$z$ (km)', fontsize = LFS)
+                ax.set_title( r"$t$ = {0} min".format(int(save_times[time_n]/60)),
+                             fontsize = TTFS)
+                if time_n == 0:
+                    axins = inset_axes(ax,
+                                       width="90%",  # width = 5% of parent_bbox width
+                                       height="8%",  # height
+                                       loc='lower center',
+                                       bbox_to_anchor=(0.0, 1.35, 1, 1),
+    #                                   , 1, 1),
+                                       bbox_transform=ax.transAxes,
+                                       borderpad=0,
+                                       )      
+                    cbar = plt.colorbar(CS, cax=axins,
+    #                                    fraction=0.046, pad=-0.1,
+                                        format=mticker.FormatStrFormatter(str_format),
+                                        orientation="horizontal"
+                                        )
+                    axins.xaxis.set_ticks_position("bottom")
+                    axins.tick_params(axis="x",direction="inout",which="both")
+                    axins.tick_params(axis='x', which='major', labelsize=TKFS,
+                                   length = 7, width=1)                
+                    axins.tick_params(axis='x', which='minor', labelsize=TKFS,
+                                   length = 5, width=0.5,bottom=True)                
+                    
+                    if xticks_major is not None:
+                        axins.xaxis.set_ticks(xticks_major)
+                    if xticks_minor is not None:
+                        axins.xaxis.set_ticks(xticks_minor, minor=True)
+                    axins.set_title(r"${0}$ rel. error".format(ax_title))
+                # my_format dos not work with log scale here!!
+                    
+                    if my_format:
+                        cbar.ax.text(1.0,1.0,
+                                     r'$\times\,10^{{{}}}$'.format(oom_max),
+                                     va='bottom', ha='right', fontsize = TKFS,
+                                     transform=ax.transAxes)
+    #                    cbar.ax.text(field_min - (field_max-field_min),
+    #                                 field_max + (field_max-field_min)*0.01,
+    #                                 r'$\times\,10^{{{}}}$'.format(oom_max),
+    #                                 va='bottom', ha='left', fontsize = TKFS,
+    #                                 transform=ax.transAxes)
+                    cbar.ax.tick_params(labelsize=TKFS)
+    
+                if show_target_cells:
+                    ### ad the target cells
+                    no_neigh_x = no_cells_x // 2
+                    no_neigh_z = no_cells_z // 2
+                    dx = grid.steps[0]
+                    dz = grid.steps[1]
+                    
+                    no_tg_cells = len(target_cell_list[0])
+                    LW_rect = .5
+                    for tg_cell_n in range(no_tg_cells):
+                        x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+                        z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+                        
+                #        dx *= no_cells_x
+                #        dz *= no_cells_z
+                        
+                        rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                             fill=False,
+                                             linewidth = LW_rect,
+            #                                 linestyle = "dashed",
+                                             edgecolor='k',
+                                             zorder = 99)        
+                        ax.add_patch(rect)
+    
+    
+    #    pad_ax_h = 0.1     
+    #    pad_ax_v = 0.05
+    #    pad_ax_v = 0.005
+        fig2.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
+    #    fig.subplots_adjust(wspace=pad_ax_v)
+                 
+    #    fig.tight_layout()
+        if fig_path_rel is not None:
+            fig2.savefig(fig_path_rel,
+        #                    bbox_inches = 0,
+                        bbox_inches = 'tight',
+                        pad_inches = 0.05,
+                        dpi=600
+                        )           
 
 #%% FUNCTION DEF: PARTICLES TRACKING
 
@@ -1253,13 +1226,6 @@ def plot_particle_trajectories_MA(traj, grid, selection=None,
                                TTFS = 10, LFS=10,TKFS=10,fig_name=None,
                                t_start=0, t_end=3600):
     scale_x = 1E-3    
-    grid.steps *= scale_x
-    grid.ranges *= scale_x
-    grid.corners[0] *= scale_x
-    grid.corners[1] *= scale_x
-    grid.centers[0] *= scale_x
-    grid.centers[1] *= scale_x        
-    
     traj *= scale_x
     
     print (traj.shape)

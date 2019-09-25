@@ -19,7 +19,6 @@ from microphysics import compute_radius_from_mass_vec
 from file_handling import load_grid_and_particles_full,\
                           load_grid_scalar_fields\
 
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
@@ -47,6 +46,7 @@ from analysis import sample_masses_per_m_dry , sample_radii_per_m_dry
 from analysis import plot_size_spectra_R_Arabas, generate_size_spectra_R_Arabas
 from plotting_fcts_MA import plot_scalar_field_frames_extend_avg_MA
 from plotting_fcts_MA import plot_size_spectra_R_Arabas_MA
+from plotting_fcts_MA import plot_scalar_field_frames_std_MA
 
 mpl.rcParams.update(plt.rcParamsDefault)
 mpl.use("pgf")
@@ -123,83 +123,49 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-args_plot = [0,0,0,0,0,1]
+args_plot = [1,1,1,0,0]
 
 act_plot_grid_frames_avg = args_plot[0]
 act_plot_grid_frames_std = args_plot[1]
-act_plot_grid_frames_avg_shift = args_plot[2]
-act_plot_spectra_avg_Arabas = args_plot[3]
-act_plot_moments_vs_z = args_plot[4]
-act_plot_moments_diff_vs_z = args_plot[5]
+act_plot_spectra_avg_Arabas = args_plot[2]
+act_plot_moments_vs_z = args_plot[3]
+act_plot_moments_diff_vs_z = args_plot[4]
 
-#%% GRID PARAMETERS
+# this one is not adapted for MA plots...
+#act_plot_grid_frames_avg_shift = args_plot[2]
+act_plot_grid_frames_avg_shift = False
 
-# needed for filename
-no_cells = (75, 75)
-#no_cells = (3, 3)
+#%% Simulations done
+gseedl=(3711, 3811, 3811, 3411, 3311, 3811 ,4811 ,4811 ,3711, 3711, 3811)
+sseedl=(6711 ,6811 ,6811 ,6411 ,6311 ,7811 ,6811 ,7811 ,6711, 6711, 8811)
+
+ncl=(75, 75 ,75 ,75 ,75 ,75 ,75 ,75 ,75,150,75)
+solute_typel=["AS", "AS" ,"AS", "AS" ,"AS" ,"AS", "AS", "AS", "NaCl","AS","AS"]
+
+DNC1 = np.array((60,60,60,30,120,60,60,60,60,60,60))
+DNC2 = DNC1 * 2 // 3
+no_spcm0l=(13, 26 ,52 ,26 ,26 ,26 ,26 ,26 ,26,26,26)
+no_spcm1l=(19, 38 ,76 ,38 ,38 ,38 ,38 ,38 ,38,38,38)
+no_col_per_advl=(2, 2, 2 ,2 ,2 ,2 ,2 ,2 ,2,2,10)
+
+kernel_l = ["Long","Long","Long","Long","Long","Hall","NoCol","Ecol05","Long",
+            "Long","Long"]
+
+#%% SET SIMULATION PARAS
+SIM_N = 1
 
 shift_cells_x = 18
-#shift_cells_x = 56
 
-#%% PARTICLE PARAMETERS
+Ns=50
+t_grid = 14400.
+#t_start=0.0
+t_start=7200.0
+#t_end=7200.0
+t_end=14400.0
+dt=1. # advection TS
+simulation_mode="with_collision"
 
-# solute material: NaCl OR ammonium sulfate
-#solute_type = "NaCl"
-solute_type = "AS"
-kernel = "Long"
-#kernel = "Ecol05"
-seed_SIP_gen = 3711
-seed_sim = 4711
-DNC0 = [60,40]
-#DNC0 = [30,20]
-#DNC0 = [120,80]
-no_spcm = np.array([20, 30])
-#no_spcm = np.array([26, 38])
-#no_spcm = np.array([52, 76])
-
-# no_super_particles_cell_mode = [N1,N2] is a list with
-# N1 = no super part. per cell in mode 1 etc.
-# with init method = SingleSIP, this is only the target value.
-# the true number of particles per cell and mode will fluctuate around this
-#no_spcm = np.array([13, 19])
-
-#no_seeds = 2
-#no_seeds = 50
-no_seeds = 4
-
-dt_col = 0.5
-
-figname_base =\
-f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}"\
-+ f"_SIP_{no_spcm[0]}_{no_spcm[1]}_Ns_{no_seeds}_DNC_{DNC0[0]}_{DNC0[1]}_dtcol_{int(dt_col*10)}"
-
-#%% SIM PARAMETERS
-
-#simulation_mode = "spin_up"
-#simulation_mode = "wo_collision"
-simulation_mode = "with_collision"
-
-# for file names
-#dt_col = 0.5
-#dt_col = 1.0
-
-# grid load time
-# path = simdata_path + folder_load_base
-#t_grid = 0
-#t_grid = 7200
-#t_grid = 10800
-t_grid = 14400
-
-#t_start = 0
-t_start = 7200
-
-#t_end = 60
-#t_end = 3600
-#t_end = 7200
-#t_end = 10800
-t_end = 14400
-
-#%% PLOTTING PARAMETERS
+#%% SET PLOTTING PARAMETERS
 
 figsize_spectra = cm2inch(16.8,24)
 figsize_tg_cells = cm2inch(6.6,7)
@@ -207,8 +173,6 @@ figsize_scalar_fields = cm2inch(16.8,20)
 #figsize_scalar_fields = cm2inch(100,60)
 
 figpath = home_path + "Masterthesis/Figures/06TestCase/"
-
-#figname_add = ""
 
 ### GRID FRAMES
 show_target_cells = True
@@ -241,15 +205,19 @@ no_bins_R_s = None
 #11 R_{2/1}
 #12 R_\mathrm{eff}
 
-fields_type = 1
+#if fields_type == 0:
+#    idx_fields_plot = np.array((0,2,3,7))
+#    fields_name_add = "Th_rv_rl_na"
+#
+#if fields_type == 1:
+#    idx_fields_plot = np.array((5,6,9,12))
+#    fields_name_add = "rc_rr_nr_Reff"
+fields_types_avg = [0,1]
 
-if fields_type == 0:
-    idx_fields_plot = np.array((0,2,3,7))
-    fields_name_add = "Th_rv_rl_na"
+fields_types_std = [2]
 
-if fields_type == 1:
-    idx_fields_plot = np.array((5,6,9,12))
-    fields_name_add = "rc_rr_nr_Reff"
+plot_abs = True
+plot_rel = True
 
 # time indices for scalar field frames
 # [ 7200  7800  8400  9000  9600 10200 10800]
@@ -258,8 +226,9 @@ idx_times_plot = np.array((0,2,3,6))
 #%% SET PARAS FOR PLOTTING MOMENTS
 
 figsize_moments = cm2inch(17,23)
-figname_moments = "moments_vs_z_Nsip_var.pdf"
-figname_moments_rel_dev = "moments_vs_z_rel_dev_Nsip_var3.pdf"
+figname_moments0 = "moments_vs_z_Nsip_var_" 
+figname_moments_rel_dev0 = "moments_vs_z_rel_dev_Nsip_var"
+
 
 no_boxes_z = 25
 no_cells_per_box_x = 3
@@ -315,7 +284,44 @@ grid_paths, data_paths = gen_data_paths(solute_type_var, kernel_var,
                                         seed_SIP_gen_var, seed_sim_var,
                                         DNC0_var, no_spcm_var,
                                         no_seeds_var, dt_col_var)
+#%% DERIVED PARAS
+#%% DERIVED GRID PARAMETERS
 
+# needed for filename
+no_cells = (ncl[SIM_N], ncl[SIM_N])
+#no_cells = (75, 75)
+#no_cells = (3, 3)
+
+#shift_cells_x = 56
+
+#%% DERIVED PARTICLE PARAMETERS
+
+# solute material: NaCl OR ammonium sulfate
+#solute_type = "NaCl"
+solute_type = solute_typel[SIM_N]
+kernel = kernel_l[SIM_N]
+#kernel = "Ecol05"
+seed_SIP_gen = gseedl[SIM_N]
+seed_sim = sseedl[SIM_N]
+DNC0 = [DNC1[SIM_N], DNC2[SIM_N]]
+no_spcm = np.array([no_spcm0l[SIM_N], no_spcm1l[SIM_N]])
+
+# no_super_particles_cell_mode = [N1,N2] is a list with
+# N1 = no super part. per cell in mode 1 etc.
+# with init method = SingleSIP, this is only the target value.
+# the true number of particles per cell and mode will fluctuate around this
+#no_spcm = np.array([13, 19])
+
+no_seeds = Ns
+
+dt_col = dt / no_col_per_advl[SIM_N]
+
+figname_base =\
+f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}"\
++ f"_SIP_{no_spcm[0]}_{no_spcm[1]}_Ns_{no_seeds}_DNC_{DNC0[0]}_{DNC0[1]}_dtcol_{int(dt_col*10)}"
+
+figname_moments = figname_moments0 + figname_base + ".pdf"
+figname_moments_rel_dev = figname_moments_rel_dev0 + figname_base + ".pdf"
 
 #%% LOAD GRID AND SET PATHS
 
@@ -335,6 +341,13 @@ from file_handling import load_grid_from_files
 grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
                             grid_path + f"arr_file1_{int(t_grid)}.npy",
                             grid_path + f"arr_file2_{int(t_grid)}.npy")
+scale_x = 1E-3    
+grid.steps *= scale_x
+grid.ranges *= scale_x
+grid.corners[0] *= scale_x
+grid.corners[1] *= scale_x
+grid.centers[0] *= scale_x
+grid.centers[1] *= scale_x  
 
 seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
 seed_sim_list = np.load(data_path + "seed_sim_list.npy")
@@ -359,138 +372,166 @@ no_tg_cells = len(target_cell_list[0])
 #%% PLOT AVG GRID FRAMES
 
 if act_plot_grid_frames_avg:
-
-    fields_with_time = np.load(data_path
-            + f"fields_vs_time_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    save_times_out_fr = np.load(data_path
-            + f"save_times_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    field_names_out = np.load(data_path
-            + f"field_names_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    units_out = np.load(data_path
-            + f"units_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    scales_out = np.load(data_path
-            + f"scales_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )    
-
-    fields_with_time = fields_with_time[idx_times_plot][:,idx_fields_plot]
-    save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
-    field_names_out = field_names_out[idx_fields_plot]
-    units_out = units_out[idx_fields_plot]
-    scales_out = scales_out[idx_fields_plot]
-
-#    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
-    fig_path = figpath
-#    fig_name = \
-#               f"scalar_fields_avg_" \
-#               + f"t_{save_times_out_fr[0]}_" \
-#               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
-#               + f"Nfie_{len(field_names_out)}_" \
-#               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
-#               + f"ss_{seed_sim_list[0]}_" \
-#               + fields_name_add + ".pdf"
     
-    fig_name = "fields_avg_" + figname_base + ".pdf"
-               
-    if not os.path.exists(fig_path):
-            os.makedirs(fig_path)    
-    plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
-                                        save_times_out_fr,
-                                        field_names_out,
-                                        units_out,
-                                        scales_out,
-                                        solute_type,
-                                        simulation_mode, # for time in label
-                                        fig_path=fig_path+fig_name,
-                                        figsize = figsize_scalar_fields,
-                                        no_ticks=[6,6], 
-                                        alpha = 1.0,
-                                        TTFS = 10, LFS = 10, TKFS = 8,
-                                        cbar_precision = 2,
-                                        show_target_cells = show_target_cells,
-                                        target_cell_list = target_cell_list,
-                                        no_cells_x = no_cells_x,
-                                        no_cells_z = no_cells_z)     
-    plt.close("all")   
+    for fields_type in fields_types_avg:
+    
+        if fields_type == 0:
+            idx_fields_plot = np.array((0,2,3,7))
+            fields_name_add = "Th_rv_rl_na_"
+        
+        if fields_type == 1:
+            idx_fields_plot = np.array((5,6,9,12))
+            fields_name_add = "rc_rr_nr_Reff_"    
+        
+        fields_with_time = np.load(data_path
+                + f"fields_vs_time_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        save_times_out_fr = np.load(data_path
+                + f"save_times_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        field_names_out = np.load(data_path
+                + f"field_names_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        units_out = np.load(data_path
+                + f"units_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        scales_out = np.load(data_path
+                + f"scales_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )    
+    
+        fields_with_time = fields_with_time[idx_times_plot][:,idx_fields_plot]
+        save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
+        field_names_out = field_names_out[idx_fields_plot]
+        units_out = units_out[idx_fields_plot]
+        scales_out = scales_out[idx_fields_plot]
+    
+    #    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
+        fig_path = figpath
+    #    fig_name = \
+    #               f"scalar_fields_avg_" \
+    #               + f"t_{save_times_out_fr[0]}_" \
+    #               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+    #               + f"Nfie_{len(field_names_out)}_" \
+    #               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+    #               + f"ss_{seed_sim_list[0]}_" \
+    #               + fields_name_add + ".pdf"
+        
+        fig_name = "fields_avg_" + fields_name_add + figname_base + ".pdf"
+    
+    
+                   
+        if not os.path.exists(fig_path):
+                os.makedirs(fig_path)    
+        plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
+                                            save_times_out_fr,
+                                            field_names_out,
+                                            units_out,
+                                            scales_out,
+                                            solute_type,
+                                            simulation_mode, # for time in label
+                                            fig_path=fig_path+fig_name,
+                                            figsize = figsize_scalar_fields,
+                                            no_ticks=[6,6], 
+                                            alpha = 1.0,
+                                            TTFS = 10, LFS = 10, TKFS = 8,
+                                            cbar_precision = 2,
+                                            show_target_cells = show_target_cells,
+                                            target_cell_list = target_cell_list,
+                                            no_cells_x = no_cells_x,
+                                            no_cells_z = no_cells_z)     
+        plt.close("all")   
 
 #%% PLOT STD GRID FRAMES STD
 
 if act_plot_grid_frames_std:
-    from plotting_fcts_MA import plot_scalar_field_frames_std_MA
-    fields_with_time = np.load(data_path
-            + f"fields_vs_time_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    fields_with_time_std = np.load(data_path
-            + f"fields_vs_time_std_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    save_times_out_fr = np.load(data_path
-            + f"save_times_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    field_names_out = np.load(data_path
-            + f"field_names_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    units_out = np.load(data_path
-            + f"units_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )
-    scales_out = np.load(data_path
-            + f"scales_out_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )    
-
-    fields_with_time = fields_with_time[idx_times_plot][:,idx_fields_plot]
-    fields_with_time_std = fields_with_time_std[idx_times_plot][:,idx_fields_plot]
-    save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
-    field_names_out = field_names_out[idx_fields_plot]
-    units_out = units_out[idx_fields_plot]
-    scales_out = scales_out[idx_fields_plot]
-
-#    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
-    fig_path = figpath
-#    fig_name = \
-#               f"scalar_fields_avg_" \
-#               + f"t_{save_times_out_fr[0]}_" \
-#               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
-#               + f"Nfie_{len(field_names_out)}_" \
-#               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
-#               + f"ss_{seed_sim_list[0]}_" \
-#               + fields_name_add + ".pdf"
     
-    fig_name = "fields_std_" + figname_base + ".pdf"
-               
-    if not os.path.exists(fig_path):
-            os.makedirs(fig_path)    
-    plot_scalar_field_frames_std_MA(grid, fields_with_time,
-                                    fields_with_time_std,
-                                        save_times_out_fr,
-                                        field_names_out,
-                                        units_out,
-                                        scales_out,
-                                        solute_type,
-                                        simulation_mode, # for time in label
-                                        fig_path=fig_path+fig_name,
-                                        figsize = figsize_scalar_fields,
-                                        no_ticks=[6,6], 
-                                        alpha = 1.0,
-                                        TTFS = 10, LFS = 10, TKFS = 8,
-                                        cbar_precision = 2,
-                                        show_target_cells = show_target_cells,
-                                        target_cell_list = target_cell_list,
-                                        no_cells_x = no_cells_x,
-                                        no_cells_z = no_cells_z)     
-    plt.close("all")   
+    for fields_type in fields_types_std:
+    
+        if fields_type == 0:
+            idx_fields_plot = np.array((0,2,3,7))
+            fields_name_add = "Th_rv_rl_na_"
+        
+        if fields_type == 1:
+            idx_fields_plot = np.array((5,6,9,12))
+            fields_name_add = "rc_rr_nr_Reff_"  
+        
+        if fields_type == 2:
+            idx_fields_plot = np.array((2,7,5,6))
+            fields_name_add = "rv_na_rc_rr_"  
+
+        fields_with_time = np.load(data_path
+                + f"fields_vs_time_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        fields_with_time_std = np.load(data_path
+                + f"fields_vs_time_std_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        save_times_out_fr = np.load(data_path
+                + f"save_times_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        field_names_out = np.load(data_path
+                + f"field_names_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        units_out = np.load(data_path
+                + f"units_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )
+        scales_out = np.load(data_path
+                + f"scales_out_avg_Ns_{no_seeds}_"
+                + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+                )    
+    
+        fields_with_time = fields_with_time[idx_times_plot][:,idx_fields_plot]
+        fields_with_time_std = fields_with_time_std[idx_times_plot][:,idx_fields_plot]
+        save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
+        field_names_out = field_names_out[idx_fields_plot]
+        units_out = units_out[idx_fields_plot]
+        scales_out = scales_out[idx_fields_plot]
+    
+    #    fig_name = \
+    #               f"scalar_fields_avg_" \
+    #               + f"t_{save_times_out_fr[0]}_" \
+    #               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+    #               + f"Nfie_{len(field_names_out)}_" \
+    #               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+    #               + f"ss_{seed_sim_list[0]}_" \
+    #               + fields_name_add + ".pdf"
+        
+        fig_name_abs = "fields_std_ABS_ERROR_" + fields_name_add + figname_base + ".pdf"
+        fig_name_rel = "fields_std_REL_ERROR_" + fields_name_add + figname_base + ".pdf"
+                   
+        if not os.path.exists(fig_path):
+                os.makedirs(fig_path)    
+        plot_scalar_field_frames_std_MA(grid, fields_with_time,
+                                        fields_with_time_std,
+                                            save_times_out_fr,
+                                            field_names_out,
+                                            units_out,
+                                            scales_out,
+                                            solute_type,
+                                            simulation_mode, # for time in label
+                                            fig_path_abs=figpath+fig_name_abs,
+                                            fig_path_rel=figpath+fig_name_rel,
+                                            figsize = figsize_scalar_fields,
+                                            plot_abs=plot_abs,
+                                            plot_rel=plot_rel,                                            
+                                            no_ticks=[6,6], 
+                                            alpha = 1.0,
+                                            TTFS = 10, LFS = 10, TKFS = 8,
+                                            cbar_precision = 2,
+                                            show_target_cells = show_target_cells,
+                                            target_cell_list = target_cell_list,
+                                            no_cells_x = no_cells_x,
+                                            no_cells_z = no_cells_z)     
+        plt.close("all")   
 
 #%% PLOT AVG GRID FRAMES SHIFT IN X DIRECTION
 
@@ -551,9 +592,9 @@ if act_plot_grid_frames_avg_shift:
 #%% PLOT SPECTRA AVG 
 
 if act_plot_spectra_avg_Arabas:
-    grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
-                            grid_path + f"arr_file1_{int(t_grid)}.npy",
-                            grid_path + f"arr_file2_{int(t_grid)}.npy")
+#    grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
+#                            grid_path + f"arr_file1_{int(t_grid)}.npy",
+#                            grid_path + f"arr_file2_{int(t_grid)}.npy")
 #    from analysis import plot_size_spectra_R_Arabas
     
     f_R_p_list = np.load(data_path
@@ -637,7 +678,6 @@ if act_plot_spectra_avg_Arabas:
 #        + f"R_eff_{j_low}_to_{j_high}_" \
 #        + f"Ntgcells_{no_tg_cells}_Nneigh_{no_cells_x}_{no_cells_z}_" \
 #        + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
-    
     
     plot_size_spectra_R_Arabas_MA(
             f_R_p_list, f_R_s_list,
@@ -858,7 +898,7 @@ if act_plot_moments_vs_z:
 #fmt_list = ["", "x-", "o--", "d:"]
 fmt_list = ["x-", "o--", "d:"]
 
-units_mom = [ "a","b","c","d"]
+#units_mom = [ "a","b","c","d"]
 #units_mom = [
 #        r"\si{1/m^3}",
 #        r"\si{\micro\meter/m^3}",

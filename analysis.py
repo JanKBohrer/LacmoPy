@@ -1654,7 +1654,8 @@ def generate_field_frame_data_avg(load_path_list,
         for cnt in range(no_fields_orig):
             idx_f = field_indices[cnt]
             fields_with_time[:,cnt] += fields[time_indices,idx_f]
-            fields_with_time_sq[:,cnt] += (fields[time_indices,idx_f])**2
+            fields_with_time_sq[:,cnt] += \
+                fields[time_indices,idx_f]*fields[time_indices,idx_f]
         
         for time_n in range(no_times):
             idx_t = time_indices[time_n]
@@ -1784,11 +1785,10 @@ def generate_field_frame_data_avg(load_path_list,
             fields_with_time_sq[time_n,no_fields_orig:no_fields] += \
                 fields_derived * fields_derived
     
-    
     fields_with_time /= no_seeds
     
     fields_with_time_std = np.sqrt((fields_with_time_sq \
-                                    - no_seeds*fields_with_time**2)\
+                                  - no_seeds*fields_with_time*fields_with_time) \
                            / (no_seeds * (no_seeds-1)) )
     
     return fields_with_time, fields_with_time_std, \

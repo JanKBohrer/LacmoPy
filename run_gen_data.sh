@@ -1,6 +1,6 @@
 #!/bin/bash
-gseed=3811
-sseed=6811
+gseed=(3711 3811 3811 3411 3311 3811 4811 4811 3711)
+sseed=(6711 6811 6811 6411 6311 7811 6811 7811 6711)
 Ns=50
 system="TROPOS_server"
 #system="Mac"
@@ -11,15 +11,22 @@ t_start=7200.0
 #t_end=7200.0
 t_end=14400.0
 
-no_cells_x=75
-no_cells_z=75
-solute_type="AS"
-no_spcm0=26
-no_spcm1=38
-no_col_per_adv=2
+no_cells=(75 75 75 75 75 75 75 75 75)
+#no_cells_z=75
+solute_type=("AS" "AS" "AS" "AS" "AS" "AS" "AS" "AS" "NaCl")
+no_spcm0=(13 26 52 26 26 26 26 26 26)
+no_spcm1=(19 38 76 38 38 38 38 38 38)
+no_col_per_adv=(2 2 2 2 2 2 2 2 2)
 sim_type="with_collision"
 
-export OMP_NUM_THREADS=8
-#export MKL_NUM_THREADS=4
-export NUMBA_NUM_THREADS=16
-python3 gen_plot_data.py $system $no_cells_x $no_cells_z $solute_type $no_spcm0 $no_spcm1 $Ns ${gseed} ${sseed} $sim_type $t_start $t_end $no_col_per_adv &
+#array1=(a b cc)
+#array2=(1 2 10)
+
+#for i in {0..8}
+for i in 0 1 2
+do
+    export OMP_NUM_THREADS=8
+    #export MKL_NUM_THREADS=4
+    export NUMBA_NUM_THREADS=16
+    python3 gen_plot_data.py $system ${no_cells[$i]} ${no_cells[$i]} ${solute_type[$i]} ${no_spcm0[$i]} ${no_spcm1[$i]} $Ns ${gseed[$i]} ${sseed[$i]} $sim_type $t_start $t_end ${no_col_per_adv[$i]} >> log_gen_data.log &
+done
