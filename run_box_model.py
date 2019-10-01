@@ -104,8 +104,8 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 ############################################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 
-#kappa_list=[3.5]
-kappa_list=[200]
+kappa_list=[2]
+#kappa_list=[200]
 #kappa_list=[5,10]
 #kappa_list=[5,10,20,40,60]
 #kappa_list=[5,10,20,40,60,100]
@@ -117,22 +117,23 @@ kappa_list=[200]
 #kappa_list=[200,400,600,800]
 
 #no_sims = 100
-no_sims = 500
-#no_sims = 10
+#no_sims = 500
+no_sims = 10
 #no_sims = 400
-start_seed = 5711
+#start_seed = 5711
+start_seed = 1111
 #start_seed = 8711
 #start_seed = 94711
 
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
-kernel_name = "Golovin"
-#kernel_name = "Long_Bott"
+#kernel_name = "Golovin"
+kernel_name = "Long_Bott"
 #kernel_name = "Hall_Bott"
 
 #kernel_method = "kernel_grid_m"
-#kernel_method = "Ecol_grid_R"
-kernel_method = "analytic"
+kernel_method = "Ecol_grid_R"
+#kernel_method = "analytic"
 
 dt = 1.0
 #dt = 10.0

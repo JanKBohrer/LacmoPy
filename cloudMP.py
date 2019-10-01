@@ -165,8 +165,6 @@ if len(sys.argv) > 9:
 spin_up_before = True
 #spin_up_before = False
 
-
-
 #if simulation_mode
 
 #t_start = 0.0
@@ -183,7 +181,6 @@ t_end = 7200.0*2 # s
 #t_end = 1800.0 # s
 #t_end = 5.0 # s
 #t_end = 20.0 # s
-
 
 if len(sys.argv) > 10:
     t_start = float(sys.argv[10])
