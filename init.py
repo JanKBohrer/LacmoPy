@@ -1596,7 +1596,6 @@ def initialize_grid_and_particles_SinSIP(
         
         # EVEN BETTER:
         # assume linear T-profile
-        # then (p/p1) = (T/T1) ^ [(eps + r_t)/ (kappa_t * (eps + r_v))]
         # BETTER: exponential for const T and r_v:
         # p_2 = p_1 np.exp(-a/b * dz/T)
         # also poss.:
@@ -1608,8 +1607,13 @@ def initialize_grid_and_particles_SinSIP(
         
         # IN WORK: check if kappa_tot_inv is right or it should be kappa(r_v)
 
-        p_top = p_bot * (T_top/T_bot)**( kappa_tot_inv * ( epsilon_gc + r_tot )\
-                / (epsilon_gc + r_v_avg) )
+        p_top = p_bot * (T_top/T_bot)**( ( (1 + r_tot) * c.earth_gravity * dz )\
+                / ( (1 + r_v_avg / epsilon_gc ) * c.specific_gas_constant_air_dry * (T_bot - T_top) ) )
+
+        # for assumed Theta_moist = const:
+        # then (p/p1) = (T/T1) ^ [(eps + r_t)/ (kappa_t * (eps + r_v))]
+#        p_top = p_bot * (T_top/T_bot)**( kappa_tot_inv * ( epsilon_gc + r_tot )\
+#                / (epsilon_gc + r_v_avg) )
         
         p_avg = 0.5 * (p_bot + p_top)
         

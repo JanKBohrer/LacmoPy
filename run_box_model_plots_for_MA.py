@@ -143,8 +143,13 @@ act_gen_Ecol_grid = bool(args_gen[4])
 #args_sim = [0,0,1,1]
 #args_sim = [0,0,1,1]
 #args_sim = [0,0,1,0]
-args_sim = [0,0,1,0]
+#args_sim = [0,0,1,0]
+args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
+
+#setup = "Golovin"
+#setup = "Long_Bott"
+setup = "Hall_Bott"
 
 act_sim = bool(args_sim[0])
 act_analysis = bool(args_sim[1])
@@ -156,13 +161,24 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 
 #kappa_list=[3.5]
 #kappa_list=[200]
-kappa_list=[5]
+if act_plot:
+    kappa_list=[5]
 #kappa_list=[5,10,20,40,60]
-#kappa_list=[5,10,20,40,60,100,200]
+
+# Golovin
+if act_plot_moments_kappa_var:
+    if setup == "Golovin":
+        kappa_list=[5,10,20,40,60,100,200]
+    else:
+#        kappa_list=[5,10,20,40,100,200,400,1000,3000]
+        kappa_list=[5,10,20,40,100,400,1000,2000,3000]
+
 #kappa_list=[5,10,20,40,60,100,200,400]
+
 #kappa_list=[3,3.5,5,10,20,40,60,100,200,400]
 #kappa_list=[800]
 #kappa_list=[5,10,20,40,60,100,200,400,600,800]
+
 
 #kappa_list=[5,10,20,40,100,200,400,1000,2000,3000]
 
@@ -170,32 +186,38 @@ kappa_list=[5]
 #kappa_list=[200,400,600,800]
 
 # for plotting of g_ln_R
-kappa1 = 10
-kappa2 = 3000
-#kappa1 = 10
-#kappa2 = 200
+# Golovin
+if setup == "Golovin":
+    kappa1 = 10
+    kappa2 = 200
+    start_seed = 5711
+    kernel_name = "Golovin"
+    kernel_method = "analytic"
+    dt = 1.0
+    eta_threshold = "weak"
+# Long and Hall
+else:
+    kappa1 = 10
+    kappa2 = 3000
+    start_seed = 3711
+    kernel_name = setup
+    kernel_name = setup
+    #kernel_method = "kernel_grid_m"
+    kernel_method = "Ecol_grid_R"
+    dt = 10.0
+    eta_threshold = "fix"
 
 #no_sims = 100
 no_sims = 500
 #no_sims = 10
 #no_sims = 400
-start_seed = 3711
-#start_seed = 5711
+# LOng and Hall
+# Golovin
 #start_seed = 8711
 #start_seed = 94711
 
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
-#kernel_name = "Golovin"
-kernel_name = "Long_Bott"
-#kernel_name = "Hall_Bott"
-
-#kernel_method = "kernel_grid_m"
-kernel_method = "Ecol_grid_R"
-#kernel_method = "analytic"
-
-#dt = 1.0
-dt = 10.0
 # dt = 20.0
 
 # dt_save = 40.0
@@ -224,9 +246,6 @@ dist = "expo"
 gen_method = "SinSIP"
 
 eta = 1.0E-9
-
-#eta_threshold = "weak"
-eta_threshold = "fix"
 
 dV = 1.0
 
@@ -366,6 +385,8 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
     f_m_num_avg_vs_time = np.load(load_dir + f"f_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
     g_m_num_avg_vs_time = np.load(load_dir + f"g_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
     g_ln_r_num_avg_vs_time = np.load(load_dir + f"g_ln_r_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    g_ln_r_num_std_vs_time = np.load(load_dir + f"g_ln_r_num_std_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+
 
     moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
     moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")
@@ -382,9 +403,46 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
 #    ax.set_xscale("log")    
 #    for time_n in range(no_times):
     for time_n in time_idx:
-        ax.plot(bins_rad_centers[time_n][0],
-                g_ln_r_num_avg_vs_time[time_n]*1000.0,
+        mask = g_ln_r_num_avg_vs_time[time_n]*1000.0 > 1E-6
+#        print("g_ln_r_num_avg_vs_time[time_n]*1000.0")
+#        print(g_ln_r_num_avg_vs_time[time_n]*1000.0)
+        ax.plot(bins_rad_centers[time_n][0][mask],
+                g_ln_r_num_avg_vs_time[time_n][mask]*1000.0,
                 label = f"{int(save_times[time_n]//60)}", zorder=50)
+        
+#        below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0        
+
+        above_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
+                      + g_ln_r_num_std_vs_time[time_n]*1000.0
+        above_curve = \
+            np.where(above_curve <= 1E-4, 1E-4, above_curve)
+#        above_curve = \
+#            np.where(g_ln_r_num_avg_vs_time[time_n]*1000.0 <= 1E-4,
+#                     g_ln_r_num_avg_vs_time[time_n]*1000.0,
+#                     above_curve)
+        
+        below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
+                      - g_ln_r_num_std_vs_time[time_n]*1000.0
+        below_curve = \
+            np.where(below_curve <= 1E-4, 1E-4, below_curve)
+#        below_curve = \
+#            np.where(g_ln_r_num_avg_vs_time[time_n]*1000.0 <= 1E-4,
+#                     g_ln_r_num_avg_vs_time[time_n]*1000.0, below_curve)
+        
+#        print(bins_rad_centers[time_n][0][mask])
+        
+        ax.fill_between(bins_rad_centers[time_n][0][mask],
+                        below_curve[mask],
+                        above_curve[mask],
+#                        g_ln_r_num_avg_vs_time[time_n]*1000.0 \
+#                        + g_ln_r_num_std_vs_time[time_n]*1000.0,
+#                                rel_dev[0,row_n,col_n] - std_rel[0,0,row_n,col_n],
+#                                rel_dev[0,row_n,col_n] + std_rel[1,0,row_n,col_n],
+#                                alpha=0.15, facecolor="green")
+                        alpha=0.4, lw=1
+#                                edgecolor=face_colors[var_n],
+#                                label=data_labels_mom[var_n]
+                        )              
     ax.set_prop_cycle(None)
     for j,time_n in enumerate(time_idx):
         # t in s
@@ -394,7 +452,7 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
         if kernel_name == "Golovin":
             scale_g=1000.      
             no_bins_ref = 2*no_bins
-            ref_masses = np.zeros(no_bins+add_masses)
+            ref_masses = np.zeros(no_bins_ref + add_masses)
             
             bin_factor = np.sqrt(bins_mass_centers[time_n][0][-1]/bins_mass_centers[time_n][0][-2])
 #            bin_factor = bins_mass_centers[time_n][0][-1]/bins_mass_centers[time_n][0][-2]
@@ -402,7 +460,7 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
 #            ref_masses[:no_bins] = bins_mass_centers[time_n][0]
             ref_masses[0] = bins_mass_centers[time_n][0][0]
 
-            for n in range(1,no_bins+add_masses):
+            for n in range(1,no_bins_ref + add_masses):
                 ref_masses[n] = ref_masses[n-1]*bin_factor
 #            for n in range(add_masses):
 #                ref_masses[no_bins+n] = ref_masses[no_bins+n-1]*bin_factor
@@ -512,7 +570,8 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
             moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
             moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")        
             
-            LW_compare = 0.8            
+            LW_compare = 1.0
+#            LW_compare = 0.8
             ax = axes[n]
             
             ax.set_xscale("log", nonposx="mask")    
@@ -520,33 +579,73 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
         
         #    for time_n in range(no_times):
             for time_n in time_idx:
+                mask = g_ln_r_num_avg_vs_time[time_n]*1000.0 > 1E-6
+        #        print("g_ln_r_num_avg_vs_time[time_n]*1000.0")
+        #        print(g_ln_r_num_avg_vs_time[time_n]*1000.0)
+                ax.plot(bins_rad_centers[time_n][0][mask],
+                        g_ln_r_num_avg_vs_time[time_n][mask]*1000.0,
+                        label = f"{int(save_times[time_n]//60)}", zorder=50)
+                
+        #        below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0        
+        
+                above_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
+                              + g_ln_r_num_std_vs_time[time_n]*1000.0
+                above_curve = \
+                    np.where(above_curve <= 1E-4, 1E-4, above_curve)
+        #        above_curve = \
+        #            np.where(g_ln_r_num_avg_vs_time[time_n]*1000.0 <= 1E-4,
+        #                     g_ln_r_num_avg_vs_time[time_n]*1000.0,
+        #                     above_curve)
                 
                 below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
-                              
-#                below_curve = \
-#                    np.where(below_curve <= 1E-4, 1E-4, below_curve)
+                              - g_ln_r_num_std_vs_time[time_n]*1000.0
+                below_curve = \
+                    np.where(below_curve <= 1E-4, 1E-4, below_curve)
+        #        below_curve = \
+        #            np.where(g_ln_r_num_avg_vs_time[time_n]*1000.0 <= 1E-4,
+        #                     g_ln_r_num_avg_vs_time[time_n]*1000.0, below_curve)
+                
+        #        print(bins_rad_centers[time_n][0][mask])
+                
+                ax.fill_between(bins_rad_centers[time_n][0][mask],
+                                below_curve[mask],
+                                above_curve[mask],
+        #                        g_ln_r_num_avg_vs_time[time_n]*1000.0 \
+        #                        + g_ln_r_num_std_vs_time[time_n]*1000.0,
+        #                                rel_dev[0,row_n,col_n] - std_rel[0,0,row_n,col_n],
+        #                                rel_dev[0,row_n,col_n] + std_rel[1,0,row_n,col_n],
+        #                                alpha=0.15, facecolor="green")
+                                alpha=0.4, lw=1
+        #                                edgecolor=face_colors[var_n],
+        #                                label=data_labels_mom[var_n]
+                                )                          
+#                below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0
 
 #                below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
 #                              - g_ln_r_num_std_vs_time[time_n]*1000.0
 #                below_curve = \
 #                    np.where(below_curve <= 1E-4, 1E-4, below_curve)
-                    
-                ax.plot(bins_rad_centers[time_n][0],
-                        g_ln_r_num_avg_vs_time[time_n]*1000.0,
-                        label = f"{int(save_times[time_n]//60)}",
-                        linewidth=LW_compare)
+#                    
 #                ax.plot(bins_rad_centers[time_n][0],
-#                        below_curve, "-", c="k")
-                ax.fill_between(bins_rad_centers[time_n][0],
-                                below_curve,
-                                g_ln_r_num_avg_vs_time[time_n]*1000.0 + g_ln_r_num_std_vs_time[time_n]*1000.0,
-#                                rel_dev[0,row_n,col_n] - std_rel[0,0,row_n,col_n],
-#                                rel_dev[0,row_n,col_n] + std_rel[1,0,row_n,col_n],
-#                                alpha=0.15, facecolor="green")
-                                alpha=0.4, lw=1
-#                                edgecolor=face_colors[var_n],
-#                                label=data_labels_mom[var_n]
-                                )                
+#                        g_ln_r_num_avg_vs_time[time_n]*1000.0,
+#                        label = f"{int(save_times[time_n]//60)}",
+#                        linewidth=LW_compare,
+#                        zorder=50
+#                        )
+##                ax.plot(bins_rad_centers[time_n][0],
+##                        below_curve, "-", c="k")
+#                ax.fill_between(bins_rad_centers[time_n][0],
+#                                below_curve,
+#                                g_ln_r_num_avg_vs_time[time_n]*1000.0 + g_ln_r_num_std_vs_time[time_n]*1000.0,
+##                                rel_dev[0,row_n,col_n] - std_rel[0,0,row_n,col_n],
+##                                rel_dev[0,row_n,col_n] + std_rel[1,0,row_n,col_n],
+##                                alpha=0.15, facecolor="green")
+#                                alpha=0.4,
+#                                zorder=48
+##                                lw=1
+##                                edgecolor=face_colors[var_n],
+##                                label=data_labels_mom[var_n]
+#                                )                
             ax.set_prop_cycle(None)
 #            for time_n in time_idx:
 #                # t in s
@@ -591,7 +690,7 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
                 if kernel_name == "Golovin":
                     scale_g=1000.      
                     no_bins_ref = 2*no_bins
-                    ref_masses = np.zeros(no_bins+add_masses)
+                    ref_masses = np.zeros(no_bins_ref+add_masses)
                     
                     bin_factor = np.sqrt(bins_mass_centers[time_n][0][-1]/bins_mass_centers[time_n][0][-2])
         #            bin_factor = bins_mass_centers[time_n][0][-1]/bins_mass_centers[time_n][0][-2]
@@ -599,7 +698,7 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
         #            ref_masses[:no_bins] = bins_mass_centers[time_n][0]
                     ref_masses[0] = bins_mass_centers[time_n][0][0]
         
-                    for n in range(1,no_bins+add_masses):
+                    for n in range(1,no_bins_ref+add_masses):
                         ref_masses[n] = ref_masses[n-1]*bin_factor
         #            for n in range(add_masses):
         #                ref_masses[no_bins+n] = ref_masses[no_bins+n-1]*bin_factor
@@ -616,10 +715,10 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
                     ref_radii = 1E6 * (3. * ref_masses / (4. * math.pi * 1E3))**(1./3.)                
                 else:
                     scale_g=1.
-        #        elif kernel_name == "Long_Bott":
+#                elif kernel_name == "Long_Bott":
                     dp = f"collision/ref_data/{kernel_name}/"
-                    ref_radii = np.loadtxt(dp + "Wang_2007_radius_bin_centers.txt")[j]
-                    g_ln_r_ref = np.loadtxt(dp + "Wang_2007_g_ln_R.txt")[j]
+                    ref_radii = np.loadtxt(dp + "Wang_2007_radius_bin_centers.txt")[j][::5]
+                    g_ln_r_ref = np.loadtxt(dp + "Wang_2007_g_ln_R.txt")[j][::5]
                     
         #        print(g_ln_r_golo)
                 fmt="o"    
@@ -629,7 +728,8 @@ def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
                         fmt,
                         fillstyle='none',
                         linewidth = 2,
-                        markersize = 3, mew=0.4, zorder=99)             
+                        markersize = 2.3,
+                        mew=0.3, zorder=40)             
 #                ax.plot(ref_radii,
 #                        g_ln_r_ref, linestyle=(0, (1, 1)), linewidth = 2.5)                
 #                        g_ln_r_ref, linestyle=":", linewidth = 2.5)                
@@ -760,6 +860,7 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                            sim_data_path,
                            result_path_add,
                            figsize, figname, figsize2, figname2,
+                           figsize3, figname3, figsize4, figname4,
                            TTFS, LFS, TKFS):
 #    mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
 #                                   5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
@@ -810,7 +911,7 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         for ax_n,i in enumerate((0,2,3)):
 #            if ax_n == 0:
 #            lab = f"{float(kappa*5):.2}"
-            if kappa*5 < 10000:
+            if kappa*5 < 100000:
                 lab = f"{kappa*5}"
             else:
                 lab = f"{float(kappa*5):.2}"
@@ -966,9 +1067,31 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         axes[2].set_ylim([1.0E-26,1.0E-11])
     elif kernel_name == "Hall_Bott":
         # axes[0].set_yticks([1.0E6,1.0E7,1.0E8,3.0E8,4.0E8])
-        axes[0].set_yticks([1.0E8])
-        axes[0].set_yticks([7E7,8E7,9E7,2.0E8,3E8], minor=True)
+#        axes[0].set_yticks([1.0E8])
+        axes[0].set_yticks([7E7,8E7,9E7,1E8,2.0E8,3E8])
+#        axes[0].set_yticks([1.0E8])
+#        axes[0].set_yticks([7E7,8E7,9E7,2.0E8,3E8], minor=True)
+
         axes[0].set_ylim([7.0E7,4.0E8])
+#        axes[0].tick_params(axis='y', which='minor')
+#        axes[0].yaxis.set_ticklabels([r'$2\times10^4$','','',r'$5\times10^4$','','','','', 
+#                r'$2\times 10^4$','','',r'$5\times10^4$','','','','',
+#                r'$2\times 10^5$','','',r'$5\times10^5$','','','','',
+#                ],minor=True)        
+        axes[0].yaxis.set_ticklabels(
+                [r'$7\times10^7$','','',r'$1\times10^8$',
+                r'$2\times 10^8$',r'$3\times10^8$','','','','',
+                r'$2\times 10^5$','','',r'$5\times10^5$','','','','',
+                ])        
+#        plt.tick_params(axis='y', which='minor')
+#        from matplotlib.ticker import FormatStrFormatter
+#        from matplotlib.ticker import LogFormatter
+#        formatter = LogFormatter(labelOnlyBase=False,
+##                                 minor_thresholds=(2, 0.4)
+#                                 )
+#        axes[0].get_yaxis().set_minor_formatter(formatter)
+#        axes[0].yaxis.set_minor_formatter(FormatStrFormatter("%.1f"))
+#        axes[0].set_yticklabels(["7E7","1E8","2E8","3E8"])
         # axes[1].yaxis.set_major_formatter(mtick.FormatStrFormatter('%.2e'))
         axes[1].set_yticks( np.logspace(-15,-8,8) )
         axes[1].set_ylim([1.0E-15,1.0E-8])
@@ -1019,6 +1142,10 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
     
     no_rows = len(kappa_list)
 #    no_rows = 4
+
+
+### REFERENCE REL DEV PLOTS 
+### REFERENCE REL DEV PLOTS 
     
     fig, axes = plt.subplots(nrows=no_rows, ncols=2, figsize=(figsize2), sharex=True)    
     
@@ -1027,22 +1154,38 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
     for kappa_n,kappa in enumerate(kappa_list):
         load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
         save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
-        moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
-        moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
         
-        for i,mom_n in enumerate((0,2,3)):
+        if kernel_name == "Golovin":
+            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+        else:
+#            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+#            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")[::2,:]
+            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")[::2,:]
+#            print ("moments_vs_time_avg.shape")
+#            print (moments_vs_time_avg.shape)
+            
+        
+        for cnt_m,mom_n in enumerate((0,2,3)):
             if kernel_name == "Golovin":
                 moments_ref_i = compute_moments_Golovin(save_times, mom_n, DNC, LWC, bG)
-            
+                save_times0 = save_times
             else:
-                moments_ref_i = moments_ref[i]
+                moments_ref_i = moments_ref[mom_n][::3]
+#                print("moments_ref_i.shape")
+#                print(moments_ref_i.shape)
+                save_times0 = save_times[::2]
+#                print(save_times)
+                
             
             rel_dev = np.abs(moments_vs_time_avg[:,mom_n]-moments_ref_i)/moments_ref_i
             
             rel_err = moments_vs_time_std[:,mom_n] / moments_ref_i
+#            rel_err = moments_vs_time_std[:,mom_n] / moments_vs_time_avg[:,mom_n]
             
             ax = axes[kappa_n,0]
-            ax.errorbar(save_times/60, rel_dev, rel_err, label=str(mom_n))
+            ax.errorbar(save_times0/60, rel_dev, rel_err, label=str(mom_n))
             ax.grid()
 #                ax.annotate(
 ##                        r"NS={}".format(kappa*5),
@@ -1054,23 +1197,39 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
 
             ax = axes[kappa_n,1]
 #                ax.errorbar(save_times/60, rel_dev, rel_err, label=str(mom_n))
-            ax.plot(save_times/60, rel_err, label=str(mom_n))
+            ax.plot(save_times0/60, rel_err, label=str(mom_n))
             ax.grid()
         axes[kappa_n,1].annotate(
 #                        r"NS={}".format(kappa*5),
                             r"$N_\mathrm{{SIP}} = {}$".format(kappa*5),
-                            (0.01,0.85),
+                            (0.01,0.82),
                             xycoords="axes fraction")                 
         
         ax = axes[kappa_n,0]
         ax.set_yscale("log")
         if kernel_name == "Golovin":
             ax.set_yticks(np.logspace(-5,0,6))
-    axes[0,0].legend()
-    axes[0,1].legend()
+        else:
+            ax.set_yticks(np.logspace(-4,1,6))
+
+        ax = axes[kappa_n,1]
+        ax.set_yscale("log")
+        if kernel_name == "Golovin":
+            ax.set_yticks(np.logspace(-5,0,6))
+        else:
+            ax.set_yticks(np.logspace(-6,0,4))
+        
+#    if kernel_name == "Golovin":            
+#        axes[0,0].legend()
+#        axes[0,1].legend(loc = "upper center")
+#    else:
+    axes[0,0].legend(ncol=3)
+    axes[0,1].legend(ncol=3)
+#        axes[0,1].legend(loc = "upper center", ncol=3)
+#    axes[0,1].legend(loc = "best")
     
     axes[0,0].set_title("rel. dev. $(\lambda-\lambda_\mathrm{ref})/\lambda_\mathrm{ref}$")
-    axes[0,1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda$ ")
+    axes[0,1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda_\mathrm{ref}$ ")
     
     
     axes[-1,0].set_xticks(np.linspace(0,60,7))
@@ -1085,9 +1244,279 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
 #        axes[0].set_yticks(np.linspace(-1,0.4,8))
 #        axes[1].set_yticks(np.linspace(-0.15,0.4,8))
     
-     
-    
     fig.savefig(figname2,
+#                bbox_inches = 0,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )   
+    
+### CONVERGENCE REL DEV PLOTS 
+### CONVERGENCE REL DEV PLOTS 
+    no_rows = 1
+    fig, axes = plt.subplots(nrows=no_rows, ncols=2,
+                             figsize=(figsize3)
+                             )    
+    
+    kappa = kappa_list[-1]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    moments_vs_time_avg_ref = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    moments_vs_time_std_ref = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    
+#    if kernel_name == "Golovin":
+#        for kappa_n,kappa in enumerate((5,200)):
+#    for kappa_n,kappa in enumerate([kappa_list[-2]]):
+    kappa = kappa_list[-2]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+        
+#        if kernel_name == "Golovin":
+#        else:
+##            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+##            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+#            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+##            print ("moments_vs_time_avg.shape")
+##            print (moments_vs_time_avg.shape)
+#        
+#        for cnt_m,mom_n in enumerate((0,2,3)):
+##            if kernel_name == "Golovin":
+##                moments_ref_i = compute_moments_Golovin(save_times, mom_n, DNC, LWC, bG)
+##                save_times0 = save_times
+##            else:
+##                moments_ref_i = moments_ref[mom_n][::3]
+###                print("moments_ref_i.shape")
+###                print(moments_ref_i.shape)
+##                save_times0 = save_times[::2]
+###                print(save_times)
+    save_times0 = save_times
+#    moments_ref_i = 
+    
+    for cnt_m,mom_n in enumerate((0,2,3)):
+        moments_ref_i = moments_vs_time_avg_ref[:,mom_n]
+        rel_dev = np.abs(moments_vs_time_avg[:,mom_n]-moments_ref_i)/moments_ref_i
+        
+        rel_err = moments_vs_time_std[:,mom_n] / moments_ref_i
+        
+        ax = axes[0]
+        ax.errorbar(save_times0/60, rel_dev, rel_err, label=str(mom_n))
+        ax.grid()
+    #                ax.annotate(
+    ##                        r"NS={}".format(kappa*5),
+    #                        "NS",
+    #                            (0.9,0.02),
+    #                            xycoords="axes fraction")                
+      
+    #                ax.annotate()
+    
+        ax.set_yscale("log")
+
+        ax = axes[1]
+    #                ax.errorbar(save_times/60, rel_dev, rel_err, label=str(mom_n))
+        ax.plot(save_times0/60, rel_err, label=str(mom_n))
+        ax.grid()
+    
+#        axes[kappa_n,1].annotate(
+##                        r"NS={}".format(kappa*5),
+#                            r"$N_\mathrm{{SIP}} = {}$".format(kappa*5),
+#                            (0.01,0.82),
+#                            xycoords="axes fraction")                 
+        ax.set_yscale("log")
+        
+#        ax = axes[kappa_n,0]
+#        if kernel_name == "Golovin":
+#            ax.set_yticks(np.logspace(-5,0,6))
+#        else:
+#            ax.set_yticks(np.logspace(-4,1,6))
+#
+#        ax = axes[kappa_n,1]
+#        if kernel_name == "Golovin":
+#            ax.set_yticks(np.logspace(-5,0,6))
+#        else:
+#            ax.set_yticks(np.logspace(-6,0,4))
+        
+#    if kernel_name == "Golovin":            
+#        axes[0,0].legend()
+#        axes[0,1].legend(loc = "upper center")
+#    else:
+    for ax in axes:
+        ax.legend(
+    #                        np.reshape(handles, (5,2)).T.flatten(),
+    #                        np.reshape(labels, (5,2)).T.flatten(),
+    #                    np.concatenate((handles[::2],handles[1::2]),axis=0),
+    #                      np.concatenate((labels[::2],labels[1::2]),axis=0),
+                  ncol=3, handlelength=0.8, handletextpad=0.2,
+                  columnspacing=0.5, borderpad=0.2,
+#                  loc="lower left",
+#                  bbox_to_anchor=(0.0, 0.6)
+                  ).set_zorder(100)           
+#    axes[1].legend(
+##                        np.reshape(handles, (5,2)).T.flatten(),
+##                        np.reshape(labels, (5,2)).T.flatten(),
+##                    np.concatenate((handles[::2],handles[1::2]),axis=0),
+##                      np.concatenate((labels[::2],labels[1::2]),axis=0),
+#              ncol=3, handlelength=0.8, handletextpad=0.2,
+#              columnspacing=0.5, borderpad=0.2, loc="lower left",
+#              bbox_to_anchor=(0.0, 0.6)).set_zorder(100)           
+#    axes[0].legend(ncol=3)
+#    axes[1].legend(ncol=3)
+#        axes[0,1].legend(loc = "upper center", ncol=3)
+#    axes[0,1].legend(loc = "best")
+    
+    axes[0].set_title("rel. dev. $(\lambda-\lambda_\mathrm{ref})/\lambda_\mathrm{ref}$")
+    axes[1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda_\mathrm{ref}$ ")
+    
+    
+    axes[0].set_xticks(np.linspace(0,60,7))
+    axes[1].set_xticks(np.linspace(0,60,7))
+#        axes[0].set_yticks(np.logspace(-4,0,5))
+    axes[0].set_xlim((0,60))
+    axes[1].set_xlim((0,60))
+    
+    axes[0].set_xlabel("Time (min)")
+    axes[1].set_xlabel("Time (min)")
+#        axes[-1].set_ylim((1E-5,2E-1))
+#        axes[0].set_yticks(np.linspace(-1,0.4,8))
+#        axes[1].set_yticks(np.linspace(-0.15,0.4,8))
+    
+    fig.savefig(figname3,
+#                bbox_inches = 0,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )   
+    
+### CONVERGENCE REL DEV PLOTS 2
+### CONVERGENCE REL DEV PLOTS 2   
+    no_rows = 1
+    fig, axes = plt.subplots(nrows=no_rows, ncols=2,
+                             figsize=(figsize4)
+                             )    
+    
+    kappa = kappa_list[-1]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    moments_vs_time_avg_ref = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    moments_vs_time_std_ref = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    
+#    if kernel_name == "Golovin":
+#        for kappa_n,kappa in enumerate((5,200)):
+#    for kappa_n,kappa in enumerate([kappa_list[-2]]):
+    kappa = kappa_list[1]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+        
+#        if kernel_name == "Golovin":
+#        else:
+##            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+##            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+#            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+##            print ("moments_vs_time_avg.shape")
+##            print (moments_vs_time_avg.shape)
+#        
+#        for cnt_m,mom_n in enumerate((0,2,3)):
+##            if kernel_name == "Golovin":
+##                moments_ref_i = compute_moments_Golovin(save_times, mom_n, DNC, LWC, bG)
+##                save_times0 = save_times
+##            else:
+##                moments_ref_i = moments_ref[mom_n][::3]
+###                print("moments_ref_i.shape")
+###                print(moments_ref_i.shape)
+##                save_times0 = save_times[::2]
+###                print(save_times)
+    save_times0 = save_times
+#    moments_ref_i = 
+    
+    for cnt_m,mom_n in enumerate((0,2,3)):
+        moments_ref_i = moments_vs_time_avg_ref[:,mom_n]
+        rel_dev = np.abs(moments_vs_time_avg[:,mom_n]-moments_ref_i)/moments_ref_i
+        
+        rel_err = moments_vs_time_std[:,mom_n] / moments_ref_i
+        
+        ax = axes[0]
+        ax.errorbar(save_times0/60, rel_dev, rel_err, label=str(mom_n))
+        ax.grid()
+    #                ax.annotate(
+    ##                        r"NS={}".format(kappa*5),
+    #                        "NS",
+    #                            (0.9,0.02),
+    #                            xycoords="axes fraction")                
+      
+    #                ax.annotate()
+    
+        ax.set_yscale("log")
+
+        ax = axes[1]
+    #                ax.errorbar(save_times/60, rel_dev, rel_err, label=str(mom_n))
+        ax.plot(save_times0/60, rel_err, label=str(mom_n))
+        ax.grid()
+    
+#        axes[kappa_n,1].annotate(
+##                        r"NS={}".format(kappa*5),
+#                            r"$N_\mathrm{{SIP}} = {}$".format(kappa*5),
+#                            (0.01,0.82),
+#                            xycoords="axes fraction")                 
+        ax.set_yscale("log")
+        
+#        ax = axes[kappa_n,0]
+#        if kernel_name == "Golovin":
+#            ax.set_yticks(np.logspace(-5,0,6))
+#        else:
+#            ax.set_yticks(np.logspace(-4,1,6))
+#
+#        ax = axes[kappa_n,1]
+#        if kernel_name == "Golovin":
+#            ax.set_yticks(np.logspace(-5,0,6))
+#        else:
+#            ax.set_yticks(np.logspace(-6,0,4))
+        
+#    if kernel_name == "Golovin":            
+#        axes[0,0].legend()
+#        axes[0,1].legend(loc = "upper center")
+#    else:
+    for ax in axes:
+        ax.legend(
+    #                        np.reshape(handles, (5,2)).T.flatten(),
+    #                        np.reshape(labels, (5,2)).T.flatten(),
+    #                    np.concatenate((handles[::2],handles[1::2]),axis=0),
+    #                      np.concatenate((labels[::2],labels[1::2]),axis=0),
+                  ncol=3, handlelength=0.8, handletextpad=0.2,
+                  columnspacing=0.5, borderpad=0.2,
+#                  loc="lower left",
+#                  bbox_to_anchor=(0.0, 0.6)
+                  ).set_zorder(100)           
+#    axes[1].legend(
+##                        np.reshape(handles, (5,2)).T.flatten(),
+##                        np.reshape(labels, (5,2)).T.flatten(),
+##                    np.concatenate((handles[::2],handles[1::2]),axis=0),
+##                      np.concatenate((labels[::2],labels[1::2]),axis=0),
+#              ncol=3, handlelength=0.8, handletextpad=0.2,
+#              columnspacing=0.5, borderpad=0.2, loc="lower left",
+#              bbox_to_anchor=(0.0, 0.6)).set_zorder(100)           
+#    axes[0].legend(ncol=3)
+#    axes[1].legend(ncol=3)
+#        axes[0,1].legend(loc = "upper center", ncol=3)
+#    axes[0,1].legend(loc = "best")
+    
+    axes[0].set_title("rel. dev. $(\lambda-\lambda_\mathrm{ref})/\lambda_\mathrm{ref}$")
+    axes[1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda_\mathrm{ref}$ ")
+    
+    
+    axes[0].set_xticks(np.linspace(0,60,7))
+    axes[1].set_xticks(np.linspace(0,60,7))
+#        axes[0].set_yticks(np.logspace(-4,0,5))
+    axes[0].set_xlim((0,60))
+    axes[1].set_xlim((0,60))
+    
+    axes[0].set_xlabel("Time (min)")
+    axes[1].set_xlabel("Time (min)")
+#        axes[-1].set_ylim((1E-5,2E-1))
+#        axes[0].set_yticks(np.linspace(-1,0.4,8))
+#        axes[1].set_yticks(np.linspace(-0.15,0.4,8))
+    
+    fig.savefig(figname4,
 #                bbox_inches = 0,
                 bbox_inches = 'tight',
                 pad_inches = 0.04
@@ -1350,7 +1779,11 @@ if act_analysis:
 figpath = home_path + "/Masterthesis/Figures/05ColBoxModel/"        
 #figpath = home_path + "/Masterthesis/Figures/05ColBoxModel/new/"        
 figsize = cm2inch(7.,4.5)
-figsize2 = cm2inch(7.,9.0)
+if kernel_name == "Golovin":
+    figsize2 = cm2inch(7.,9.0)
+else:
+    figsize2 = cm2inch(7.,11.0)
+#figsize2 = cm2inch(7.,11.0)
 # for golovin: 3600 s sim time. frame every 150 s -> 24 + 1 = 25 frames
 if kernel_name == "Golovin":
     time_idx = np.arange(0,25,4)
@@ -1386,8 +1819,14 @@ if act_plot:
 #%% PLOT MOMENTS VS TIME for several kappa
 # act_plot_moments_kappa_var = True
 
-figsize = cm2inch(6.5,9.0)
+if kernel_name == "Golovin":
+    figsize = cm2inch(6.5,9.0)
+else:
+    figsize = cm2inch(6.5,11.0)
 figsize2 = cm2inch(17.5,23.0)
+figsize3 = cm2inch(17.5,5)
+figsize4 = figsize3
+#figsize4 = cm2inch(17.5,9.0*5/8)
 for kappa_n,kappa in enumerate(kappa_list):
     load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
     save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
@@ -1412,6 +1851,10 @@ if act_plot_moments_kappa_var:
             + f"{kernel_name}_moments_vs_time_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
     figname2 = figpath \
             + f"{kernel_name}_moments_vs_time_rel_dev_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
+    figname3 = figpath \
+            + f"{kernel_name}_moments_vs_time_converge_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
+    figname4 = figpath \
+            + f"{kernel_name}_moments_vs_time_converge_50_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
     fig_dir = sim_data_path + result_path_add
 #    plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
 #                           kernel_name, gen_method,
@@ -1427,4 +1870,5 @@ if act_plot_moments_kappa_var:
                                sim_data_path,
                                result_path_add,
                                figsize, figname, figsize2, figname2,
+                               figsize3, figname3,  figsize4, figname4,
                                TTFS, LFS, TKFS)

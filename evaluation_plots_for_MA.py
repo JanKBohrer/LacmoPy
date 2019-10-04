@@ -118,15 +118,15 @@ solute_type = "AS"
 #no_spcm = np.array([10, 10])
 #no_spcm = np.array([12, 12])
 #no_spcm = np.array([16, 24])
-#no_spcm = np.array([20, 30])
-no_spcm = np.array([26, 38])
+no_spcm = np.array([20, 30])
+#no_spcm = np.array([26, 38])
 
 # seed of the SIP generation -> needed for the right grid folder
 # 3711, 3713, 3715, 3717
 # 3719, 3721, 3723, 3725
 
-seed_SIP_gen = 4811
-#seed_SIP_gen = 3711
+#seed_SIP_gen = 4811
+seed_SIP_gen = 3711
 
 #seed_SIP_gen_list = [3711, 3713]
 #seed_SIP_gen_list = [3711, 3713, 3715, 3717]
@@ -135,8 +135,8 @@ no_sims = 4
 seed_SIP_gen_list = np.arange(seed_SIP_gen, seed_SIP_gen + no_sims * 2, 2)
 
 # for collisons
-#seed_sim = 4711
-seed_sim = 6811
+seed_sim = 4711
+#seed_sim = 6811
 
 #seed_sim_list = [4711, 4711]
 #seed_sim_list = [4711, 4711, 4711, 4711]
@@ -152,23 +152,26 @@ simulation_mode = "with_collision"
 dt_col = 0.5
 #dt_col = 1.0
 
-spin_up_finished = True
-#spin_up_finished = False
+if simulation_mode == "spin_up":
+    spin_up_finished = False
+else:
+    spin_up_finished = True
 
 # path = simdata_path + folder_load_base
 #t_grid = 0
 #t_grid = 7200
-#t_grid = 10800
 t_grid = 14400
 
 #t_start = 0
 t_start = 7200
 
+#t_end = 7200
+t_end = 14400
+
+#t_grid = 10800
 #t_end = 60
 #t_end = 3600
-#t_end = 7200
 #t_end = 10800
-t_end = 14400
 
 #%% PLOTTING PARAMETERS 
 
@@ -177,7 +180,11 @@ t_end = 14400
 #args_plot = [0,0,1,0,0]
 #args_plot = [0,0,0,1,0]
 #args_plot = [0,0,0,0,1]
-args_plot = [0,0,1,0,0,0,0,0,0,0]
+
+#args_plot = [0,0,0,1,0,0,0,0,0,0]
+#args_plot = [0,0,1,0,0,0,0,0,0,0]
+args_plot = [0,0,0,0,0,0,0,0,0,1]
+
 #args_plot = [0,0,0,0,0,0,0,0,0,1]
 #args_plot = [0,0,0,0,0,0,1,1]
 
@@ -217,12 +224,15 @@ target_cell_list = np.array([i_list.flatten(), j_list.flatten()])
 no_cells_x = 3
 no_cells_z = 3
 
-figpath = home_path + "/Masterthesis/Figures/05TestCase/"
+figpath = home_path + "/Masterthesis/Figures/06TestCase/"
 
 ### TRACERS TRAJECTORIES
-figsize_pt_trajs = cm2inch(6.6,7)
+figsize_pt_trajs = cm2inch(4.9,7)
+#figsize_pt_trajs = cm2inch(6.6,7)
 #figsize_pt_trajs = cm2inch(20,20)
-figname_pt_trajs = "particle_trajectories_no_col_w_g_"
+#figname_pt_trajs = "particle_trajectories_no_col_no_grav_"
+figname_pt_trajs = "particle_trajectories_no_col_grav_"
+#figname_pt_trajs = "particle_trajectories_col_grav_"
 
 #pt_trajs_ncol_legend =
 #MS_pt_trajs = 2
@@ -243,7 +253,18 @@ aa = (27,)
 # this is the selection for 20 30, 3711 4711, AS w_col
 #selection2 = (38, 32, 24, 37,13,27)
 
+# this is the selection for 20 30, 3711 4711, AS wo col, wo grav
+#selection2 = np.arange(0,40,5)
+#selection2 = (1,6,11,16,21,31,19,5)
+
+# this is the selection for 26 38 AS 4811(?) 6811 no col, with grav
+# with 80 tracers total
 selection2 = np.arange(1,80,10)
+
+if figname_pt_trajs == "particle_trajectories_no_col_no_grav_":
+    label_y_traj = True
+else:
+    label_y_traj = False
 
 
 #selection2 = list(aa + bb + cc + dd)
@@ -308,8 +329,6 @@ R_s = compute_radius_from_mass_vec(m_s, mass_density_dry)
 if act_plot_scalar_fields_once:
     fig_path = load_path
     grid.plot_thermodynamic_scalar_fields(t=t_grid, fig_path = fig_path)
-
-
 
 #%% PARTICLE SPECTRA
 
@@ -402,7 +421,7 @@ if act_plot_particle_trajectories:
     fig_name = figpath + figname_pt_trajs \
                + f"t_{int(t_start)}_" \
                + f"{int(t_end)}.pdf"
-    selection = np.arange(3,40,4)
+#    selection = np.arange(3,40,4)
 
     print(selection2)
     
@@ -411,20 +430,31 @@ if act_plot_particle_trajectories:
                                fig_name=fig_name, figsize=figsize_pt_trajs,
                                TTFS=TTFS, LFS=LFS, TKFS=TKFS,
                                ARROW_SCALE=18,ARROW_WIDTH=0.004,
-                               t_start=t_start, t_end=t_end)
+                               t_start=t_start, t_end=t_end,
+                               label_y=label_y_traj)
     plt.close("all")
     
 #%% PARTICLE POSITIONS AND VELOCITIES
 
 if act_plot_particle_positions:
+    
+    figsize = cm2inch(7,7)
+    
+    MS_pt = 0.05
+    
     from file_handling import load_particle_data_all
     from file_handling import load_particle_data_all_old
     from analysis import plot_pos_vel_pt_with_time, plot_pos_vel_pt
+    from plotting_fcts_MA import plot_pos_vel_pt_MA
     # plot only every x IDs
-    ID_every = 40
+#    ID_every = 25
+#    ID_every = 40
+    ID_every = 50
+#    ID_every = 100
     # plot a series of "frames" defined by grid_save_times OR just one frame at
     # the time of the current loaded grid and particles
-    plot_time_series = True
+#    plot_time_series = True
+    plot_time_series = False
     plot_frame_every = 4
     
     frame_every, no_grid_frames, dump_every = \
@@ -436,7 +466,8 @@ if act_plot_particle_positions:
     #     np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
     print("grid_save_times")
     print(grid_save_times)
-    fig_name = load_path + "particle_positions_" \
+    fig_name = figpath + "pt_pos_vel_INIT.pdf"
+    load_path + "particle_positions_" \
                + f"t_{grid_save_times[0]}_" \
                + f"{grid_save_times[-1]}.png"
     if plot_time_series:
@@ -456,9 +487,12 @@ if act_plot_particle_positions:
         pos2 = pos[:,::ID_every]
         vel2 = vel[:,::ID_every]
         
-        plot_pos_vel_pt(pos2, vel2, grid,
-                            figsize=(8,8), no_ticks = [6,6],
-                            MS = 1.0, ARRSCALE=30, fig_name=fig_name)
+        plot_pos_vel_pt_MA(pos2, vel2, grid,
+                            figsize=figsize, no_ticks = [6,6],
+                            MS = MS_pt, ARROWSCALE=28,
+                            ARROWWIDTH=0.0018,
+                            HEADW = 4, HEADL = 8,
+                            fig_name=fig_name)
     
 #%% PLOT GRID SCALAR FIELD FRAMES OVER TIME
 
@@ -961,11 +995,10 @@ if act_get_grid_data:
                          output_path)
             
 
-#%% TRACED PARTICLE ANALYSIS
-            
- 
+#%% TRACED PARTICLE ANALYSIS: DROPLET LIFE CYCLE
 
 if act_plot_life_cycle:    
+    
     print(load_path)
     
     trace_ids = np.load(load_path + "trace_ids.npy")
@@ -1357,12 +1390,17 @@ if act_plot_life_cycle:
             + f"Ntgcells_{no_tg_cells}_Nneigh_{no_cells_x}_{no_cells_z}_" \
             + f"Nseeds_{no_seeds}_sseed_{seed_sim_list[0]}_t_{t_low}_{t_high}.pdf"
         
-        
-    
-        
 #        from analysis import plot_size_spectra_R_Arabas
         ind_traj_plot1 = 0 * pt_dumps_per_grid_frame
         ind_traj_plot2 = 19 * pt_dumps_per_grid_frame
+        
+        scale_x = 1E-3    
+        grid.steps *= scale_x
+        grid.ranges *= scale_x
+        grid.corners[0] *= scale_x
+        grid.corners[1] *= scale_x
+        grid.centers[0] *= scale_x
+        grid.centers[1] *= scale_x  
         
         plot_size_spectra_R_Arabas_MA(
                 f_R_p_list, f_R_s_list,
@@ -1381,8 +1419,10 @@ if act_plot_life_cycle:
                 figsize_trace_traj = figsize_trace_traj,
                 fig_path = fig_name,
                 show_target_cells = True,
-                fig_path_tg_cells = fig_path_tg_cells   ,
-                fig_path_R_eff = fig_path_R_eff,
+#                fig_path_tg_cells = fig_path_tg_cells,
+#                fig_path_R_eff = fig_path_R_eff,
+                fig_path_tg_cells = None,
+                fig_path_R_eff = None,
                 trajectory = pos1_shift[ind_traj_plot1:ind_traj_plot2] )
 #                trajectory = pos1_shift[:] )
 #                trajectory = pos1_shift[ind_traj_first_t:ind_traj_last_t] )

@@ -449,7 +449,7 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
 # ax.loglog( bins_mid, g_ln_R, "-" )
 ###
 
-#%% PARTICLE SIZE SPECTRA
+#%% PARTICLE POSITIONS AND VELOCITIES
 
 def plot_pos_vel_pt(pos, vel, grid,
                     figsize=(8,8), no_ticks = [6,6],
@@ -531,6 +531,8 @@ def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
     # plt.show()
     if fig_name is not None:
         fig.savefig(fig_name)
+
+#%% PARTICLE SIZE SPECTRA
         
 # active ids not necessary: choose target cell and no_cells_x
 # such that the region is included in the valid domain

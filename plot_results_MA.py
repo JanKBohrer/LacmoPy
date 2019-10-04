@@ -123,13 +123,16 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-args_plot = [1,1,1,0,0]
+#args_plot = [1,1,1,0,0,0]
+#args_plot = [1,0,0,0,0,0]
+args_plot = [0,0,0,1,0,0]
 
-act_plot_grid_frames_avg = args_plot[0]
-act_plot_grid_frames_std = args_plot[1]
-act_plot_spectra_avg_Arabas = args_plot[2]
-act_plot_moments_vs_z = args_plot[3]
-act_plot_moments_diff_vs_z = args_plot[4]
+act_plot_grid_frames_init = args_plot[0]
+act_plot_grid_frames_avg = args_plot[1]
+act_plot_grid_frames_std = args_plot[2]
+act_plot_spectra_avg_Arabas = args_plot[3]
+act_plot_moments_vs_z = args_plot[4]
+act_plot_moments_diff_vs_z = args_plot[5]
 
 # this one is not adapted for MA plots...
 #act_plot_grid_frames_avg_shift = args_plot[2]
@@ -157,7 +160,8 @@ SIM_N = 1
 shift_cells_x = 18
 
 Ns=50
-t_grid = 14400.
+t_grid = 0.
+#t_grid = 14400.
 #t_start=0.0
 t_start=7200.0
 #t_end=7200.0
@@ -170,6 +174,8 @@ simulation_mode="with_collision"
 figsize_spectra = cm2inch(16.8,24)
 figsize_tg_cells = cm2inch(6.6,7)
 figsize_scalar_fields = cm2inch(16.8,20)
+
+figsize_scalar_fields_init = cm2inch(7.4,7.4)
 #figsize_scalar_fields = cm2inch(100,60)
 
 figpath = home_path + "Masterthesis/Figures/06TestCase/"
@@ -367,6 +373,85 @@ if no_cells_x % 2 == 0: no_cells_x += 1
 if no_cells_z % 2 == 0: no_cells_z += 1  
 
 no_tg_cells = len(target_cell_list[0])   
+
+#%% PLOT INITIAL CONFIG
+
+if act_plot_grid_frames_init:
+    from plotting_fcts_MA import plot_scalar_field_frames_init_avg_MA
+    
+#    for fields_type in fields_types_avg:
+    
+#        if fields_type == 0:
+#            idx_fields_plot = np.array((0,2,3,7))
+#            fields_name_add = "Th_rv_rl_na_"
+#        
+#        if fields_type == 1:
+#            idx_fields_plot = np.array((5,6,9,12))
+#            fields_name_add = "rc_rr_nr_Reff_"    
+        
+    fields_with_time = np.load(data_path
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    save_times_out_fr = np.load(data_path
+            + f"save_times_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    field_names_out = np.load(data_path
+            + f"field_names_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    units_out = np.load(data_path
+            + f"units_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    scales_out = np.load(data_path
+            + f"scales_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )    
+    
+#    particle_data = 
+    
+#    fields_with_time = fields_with_time[idx_times_plot][:,idx_fields_plot]
+#    save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
+#    field_names_out = field_names_out[idx_fields_plot]
+#    units_out = units_out[idx_fields_plot]
+#    scales_out = scales_out[idx_fields_plot]
+
+#    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
+    fig_path = figpath
+#    fig_name = \
+#               f"scalar_fields_avg_" \
+#               + f"t_{save_times_out_fr[0]}_" \
+#               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+#               + f"Nfie_{len(field_names_out)}_" \
+#               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+#               + f"ss_{seed_sim_list[0]}_" \
+#               + fields_name_add + ".pdf"
+    
+    fig_name = "fields_INIT_" + figname_base + ".pdf"
+
+               
+    if not os.path.exists(fig_path):
+            os.makedirs(fig_path)    
+    plot_scalar_field_frames_init_avg_MA(grid, fields_with_time,
+                                        save_times_out_fr,
+                                        field_names_out,
+                                        units_out,
+                                        scales_out,
+                                        solute_type,
+                                        simulation_mode, # for time in label
+                                        fig_path=fig_path+fig_name,
+                                        figsize = figsize_scalar_fields_init,
+                                        no_ticks=[6,6], 
+                                        alpha = 1.0,
+                                        TTFS = 10, LFS = 10, TKFS = 8,
+                                        cbar_precision = 2,
+                                        show_target_cells = show_target_cells,
+                                        target_cell_list = target_cell_list,
+                                        no_cells_x = no_cells_x,
+                                        no_cells_z = no_cells_z)     
+    plt.close("all")   
 
 
 #%% PLOT AVG GRID FRAMES

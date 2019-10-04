@@ -74,6 +74,69 @@ cdict_lcpp = {"red": cdict_lcpp_colors[0],
 
 cmap_lcpp = LinearSegmentedColormap('testCmap', segmentdata=cdict_lcpp, N=256)
 
+
+#%% FUNCTION DEF POSITIONS AND VELOCITIES
+
+def plot_pos_vel_pt_MA(pos, vel, grid,
+                    figsize=(8,8), no_ticks = [6,6],
+                    MS = 1.0, ARROWSCALE=2, ARROWWIDTH=0.02,
+                    HEADW=1, HEADL=1.5,
+                    fig_name=None):
+    # u_g = 0.5 * ( grid.velocity[0,0:-1] + grid.velocity[0,1:] )
+    # v_g = 0.5 * ( grid.velocity[1,:,0:-1] + grid.velocity[1,:,1:] )
+    
+    scale_x = 1E-3
+    
+    pos = pos*scale_x
+    fig, ax = plt.subplots(figsize=figsize)
+#    ax.plot(grid.corners[0], grid.corners[1], "x", color="red", markersize=MS)
+#    ax.plot(pos[0],pos[1], "o", color="k", markersize=MS)
+    ax.quiver(*pos, *vel, scale=ARROWSCALE, width=ARROWWIDTH,
+              headwidth = HEADW, headlength = HEADL, pivot="mid",
+#              rasterized=True
+              )
+    # ax.quiver(*grid.centers, u_g[:,0:-1], v_g[0:-1],
+              # scale=ARRSCALE, pivot="mid", color="red")
+    # ax.quiver(grid.corners[0], grid.corners[1] + 0.5*grid.steps[1],
+    #           grid.velocity[0], np.zeros_like(grid.velocity[0]),
+    #           scale=0.5, pivot="mid", color="red")
+    # ax.quiver(grid.corners[0] + 0.5*grid.steps[0], grid.corners[1],
+    #           np.zeros_like(grid.velocity[1]), grid.velocity[1],
+    #           scale=0.5, pivot="mid", color="blue")
+    
+    x_min = grid.ranges[0,0] * scale_x
+    x_max = grid.ranges[0,1] * scale_x
+    y_min = grid.ranges[1,0] * scale_x
+    y_max = grid.ranges[1,1] * scale_x
+    ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
+    ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
+    # ax.set_xticks(grid.corners[0][:,0])
+    # ax.set_yticks(grid.corners[1][0,:])
+    ax.set_xticks(grid.corners[0][:,0]*scale_x, minor = True)
+    ax.set_yticks(grid.corners[1][0,:]*scale_x, minor = True)
+    ax.set_xlim((0,1.5))
+    ax.set_ylim((0,1.5))
+    ax.set_aspect('equal')  
+    ax.set_xlabel(r'$x$ (km)',
+#                  fontsize = LFS
+                  )
+    ax.set_ylabel(r'$z$ (km)',
+#                  fontsize = LFS
+                  )      
+    # plt.minorticks_off()
+    # plt.minorticks_on()
+#    ax.grid()
+#    fig.tight_layout()
+    # ax.grid(which="minor")
+    # plt.show()
+    if fig_name is not None:
+        fig.savefig(fig_name,
+    #                    bbox_inches = 0,
+                    bbox_inches = 'tight',
+                    pad_inches = 0.05, dpi=300
+                    )           
+#        fig.savefig(fig_name)
+    plt.close("all")
 #%% FUNCTION DEF SIZE SPECTRA
 
 def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
@@ -108,6 +171,8 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
 #                                       no_cells_x, no_cells_z,
 #                                       no_bins_R_p, no_bins_R_s)  
     
+    scale_x = 1E-3
+    
     annotations = ["A", "B", "C", "D", "E", "F",
                    "G", "H", "I", "J", "K", "L",
                    "M", "N", "O", "P", "Q", "R"]
@@ -117,12 +182,18 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
 #    no_seeds = len(f_R_p_list[0])
 #    no_times = len(save_times_out)
     no_tg_cells = len(target_cell_list[0])    
-
+    
     f_R_p_avg = np.average(f_R_p_list, axis=1)
-    f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1) / np.sqrt(no_seeds)
     f_R_s_avg = np.average(f_R_s_list, axis=1)
-    f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1) / np.sqrt(no_seeds)
-
+    
+    if f_R_p_list.shape[1] != 1:
+        f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1) / np.sqrt(no_seeds)
+        f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1) / np.sqrt(no_seeds)
+    
+#    print("len(f_R_p_list)")
+#    print(f_R_p_list.shape)
+#    print(f_R_p_avg)
+#    print(f_R_p_std)
 
 
 #%% SPECTRA EXTENDED
@@ -150,8 +221,10 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
             
             f_R_p = f_R_p_avg[plot_n]
             f_R_s = f_R_s_avg[plot_n]
-            f_R_p_err = f_R_p_std[plot_n]
-            f_R_s_err = f_R_s_std[plot_n]
+            
+            if f_R_p_list.shape[1] != 1:
+                f_R_p_err = f_R_p_std[plot_n]
+                f_R_s_err = f_R_s_std[plot_n]
             
             bins_R_p = bins_R_p_list[plot_n]
             bins_R_s = bins_R_s_list[plot_n]
@@ -178,20 +251,21 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                     linewidth = LW_spectra, label = "dry")  
             
             # added error-regions here
-            ax.fill_between(np.repeat(bins_R_p,2)[1:-1],
-                            np.repeat(f_R_p,2) - np.repeat(f_R_p_err,2),
-                            np.repeat(f_R_p,2) + np.repeat(f_R_p_err,2),
-                            alpha=0.5,
-                            facecolor="lightblue",
-                            edgecolor="blue", lw=0.5,
-                            zorder=0)
-            ax.fill_between(np.repeat(bins_R_s,2)[1:-1],
-                            np.repeat(f_R_s,2) - np.repeat(f_R_s_err,2),
-                            np.repeat(f_R_s,2) + np.repeat(f_R_s_err,2),
-                            alpha=0.4,
-                            facecolor="orange",
-                            edgecolor="darkorange", lw=0.5,
-                            zorder=0)
+            if f_R_p_list.shape[1] != 1:
+                ax.fill_between(np.repeat(bins_R_p,2)[1:-1],
+                                np.repeat(f_R_p,2) - np.repeat(f_R_p_err,2),
+                                np.repeat(f_R_p,2) + np.repeat(f_R_p_err,2),
+                                alpha=0.5,
+                                facecolor="lightblue",
+                                edgecolor="blue", lw=0.5,
+                                zorder=0)
+                ax.fill_between(np.repeat(bins_R_s,2)[1:-1],
+                                np.repeat(f_R_s,2) - np.repeat(f_R_s_err,2),
+                                np.repeat(f_R_s,2) + np.repeat(f_R_s_err,2),
+                                alpha=0.4,
+                                facecolor="orange",
+                                edgecolor="darkorange", lw=0.5,
+                                zorder=0)
 #            ax.fill_between(bins_centers_R_s,
 #                            f_R_s - f_R_s_err,
 #                            f_R_s + f_R_s_err,
@@ -262,7 +336,7 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
             if col_n==0:
 #                ax.set_ylabel(r"$f_m$ (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
                 
-                ax.set_ylabel("$f_m$ $(\\si{mg^{-1}\\,\\micro\\meter^{-1}})$",
+                ax.set_ylabel("$f_R$ $(\\si{\\micro\\meter^{-1}\\,mg^{-1}})$",
                               fontsize = LFS)
                 
             # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
@@ -350,7 +424,7 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                               (tg_cell_n+1, 3. + R_eff_list[tg_cell_n,mom_n]),
                               fontsize=8)
     axes.legend()        
-    if fig_path is not None:
+    if fig_path_R_eff is not None:
         fig3.savefig(fig_path_R_eff)            
 
 #%% PLOT TARGET CELLS IN EXTRA PLOT
@@ -591,7 +665,7 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
     
     tick_ranges = grid.ranges
 #    tick_ranges_label = [[0,1.2],[0,1.2]]
-    
+
     no_rows = len(save_times)
     no_cols = len(field_names)
 
@@ -844,7 +918,325 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                     bbox_inches = 'tight',
                     pad_inches = 0.05,
                     dpi=600
+                    )     
+        
+#%% FUNCTION DEF: PLOT INITIAL SCALAR FIELDS INITIAL
+def plot_scalar_field_frames_init_avg_MA(grid, fields_with_time,
+                                        save_times,
+                                        field_names,
+                                        units,
+                                        scales,
+                                        solute_type,
+                                        simulation_mode, # for time in label
+                                        fig_path,
+                                        figsize,
+                                        no_ticks=[6,6],
+                                        alpha = 1.0,
+                                        TTFS = 12, LFS = 10, TKFS = 10,
+                                        cbar_precision = 2,
+                                        show_target_cells = False,
+                                        target_cell_list = None,
+                                        no_cells_x = 0,
+                                        no_cells_z = 0
+                                        ):
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    
+    for i,fm in enumerate(field_names):
+        print(i,fm)
+    print(save_times)
+    
+    tick_ranges = grid.ranges
+#    tick_ranges_label = [[0,1.2],[0,1.2]]
+    
+#    no_rows = len(save_times)
+#    no_cols = len(field_names)
+
+    field_names_orig = ["r_v", "r_l", "\Theta", "T", "p", "S"]
+    scales_orig = [1000., 1000., 1, 1, 0.01, 1]    
+    units_orig = ["g/kg", "g/kg", "K", "K", "hPa", "-"]    
+
+#    field_names_deri = ["r_\mathrm{aero}", "r_c", "r_r",
+#                       "n_\mathrm{aero}", "n_c", "n_r",
+#                       r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]
+#    units_deri = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg",
+#                  r"$\mathrm{\mu m}$", r"$\mathrm{\mu m}$", r"$\mathrm{\mu m}$"]
+#    scales_deri = [1000., 1000., 1000., 1E-6, 1E-6, 1E-6, 1., 1., 1.]    
+    
+    ii = (3,4,0,1)
+    
+    field_names = []
+    units = []
+    scales = []
+    
+    for i in ii:
+        field_names.append(field_names_orig[i])
+        units.append(units_orig[i])
+        scales.append(scales_orig[i])
+
+    T = grid.temperature
+    p = grid.pressure
+    S = grid.saturation
+    
+    r_v = grid.mixing_ratio_water_vapor
+    r_l = grid.mixing_ratio_water_liquid
+
+    fields = np.array([T,p,r_v,r_l])
+
+    no_rows = 2
+    no_cols = 2
+
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                       figsize = figsize,
+                       sharex=True, sharey=True)
+    
+#    for time_n in range(no_rows):
+#        for field_n in range(no_cols):
+
+    for field_n, ax in enumerate(axes.flatten()):
+        field = fields[field_n]*scales[field_n]
+        ax_title = field_names[field_n]
+        unit = units[field_n]        
+        if ax_title in ["T","p",r"\Theta"]:
+            cmap = "coolwarm"
+        else :
+            cmap = cmap_lcpp
+        alpha = 1.0    
+            
+        field_max = field.max()
+        field_min = field.min()
+        
+        xticks_major = None
+        xticks_minor = None
+
+        norm_ = mpl.colors.Normalize 
+        if ax_title in ["r_r", "n_r"]: #and field_max > 1E-2:
+            norm_ = mpl.colors.LogNorm
+            field_min = 0.01
+            cmap = cmap_lcpp                
+            if ax_title == "r_r":
+                field_max = 1.
+                xticks_major = [0.01,0.1,1.]
+            elif ax_title == "n_r":
+                field_max = 10.
+                xticks_major = [0.01,0.1,1.,10.]
+                xticks_minor = np.concatenate((
+                        np.linspace(2E-2,1E-1,9),
+                        np.linspace(2E-1,1,9),
+                        np.linspace(2,10,9),
+                        ))
+        else: norm_ = mpl.colors.Normalize   
+        
+        
+        if ax_title == r"\Theta":
+            field_min = 289.2
+            field_max = 292.5
+            xticks_major = [290,291,292]
+        if ax_title == "r_v":
+            field_min = 6.5
+            field_max = 7.6
+            xticks_minor = [6.75,7.25]
+        if ax_title == "r_l":
+            field_min = 0.0
+            field_max = 1.3
+            xticks_minor = [0.25,0.75,1.25]
+            
+        if ax_title == "r_c":
+            field_min = 0.0
+            field_max = 1.3
+            xticks_major = np.linspace(0,1.2,7)
+        if ax_title == "n_c":
+            field_min = 0.0
+            field_max = 150.
+        if ax_title == "n_\mathrm{aero}":
+            field_min = 0.0
+            field_max = 150.
+            xticks_minor = [25,75,125]
+        if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+            xticks_major = [1,5,10,15,20]
+#                field_min = 0.
+            field_min = 1
+#                field_min = 1.5
+            field_max = 20.
+#                cmap = cmap_new
+            # Arabas 2015
+            cmap = cmap_lcpp
+            unit = r"\si{\micro\meter}"
+            
+            
+        oom_max = oom = int(math.log10(field_max))
+        
+        my_format = False
+        oom_factor = 1.0
+        
+        if oom_max > 3 or oom_max < 0:
+            my_format = True
+            oom_factor = 10**(-oom)
+            
+            field_min *= oom_factor
+            field_max *= oom_factor            
+        
+        if oom_max in (2,3): str_format = "%.0f"
+#            if oom_max ==2: str_format = "%.1f"
+        
+        else: str_format = "%.2g"
+#            else: str_format = "%.2f"
+        
+        if field_min/field_max < 1E-4:
+#                cmap = cmap_new
+            # Arabas 2015                
+            cmap = cmap_lcpp
+#                alpha = 0.8
+        
+        # REMOVE FIX APLHA HERE
+#            alpha = 1.0
+#        CS = ax.pcolormesh(*grid.corners, grid_r_l,
+#                           cmap=cmap, alpha=alpha,
+#                            edgecolor="face", zorder=1,
+#                            vmin=field_min, vmax=field_max,
+#                            antialiased=True, linewidth=0.0
+##                            norm = norm_(vmin=field_min, vmax=field_max)
+#                            )            
+        CS = ax.pcolormesh(*grid.corners, field*oom_factor,
+                           cmap=cmap, alpha=alpha,
+                            edgecolor="face", zorder=1,
+                            norm = norm_(vmin=field_min, vmax=field_max),
+                            rasterized=True,
+                            antialiased=True, linewidth=0.0
+                            )
+        CS.cmap.set_under("white")
+        
+        ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                         tick_ranges[0,1],
+                                         no_ticks[0] ) )
+        ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                         tick_ranges[1,1],
+                                         no_ticks[1] ) )
+
+#            ax.set_xticks( np.linspace( tick_ranges[0,0],
+#                                             tick_ranges[0,1],
+#                                             no_ticks[0] ) )
+#            ax.set_yticks( np.linspace( tick_ranges[1,0],
+#                                             tick_ranges[1,1],
+#                                             no_ticks[1] ) )
+#            ax.tick_params(axis='both', which='major', labelsize=TKFS)
+        ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                       length = 3, width=1)
+#            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+#                           length = 3)            
+        ax.grid(color='gray', linestyle='dashed', zorder = 2)
+        ax.set_aspect('equal')
+#        if time_n == no_rows-1:
+#                tlabels = ax.get_xticklabels()
+#                print(tlabels)
+#                tlabels[-1] = ""
+#                print(tlabels)
+#                ax.set_xticklabels(tlabels)    
+        xticks1 = ax.xaxis.get_major_ticks()
+        xticks1[-1].label1.set_visible(False)
+        if field_n >= 2:
+            ax.set_xlabel(r'$x$ (km)', fontsize = LFS)
+#        if field_n == 0:            
+        if field_n%2 == 0:
+            ax.set_ylabel(r'$z$ (km)', fontsize = LFS)
+#            if time_n == 0:
+#                ax.set_title(
+#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
+#                             fontsize = TTFS)
+#                ax.set_title(
+#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
+#                             fontsize = TTFS)
+#            else:                
+        ax.set_title( r"${0}$ ({1})".format(ax_title, unit),
+                     fontsize = TTFS)
+#            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
+#                         int(save_times[time_n]/60)),
+#                         fontsize = TTFS)
+#        if time_n == 0:
+#            if time_n == no_rows - 1:
+#        axins = inset_axes(ax,
+#                           width="90%",  # width = 5% of parent_bbox width
+#                           height="8%",  # height
+#                           loc='lower center',
+#                           bbox_to_anchor=(0.0, 1.35, 1, 1),
+##                                   , 1, 1),
+#                           bbox_transform=ax.transAxes,
+#                           borderpad=0,
+#                           )      
+#                divider = make_axes_locatable(ax)
+#                cax = divider.append_axes("top", size="6%", pad=0.3)
+        
+        cbar = plt.colorbar(CS, ax=ax,
+                                    fraction=0.0467, pad=0.02,
+                            format=mticker.FormatStrFormatter(str_format),
+                            orientation="vertical"
+                            )
+#                axins.xaxis.set_ticks_position("bottom")
+        
+#        axins = cbar.axis
+#        axins.xaxis.set_ticks_position("bottom")
+#        axins.tick_params(axis="x",direction="inout",which="both")
+##                axins.tick_params(axis="x",direction="inout")
+#        axins.tick_params(axis='x', which='major', labelsize=TKFS,
+#                       length = 7, width=1)                
+#        axins.tick_params(axis='x', which='minor', labelsize=TKFS,
+#                       length = 5, width=0.5,bottom=True)                
+#        
+#        if xticks_major is not None:
+#            axins.xaxis.set_ticks(xticks_major)
+#        if xticks_minor is not None:
+#            axins.xaxis.set_ticks(xticks_minor, minor=True)
+        
+##        axins.set_title(r"${0}$ ({1})".format(ax_title, unit))
+    # my_format dos not work with log scale here!!
+
+        if my_format:
+            cbar.ax.text(field_min - (field_max-field_min),
+                         field_max + (field_max-field_min)*0.01,
+                         r'$\times\,10^{{{}}}$'.format(oom_max),
+                         va='bottom', ha='left', fontsize = TKFS)
+        cbar.ax.tick_params(labelsize=TKFS)
+
+#        if show_target_cells:
+#            ### ad the target cells
+#            no_neigh_x = no_cells_x // 2
+#            no_neigh_z = no_cells_z // 2
+#            dx = grid.steps[0]
+#            dz = grid.steps[1]
+#            
+#            no_tg_cells = len(target_cell_list[0])
+#            LW_rect = .5
+#            for tg_cell_n in range(no_tg_cells):
+#                x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+#                z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+#                
+#        #        dx *= no_cells_x
+#        #        dz *= no_cells_z
+#                
+#                rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+#                                     fill=False,
+#                                     linewidth = LW_rect,
+#    #                                 linestyle = "dashed",
+#                                     edgecolor='k',
+#                                     zorder = 99)        
+#                ax.add_patch(rect)
+
+
+    pad_ax_h = 0.02     
+    pad_ax_v = 0.35
+#    pad_ax_v = 0.005
+    fig.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
+#    fig.subplots_adjust(wspace=pad_ax_v)
+             
+#    fig.tight_layout()
+    if fig_path is not None:
+        fig.savefig(fig_path,
+    #                    bbox_inches = 0,
+                    bbox_inches = 'tight',
+                    pad_inches = 0.05,
+                    dpi=600
                     )           
+        
 #%% FUNCTION DEF: PLOT FIELDS STD ERRORS
 def plot_scalar_field_frames_std_MA(grid, fields_with_time,
                                            fields_with_time_std,
@@ -1224,7 +1616,7 @@ def plot_particle_trajectories_MA(traj, grid, selection=None,
                                MS=1.0, LW=0.6, arrow_every=5,
                                ARROW_SCALE=12,ARROW_WIDTH=0.005, 
                                TTFS = 10, LFS=10,TKFS=10,fig_name=None,
-                               t_start=0, t_end=3600):
+                               t_start=0, t_end=3600, label_y=True):
     scale_x = 1E-3    
     traj *= scale_x
     
@@ -1257,9 +1649,9 @@ def plot_particle_trajectories_MA(traj, grid, selection=None,
     # loc_every = 1
     
     pos_x = grid.centers[0][arrow_every//2::arrow_every,
-                            arrow_every//2::arrow_every]
+                            arrow_every//2::arrow_every] * scale_x
     pos_z = grid.centers[1][arrow_every//2::arrow_every,
-                            arrow_every//2::arrow_every]
+                            arrow_every//2::arrow_every] * scale_x
     # print(pos_x)
     # pos_x = grid.centers[0][arrow_every//2::arrow_every,
     #                         arrow_every//2::arrow_every]/1000
@@ -1279,7 +1671,7 @@ def plot_particle_trajectories_MA(traj, grid, selection=None,
     vel_z = centered_w_field[arrow_every//2::arrow_every,
                              arrow_every//2::arrow_every]
     
-    tick_ranges = grid.ranges
+    tick_ranges = grid.ranges * scale_x
     
     fig, ax = plt.subplots(figsize=figsize)
     
@@ -1313,8 +1705,11 @@ def plot_particle_trajectories_MA(traj, grid, selection=None,
     
     ax.tick_params(axis='both', which='major', labelsize=TKFS)
     ax.set_xlabel('$x$ (km)', fontsize = LFS)
-    ax.set_ylabel('$z$ (km)', fontsize = LFS)
-
+    if label_y:
+        ax.set_ylabel('$z$ (km)', fontsize = LFS)
+    else:
+        ax.tick_params(labelleft=False)
+    
 #    ax.set_title(
 #    'Air velocity field and arbitrary particle trajectories\nfrom $t = $'\
 #    + str(t_start) + " s to " + str(t_end) + " s",
@@ -1323,8 +1718,8 @@ def plot_particle_trajectories_MA(traj, grid, selection=None,
                loc = "lower center",
                bbox_to_anchor=(0.5,1.00),
                ncol = len(selection),
-               handlelength=1, handletextpad=0.1,
-               columnspacing=0.5, borderpad=0.2,
+               handlelength=1, handletextpad=0.08,
+               columnspacing=0.4, borderpad=0.2,
                markerscale=3)      
 #    ax.legend(loc="lower center", bbox_to_anchor=(0.5,1.05), ncols=6)
     ax.grid(color='gray', linestyle='dashed', zorder = 0)    
@@ -1335,7 +1730,7 @@ def plot_particle_trajectories_MA(traj, grid, selection=None,
         fig.savefig(fig_name,
     #                    bbox_inches = 0,
                     bbox_inches = 'tight',
-                    pad_inches = 0.04,
+                    pad_inches = 0.03,
                     dpi=600
                     )           
         
