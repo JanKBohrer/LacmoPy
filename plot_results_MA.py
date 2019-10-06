@@ -125,14 +125,18 @@ elif (my_OS == "TROPOS_server"):
 
 #args_plot = [1,1,1,0,0,0]
 #args_plot = [1,0,0,0,0,0]
-args_plot = [0,0,0,1,0,0]
+#args_plot = [0,1,0,0,0,0,0]
+args_plot = [0,0,0,1,0,0,0]
+#args_plot = [0,1,1,0,0,0,0]
+#args_plot = [0,0,0,1,0,0]
 
 act_plot_grid_frames_init = args_plot[0]
 act_plot_grid_frames_avg = args_plot[1]
 act_plot_grid_frames_std = args_plot[2]
-act_plot_spectra_avg_Arabas = args_plot[3]
-act_plot_moments_vs_z = args_plot[4]
-act_plot_moments_diff_vs_z = args_plot[5]
+act_plot_grid_frames_abs_dev = args_plot[3]
+act_plot_spectra_avg_Arabas = args_plot[4]
+act_plot_moments_vs_z = args_plot[5]
+act_plot_moments_diff_vs_z = args_plot[6]
 
 # this one is not adapted for MA plots...
 #act_plot_grid_frames_avg_shift = args_plot[2]
@@ -155,7 +159,7 @@ kernel_l = ["Long","Long","Long","Long","Long","Hall","NoCol","Ecol05","Long",
             "Long","Long"]
 
 #%% SET SIMULATION PARAS
-SIM_N = 1
+SIM_N = 9
 
 shift_cells_x = 18
 
@@ -181,7 +185,10 @@ figsize_scalar_fields_init = cm2inch(7.4,7.4)
 figpath = home_path + "Masterthesis/Figures/06TestCase/"
 
 ### GRID FRAMES
-show_target_cells = True
+if SIM_N == 9:
+    show_target_cells = False
+else:
+    show_target_cells = True
 
 ### SPECTRA
 # if set to "None" the values are loaded from stored files
@@ -218,7 +225,8 @@ no_bins_R_s = None
 #if fields_type == 1:
 #    idx_fields_plot = np.array((5,6,9,12))
 #    fields_name_add = "rc_rr_nr_Reff"
-fields_types_avg = [0,1]
+fields_types_avg = [3]
+#fields_types_avg = [0,1]
 
 fields_types_std = [2]
 
@@ -229,7 +237,7 @@ plot_rel = True
 # [ 7200  7800  8400  9000  9600 10200 10800]
 idx_times_plot = np.array((0,2,3,6))
 
-#%% SET PARAS FOR PLOTTING MOMENTS
+#%% SET PARAS FOR PLOTTING MOMENTS FOR COMPARISON OF NSIP
 
 figsize_moments = cm2inch(17,23)
 figname_moments0 = "moments_vs_z_Nsip_var_" 
@@ -290,6 +298,9 @@ grid_paths, data_paths = gen_data_paths(solute_type_var, kernel_var,
                                         seed_SIP_gen_var, seed_sim_var,
                                         DNC0_var, no_spcm_var,
                                         no_seeds_var, dt_col_var)
+
+#%% SET PARAS FOR ABSOLUTE DIFFERENCE PLOTS
+
 #%% DERIVED PARAS
 #%% DERIVED GRID PARAMETERS
 
@@ -468,6 +479,10 @@ if act_plot_grid_frames_avg:
             idx_fields_plot = np.array((5,6,9,12))
             fields_name_add = "rc_rr_nr_Reff_"    
         
+        if fields_type == 3:
+            idx_fields_plot = np.array((7,5,6,12))
+            fields_name_add = "Naero_rc_rr_Reff_"    
+        
         fields_with_time = np.load(data_path
                 + f"fields_vs_time_avg_Ns_{no_seeds}_"
                 + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
@@ -617,6 +632,231 @@ if act_plot_grid_frames_std:
                                             no_cells_x = no_cells_x,
                                             no_cells_z = no_cells_z)     
         plt.close("all")   
+
+#%% PLOT GRID FRAMES ABSOLUTE DEVIATIONS BETWEEN TWO CASES
+
+#compare_type_abs_dev = "dt_col"
+#compare_type_abs_dev = "Ncell"
+#compare_type_abs_dev = "solute"
+compare_type_abs_dev = "Kernel"
+
+figsize_abs_dev = figsize_scalar_fields
+
+if act_plot_grid_frames_abs_dev:
+    
+    from plotting_fcts_MA import plot_scalar_field_frames_abs_dev_MA
+    
+    # n_aero, r_c, r_r, R_eff
+#    idx_fields_plot = (7, 5, 6, 12)
+    idx_fields_plot = np.array((7,5,6,12))
+    fields_name_add = fields_name_add = "Naero_rc_rr_Reff_"
+    
+    idx_times_plot = np.array((0,2,3,6))
+    
+    if compare_type_abs_dev == "dt_col":
+        SIM_Ns = [1,10]
+    elif compare_type_abs_dev == "Ncell":
+        SIM_Ns = [1,9]
+    elif compare_type_abs_dev == "solute":
+        SIM_Ns = [1,8]
+    elif compare_type_abs_dev == "Kernel":
+        SIM_Ns = [1,5]
+#        fname_abs_dev_add = ""
+    
+    SIM_N = SIM_Ns[0]
+    
+    no_cells = (ncl[SIM_N], ncl[SIM_N])
+    solute_type = solute_typel[SIM_N]
+    kernel = kernel_l[SIM_N]
+    seed_SIP_gen = gseedl[SIM_N]
+    seed_sim = sseedl[SIM_N]
+    DNC0 = [DNC1[SIM_N], DNC2[SIM_N]]
+    no_spcm = np.array([no_spcm0l[SIM_N], no_spcm1l[SIM_N]])
+    no_seeds = Ns
+    dt_col = dt / no_col_per_advl[SIM_N]
+    
+#    figname_base =\
+#    f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}"\
+#    + f"_SIP_{no_spcm[0]}_{no_spcm[1]}_Ns_{no_seeds}_DNC_{DNC0[0]}_{DNC0[1]}_dtcol_{int(dt_col*10)}"
+    
+    data_folder = \
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen}_ss_{seed_sim}/"
+    
+    grid_path = simdata_path + data_folder + "grid_data/" \
+                + f"{seed_SIP_gen}_{seed_sim}/"
+    
+    grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
+                                grid_path + f"arr_file1_{int(t_grid)}.npy",
+                                grid_path + f"arr_file2_{int(t_grid)}.npy")
+    scale_x = 1E-3    
+    grid.steps *= scale_x
+    grid.ranges *= scale_x
+    grid.corners[0] *= scale_x
+    grid.corners[1] *= scale_x
+    grid.centers[0] *= scale_x
+    grid.centers[1] *= scale_x  
+    
+    data_path = simdata_path + data_folder
+    seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
+    seed_sim_list = np.load(data_path + "seed_sim_list.npy")
+    
+    fields_with_time1 = np.load(data_path
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    save_times_out_fr = np.load(data_path
+            + f"save_times_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    field_names_out = np.load(data_path
+            + f"field_names_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    units_out = np.load(data_path
+            + f"units_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    scales_out = np.load(data_path
+            + f"scales_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )   
+    
+    ####################
+    SIM_N = SIM_Ns[1]
+    
+    no_cells = (ncl[SIM_N], ncl[SIM_N])
+    solute_type = solute_typel[SIM_N]
+    kernel = kernel_l[SIM_N]
+    seed_SIP_gen = gseedl[SIM_N]
+    seed_sim = sseedl[SIM_N]
+    DNC0 = [DNC1[SIM_N], DNC2[SIM_N]]
+    no_spcm = np.array([no_spcm0l[SIM_N], no_spcm1l[SIM_N]])
+    no_seeds = Ns
+    dt_col = dt / no_col_per_advl[SIM_N]
+    
+    figname_base =\
+    f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}"\
+    + f"_SIP_{no_spcm[0]}_{no_spcm[1]}_Ns_{no_seeds}_DNC_{DNC0[0]}_{DNC0[1]}_dtcol_{int(dt_col*10)}"
+    
+    data_folder = \
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen}_ss_{seed_sim}/"
+    
+    data_path = simdata_path + data_folder
+    seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
+    seed_sim_list = np.load(data_path + "seed_sim_list.npy")
+    
+    fields_with_time2 = np.load(data_path
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    
+    ####################
+    
+#    print(fields_with_time2.shape)
+    
+    fields_with_time1 = fields_with_time1[idx_times_plot][:,idx_fields_plot]
+    fields_with_time2 = fields_with_time2[idx_times_plot][:,idx_fields_plot]
+    
+    if compare_type_abs_dev == "Ncell":
+        fields_with_time2 = (  fields_with_time2[:,:,::2,::2] 
+                             + fields_with_time2[:,:,1::2,::2] 
+                             + fields_with_time2[:,:,::2,1::2] 
+                             + fields_with_time2[:,:,1::2,1::2] ) / 4.
+#    print(fields_with_time_x.shape)
+    
+    print(field_names_out)
+    
+    save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
+    field_names_out = field_names_out[idx_fields_plot]
+    units_out = units_out[idx_fields_plot]
+    scales_out = scales_out[idx_fields_plot]
+
+#    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
+#    fig_path = figpath
+#    fig_name = \
+#               f"scalar_fields_avg_" \
+#               + f"t_{save_times_out_fr[0]}_" \
+#               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+#               + f"Nfie_{len(field_names_out)}_" \
+#               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+#               + f"ss_{seed_sim_list[0]}_" \
+#               + fields_name_add + ".pdf"
+    
+    fig_name = "fields_abs_dev_" + compare_type_abs_dev + "_" \
+               + fields_name_add + figname_base + ".pdf"
+               
+    if not os.path.exists(figpath):
+            os.makedirs(figpath)    
+            
+    plot_scalar_field_frames_abs_dev_MA(grid,
+                                        fields_with_time1,
+                                        fields_with_time2,
+                                        save_times_out_fr,
+                                        field_names_out,
+                                        units_out,
+                                        scales_out,
+                                        solute_type,
+                                        simulation_mode, # for time in label
+                                        compare_type=compare_type_abs_dev,
+                                        fig_path=figpath + fig_name,
+                                        figsize=figsize_abs_dev,
+                                        no_ticks=[6,6],
+                                        alpha = 1.0,
+                                        TTFS = 10, LFS = 10, TKFS = 8,
+                                        cbar_precision = 2,
+                                        show_target_cells = False,
+                                        target_cell_list = None,
+                                        no_cells_x = 0,
+                                        no_cells_z = 0
+                                        )   
+
+    if compare_type_abs_dev == "Ncell":       
+        fig_name2 = "fields_coarse_grain_" + compare_type_abs_dev + "_" \
+           + fields_name_add + figname_base + ".pdf"
+        plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time2,
+                                            save_times_out_fr,
+                                            field_names_out,
+                                            units_out,
+                                            scales_out,
+                                            solute_type,
+                                            simulation_mode, # for time in label
+                                            fig_path=figpath+fig_name2,
+                                            figsize = figsize_scalar_fields,
+                                            no_ticks=[6,6], 
+                                            alpha = 1.0,
+                                            TTFS = 10, LFS = 10, TKFS = 8,
+                                            cbar_precision = 2,
+                                            show_target_cells = show_target_cells,
+                                            target_cell_list = target_cell_list,
+                                            no_cells_x = no_cells_x,
+                                            no_cells_z = no_cells_z)     
+      
+        fig_name3 = "fields_default_compare_" + compare_type_abs_dev + "_" \
+           + fields_name_add + figname_base + ".pdf"
+        plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time1,
+                                            save_times_out_fr,
+                                            field_names_out,
+                                            units_out,
+                                            scales_out,
+                                            solute_type,
+                                            simulation_mode, # for time in label
+                                            fig_path=figpath+fig_name3,
+                                            figsize = figsize_scalar_fields,
+                                            no_ticks=[6,6], 
+                                            alpha = 1.0,
+                                            TTFS = 10, LFS = 10, TKFS = 8,
+                                            cbar_precision = 2,
+                                            show_target_cells = show_target_cells,
+                                            target_cell_list = target_cell_list,
+                                            no_cells_x = no_cells_x,
+                                            no_cells_z = no_cells_z)     
+    plt.close("all")   
 
 #%% PLOT AVG GRID FRAMES SHIFT IN X DIRECTION
 
@@ -981,7 +1221,8 @@ if act_plot_moments_vs_z:
 #%% PLOT MOMENTS DIFFERENCES VS Z
 
 #fmt_list = ["", "x-", "o--", "d:"]
-fmt_list = ["x-", "o--", "d:"]
+#fmt_list = ["x-", "o--", "d:"]
+fmt_list = ["x", "o", "d"]
 
 #units_mom = [ "a","b","c","d"]
 #units_mom = [
@@ -1165,8 +1406,6 @@ if act_plot_moments_diff_vs_z:
         print(target_cells_z)
         
 #        print(target_cells_z)        
-    
-
         
         no_seeds = moments_vs_time_all_seeds.shape[0]
 #        no_moments = moments_vs_time_all_seeds.shape[2]
@@ -1182,8 +1421,6 @@ if act_plot_moments_diff_vs_z:
         
     #    from numba import njit
     #    @njit()    
-                                
-                
             
         moments_at_boxes_all_seeds = avg_moments_over_boxes(
                 moments_vs_time_all_seeds, no_seeds, idx_t, no_moments,
