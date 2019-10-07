@@ -74,7 +74,6 @@ cdict_lcpp = {"red": cdict_lcpp_colors[0],
 
 cmap_lcpp = LinearSegmentedColormap('testCmap', segmentdata=cdict_lcpp, N=256)
 
-
 #%% FUNCTION DEF POSITIONS AND VELOCITIES
 
 def plot_pos_vel_pt_MA(pos, vel, grid,
@@ -176,6 +175,13 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
     annotations = ["A", "B", "C", "D", "E", "F",
                    "G", "H", "I", "J", "K", "L",
                    "M", "N", "O", "P", "Q", "R"]
+    
+    annotations_reordered = []
+    for cnt in range(no_rows): annotations_reordered += annotations[no_rows-cnt-1::no_rows]
+    
+    if no_rows == 6:
+        annotations = annotations_reordered
+    
     no_seeds = len(f_R_p_list[0])
     print("no_seeds =", no_seeds)
     grid_steps = grid.steps
@@ -194,7 +200,6 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
 #    print(f_R_p_list.shape)
 #    print(f_R_p_avg)
 #    print(f_R_p_std)
-
 
 #%% SPECTRA EXTENDED
     if figsize_spectra is not None:

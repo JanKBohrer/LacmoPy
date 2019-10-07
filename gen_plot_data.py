@@ -169,7 +169,6 @@ field_ind_deri = np.array((0,1,2,3,4,5,6,7,8))
 time_ind = np.arange(0,25,2)
 #    time_ind = np.array((0,3,6,9))
 
-
 ### SPECTRA
 # target cells for spectra analysis
 i_tg = [16,58,66]

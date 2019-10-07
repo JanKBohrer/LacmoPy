@@ -106,8 +106,8 @@ DPI = 600
 mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 #my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
@@ -115,6 +115,7 @@ if(my_OS == "Linux_desk"):
     simdata_path = "/mnt/D/sim_data_cloudMP/"
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
+    home_path = '/Users/bohrer/'
     simdata_path = "/Users/bohrer/sim_data_cloudMP/"
 #    fig_path = home_path \
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
@@ -123,12 +124,9 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-#args_plot = [1,1,1,0,0,0]
-#args_plot = [1,0,0,0,0,0]
-#args_plot = [0,1,0,0,0,0,0]
-args_plot = [0,0,0,1,0,0,0]
-#args_plot = [0,1,1,0,0,0,0]
-#args_plot = [0,0,0,1,0,0]
+#args_plot = [0,0,0,0,1,0,0,0]
+
+args_plot = [0,0,0,0,0,0,0,1]
 
 act_plot_grid_frames_init = args_plot[0]
 act_plot_grid_frames_avg = args_plot[1]
@@ -137,6 +135,7 @@ act_plot_grid_frames_abs_dev = args_plot[3]
 act_plot_spectra_avg_Arabas = args_plot[4]
 act_plot_moments_vs_z = args_plot[5]
 act_plot_moments_diff_vs_z = args_plot[6]
+act_compute_CFL = args_plot[7]
 
 # this one is not adapted for MA plots...
 #act_plot_grid_frames_avg_shift = args_plot[2]
@@ -146,7 +145,7 @@ act_plot_grid_frames_avg_shift = False
 gseedl=(3711, 3811, 3811, 3411, 3311, 3811 ,4811 ,4811 ,3711, 3711, 3811)
 sseedl=(6711 ,6811 ,6811 ,6411 ,6311 ,7811 ,6811 ,7811 ,6711, 6711, 8811)
 
-ncl=(75, 75 ,75 ,75 ,75 ,75 ,75 ,75 ,75,150,75)
+ncl=(75, 75, 75, 75, 75, 75, 75, 75, 75, 150, 75)
 solute_typel=["AS", "AS" ,"AS", "AS" ,"AS" ,"AS", "AS", "AS", "NaCl","AS","AS"]
 
 DNC1 = np.array((60,60,60,30,120,60,60,60,60,60,60))
@@ -155,11 +154,12 @@ no_spcm0l=(13, 26 ,52 ,26 ,26 ,26 ,26 ,26 ,26,26,26)
 no_spcm1l=(19, 38 ,76 ,38 ,38 ,38 ,38 ,38 ,38,38,38)
 no_col_per_advl=(2, 2, 2 ,2 ,2 ,2 ,2 ,2 ,2,2,10)
 
-kernel_l = ["Long","Long","Long","Long","Long","Hall","NoCol","Ecol05","Long",
-            "Long","Long"]
+kernel_l = ["Long","Long","Long","Long","Long",
+            "Hall","NoCol","Ecol05",
+            "Long", "Long", "Long"]
 
 #%% SET SIMULATION PARAS
-SIM_N = 9
+SIM_N = 1
 
 shift_cells_x = 18
 
@@ -242,7 +242,6 @@ idx_times_plot = np.array((0,2,3,6))
 figsize_moments = cm2inch(17,23)
 figname_moments0 = "moments_vs_z_Nsip_var_" 
 figname_moments_rel_dev0 = "moments_vs_z_rel_dev_Nsip_var"
-
 
 no_boxes_z = 25
 no_cells_per_box_x = 3
@@ -358,6 +357,18 @@ from file_handling import load_grid_from_files
 grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
                             grid_path + f"arr_file1_{int(t_grid)}.npy",
                             grid_path + f"arr_file2_{int(t_grid)}.npy")
+
+if act_compute_CFL:
+    # \Delta t \, \max(|u/\Delta x| + |v/\Delta y|)
+    v_abs_max_err = np.abs(grid.velocity[0]) / grid.steps[0] \
+            + np.abs(grid.velocity[1]) / grid.steps[1]
+    
+    v_abs = np.sqrt( grid.velocity[0]**2 + grid.velocity[1]**2 )
+    CFL = np.amax(v_abs_max_err) * dt
+    
+    print("CFL", CFL)
+    print("v_abs", np.amax(v_abs))
+
 scale_x = 1E-3    
 grid.steps *= scale_x
 grid.ranges *= scale_x
