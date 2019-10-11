@@ -106,8 +106,8 @@ DPI = 600
 mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 
 #%% STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
-my_OS = "Mac"
+my_OS = "Linux_desk"
+#my_OS = "Mac"
 #my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
@@ -124,9 +124,12 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
+#args_plot = [0,1,0,0,0,0,0,0]
+args_plot = [0,0,1,0,0,0,0,0]
+args_plot = [0,0,0,1,0,0,0,0]
 #args_plot = [0,0,0,0,1,0,0,0]
 
-args_plot = [0,0,0,0,0,0,0,1]
+#args_plot = [0,0,0,0,0,0,0,1]
 
 act_plot_grid_frames_init = args_plot[0]
 act_plot_grid_frames_avg = args_plot[1]
@@ -159,13 +162,16 @@ kernel_l = ["Long","Long","Long","Long","Long",
             "Long", "Long", "Long"]
 
 #%% SET SIMULATION PARAS
-SIM_N = 1
+#SIM_N = 1  # default
+SIM_N = 2 # Nsip 150
+#SIM_N = 7 # Ecol 0.5
+#SIM_N = 10 # dt_col 0.1
 
 shift_cells_x = 18
 
 Ns=50
-t_grid = 0.
-#t_grid = 14400.
+#t_grid = 0.
+t_grid = 14400.
 #t_start=0.0
 t_start=7200.0
 #t_end=7200.0
@@ -194,8 +200,13 @@ else:
 # if set to "None" the values are loaded from stored files
 #no_rows = 5
 #no_cols = 3
-no_rows = None
-no_cols = None
+    
+if SIM_N == 7:
+    no_rows = 5
+    no_cols = 2
+else:    
+    no_rows = None
+    no_cols = None
 
 # if set to "None" the values are loaded from stored files
 #no_bins_R_p = 30
@@ -220,15 +231,35 @@ no_bins_R_s = None
 
 #if fields_type == 0:
 #    idx_fields_plot = np.array((0,2,3,7))
-#    fields_name_add = "Th_rv_rl_na"
+#    fields_name_add = "Th_rv_rl_na_"
 #
 #if fields_type == 1:
 #    idx_fields_plot = np.array((5,6,9,12))
-#    fields_name_add = "rc_rr_nr_Reff"
-fields_types_avg = [3]
+#    fields_name_add = "rc_rr_nr_Reff_"    
+#
+#if fields_type == 3:
+#    idx_fields_plot = np.array((7,5,6,12))
+#    fields_name_add = "Naero_rc_rr_Reff_"  
+
+fields_types_avg = [0]
 #fields_types_avg = [0,1]
 
-fields_types_std = [2]
+#if fields_type == 0:
+#    idx_fields_plot = np.array((0,2,3,7))
+#    fields_name_add = "Th_rv_rl_na_"
+#
+#if fields_type == 1:
+#    idx_fields_plot = np.array((5,6,9,12))
+#    fields_name_add = "rc_rr_nr_Reff_"  
+#
+#if fields_type == 2:
+#    idx_fields_plot = np.array((2,7,5,6))
+#    fields_name_add = "rv_na_rc_rr_"  
+#if fields_type == 3:
+#    idx_fields_plot = np.array((7,5,6,12))
+#    fields_name_add = "Naero_rc_rr_Reff_"  
+
+fields_types_std = [3]
 
 plot_abs = True
 plot_rel = True
@@ -534,8 +565,6 @@ if act_plot_grid_frames_avg:
         
         fig_name = "fields_avg_" + fields_name_add + figname_base + ".pdf"
     
-    
-                   
         if not os.path.exists(fig_path):
                 os.makedirs(fig_path)    
         plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
@@ -547,6 +576,7 @@ if act_plot_grid_frames_avg:
                                             simulation_mode, # for time in label
                                             fig_path=fig_path+fig_name,
                                             figsize = figsize_scalar_fields,
+                                            SIM_N = SIM_N,
                                             no_ticks=[6,6], 
                                             alpha = 1.0,
                                             TTFS = 10, LFS = 10, TKFS = 8,
@@ -574,6 +604,10 @@ if act_plot_grid_frames_std:
         if fields_type == 2:
             idx_fields_plot = np.array((2,7,5,6))
             fields_name_add = "rv_na_rc_rr_"  
+
+        if fields_type == 3:
+            idx_fields_plot = np.array((7,5,6,12))
+            fields_name_add = "Naero_rc_rr_Reff_"  
 
         fields_with_time = np.load(data_path
                 + f"fields_vs_time_avg_Ns_{no_seeds}_"
@@ -619,8 +653,8 @@ if act_plot_grid_frames_std:
         fig_name_abs = "fields_std_ABS_ERROR_" + fields_name_add + figname_base + ".pdf"
         fig_name_rel = "fields_std_REL_ERROR_" + fields_name_add + figname_base + ".pdf"
                    
-        if not os.path.exists(fig_path):
-                os.makedirs(fig_path)    
+        if not os.path.exists(figpath):
+                os.makedirs(figpath)    
         plot_scalar_field_frames_std_MA(grid, fields_with_time,
                                         fields_with_time_std,
                                             save_times_out_fr,
@@ -632,6 +666,7 @@ if act_plot_grid_frames_std:
                                             fig_path_abs=figpath+fig_name_abs,
                                             fig_path_rel=figpath+fig_name_rel,
                                             figsize = figsize_scalar_fields,
+                                            SIM_N = SIM_N,
                                             plot_abs=plot_abs,
                                             plot_rel=plot_rel,                                            
                                             no_ticks=[6,6], 
@@ -644,12 +679,13 @@ if act_plot_grid_frames_std:
                                             no_cells_z = no_cells_z)     
         plt.close("all")   
 
-#%% PLOT GRID FRAMES ABSOLUTE DEVIATIONS BETWEEN TWO CASES
+#%% PLOT ABSOLUTE DEVIATIONS BETWEEN TWO GRIDS
 
-#compare_type_abs_dev = "dt_col"
+compare_type_abs_dev = "dt_col"
 #compare_type_abs_dev = "Ncell"
 #compare_type_abs_dev = "solute"
-compare_type_abs_dev = "Kernel"
+#compare_type_abs_dev = "Kernel"
+#compare_type_abs_dev = "Nsip"
 
 figsize_abs_dev = figsize_scalar_fields
 
@@ -672,6 +708,8 @@ if act_plot_grid_frames_abs_dev:
         SIM_Ns = [1,8]
     elif compare_type_abs_dev == "Kernel":
         SIM_Ns = [1,5]
+    elif compare_type_abs_dev == "Nsip":
+        SIM_Ns = [1,2]
 #        fname_abs_dev_add = ""
     
     SIM_N = SIM_Ns[0]
@@ -718,6 +756,10 @@ if act_plot_grid_frames_abs_dev:
             + f"fields_vs_time_avg_Ns_{no_seeds}_"
             + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
             )
+    fields_with_time_std1 = np.load(data_path
+            + f"fields_vs_time_std_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )    
     save_times_out_fr = np.load(data_path
             + f"save_times_out_avg_Ns_{no_seeds}_"
             + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
@@ -766,19 +808,30 @@ if act_plot_grid_frames_abs_dev:
             + f"fields_vs_time_avg_Ns_{no_seeds}_"
             + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
             )
+    fields_with_time_std2 = np.load(data_path
+            + f"fields_vs_time_std_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )   
+
     
     ####################
     
 #    print(fields_with_time2.shape)
     
     fields_with_time1 = fields_with_time1[idx_times_plot][:,idx_fields_plot]
+    fields_with_time_std1 = fields_with_time_std1[idx_times_plot][:,idx_fields_plot]
     fields_with_time2 = fields_with_time2[idx_times_plot][:,idx_fields_plot]
+    fields_with_time_std2 = fields_with_time_std2[idx_times_plot][:,idx_fields_plot]
     
     if compare_type_abs_dev == "Ncell":
         fields_with_time2 = (  fields_with_time2[:,:,::2,::2] 
                              + fields_with_time2[:,:,1::2,::2] 
                              + fields_with_time2[:,:,::2,1::2] 
                              + fields_with_time2[:,:,1::2,1::2] ) / 4.
+        fields_with_time_std2 = (  fields_with_time_std2[:,:,::2,::2] 
+                                 + fields_with_time_std2[:,:,1::2,::2] 
+                                 + fields_with_time_std2[:,:,::2,1::2] 
+                                 + fields_with_time_std2[:,:,1::2,1::2] ) / 4.
 #    print(fields_with_time_x.shape)
     
     print(field_names_out)
@@ -801,13 +854,17 @@ if act_plot_grid_frames_abs_dev:
     
     fig_name = "fields_abs_dev_" + compare_type_abs_dev + "_" \
                + fields_name_add + figname_base + ".pdf"
+    fig_name_abs_err = "fields_abs_dev_ABS_ERR_" + compare_type_abs_dev + "_" \
+               + fields_name_add + figname_base + ".pdf"
                
     if not os.path.exists(figpath):
             os.makedirs(figpath)    
             
     plot_scalar_field_frames_abs_dev_MA(grid,
                                         fields_with_time1,
+                                        fields_with_time_std1,
                                         fields_with_time2,
+                                        fields_with_time_std2,
                                         save_times_out_fr,
                                         field_names_out,
                                         units_out,
@@ -816,6 +873,7 @@ if act_plot_grid_frames_abs_dev:
                                         simulation_mode, # for time in label
                                         compare_type=compare_type_abs_dev,
                                         fig_path=figpath + fig_name,
+                                        fig_path_abs_err=figpath + fig_name_abs_err,
                                         figsize=figsize_abs_dev,
                                         no_ticks=[6,6],
                                         alpha = 1.0,
@@ -983,12 +1041,19 @@ if act_plot_spectra_avg_Arabas:
                 )        
         no_bins_R_p = no_bins_p_s[0]
         no_bins_R_s = no_bins_p_s[1]
+        
+        
+        print("no_bins_R_p")
+        print(no_bins_R_p)
+        print("no_bins_R_s")
+        print(no_bins_R_s)
     
     j_low = target_cell_list[1].min()
     j_high = target_cell_list[1].max()    
     t_low = save_times_out_spectra.min()
     t_high = save_times_out_spectra.max()    
 
+    no_tg_cells = no_rows * no_cols
 
 #    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"    
 #    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"  
@@ -1027,6 +1092,7 @@ if act_plot_spectra_avg_Arabas:
             no_cells_x, no_cells_z,
             no_bins_R_p, no_bins_R_s,
             no_rows, no_cols,
+            SIM_N,
             TTFS=10, LFS=10, TKFS=8, LW = 2.0, MS = 0.4,
             figsize_spectra = figsize_spectra,
             figsize_trace_traj = figsize_tg_cells,

@@ -149,6 +149,7 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                                no_cells_x, no_cells_z,
                                no_bins_R_p, no_bins_R_s,
                                no_rows, no_cols,
+                               SIM_N = None,
                                TTFS=12, LFS=10, TKFS=10, LW = 4.0, MS = 3.0,
                                figsize_spectra = None,
                                figsize_trace_traj = None,
@@ -176,11 +177,31 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                    "G", "H", "I", "J", "K", "L",
                    "M", "N", "O", "P", "Q", "R"]
     
-    annotations_reordered = []
-    for cnt in range(no_rows): annotations_reordered += annotations[no_rows-cnt-1::no_rows]
+    if SIM_N == 1:
+        annotations = np.array(annotations)
+        annotations[0:6] = annotations[0:6][::-1]
+        annotations = (np.reshape(annotations, (3,6)).T).flatten()
     
-    if no_rows == 6:
-        annotations = annotations_reordered
+#    annotations_reordered = []
+#    for cnt in range(no_rows):
+#        annotations_reordered += annotations[no_rows-cnt-1::no_rows]
+    
+    if SIM_N == 7:
+        annotations = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
+#        i_list = target_cell_list[0]
+#        j_list = target_cell_list[1]
+        print ("target_cell_list")
+        print (target_cell_list)
+        target_cell_list = np.delete(target_cell_list, np.s_[2::3], 1 )
+        target_cell_list = np.delete(target_cell_list, np.s_[8:10:], 1 )
+        print (target_cell_list)
+        
+        idx_chosen = np.array([0,1,3,4,6,7,9,10,15,16])
+        mask = np.zeros(18, dtype=bool)
+        mask[idx_chosen] = True
+        
+        no_rows = 5
+        no_cols = 2
     
     no_seeds = len(f_R_p_list[0])
     print("no_seeds =", no_seeds)
@@ -196,6 +217,14 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
         f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1) / np.sqrt(no_seeds)
         f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1) / np.sqrt(no_seeds)
     
+    if SIM_N == 7:
+        f_R_p_avg = f_R_p_avg[mask]
+        f_R_s_avg = f_R_s_avg[mask]
+        f_R_p_std = f_R_p_std[mask]
+        f_R_s_std = f_R_s_std[mask]
+        bins_R_p_list = bins_R_p_list[mask]
+        bins_R_s_list = bins_R_s_list[mask]
+
 #    print("len(f_R_p_list)")
 #    print(f_R_p_list.shape)
 #    print(f_R_p_avg)
@@ -292,10 +321,16 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
 #                            facecolor="orange",
 #                            edgecolor="darkorange", lw=0.5,
 #                            zorder=0)
-            
+            if SIM_N == 7:
+                AN_pos = (2.5E-3, 2E3)
+            else:
+                AN_pos = (2.5E-3, 1E3)
             ax.annotate(f"\\textbf{{{annotations[plot_n]}}}",
 #                    annotations[plot_n],
-                    (2.5E-3, 1E3) )
+                    AN_pos
+#                    (2.5E-3, 1E3)
+#                    fontsize = ANS
+                    )
 #            ax.vlines(0.5, f_R_s_min, f_R_s_max)
             LW_vline = 1
             LS_vline = "--"
@@ -307,6 +342,11 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
             ax.set_yscale("log")
 #            ax.set_xlim( [2E-3, 1E2] )    
 #            ax.set_ylim( [8E-3, 4E3] )    
+            
+            if SIM_N == 7:
+                ax.set_yticks(np.logspace(-2,4,7))
+#            else:
+            
             ax.set_xticks(np.logspace(-2,2,5))
             ax.set_xticks(
                     np.concatenate((
@@ -320,8 +360,12 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                     minor=True
                     )
                     
-            ax.set_xlim( [2E-3, 3E2] )    
-            ax.set_ylim( [1E-5, 1E4] )    
+            ax.set_xlim( [2E-3, 3E2] )  
+            
+            if SIM_N == 7:
+                ax.set_ylim( [5E-3, 1E4] )    
+            else:
+                ax.set_ylim( [1E-5, 1E4] )    
             
             ax.tick_params(axis='both', which='major', labelsize=TKFS,
                            length = 6, width=1)
@@ -329,8 +373,8 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                            length = 3)
             
 #            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
-            xx = ((target_cell[0])*grid_steps[0])
-            height = ((target_cell[1])*grid_steps[1])
+            xx = ( (target_cell[0] + 0.5 )*grid_steps[0])
+            height = ( (target_cell[1] + 0.5 )*grid_steps[1])
 #            xx = int((target_cell[0])*grid_steps[0])
 #            height = int((target_cell[1])*grid_steps[1])
 #            xx = int((target_cell[0]+0.5)*grid_steps[1])
@@ -572,10 +616,13 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                     z_ann_shift = 40E-3
                 if (tg_cell_n // no_cols) == 4:
                     z_ann_shift = 30E-3
+                    
+                if SIM_N == 7: ANS = 10
+                else: ANS = 8
                 ax.annotate(f"\\textbf{{{annotations[tg_cell_n]}}}",
                             (x-x_ann_shift,z-z_ann_shift),
                 #                        xytext=(3, 1.5),
-                            fontsize=8, zorder=100,
+                            fontsize=ANS, zorder=100,
                 #            label=r"{}".format(-120 + save_times_out[tg_cell_n]//60)
                             )
 #                else:
@@ -639,9 +686,6 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                         pad_inches = 0.05
                         )   
             
-            
-            
-            
 #%% FUNCTION DEF: PLOT SCALAR FIELDS
 def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                                         save_times,
@@ -652,6 +696,7 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                                         simulation_mode, # for time in label
                                         fig_path,
                                         figsize,
+                                        SIM_N=None,
                                         no_ticks=[6,6],
                                         alpha = 1.0,
                                         TTFS = 12, LFS = 10, TKFS = 10,
@@ -673,7 +718,14 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
 
     no_rows = len(save_times)
     no_cols = len(field_names)
-
+    
+    if SIM_N == 7:
+        print ("target_cell_list")
+        print (target_cell_list)
+        target_cell_list = np.delete(target_cell_list, np.s_[2::3], 1 )
+        target_cell_list = np.delete(target_cell_list, np.s_[8:10:], 1 )
+        print (target_cell_list)        
+    
 #    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
 #                       figsize = (4.5*no_cols, 4*no_rows),
 #                       sharex=True, sharey=True)    
@@ -719,8 +771,12 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                             ))
             else: norm_ = mpl.colors.Normalize   
             
-            
             if ax_title == r"\Theta":
+#                if SIM_N == 7:
+#                    field_min = 289.0
+#                    field_max = 292.5
+#                    xticks_major = [289,290,291,292]
+#                else:
                 field_min = 289.2
                 field_max = 292.5
                 xticks_major = [290,291,292]
@@ -796,7 +852,16 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                                 rasterized=True,
                                 antialiased=True, linewidth=0.0
                                 )
-            CS.cmap.set_under("white")
+            if ax_title == r"\Theta":
+                cmap_x = mpl.cm.get_cmap('coolwarm')
+                print("cmap_x(0.0)")
+                print(cmap_x(0.0))
+                CS.cmap.set_under(cmap_x(0.0))
+#                pass
+            else:
+#            if ax_title != r"\Theta":
+                CS.cmap.set_under("white")
+            
             
             ax.set_xticks( np.linspace( tick_ranges[0,0],
                                              tick_ranges[0,1],
@@ -931,7 +996,9 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
 #%% FUNCTION DEF: PLOT ABSOLUTE DEVS OF TWO SCALAR FIELDS
 def plot_scalar_field_frames_abs_dev_MA(grid,
                                         fields_with_time1,
+                                        fields_with_time_std1,
                                         fields_with_time2,
+                                        fields_with_time_std2,
                                         save_times,
                                         field_names,
                                         units,
@@ -940,6 +1007,7 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                                         simulation_mode, # for time in label
                                         compare_type,
                                         fig_path,
+                                        fig_path_abs_err,
                                         figsize,
                                         no_ticks=[6,6],
                                         alpha = 1.0,
@@ -972,9 +1040,16 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                        figsize = figsize,
                        sharex=True, sharey=True)
     
+    vline_pos = (0.33, 1.17, 1.33)
+    
     for time_n in range(no_rows):
         for field_n in range(no_cols):
-            ax = axes[time_n,field_n]
+            ax = axes[time_n, field_n]
+            
+            if compare_type == "Nsip" and time_n == 2:
+                for vline_pos_ in vline_pos:
+                    ax.axvline(vline_pos_, alpha=0.5, c="k", zorder= 3, linewidth = 1.3)
+            
             field = abs_dev_with_time[time_n, field_n] * scales[field_n]
             ax_title = field_names[field_n]
 
@@ -1057,6 +1132,7 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
     #                field_min = 0.
     #                field_min = 1.5
                     field_max = 8.
+#                    field_max = 5.
                     field_min = -field_max
                     xticks_major = np.linspace(field_min,field_max,5)
     #                cmap = cmap_new
@@ -1064,6 +1140,73 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                     cmap = cmap_lcpp
                     unit = r"\si{\micro\meter}"
                     
+            elif compare_type == "Nsip":
+#            elif compare_type == "dt_col":
+                if ax_title in ["r_r", "n_r"]: #and field_max > 1E-2:
+    #                norm_ = mpl.colors.SymLogNorm
+                    norm_ = mpl.colors.Normalize
+    #                norm_ = mpl.colors.LogNorm
+                    cmap = cmap_lcpp                
+                    if ax_title == "r_r":
+                        field_max = 0.08
+                        field_min = -field_max
+    #                    linthresh=(-0.01,0.01)
+                        linthresh=0.01
+    #                    xticks_major = [-0.1, 0, 0.1]
+                        xticks_major = [field_min, -0.04, 0., 0.04, field_max]
+    #                    xticks_major = [0, 0.01, 0.1]
+                    elif ax_title == "n_r":
+                        field_max = 10.
+                        xticks_major = [0.01,0.1,1.,10.]
+                        xticks_minor = np.concatenate((
+                                np.linspace(2E-2,1E-1,9),
+                                np.linspace(2E-1,1,9),
+                                np.linspace(2,10,9),
+                                ))
+                else: norm_ = mpl.colors.Normalize   
+                
+                if ax_title == r"\Theta":
+                    field_min = 289.2
+                    field_max = 292.5
+                    xticks_major = [290,291,292]
+                if ax_title == "r_v":
+                    field_min = 6.5
+                    field_max = 7.6
+                    xticks_minor = [6.75,7.25]
+                if ax_title == "r_l":
+                    field_min = 0.0
+                    field_max = 1.3
+                    xticks_minor = [0.25,0.75,1.25]
+                    
+                if ax_title == "r_c":
+                    field_max = 0.12
+                    field_min = -field_max                
+    #                field_min = -0.2
+    #                field_max = 0.2
+#                    xticks_major = np.linspace(field_min,field_max,5)
+                    xticks_major = [-0.1, -0.05, 0., 0.05, 0.1]
+    #                xticks_major = np.linspace(0,1.2,7)
+                if ax_title == "n_c":
+                    field_min = 0.0
+                    field_max = 150.
+                if ax_title == "n_\mathrm{aero}":
+                    field_max = 20.
+                    field_min = -field_max
+                    xticks_major = np.linspace(field_min,field_max,5)
+#                    xticks_major = [field_min, -4, 0., 4, field_max]
+    #                xticks_minor = [25,75,125]
+                if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+    #                xticks_major = [1,5,10,15,20]
+    #                field_min = 0.
+    #                field_min = 1.5
+#                    field_max = 8.
+                    field_max = 5.
+                    field_min = -field_max
+                    xticks_major = np.linspace(field_min,field_max,5)
+    #                cmap = cmap_new
+                    # Arabas 2015
+                    cmap = cmap_lcpp
+                    unit = r"\si{\micro\meter}"
             else:
 #            elif compare_type == "dt_col":
                 if ax_title in ["r_r", "n_r"]: #and field_max > 1E-2:
@@ -1300,6 +1443,266 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                     pad_inches = 0.05,
                     dpi=600
                     )     
+    plt.close("all")
+    #######################################################################
+    ### PLOT ABS ERROR OF THE DIFFERENCE OF TWO FIELDS:
+#    # Var = Var_1 + Var_2 (assuming no correlations)
+    # 
+#    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+#    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    
+#    for i,fm in enumerate(field_names):
+#        print(i,fm)
+#    print(save_times)
+    
+    print("plotting ABS ERROR of field1 - field2")
+    
+    std1 = np.nan_to_num( fields_with_time_std1 )
+    std2 = np.nan_to_num( fields_with_time_std2 )
+    std = np.sqrt( std1**2 + std2**2 )
+#    rel_std = fields_with_time_std
+#    rel_std = np.zeros_like(std)
+    
+#    rel_std = np.where(fields_with_time == 0.,
+#                       0.,
+#                       fields_with_time_std / fields_with_time)
+    
+    tick_ranges = grid.ranges
+#    tick_ranges_label = [[0,1.2],[0,1.2]]
+    
+    no_rows = len(save_times)
+    no_cols = len(field_names)
+
+#    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+#                       figsize = (4.5*no_cols, 4*no_rows),
+#                       sharex=True, sharey=True)    
+    
+    for time_n in range(no_rows):
+        for field_n in range(no_cols):
+            std[time_n, field_n] *= scales[field_n]
+#            fields_with_time[time_n, field_n] *= scales[field_n]
+#            rel_std[time_n, field_n] = \
+#                np.where(fields_with_time[time_n, field_n] <= 0.,
+#                         0.,
+#                         std[time_n, field_n] / fields_with_time[time_n, field_n])
+
+    field_max_all = np.amax(std, axis=(0,2,3))
+    field_min_all = np.amin(std, axis=(0,2,3))
+#    field_max_all_std = np.amax(rel_std, axis=(0,2,3))
+#    field_min_all_std = np.amin(rel_std, axis=(0,2,3))
+
+    pad_ax_h = 0.1     
+    pad_ax_v = 0.03
+
+    ### PLOT ABS ERROR  
+#    if plot_abs:
+    fig2, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                       figsize = figsize,
+                       sharex=True, sharey=True)
+            
+    for time_n in range(no_rows):
+        for field_n in range(no_cols):
+            ax = axes[time_n,field_n]
+#            field = rel_std[time_n, field_n] * scales[field_n]
+            field = std[time_n, field_n]
+            ax_title = field_names[field_n]
+            unit = units[field_n]
+            
+#            cmap = "coolwarm"
+#            cmap = "Greys"
+#            cmap = "Greens"
+#            cmap = "Reds"
+            cmap = cmap_lcpp
+            
+            field_min = 0.
+            field_max = field_max_all[field_n]
+#            field_min = field_min_all[field_n]
+
+            xticks_major = None
+            xticks_minor = None
+            
+            if compare_type == "Nsip":
+                if ax_title == "n_\mathrm{aero}":
+#                    field_max = 5.
+#                    xticks_minor = np.linspace(1.25,5,3)
+                    xticks_minor = np.array((1.25,3.75))
+                if ax_title == "r_c":
+                    field_max = 0.06
+                    xticks_minor = np.linspace(0.01,0.05,3)
+                if ax_title == "r_r":
+#                    field_max = 0.04
+                    xticks_minor = np.linspace(0.01,0.03,2)
+#                        xticks_minor = np.linspace(1,5,3)
+                #, r"R_{2/1}", r"R_\mathrm{eff}"]:                    
+                if ax_title in [r"R_\mathrm{eff}"]:
+                    xticks_major = np.linspace(0.,1.5,4)
+            
+            if compare_type == "dt_col":
+                if ax_title == "n_\mathrm{aero}":
+#                    field_max = 5.
+#                    xticks_minor = np.linspace(1.25,5,3)
+                    xticks_minor = np.array((1.25, 3.75, 6.25))
+                if ax_title == "r_c":
+#                    field_max = 0.0
+#                    xticks_minor = np.linspace(0.01,0.05,3)
+                    xticks_major = np.array((0.,0.02,0.04,0.06))
+                if ax_title == "r_r":
+#                    field_max = 0.04
+                    xticks_minor = np.linspace(0.01,0.05,3)
+#                        xticks_minor = np.linspace(1,5,3)
+                #, r"R_{2/1}", r"R_\mathrm{eff}"]:                    
+                if ax_title in [r"R_\mathrm{eff}"]:
+                    xticks_major = np.linspace(0.,1.5,4)
+            
+#            if SIM_N == 2:
+#                if ax_title == "r_r":
+#                    field_max = 0.03
+##                        xticks_minor = np.linspace(0.01,0.03,2)
+##                        xticks_minor = np.linspace(1,5,3)
+#                if ax_title == "r_c":
+##                        field_max = 0.05
+#                    xticks_minor = np.linspace(0.01,0.03,2)
+#                if ax_title == "n_\mathrm{aero}":
+##                        pass
+##                        field_max = 5.
+#                    xticks_minor = np.linspace(1,3,2)
+#            if SIM_N == 10:
+#                if ax_title == "r_r":
+##                        field_max = 0.04
+#                    xticks_minor = np.linspace(0.01,0.03,2)
+##                        xticks_minor = np.linspace(1,5,3)
+#                if ax_title == "r_c":
+#                    field_max = 0.05
+#                    xticks_minor = np.linspace(0.01,0.05,3)
+#                if ax_title == "n_\mathrm{aero}":
+#                    field_max = 5.
+#                    xticks_minor = np.linspace(1,5,3)
+            
+#            field_max = field.max()
+#            field_min = field.min()
+            
+            norm_ = mpl.colors.Normalize 
+                
+            str_format = "%.2g"
+            
+            my_format = False
+            oom_factor = 1.0
+
+            oom_max = oom = 1
+
+            CS = ax.pcolormesh(*grid.corners,
+                               field*oom_factor,
+                               cmap=cmap, alpha=alpha,
+                                edgecolor="face", zorder=1,
+#                                norm = norm_(vmin=-minmax, vmax=minmax),
+                                norm = norm_(vmin=field_min, vmax=field_max),
+#                                norm = norm_(vmin=field_min, vmax=field_max),
+                                rasterized=True,
+                                antialiased=True, linewidth=0.0
+                                )
+            CS.cmap.set_under("white")
+            
+            ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                             tick_ranges[0,1],
+                                             no_ticks[0] ) )
+            ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                             tick_ranges[1,1],
+                                             no_ticks[1] ) )
+
+            ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                           length = 3, width=1)
+            ax.grid(color='gray', linestyle='dashed', zorder = 2)
+            ax.set_aspect('equal')
+            if time_n == no_rows-1:
+                xticks1 = ax.xaxis.get_major_ticks()
+                xticks1[-1].label1.set_visible(False)
+                ax.set_xlabel(r'$x$ (km)', fontsize = LFS)
+            if field_n == 0:            
+                ax.set_ylabel(r'$z$ (km)', fontsize = LFS)
+            ax.set_title( r"$t$ = {0} min".format(int(save_times[time_n]/60)),
+                         fontsize = TTFS)
+            if time_n == 0:
+                axins = inset_axes(ax,
+                                   width="90%",  # width = 5% of parent_bbox width
+                                   height="8%",  # height
+                                   loc='lower center',
+                                   bbox_to_anchor=(0.0, 1.35, 1, 1),
+#                                   , 1, 1),
+                                   bbox_transform=ax.transAxes,
+                                   borderpad=0,
+                                   )      
+                cbar = plt.colorbar(CS, cax=axins,
+#                                    fraction=0.046, pad=-0.1,
+                                    format=mticker.FormatStrFormatter(str_format),
+                                    orientation="horizontal"
+                                    )
+                axins.xaxis.set_ticks_position("bottom")
+                axins.tick_params(axis="x",direction="inout",which="both")
+                axins.tick_params(axis='x', which='major', labelsize=TKFS,
+                               length = 7, width=1)                
+                axins.tick_params(axis='x', which='minor', labelsize=TKFS,
+                               length = 5, width=0.5,bottom=True)                
+                
+                if xticks_major is not None:
+                    axins.xaxis.set_ticks(xticks_major)
+                if xticks_minor is not None:
+                    axins.xaxis.set_ticks(xticks_minor, minor=True)
+                if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+                    unit = r"\si{\micro\meter}"                                            
+                axins.set_title(r"${0}$ abs. error ({1})".format(ax_title, unit))
+            # my_format dos not work with log scale here!!
+                
+                if my_format:
+                    cbar.ax.text(1.0,1.0,
+                                 r'$\times\,10^{{{}}}$'.format(oom_max),
+                                 va='bottom', ha='right', fontsize = TKFS,
+                                 transform=ax.transAxes)
+#                    cbar.ax.text(field_min - (field_max-field_min),
+#                                 field_max + (field_max-field_min)*0.01,
+#                                 r'$\times\,10^{{{}}}$'.format(oom_max),
+#                                 va='bottom', ha='left', fontsize = TKFS,
+#                                 transform=ax.transAxes)
+                cbar.ax.tick_params(labelsize=TKFS)
+
+            if show_target_cells:
+                ### ad the target cells
+                no_neigh_x = no_cells_x // 2
+                no_neigh_z = no_cells_z // 2
+                dx = grid.steps[0]
+                dz = grid.steps[1]
+                
+                no_tg_cells = len(target_cell_list[0])
+                LW_rect = .5
+                for tg_cell_n in range(no_tg_cells):
+                    x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+                    z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+                    
+            #        dx *= no_cells_x
+            #        dz *= no_cells_z
+                    
+                    rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                         fill=False,
+                                         linewidth = LW_rect,
+        #                                 linestyle = "dashed",
+                                         edgecolor='k',
+                                         zorder = 99)        
+                    ax.add_patch(rect)
+    
+    
+    
+    #    pad_ax_v = 0.005
+        fig2.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
+    #    fig.subplots_adjust(wspace=pad_ax_v)
+                 
+    #    fig.tight_layout()
+        if fig_path_abs_err is not None:
+            fig2.savefig(fig_path_abs_err,
+        #                    bbox_inches = 0,
+                        bbox_inches = 'tight',
+                        pad_inches = 0.05,
+                        dpi=600
+                        )       
+
         
 #%% FUNCTION DEF: PLOT INITIAL SCALAR FIELDS INITIAL
 def plot_scalar_field_frames_init_avg_MA(grid, fields_with_time,
@@ -1630,6 +2033,7 @@ def plot_scalar_field_frames_std_MA(grid, fields_with_time,
                                         fig_path_abs,
                                         fig_path_rel,
                                         figsize,
+                                        SIM_N,
                                         plot_abs=True,
                                         plot_rel=True,
                                         no_ticks=[6,6],
@@ -1703,16 +2107,52 @@ def plot_scalar_field_frames_std_MA(grid, fields_with_time,
     #            cmap = "Reds"
                 cmap = cmap_lcpp
                 
+                field_min = 0.
                 field_max = field_max_all[field_n]
     #            field_min = field_min_all[field_n]
-                field_min = 0.
+
+                xticks_major = None
+                xticks_minor = None
+                
+                if SIM_N == 1:
+                    if ax_title == "r_r":
+                        field_max = 0.04
+                        xticks_minor = np.linspace(0.01,0.03,2)
+#                        xticks_minor = np.linspace(1,5,3)
+                    if ax_title == "r_c":
+#                        field_max = 0.05
+                        xticks_minor = np.linspace(0.01,0.05,3)
+                    if ax_title == "n_\mathrm{aero}":
+                        field_max = 5.
+                        xticks_minor = np.linspace(1,5,3)
+                
+                if SIM_N == 2:
+                    if ax_title == "r_r":
+                        field_max = 0.03
+#                        xticks_minor = np.linspace(0.01,0.03,2)
+#                        xticks_minor = np.linspace(1,5,3)
+                    if ax_title == "r_c":
+#                        field_max = 0.05
+                        xticks_minor = np.linspace(0.01,0.03,2)
+                    if ax_title == "n_\mathrm{aero}":
+#                        pass
+#                        field_max = 5.
+                        xticks_minor = np.linspace(1,3,2)
+                if SIM_N == 10:
+                    if ax_title == "r_r":
+#                        field_max = 0.04
+                        xticks_minor = np.linspace(0.01,0.03,2)
+#                        xticks_minor = np.linspace(1,5,3)
+                    if ax_title == "r_c":
+                        field_max = 0.05
+                        xticks_minor = np.linspace(0.01,0.05,3)
+                    if ax_title == "n_\mathrm{aero}":
+                        field_max = 5.
+                        xticks_minor = np.linspace(1,5,3)
                 
     #            field_max = field.max()
     #            field_min = field.min()
                 
-                xticks_major = None
-                xticks_minor = None
-    
                 norm_ = mpl.colors.Normalize 
                     
                 str_format = "%.2g"
@@ -1779,6 +2219,8 @@ def plot_scalar_field_frames_std_MA(grid, fields_with_time,
                         axins.xaxis.set_ticks(xticks_major)
                     if xticks_minor is not None:
                         axins.xaxis.set_ticks(xticks_minor, minor=True)
+                    if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+                        unit = r"\si{\micro\meter}"                                            
                     axins.set_title(r"${0}$ abs. error ({1})".format(ax_title, unit))
                 # my_format dos not work with log scale here!!
                     
@@ -1855,9 +2297,9 @@ def plot_scalar_field_frames_std_MA(grid, fields_with_time,
 #                cmap = "YlOrRd"
     #            cmap = cmap_lcpp
                 
+                field_min = 0.
                 field_max = field_max_all_std[field_n]
     #            field_min = field_min_all_std[field_n]
-                field_min = 0.
                 
     #            field_max = field.max()
     #            field_min = field.min()
