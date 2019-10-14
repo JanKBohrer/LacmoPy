@@ -761,6 +761,10 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                 if ax_title == "r_r":
                     field_max = 1.
                     xticks_major = [0.01,0.1,1.]
+                    xticks_minor = np.concatenate((
+                            np.linspace(2E-2,1E-1,9),
+                            np.linspace(2E-1,1,9),
+                            ))
                 elif ax_title == "n_r":
                     field_max = 10.
                     xticks_major = [0.01,0.1,1.,10.]
@@ -792,14 +796,20 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
             if ax_title == "r_c":
                 field_min = 0.0
                 field_max = 1.3
-                xticks_major = np.linspace(0,1.2,7)
+#                xticks_major = np.linspace(0,1.2,7)
+#                xticks_major = np.linspace(0,1.25,6)
+                xticks_major = [0,0.5,1]
+                xticks_minor = [0.25,0.75,1.25]                
             if ax_title == "n_c":
                 field_min = 0.0
                 field_max = 150.
+                xticks_major = [0,50,100,150]
+                xticks_minor = [25,75,125]                
             if ax_title == "n_\mathrm{aero}":
                 field_min = 0.0
-                field_max = 150.
-                xticks_minor = [25,75,125]
+                field_max = 200.
+                xticks_major = [0,50,100,150,200]
+#                xticks_minor = [25,75,125]
             if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
                 xticks_major = [1,5,10,15,20]
 #                field_min = 0.
@@ -810,7 +820,6 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                 # Arabas 2015
                 cmap = cmap_lcpp
                 unit = r"\si{\micro\meter}"
-                
                 
             oom_max = oom = int(math.log10(field_max))
             
@@ -908,16 +917,27 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
 #                         int(save_times[time_n]/60)),
 #                         fontsize = TTFS)
             if time_n == 0:
+                if no_cols == 4:
 #            if time_n == no_rows - 1:
-                axins = inset_axes(ax,
-                                   width="90%",  # width = 5% of parent_bbox width
-                                   height="8%",  # height
-                                   loc='lower center',
-                                   bbox_to_anchor=(0.0, 1.35, 1, 1),
-#                                   , 1, 1),
-                                   bbox_transform=ax.transAxes,
-                                   borderpad=0,
-                                   )      
+                    axins = inset_axes(ax,
+                                       width="90%",  # width = 5% of parent_bbox width
+                                       height="8%",  # height
+                                       loc='lower center',
+                                       bbox_to_anchor=(0.0, 1.35, 1, 1),
+    #                                   , 1, 1),
+                                       bbox_transform=ax.transAxes,
+                                       borderpad=0,
+                                       )      
+                else:
+                    axins = inset_axes(ax,
+                                       width="90%",  # width = 5% of parent_bbox width
+                                       height="8%",  # height
+                                       loc='lower center',
+                                       bbox_to_anchor=(0.0, 1.4, 1, 1),
+    #                                   , 1, 1),
+                                       bbox_transform=ax.transAxes,
+                                       borderpad=0,
+                                       )      
 #                divider = make_axes_locatable(ax)
 #                cax = divider.append_axes("top", size="6%", pad=0.3)
                 
@@ -936,10 +956,14 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                 axins.tick_params(axis='x', which='minor', labelsize=TKFS,
                                length = 5, width=0.5,bottom=True)                
                 
+                
                 if xticks_major is not None:
                     axins.xaxis.set_ticks(xticks_major)
                 if xticks_minor is not None:
                     axins.xaxis.set_ticks(xticks_minor, minor=True)
+                if ax_title == "n_c":
+                    xticks2 = axins.xaxis.get_major_ticks()
+                    xticks2[-1].label1.set_visible(False)                
                 axins.set_title(r"${0}$ ({1})".format(ax_title, unit))
             # my_format dos not work with log scale here!!
 
@@ -974,10 +998,13 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                                          zorder = 99)        
                     ax.add_patch(rect)
 
-
-    pad_ax_h = 0.1     
-    pad_ax_v = 0.05
-#    pad_ax_v = 0.005
+    if no_cols == 4:
+        pad_ax_h = 0.1     
+        pad_ax_v = 0.05
+    else:        
+        pad_ax_h = -0.5 
+        pad_ax_v = 0.08
+    #    pad_ax_v = 0.005
     fig.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
 #    fig.subplots_adjust(wspace=pad_ax_v)
              
@@ -1088,13 +1115,15 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
 #                        xticks_major = [field_min, -0.04, 0., 0.04, field_max]
     #                    xticks_major = [0, 0.01, 0.1]
                     elif ax_title == "n_r":
-                        field_max = 10.
-                        xticks_major = [0.01,0.1,1.,10.]
-                        xticks_minor = np.concatenate((
-                                np.linspace(2E-2,1E-1,9),
-                                np.linspace(2E-1,1,9),
-                                np.linspace(2,10,9),
-                                ))
+                        pass
+                        field_max = 0.9
+                        field_min = -field_max
+#                        xticks_major = [0.01,0.1,1.,10.]
+#                        xticks_minor = np.concatenate((
+#                                np.linspace(2E-2,1E-1,9),
+#                                np.linspace(2E-1,1,9),
+#                                np.linspace(2,10,9),
+#                                ))
                 else: norm_ = mpl.colors.Normalize   
                 
                 if ax_title == r"\Theta":
@@ -1119,8 +1148,9 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                     xticks_major = np.linspace(field_min,field_max,5)
     #                xticks_major = np.linspace(0,1.2,7)
                 if ax_title == "n_c":
-                    field_min = 0.0
-                    field_max = 150.
+#                    pass
+                    field_max = 40.
+                    field_min = -field_max
                 if ax_title == "n_\mathrm{aero}":
                     field_max = 40.
                     field_min = -field_max
@@ -1691,17 +1721,17 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
     
     
     #    pad_ax_v = 0.005
-        fig2.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
-    #    fig.subplots_adjust(wspace=pad_ax_v)
-                 
-    #    fig.tight_layout()
-        if fig_path_abs_err is not None:
-            fig2.savefig(fig_path_abs_err,
-        #                    bbox_inches = 0,
-                        bbox_inches = 'tight',
-                        pad_inches = 0.05,
-                        dpi=600
-                        )       
+    fig2.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
+#    fig.subplots_adjust(wspace=pad_ax_v)
+             
+#    fig.tight_layout()
+    if fig_path_abs_err is not None:
+        fig2.savefig(fig_path_abs_err,
+    #                    bbox_inches = 0,
+                    bbox_inches = 'tight',
+                    pad_inches = 0.05,
+                    dpi=600
+                    )       
 
         
 #%% FUNCTION DEF: PLOT INITIAL SCALAR FIELDS INITIAL

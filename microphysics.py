@@ -201,7 +201,7 @@ supersaturation_factor_NaCl = 1.92
 def compute_efflorescence_mass_fraction_NaCl(temperature_):
     return supersaturation_factor_NaCl * compute_solubility_NaCl(temperature_)
 
-# fitted to match data from Archer 1972
+# fitted to match data from Archer 1992
 # in formula from Clegg 1997 in table Hargreaves 2010
 # rel dev (data from Archer 1972 in formula
 # from Clegg 1997 in table Hargreaves 2010) is 
@@ -294,7 +294,13 @@ def compute_kelvin_term_par(R_p, T_p, rho_p, sigma_w):
 def compute_water_activity_NaCl(m_w, m_s, w_s):
     return m_w / ( m_w + molar_mass_ratio_w_NaCl\
                    * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
-
+# NOTE that the effect of sigma in comparison to sigma_water
+# on the kelvin term and the equilibrium saturation is very small
+# for small R_s = 5 nm AND small R_p = 6 nm
+# the deviation reaches 6 %
+# but for larger R_s AND/OR larger R_p=10 nm, the deviation resides at < 1 %            
+# this is why it is possible to use the surface tension of water
+# for the calculations with NaCl
 @vectorize(
     "float64(float64, float64, float64, float64, float64, float64, float64)")
 def compute_equilibrium_saturation_NaCl(m_w, m_s, w_s, R_p, T_p, rho_p, sigma_w):
@@ -372,6 +378,13 @@ def compute_equilibrium_saturation_vH_mf(mass_fraction_solute_,
                                mass_solute_,
                                mass_density_particle_,
                                surface_tension_)
+# NOTE that the effect of sigma in comparison to sigma_water
+# on the kelvin term and the equilibrium saturation is very small
+# for small R_s = 5 nm AND small R_p = 6 nm
+# the deviation reaches 6 %
+# but for larger R_s AND/OR larger R_p=10 nm, the deviation resides at < 1 %            
+# this is why it is possible to use the surface tension of water
+# for the calculations with NaCl
 @njit()
 def compute_equilibrium_saturation_NaCl_mf(mass_fraction_solute_,
                                            temperature_,
@@ -803,9 +816,13 @@ def compute_solubility_AS(temperature_):
 # formula from Biskos 2006, he took it from Tang 1997, table (here also 
 # values for NaCl and other)
 # data from Kim 1994 agree well
+# for ammonium sulfate: fix a maximum border for w_s: w_s_max = 0.78
+# w_s can not get larger than that.
+# the border is chosen, because the approximation of sigma_AS(w_s)
+# is only given for 0 < w_s < 0.78
+w_s_max_AS = 0.78
 par_wat_act_AS = np.array([1.0, -2.715E-1, 3.113E-1, -2.336, 1.412 ])[::-1]
 #par_wat_act_AS = par_wat_act_AS[::-1]
-
 @njit()  
 def compute_water_activity_AS(w_s):
     return compute_polynom(par_wat_act_AS, w_s)
@@ -894,8 +911,6 @@ par_sigma_AS_Sven = 1E3 * par_sigma_AS_Sven_mol / c.molar_mass_AS / 0.072
 def compute_surface_tension_AS(w_s, T):
     return compute_surface_tension_water(T) \
                * (1.0 + par_sigma_AS_Sven * w_s / (1. - w_s))
-
-
 
 # ->> Take again super sat factor for AS such that is fits for D_s = 10 nm 
 # other data from Haemeri 2000 and Onasch 1999 show similar results
@@ -1433,7 +1448,6 @@ compute_dml_and_gamma_impl_Newton_full_NaCl_par =\
 njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_NaCl_np)
 
 #%% INTEGRATION AMMONIUM SULFATE
-
 
 # Newton method with no_iter iterations, the derivative is calculated only once
 # IN WORK: might return gamma and not gamma0 for particle heat,

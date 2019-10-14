@@ -124,11 +124,14 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-#args_plot = [0,1,0,0,0,0,0,0]
-args_plot = [0,0,1,0,0,0,0,0]
-args_plot = [0,0,0,1,0,0,0,0]
-#args_plot = [0,0,0,0,1,0,0,0]
+#args_plot = [0,0,0,0,0,0,0,0,1,0]
+args_plot = [0,1,0,0,0,0,0,0,0,0]
+#args_plot = [0,0,0,1,0,0,0,0,0,0]
 
+#args_plot = [0,1,0,0,0,0,0,0]
+#args_plot = [0,0,1,0,0,0,0,0]
+#args_plot = [0,0,0,1,0,0,0,0]
+#args_plot = [0,0,0,0,1,0,0,0]
 #args_plot = [0,0,0,0,0,0,0,1]
 
 act_plot_grid_frames_init = args_plot[0]
@@ -138,7 +141,9 @@ act_plot_grid_frames_abs_dev = args_plot[3]
 act_plot_spectra_avg_Arabas = args_plot[4]
 act_plot_moments_vs_z = args_plot[5]
 act_plot_moments_diff_vs_z = args_plot[6]
-act_compute_CFL = args_plot[7]
+act_plot_moments_norm_vs_t = args_plot[7]
+act_plot_SIP_convergence = args_plot[8]
+act_compute_CFL = args_plot[8]
 
 # this one is not adapted for MA plots...
 #act_plot_grid_frames_avg_shift = args_plot[2]
@@ -163,7 +168,9 @@ kernel_l = ["Long","Long","Long","Long","Long",
 
 #%% SET SIMULATION PARAS
 #SIM_N = 1  # default
-SIM_N = 2 # Nsip 150
+#SIM_N = 2 # Nsip 128
+SIM_N = 3 # pristine
+#SIM_N = 4 # polluted
 #SIM_N = 7 # Ecol 0.5
 #SIM_N = 10 # dt_col 0.1
 
@@ -240,8 +247,11 @@ no_bins_R_s = None
 #if fields_type == 3:
 #    idx_fields_plot = np.array((7,5,6,12))
 #    fields_name_add = "Naero_rc_rr_Reff_"  
+#if fields_type == 4:
+#    idx_fields_plot = np.array((7,8,9,5,6))
+#    fields_name_add = "Naero_Nc_Nr_rc_rr_"  
 
-fields_types_avg = [0]
+fields_types_avg = [4]
 #fields_types_avg = [0,1]
 
 #if fields_type == 0:
@@ -272,7 +282,9 @@ idx_times_plot = np.array((0,2,3,6))
 
 figsize_moments = cm2inch(17,23)
 figname_moments0 = "moments_vs_z_Nsip_var_" 
-figname_moments_rel_dev0 = "moments_vs_z_rel_dev_Nsip_var"
+figname_moments_rel_dev0 = "moments_vs_z_rel_dev_Nsip_var_"
+figname_conv0 = "moments_convergence_SIP_"
+figname_conv_err0 = "moments_convergence_SIP_ERR_"
 
 no_boxes_z = 25
 no_cells_per_box_x = 3
@@ -369,6 +381,8 @@ f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}"\
 
 figname_moments = figname_moments0 + figname_base + ".pdf"
 figname_moments_rel_dev = figname_moments_rel_dev0 + figname_base + ".pdf"
+figname_conv = figname_conv0 + figname_base + ".pdf"
+figname_conv_err = figname_conv_err0 + figname_base + ".pdf"
 
 #%% LOAD GRID AND SET PATHS
 
@@ -524,6 +538,15 @@ if act_plot_grid_frames_avg:
         if fields_type == 3:
             idx_fields_plot = np.array((7,5,6,12))
             fields_name_add = "Naero_rc_rr_Reff_"    
+
+        if fields_type == 4:
+            idx_fields_plot = np.array((7,8,9,5,6))
+            fields_name_add = "Naero_Nc_Nr_rc_rr_" 
+            show_target_cells = False
+        
+#        if fields_type == 3:
+#            idx_fields_plot = np.array((7,5,6,12))
+#            fields_name_add = "Naero_rc_rr_Reff_"    
         
         fields_with_time = np.load(data_path
                 + f"fields_vs_time_avg_Ns_{no_seeds}_"
@@ -585,7 +608,7 @@ if act_plot_grid_frames_avg:
                                             target_cell_list = target_cell_list,
                                             no_cells_x = no_cells_x,
                                             no_cells_z = no_cells_z)     
-        plt.close("all")   
+    plt.close("all")   
 
 #%% PLOT STD GRID FRAMES STD
 
@@ -677,12 +700,12 @@ if act_plot_grid_frames_std:
                                             target_cell_list = target_cell_list,
                                             no_cells_x = no_cells_x,
                                             no_cells_z = no_cells_z)     
-        plt.close("all")   
+    plt.close("all")   
 
 #%% PLOT ABSOLUTE DEVIATIONS BETWEEN TWO GRIDS
 
-compare_type_abs_dev = "dt_col"
-#compare_type_abs_dev = "Ncell"
+#compare_type_abs_dev = "dt_col"
+compare_type_abs_dev = "Ncell"
 #compare_type_abs_dev = "solute"
 #compare_type_abs_dev = "Kernel"
 #compare_type_abs_dev = "Nsip"
@@ -695,8 +718,14 @@ if act_plot_grid_frames_abs_dev:
     
     # n_aero, r_c, r_r, R_eff
 #    idx_fields_plot = (7, 5, 6, 12)
-    idx_fields_plot = np.array((7,5,6,12))
-    fields_name_add = fields_name_add = "Naero_rc_rr_Reff_"
+    
+    ###
+#    idx_fields_plot = np.array((7,5,6,12))
+#    fields_name_add = "Naero_rc_rr_Reff_"
+    
+    ###
+    idx_fields_plot = np.array((7,8,9,10))
+    fields_name_add = "Naero_Nc_Nr_Ravg_"
     
     idx_times_plot = np.array((0,2,3,6))
     
@@ -884,47 +913,47 @@ if act_plot_grid_frames_abs_dev:
                                         no_cells_x = 0,
                                         no_cells_z = 0
                                         )   
-
-    if compare_type_abs_dev == "Ncell":       
-        fig_name2 = "fields_coarse_grain_" + compare_type_abs_dev + "_" \
-           + fields_name_add + figname_base + ".pdf"
-        plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time2,
-                                            save_times_out_fr,
-                                            field_names_out,
-                                            units_out,
-                                            scales_out,
-                                            solute_type,
-                                            simulation_mode, # for time in label
-                                            fig_path=figpath+fig_name2,
-                                            figsize = figsize_scalar_fields,
-                                            no_ticks=[6,6], 
-                                            alpha = 1.0,
-                                            TTFS = 10, LFS = 10, TKFS = 8,
-                                            cbar_precision = 2,
-                                            show_target_cells = show_target_cells,
-                                            target_cell_list = target_cell_list,
-                                            no_cells_x = no_cells_x,
-                                            no_cells_z = no_cells_z)     
-      
-        fig_name3 = "fields_default_compare_" + compare_type_abs_dev + "_" \
-           + fields_name_add + figname_base + ".pdf"
-        plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time1,
-                                            save_times_out_fr,
-                                            field_names_out,
-                                            units_out,
-                                            scales_out,
-                                            solute_type,
-                                            simulation_mode, # for time in label
-                                            fig_path=figpath+fig_name3,
-                                            figsize = figsize_scalar_fields,
-                                            no_ticks=[6,6], 
-                                            alpha = 1.0,
-                                            TTFS = 10, LFS = 10, TKFS = 8,
-                                            cbar_precision = 2,
-                                            show_target_cells = show_target_cells,
-                                            target_cell_list = target_cell_list,
-                                            no_cells_x = no_cells_x,
-                                            no_cells_z = no_cells_z)     
+    ### CAN BE ACTIVATED!!!
+#    if compare_type_abs_dev == "Ncell":       
+#        fig_name2 = "fields_coarse_grain_" + compare_type_abs_dev + "_" \
+#           + fields_name_add + figname_base + ".pdf"
+#        plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time2,
+#                                            save_times_out_fr,
+#                                            field_names_out,
+#                                            units_out,
+#                                            scales_out,
+#                                            solute_type,
+#                                            simulation_mode, # for time in label
+#                                            fig_path=figpath+fig_name2,
+#                                            figsize = figsize_scalar_fields,
+#                                            no_ticks=[6,6], 
+#                                            alpha = 1.0,
+#                                            TTFS = 10, LFS = 10, TKFS = 8,
+#                                            cbar_precision = 2,
+#                                            show_target_cells = show_target_cells,
+#                                            target_cell_list = target_cell_list,
+#                                            no_cells_x = no_cells_x,
+#                                            no_cells_z = no_cells_z)     
+#      
+#        fig_name3 = "fields_default_compare_" + compare_type_abs_dev + "_" \
+#           + fields_name_add + figname_base + ".pdf"
+#        plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time1,
+#                                            save_times_out_fr,
+#                                            field_names_out,
+#                                            units_out,
+#                                            scales_out,
+#                                            solute_type,
+#                                            simulation_mode, # for time in label
+#                                            fig_path=figpath+fig_name3,
+#                                            figsize = figsize_scalar_fields,
+#                                            no_ticks=[6,6], 
+#                                            alpha = 1.0,
+#                                            TTFS = 10, LFS = 10, TKFS = 8,
+#                                            cbar_precision = 2,
+#                                            show_target_cells = show_target_cells,
+#                                            target_cell_list = target_cell_list,
+#                                            no_cells_x = no_cells_x,
+#                                            no_cells_z = no_cells_z)     
     plt.close("all")   
 
 #%% PLOT AVG GRID FRAMES SHIFT IN X DIRECTION
@@ -1149,8 +1178,6 @@ units_mom = [
 if act_plot_moments_vs_z:
     print(grid_paths)
     
-
-    
     no_target_cells_x = len(target_cells_x)
     no_target_cells_z = no_boxes_z
 
@@ -1217,8 +1244,6 @@ if act_plot_moments_vs_z:
         print(target_cells_z)
         
 #        print(target_cells_z)        
-    
-
         
         no_seeds = moments_vs_time_all_seeds.shape[0]
 #        no_moments = moments_vs_time_all_seeds.shape[2]
@@ -1235,8 +1260,6 @@ if act_plot_moments_vs_z:
     #    from numba import njit
     #    @njit()    
                                 
-                
-            
         moments_at_boxes_all_seeds = avg_moments_over_boxes(
                 moments_vs_time_all_seeds, no_seeds, idx_t, no_moments,
                 target_cells_x, target_cells_z,
@@ -1628,5 +1651,647 @@ if act_plot_moments_diff_vs_z:
                 pad_inches = 0.04,
                 dpi=600
                 )          
-plt.close("all")    
+    plt.close("all")    
     
+
+#%% PLOT n_tot, R_avg, Var_R, skewness vs t
+
+#idx_t_conv = ()
+
+figsize_conv = cm2inch(15,15)
+
+#figname_conv = ""
+
+time_idx_conv = np.arange(0,7)
+
+if act_plot_moments_norm_vs_t:
+
+    no_rows = 2
+    no_cols = 2
+    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=figsize_conv, sharex=True)
+    
+    for var_n in range(no_variations):
+        grid_path_ = grid_paths[var_n]
+        data_path_ = data_paths[var_n]
+        
+        grid = load_grid_from_files(grid_path_ + f"grid_basics_{int(t_grid)}.txt",
+                                grid_path_ + f"arr_file1_{int(t_grid)}.npy",
+                                grid_path_ + f"arr_file2_{int(t_grid)}.npy")    
+        
+        g_seed = seed_SIP_gen_var[var_n]
+        s_seed = seed_sim_var[var_n]
+        Ns = no_seeds_var[var_n]
+        
+        #    np.save(simdata_path + output_folder
+        #            + f"moments_vs_time_avg_Ns_{no_seeds}_"
+        #            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+        #            moments_vs_time_avg)
+        #    np.save(simdata_path + output_folder
+        #            + f"moments_vs_time_std_Ns_{no_seeds}_"
+        #            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+        #            moments_vs_time_std)
+        #    np.save(simdata_path + output_folder
+        #            + f"save_times_out_avg_Ns_{no_seeds}_"
+        #            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}",
+        #            save_times_out)
+        
+        save_times_out = np.load(data_path_ + "moments/"
+                       + f"save_times_out_avg_Ns_{Ns}_"
+                       + f"sg_{g_seed}_ss_{s_seed}.npy")    
+        
+        moments_vs_time_all_seeds = np.load(data_path_ + "moments/"
+                       + f"moments_vs_time_all_seeds_Ns_{Ns}_"
+                       + f"sg_{g_seed}_ss_{s_seed}.npy")
+        
+        print(var_n, moments_vs_time_all_seeds.shape)
+    
+    #    moments_vs_time_seed_avg = np.average(moments_vs_time_all_seeds, axis=0)
+        
+    #    moments_vs_time_seed_std =\
+    #        np.std(moments_vs_time_all_seeds, axis=0,ddof=1) / np.sqrt(Ns)
+    
+    #    print(var_n, moments_vs_time_seed_avg.shape)
+        
+        moments_vs_time_grid_avg = np.average(moments_vs_time_all_seeds, axis=(3,4))
+    #    moments_vs_time_grid_std = np.average(moments_vs_time_seed_std, axis=(2,3))
+        
+        print(var_n, moments_vs_time_grid_avg.shape)
+        
+        ### go to normalized values: mean radius = mom1/mom0, variance
+        
+        moments_norm_vs_time = np.zeros_like(moments_vs_time_grid_avg)
+        moments_norm_vs_time[:,:,0] = moments_vs_time_grid_avg[:,:,0]
+        moments_norm_vs_time[:,:,1] = moments_vs_time_grid_avg[:,:,1] \
+                                    / moments_vs_time_grid_avg[:,:,0]
+        moments_norm_vs_time[:,:,2] = moments_vs_time_grid_avg[:,:,2] \
+                                    / moments_vs_time_grid_avg[:,:,0] \
+                                    - moments_norm_vs_time[:,:,1]**2
+        std_xx = np.sqrt( moments_norm_vs_time[:,:,2] )
+        moments_norm_vs_time[:,:,3] = (moments_vs_time_grid_avg[:,:,3] \
+                                     / moments_vs_time_grid_avg[:,:,0] \
+                                     - 3 * moments_norm_vs_time[:,:,1] \
+                                         * std_xx**2 \
+                                     - moments_norm_vs_time[:,:,1]**3) / std_xx**3
+    #    moments_norm_vs_time = np.zeros_like(moments_vs_time_grid_avg)
+    #    moments_norm_vs_time[:,0] = moments_vs_time_grid_avg[:,0]
+    #    moments_norm_vs_time[:,1] = moments_vs_time_grid_avg[:,1] \
+    #                                / moments_vs_time_grid_avg[:,0]
+    #    moments_norm_vs_time[:,2] = moments_vs_time_grid_avg[:,2] \
+    #                                / moments_vs_time_grid_avg[:,0] \
+    #                                - moments_norm_vs_time[:,1]**2
+    #    std_xx = np.sqrt( moments_norm_vs_time[:,2] )
+    #    moments_norm_vs_time[:,3] = (moments_vs_time_grid_avg[:,3] \
+    #                                 / moments_vs_time_grid_avg[:,0] \
+    #                                 - 3 * moments_norm_vs_time[:,1] \
+    #                                     * std_xx**2 \
+    #                                 - moments_norm_vs_time[:,1]**3) / std_xx**3
+    
+        moments_norm_vs_time_avg = np.average(moments_norm_vs_time, axis=0)
+        
+        moments_norm_vs_time_std =\
+            np.std(moments_norm_vs_time, axis=0, ddof=1) / np.sqrt(Ns)
+        print(var_n, moments_norm_vs_time_avg.shape)
+                            
+        mom_n = 0
+        for row_n in range(no_rows):
+            for col_n in range(no_cols):
+                ax = axes[row_n, col_n]
+                print(mom_n, row_n, col_n)
+    #            print(moments_vs_time_grid_avg[:,mom_n])
+    #            ax.plot(save_times_out/60-120, moments_vs_time_grid_avg[:,mom_n])
+    #            ax.errorbar(save_times_out/60-120,
+    #                        moments_vs_time_grid_avg[:,mom_n],
+    #                        moments_vs_time_grid_std[:,mom_n])
+                ax.errorbar(save_times_out[time_idx_conv]/60-120,
+                            moments_norm_vs_time_avg[time_idx_conv,mom_n],
+                            moments_norm_vs_time_std[time_idx_conv,mom_n],fmt="x")
+    #            ax.plot(save_times_out[time_idx_conv]/60-120,
+    #                    moments_norm_vs_time_avg[time_idx_conv,mom_n])
+                
+                ax.set_xticks(np.linspace(0,60,7))
+                ax.set_xlim((0,60))
+    #            ax.set_yscale("log")
+                ax.grid()
+                mom_n += 1
+        
+    #    pad_ax_h = 0.1
+    #    pad_ax_v = 0.26
+    #    fig.subplots_adjust(hspace=pad_ax_h) #, wspace=pad_ax_v)                    
+    #    fig.subplots_adjust(wspace=pad_ax_v)                    
+        
+    fig.savefig(figpath + figname_conv,
+                    bbox_inches = 'tight',
+                    pad_inches = 0.04,
+                    dpi=600
+                    )          
+        
+    plt.close("all")        
+
+
+#%% PLOT Nsip CONVERGENCE 
+
+#idx_t_conv = ()
+
+#figsize_conv = cm2inch(12,8)
+figsize_conv = cm2inch(18,6)
+
+#figname_conv = ""
+
+time_idx_conv = np.arange(0,7)
+
+ax_titles_conv =\
+    [
+     r"avg. $|\lambda_\mathrm{0} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$ (\%)",
+     r"avg. $|\lambda_\mathrm{1} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$ (\%)",
+     r"avg. $|\lambda_\mathrm{2} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$",
+     r"avg. $|\lambda_\mathrm{3} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$",
+    ]
+ax_titles_conv_err =\
+    [
+     r"avg. $\mathrm{SD}(\lambda_\mathrm{0}) / \lambda_\mathrm{ref}$ (\%)",
+     r"avg. $\mathrm{SD}(\lambda_\mathrm{1}) / \lambda_\mathrm{ref}$ (\%)",
+     r"avg. $\mathrm{SD}(\lambda_\mathrm{2}) / \lambda_\mathrm{ref}$",
+     r"avg. $\mathrm{SD}(\lambda_\mathrm{3}) / \lambda_\mathrm{ref}$"
+    ]
+#    [
+#     r"grid avg. $|\lambda_\mathrm{0} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$ (\%)",
+#     r"grid avg. $|\lambda_\mathrm{1} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$ (\%)",
+#     r"grid avg. $|\lambda_\mathrm{2} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$",
+#     r"grid avg. $|\lambda_\mathrm{3} - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$",
+#    ]
+#ax_titles_conv =\
+#    [
+#     r"grid avg. $|\lambda_\mathrm{avg,0} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#     r"$|\lambda_\mathrm{avg,1} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#     r"$|\lambda_\mathrm{avg,2} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#     r"$|\lambda_\mathrm{avg,3} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#    ]
+
+if act_plot_SIP_convergence:
+
+    var_n = no_variations-1
+    
+    grid_path_ = grid_paths[var_n]
+    data_path_ = data_paths[var_n]
+    
+    grid = load_grid_from_files(grid_path_ + f"grid_basics_{int(t_grid)}.txt",
+                            grid_path_ + f"arr_file1_{int(t_grid)}.npy",
+                            grid_path_ + f"arr_file2_{int(t_grid)}.npy")    
+    
+    g_seed = seed_SIP_gen_var[var_n]
+    s_seed = seed_sim_var[var_n]
+    Ns = no_seeds_var[var_n]
+    
+    save_times_out = np.load(data_path_ + "moments/"
+                   + f"save_times_out_avg_Ns_{Ns}_"
+                   + f"sg_{g_seed}_ss_{s_seed}.npy")    
+    
+    moments_vs_time_all_seeds = np.load(data_path_ + "moments/"
+                   + f"moments_vs_time_all_seeds_Ns_{Ns}_"
+                   + f"sg_{g_seed}_ss_{s_seed}.npy")
+    
+    print(var_n, moments_vs_time_all_seeds.shape)
+
+#    moments_vs_time_grid_avg = np.average(moments_vs_time_all_seeds, axis=(3,4))
+    
+    
+    moments_vs_time_seed_avg_ref = np.average(moments_vs_time_all_seeds, axis=0)
+    moments_vs_time_seed_std_ref = np.std(moments_vs_time_all_seeds, axis=0) \
+                                / np.sqrt(Ns)
+    
+    print(var_n, moments_vs_time_seed_avg_ref.shape)
+    
+    moments_devs = []
+    
+    no_rows = 1
+    no_cols = 4
+#    no_rows = 2
+#    no_cols = 2
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                             figsize=figsize_conv, sharex=True)
+    
+    for var_n in range(no_variations-1):
+        grid_path_ = grid_paths[var_n]
+        data_path_ = data_paths[var_n]
+        
+        grid = load_grid_from_files(grid_path_ + f"grid_basics_{int(t_grid)}.txt",
+                                grid_path_ + f"arr_file1_{int(t_grid)}.npy",
+                                grid_path_ + f"arr_file2_{int(t_grid)}.npy")    
+        
+        g_seed = seed_SIP_gen_var[var_n]
+        s_seed = seed_sim_var[var_n]
+        Ns = no_seeds_var[var_n]
+        
+        save_times_out = np.load(data_path_ + "moments/"
+                       + f"save_times_out_avg_Ns_{Ns}_"
+                       + f"sg_{g_seed}_ss_{s_seed}.npy")    
+        
+        moments_vs_time_all_seeds = np.load(data_path_ + "moments/"
+                       + f"moments_vs_time_all_seeds_Ns_{Ns}_"
+                       + f"sg_{g_seed}_ss_{s_seed}.npy")
+        
+        print(var_n, moments_vs_time_all_seeds.shape)
+    
+#        moments_vs_time_grid_avg = np.average(moments_vs_time_all_seeds, axis=(3,4))
+        
+        # get rel dev and error in EACH CELL!!!
+        moments_vs_time_seed_avg =\
+            np.average(moments_vs_time_all_seeds, axis=0) \
+        
+        moments_vs_time_seed_std = np.std(moments_vs_time_all_seeds, axis=0) \
+                                    / np.sqrt(Ns)
+        
+        moments_vs_time_rel_dev_avg =\
+            np.abs(moments_vs_time_seed_avg - moments_vs_time_seed_avg_ref)\
+            / moments_vs_time_seed_avg_ref
+        
+        moments_vs_time_rel_dev_std =\
+            np.sqrt(moments_vs_time_seed_std**2
+                    + moments_vs_time_seed_std_ref**2)\
+            / moments_vs_time_seed_avg_ref
+        
+        print(var_n, moments_vs_time_rel_dev_avg.shape)
+        
+        
+        for mom_n in range(4):
+            print(var_n)
+            print(mom_n, np.amax(moments_vs_time_rel_dev_avg[:,mom_n], axis=(1,2)))
+        
+        # now average over all cells:
+        moments_vs_time_rel_dev_avg =\
+            np.average(moments_vs_time_rel_dev_avg, axis=(2,3))
+        moments_vs_time_rel_dev_std =\
+            np.average(moments_vs_time_rel_dev_std, axis=(2,3))
+        
+        moments_devs.append(moments_vs_time_rel_dev_avg)
+        
+        print(var_n, moments_vs_time_rel_dev_avg.shape)
+        
+        scale_ = 100
+        
+        mom_n = 0
+#        for row_n in range(no_rows):
+        for col_n in range(no_cols):
+#                ax = axes[row_n, col_n]
+            ax = axes[col_n]
+            print(mom_n, col_n)
+            if mom_n in [0,1]:
+                scale_ = 100
+            else:
+                scale_ = 1
+#                if row_n == 0:
+#                    scale_ = 100
+#                else:
+#                    scale_ = 1
+                
+            ax.errorbar(save_times_out[time_idx_conv]/60-120,
+                        scale_*moments_vs_time_rel_dev_avg[time_idx_conv,mom_n],
+                        scale_*moments_vs_time_rel_dev_std[time_idx_conv,mom_n],
+                        fmt = fmt_list[var_n], ms = MS_mom, mew=MEW_mom,
+                        fillstyle="none", elinewidth = ELW_mom,
+                        capsize=capsize_mom,
+                        label=data_labels_mom[var_n]                            
+                        )
+#            ax.errorbar(save_times_out[time_idx_conv]/60-120,
+#                        moments_vs_time_rel_dev_avg[time_idx_conv,mom_n],
+#                        moments_vs_time_rel_dev_std[time_idx_conv,mom_n],
+#                        fmt = fmt_list[var_n], ms = MS_mom, mew=MEW_mom,
+#                        fillstyle="none", elinewidth = ELW_mom,
+#                        capsize=capsize_mom,
+#                        label=data_labels_mom[var_n]                            
+#                        )
+            mom_n += 1
+    mom_n = 0                
+#    for row_n in range(no_rows):
+    for col_n in range(no_cols):
+#            ax = axes[row_n, col_n]
+        ax = axes[col_n]
+        ax.set_xticks(np.linspace(0,60,7))
+#            ax.set_xlim((-1,61))
+        ax.set_xlim((-3,63))
+#            ax.set_yscale("log")
+        ax.grid(axis='y')
+        if mom_n == 0:
+            ax.legend()
+#        if row_n == 0:
+        ax.set_xlabel("Time (min)")
+#            if row_n == 1:
+#                ax.set_xlabel("Time (min)")
+        ax.set_title(ax_titles_conv[mom_n])
+        mom_n += 1
+    axes[2].set_yscale("log")
+    axes[3].set_yscale("log")
+    pad_ax_h = 0.1
+    pad_ax_v = 0.33
+    fig.subplots_adjust(hspace=pad_ax_h) #, wspace=pad_ax_v)                    
+    fig.subplots_adjust(wspace=pad_ax_v)                    
+    
+    fig.savefig(figpath + figname_conv,
+                bbox_inches = 'tight',
+                pad_inches = 0.04,
+                dpi=600
+                ) 
+    
+    # plot improvement factors, when going from 32 to 64 SIPs
+    fig3, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                             figsize=figsize_conv, sharex=True)    
+    rel_dev_rel = moments_devs[0]/moments_devs[1]
+    
+    print(" np.average(rel_dev_rel), axis = 0 ")
+    print( np.average(rel_dev_rel[0:7],axis = 0) )
+    
+    mom_n = 0
+    for col_n in range(no_cols):
+#            ax = axes[row_n, col_n]
+        ax = axes[col_n]
+        ax.plot(save_times_out[time_idx_conv]/60-120, rel_dev_rel[time_idx_conv,mom_n])
+        ax.set_xticks(np.linspace(0,60,7))
+#            ax.set_xlim((-1,61))
+        ax.set_xlim((-3,63))
+#            ax.set_yscale("log")
+        ax.grid(axis='y')
+#        if mom_n == 0:
+#            ax.legend()
+#        if row_n == 0:
+        ax.set_xlabel("Time (min)")
+#            if row_n == 1:
+#                ax.set_xlabel("Time (min)")
+        ax.set_title(ax_titles_conv[mom_n])
+        mom_n += 1
+#    axes[2].set_yscale("log")
+#    axes[3].set_yscale("log")
+    pad_ax_h = 0.1
+    pad_ax_v = 0.33
+    fig3.subplots_adjust(hspace=pad_ax_h) #, wspace=pad_ax_v)                    
+    fig3.subplots_adjust(wspace=pad_ax_v)                    
+    
+    fig3.savefig(figpath + "REL_DEV_REL_" + figname_conv,
+                bbox_inches = 'tight',
+                pad_inches = 0.04,
+                dpi=600
+                )     
+    
+    ########################################################################
+    ########################################################################
+    ### plot rel errors in second plot
+    fig2, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                             figsize=figsize_conv, sharex=True)
+    
+    for var_n in range(no_variations):
+        grid_path_ = grid_paths[var_n]
+        data_path_ = data_paths[var_n]
+        
+        grid = load_grid_from_files(grid_path_ + f"grid_basics_{int(t_grid)}.txt",
+                                grid_path_ + f"arr_file1_{int(t_grid)}.npy",
+                                grid_path_ + f"arr_file2_{int(t_grid)}.npy")    
+        
+        g_seed = seed_SIP_gen_var[var_n]
+        s_seed = seed_sim_var[var_n]
+        Ns = no_seeds_var[var_n]
+        
+        save_times_out = np.load(data_path_ + "moments/"
+                       + f"save_times_out_avg_Ns_{Ns}_"
+                       + f"sg_{g_seed}_ss_{s_seed}.npy")    
+        
+        moments_vs_time_all_seeds = np.load(data_path_ + "moments/"
+                       + f"moments_vs_time_all_seeds_Ns_{Ns}_"
+                       + f"sg_{g_seed}_ss_{s_seed}.npy")
+        
+        print(var_n, moments_vs_time_all_seeds.shape)
+    
+#        moments_vs_time_grid_avg = np.average(moments_vs_time_all_seeds, axis=(3,4))
+        
+        # get rel dev and error in EACH CELL!!!
+        moments_vs_time_seed_avg =\
+            np.average(moments_vs_time_all_seeds, axis=0) \
+        
+        moments_vs_time_seed_std = np.std(moments_vs_time_all_seeds, axis=0) \
+                                    / np.sqrt(Ns)
+        
+        moments_vs_time_rel_dev_avg =\
+            np.abs(moments_vs_time_seed_avg - moments_vs_time_seed_avg_ref)\
+            / moments_vs_time_seed_avg_ref
+        
+        moments_vs_time_rel_dev_std =\
+            np.sqrt(moments_vs_time_seed_std**2
+                    + moments_vs_time_seed_std_ref**2)\
+            / moments_vs_time_seed_avg_ref
+        
+        print(var_n, moments_vs_time_rel_dev_avg.shape)
+
+        for mom_n in range(4):
+            print(var_n)
+            print(mom_n, np.amax(moments_vs_time_rel_dev_avg[:,mom_n], axis=(1,2)))
+        
+        # now average over all cells:
+        moments_vs_time_rel_dev_avg =\
+            np.average(moments_vs_time_rel_dev_avg, axis=(2,3))
+        moments_vs_time_rel_dev_std =\
+            np.average(moments_vs_time_rel_dev_std, axis=(2,3))
+        
+        print(var_n, moments_vs_time_rel_dev_avg.shape)
+        
+        scale_ = 100
+        
+        mom_n = 0
+#        for row_n in range(no_rows):
+        for col_n in range(no_cols):
+#                ax = axes[row_n, col_n]
+            ax = axes[col_n]
+            print(mom_n, col_n)
+            if mom_n in [0,1]:
+                scale_ = 100
+            else:
+                scale_ = 1
+#                if row_n == 0:
+#                    scale_ = 100
+#                else:
+#                    scale_ = 1
+                
+            ax.plot(save_times_out[time_idx_conv]/60-120,
+                        scale_*moments_vs_time_rel_dev_std[time_idx_conv,mom_n],
+                        fmt_list[var_n], ms = MS_mom, mew=MEW_mom,
+                        fillstyle="none",
+#                        elinewidth = ELW_mom,
+#                        capsize=capsize_mom,
+                        label=data_labels_mom[var_n]                            
+                        )
+#            ax.errorbar(save_times_out[time_idx_conv]/60-120,
+#                        moments_vs_time_rel_dev_avg[time_idx_conv,mom_n],
+#                        moments_vs_time_rel_dev_std[time_idx_conv,mom_n],
+#                        fmt = fmt_list[var_n], ms = MS_mom, mew=MEW_mom,
+#                        fillstyle="none", elinewidth = ELW_mom,
+#                        capsize=capsize_mom,
+#                        label=data_labels_mom[var_n]                            
+#                        )
+            mom_n += 1
+    mom_n = 0                
+#    for row_n in range(no_rows):
+    for col_n in range(no_cols):
+#            ax = axes[row_n, col_n]
+        ax = axes[col_n]
+        ax.set_xticks(np.linspace(0,60,7))
+#            ax.set_xlim((-1,61))
+        ax.set_xlim((-3,63))
+#            ax.set_yscale("log")
+        ax.grid(axis='y')
+        if mom_n == 0:
+            ax.legend()
+#        if row_n == 0:
+        ax.set_xlabel("Time (min)")
+#            if row_n == 1:
+#                ax.set_xlabel("Time (min)")
+        ax.set_title(ax_titles_conv_err[mom_n])
+        mom_n += 1
+    axes[2].set_yscale("log")
+    axes[3].set_yscale("log")
+    pad_ax_h = 0.1
+    pad_ax_v = 0.33
+    fig2.subplots_adjust(hspace=pad_ax_h) #, wspace=pad_ax_v)                    
+    fig2.subplots_adjust(wspace=pad_ax_v)                    
+    
+    fig2.savefig(figpath + figname_conv_err,
+                bbox_inches = 'tight',
+                pad_inches = 0.04,
+                dpi=600
+                )          
+        
+    plt.close("all")        
+
+#%% SAVE Nsip CONVERGENCE 
+
+#idx_t_conv = ()
+
+#figsize_conv = cm2inch(15,15)
+#
+##figname_conv = ""
+#
+#time_idx_conv = np.arange(0,7)
+#
+#ax_titles_conv =\
+#    [
+#     r"$|\lambda_\mathrm{avg,0} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#     r"$|\lambda_\mathrm{avg,1} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#     r"$|\lambda_\mathrm{avg,2} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#     r"$|\lambda_\mathrm{avg,3} - \lambda_\mathrm{avg,ref}| / \lambda_\mathrm{avg,ref}$",
+#    ]
+#
+#if act_plot_SIP_convergence:
+#
+#    var_n = no_variations-1
+#    
+#    grid_path_ = grid_paths[var_n]
+#    data_path_ = data_paths[var_n]
+#    
+#    grid = load_grid_from_files(grid_path_ + f"grid_basics_{int(t_grid)}.txt",
+#                            grid_path_ + f"arr_file1_{int(t_grid)}.npy",
+#                            grid_path_ + f"arr_file2_{int(t_grid)}.npy")    
+#    
+#    g_seed = seed_SIP_gen_var[var_n]
+#    s_seed = seed_sim_var[var_n]
+#    Ns = no_seeds_var[var_n]
+#    
+#    save_times_out = np.load(data_path_ + "moments/"
+#                   + f"save_times_out_avg_Ns_{Ns}_"
+#                   + f"sg_{g_seed}_ss_{s_seed}.npy")    
+#    
+#    moments_vs_time_all_seeds = np.load(data_path_ + "moments/"
+#                   + f"moments_vs_time_all_seeds_Ns_{Ns}_"
+#                   + f"sg_{g_seed}_ss_{s_seed}.npy")
+#    
+#    print(var_n, moments_vs_time_all_seeds.shape)
+#
+#    moments_vs_time_grid_avg = np.average(moments_vs_time_all_seeds, axis=(3,4))
+#    
+#    
+#    moments_vs_time_seed_avg_ref = np.average(moments_vs_time_grid_avg, axis=0)
+#    moments_vs_time_seed_std_ref = np.std(moments_vs_time_grid_avg, axis=0) \
+#                                / np.sqrt(Ns)
+#    
+#    print(var_n, moments_vs_time_seed_avg_ref.shape)
+#    
+#    no_rows = 2
+#    no_cols = 2
+#    fig, axes = plt.subplots(nrows=2, ncols=2, figsize=figsize_conv, sharex=True)
+#    
+#    for var_n in range(no_variations-1):
+#        grid_path_ = grid_paths[var_n]
+#        data_path_ = data_paths[var_n]
+#        
+#        grid = load_grid_from_files(grid_path_ + f"grid_basics_{int(t_grid)}.txt",
+#                                grid_path_ + f"arr_file1_{int(t_grid)}.npy",
+#                                grid_path_ + f"arr_file2_{int(t_grid)}.npy")    
+#        
+#        g_seed = seed_SIP_gen_var[var_n]
+#        s_seed = seed_sim_var[var_n]
+#        Ns = no_seeds_var[var_n]
+#        
+#        save_times_out = np.load(data_path_ + "moments/"
+#                       + f"save_times_out_avg_Ns_{Ns}_"
+#                       + f"sg_{g_seed}_ss_{s_seed}.npy")    
+#        
+#        moments_vs_time_all_seeds = np.load(data_path_ + "moments/"
+#                       + f"moments_vs_time_all_seeds_Ns_{Ns}_"
+#                       + f"sg_{g_seed}_ss_{s_seed}.npy")
+#        
+#        print(var_n, moments_vs_time_all_seeds.shape)
+#    
+#        moments_vs_time_grid_avg = np.average(moments_vs_time_all_seeds, axis=(3,4))
+#        
+#        
+#        moments_vs_time_seed_avg_rel =\
+#            np.average(moments_vs_time_grid_avg, axis=0) \
+#        
+#        moments_vs_time_seed_avg_rel =\
+#            np.abs(moments_vs_time_seed_avg_rel - moments_vs_time_seed_avg_ref)\
+#            / moments_vs_time_seed_avg_ref
+#        
+#        moments_vs_time_seed_std_rel = np.std(moments_vs_time_grid_avg, axis=0) \
+#                                    / np.sqrt(Ns)
+#        
+#        moments_vs_time_seed_std_rel = moments_vs_time_seed_std_rel \
+#                                        / moments_vs_time_seed_avg_ref
+#        
+#        print(var_n, moments_vs_time_seed_avg_rel.shape)
+#        
+#        mom_n = 0
+#        for row_n in range(no_rows):
+#            for col_n in range(no_cols):
+#                ax = axes[row_n, col_n]
+#                print(mom_n, row_n, col_n)
+#                ax.errorbar(save_times_out[time_idx_conv]/60-120,
+#                            100*moments_vs_time_seed_avg_rel[time_idx_conv,mom_n],
+#                            100*moments_vs_time_seed_std_rel[time_idx_conv,mom_n],
+#                            fmt = fmt_list[var_n], ms = MS_mom, mew=MEW_mom,
+#                            fillstyle="none", elinewidth = ELW_mom,
+#                            capsize=capsize_mom,
+#                            label=data_labels_mom[var_n]                            
+#                            )
+#                mom_n += 1
+#    mom_n = 0                
+#    for row_n in range(no_rows):
+#        for col_n in range(no_cols):
+#            ax = axes[row_n, col_n]
+#            ax.set_xticks(np.linspace(0,60,7))
+#            ax.set_xlim((-1,61))
+##            ax.set_yscale("log")
+#            ax.grid()
+#            ax.legend()
+#            if row_n == 1:
+#                ax.set_xlabel("Time (min)")
+#            ax.set_title(ax_titles_conv[mom_n])
+#            mom_n += 1
+##    pad_ax_h = 0.1
+##    pad_ax_v = 0.26
+##    fig.subplots_adjust(hspace=pad_ax_h) #, wspace=pad_ax_v)                    
+##    fig.subplots_adjust(wspace=pad_ax_v)                    
+#    
+#    fig.savefig(figpath + figname_conv,
+#                bbox_inches = 'tight',
+#                pad_inches = 0.04,
+#                dpi=600
+#                )          
+#        
+#    plt.close("all")        
+#
+#

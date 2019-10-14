@@ -136,7 +136,9 @@ act_plot_ensembles = bool(args_gen[2])
 act_gen_kernel_grid = bool(args_gen[3])
 act_gen_Ecol_grid = bool(args_gen[4])
 
-# SET args for simulation
+# SET args for simulation AND plotting
+args_sim = [0,0,0,0,1]
+
 #args_sim = [0,0,0,0]
 #args_sim = [1,0,0,0]
 #args_sim = [0,1,1,1]
@@ -144,8 +146,11 @@ act_gen_Ecol_grid = bool(args_gen[4])
 #args_sim = [0,0,1,1]
 #args_sim = [0,0,1,0]
 #args_sim = [0,0,1,0]
-args_sim = [0,0,0,1]
+#args_sim = [0,0,0,1]
 #args_sim = [1,1,1,1]
+
+print_reduction = False
+#print_reduction = True
 
 #setup = "Golovin"
 #setup = "Long_Bott"
@@ -155,9 +160,14 @@ act_sim = bool(args_sim[0])
 act_analysis = bool(args_sim[1])
 act_plot = bool(args_sim[2])
 act_plot_moments_kappa_var = bool(args_sim[3])
+act_plot_convergence_t_fix = bool(args_sim[4])
+
 
 ############################################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
+
+# this is modified below for the chosen operations...
+kappa_list=[5,10,20,40,100,400,1000,2000,3000]
 
 #kappa_list=[3.5]
 #kappa_list=[200]
@@ -172,6 +182,8 @@ if act_plot_moments_kappa_var:
     else:
 #        kappa_list=[5,10,20,40,100,200,400,1000,3000]
         kappa_list=[5,10,20,40,100,400,1000,2000,3000]
+
+#kappa_list=[5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 #kappa_list=[5,10,20,40,60,100,200,400]
 
@@ -1827,13 +1839,25 @@ figsize2 = cm2inch(17.5,23.0)
 figsize3 = cm2inch(17.5,5)
 figsize4 = figsize3
 #figsize4 = cm2inch(17.5,9.0*5/8)
-for kappa_n,kappa in enumerate(kappa_list):
-    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
-    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
-    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
-    print(moments_vs_time_avg.shape)
-#        moments_vs_time_avg[:,1] *= 1.0E3
 
+if print_reduction:
+    for kappa_n,kappa in enumerate(kappa_list):
+        load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+        save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+        moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#    print(moments_vs_time_avg.shape)
+#        moments_vs_time_avg[:,1] *= 1.0E3
+    
+    ### print reduction of the init concentration with time
+    
+        print()
+        print("kappa = ", kappa)
+        print()
+        for time_n, t_ in enumerate(save_times):
+            rel_dev = 100*(moments_vs_time_avg[0,0] - moments_vs_time_avg[time_n,0])\
+                      / moments_vs_time_avg[0,0]
+            print(t_, rel_dev)
+    
 #TTFS, LFS, TKFS = 14,14,12
 if act_plot_moments_kappa_var:
     ref_data_path = "collision/ref_data/" \
@@ -1872,3 +1896,253 @@ if act_plot_moments_kappa_var:
                                figsize, figname, figsize2, figname2,
                                figsize3, figname3,  figsize4, figname4,
                                TTFS, LFS, TKFS)
+
+#%% PLOT CONVERGENCE BEHAVIOR AT A FIXED TIME
+
+figsize_conv = cm2inch(18,7.5)
+
+idx_t_conv = 12
+t_conv = 60
+LW_conv = 1
+    
+#TTFS, LFS, TKFS = 14,14,12
+if act_plot_convergence_t_fix:
+    MS_mom = 5
+    MEW_mom = 0.5
+    ELW_mom = 0.8
+    capsize_mom = 2    
+    
+    if setup == "Golovin":
+        kappa_list=[5,10,20,40,60,100,200]
+    else:
+        kappa_list=[5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]    
+    
+    figname = figpath \
+            + f"{kernel_name}_convergence_t_{t_conv}_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
+#    figdir = sim_data_path + result_path_add    
+    
+    no_rows = 1
+    no_cols = 3
+
+    # load reference with highest SIP number    
+    kappa = kappa_list[-1]
+
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    moments_vs_time_avg_ref = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    moments_vs_time_std_ref = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    
+    moments_ref = moments_vs_time_avg_ref[idx_t_conv,np.array((0,2,3))][:,None]
+    moments_ref_std = moments_vs_time_std_ref[idx_t_conv,np.array((0,2,3))][:,None]
+    
+    print(moments_vs_time_avg_ref.shape)
+    
+    no_data = len(kappa_list) - 1
+    # [k,[Nsip,lambda_k]]
+    moments_vs_Nsip = np.zeros((3, no_data), dtype = np.float64)
+    moments_vs_Nsip_std = np.zeros((3, no_data), dtype = np.float64)
+    Nsip = []
+    for kappa_n,kappa in enumerate(kappa_list[:-1]):
+        load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+        save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+        moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+#        save_times0 = save_times
+        Nsip.append(kappa*5)
+        for cnt_m,mom_n in enumerate((0,2,3)):
+            moments_vs_Nsip[cnt_m,kappa_n] = \
+                moments_vs_time_avg[idx_t_conv,mom_n]
+            moments_vs_Nsip_std[cnt_m,kappa_n] = \
+                moments_vs_time_std[idx_t_conv,mom_n]
+    print(Nsip)
+    print(moments_vs_Nsip)
+    
+    moments_vs_Nsip_rel_dev = np.abs(moments_vs_Nsip - moments_ref) / moments_ref
+#    moments_vs_Nsip_rel_dev = np.abs(moments_vs_Nsip) / moments_ref
+    moments_vs_Nsip_rel_err = moments_vs_Nsip_std / moments_ref
+    
+    moments_vs_Nsip_rel_dev_log = np.log(moments_vs_Nsip_rel_dev)
+    moments_vs_Nsip_rel_err_log = np.log(moments_vs_Nsip_rel_err)
+    
+    Nsip_log = np.log(Nsip)
+    
+    from scipy.optimize import curve_fit
+    
+    def lin_fit(x,a,b):
+        return a*x+b
+        
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                             figsize=(figsize_conv)
+                             )  
+    
+    for cnt_m,mom_n in enumerate((0,2,3)):
+        ax = axes[cnt_m]
+        
+        rel_dev = moments_vs_Nsip_rel_dev[cnt_m]
+        rel_err = moments_vs_Nsip_rel_err[cnt_m]
+        rel_dev_log = moments_vs_Nsip_rel_dev_log[cnt_m]
+        rel_err_log = moments_vs_Nsip_rel_err_log[cnt_m]
+        print(setup, "fit values")
+        if setup == "Long_Bott":
+            if cnt_m == 0:
+                p, cov = curve_fit(lin_fit, Nsip_log,
+                                   rel_dev_log,
+                                   sigma=rel_err_log)   
+                
+                print(mom_n, p, np.sqrt(np.diag(cov)))        
+                print(mom_n, np.exp(p), np.exp(np.sqrt(np.diag(cov)))        )
+                
+                fitted = lin_fit(Nsip_log,*p)
+                fitted = np.exp(fitted)
+            elif cnt_m == 1:
+                
+                idx_cut = 7
+                p, cov = curve_fit(lin_fit, Nsip_log[:idx_cut],
+                                   rel_dev[:idx_cut],
+                                   sigma=rel_err[:idx_cut])   
+                print(mom_n, p, np.sqrt(np.diag(cov)))        
+                
+#                fitted = lin_fit(Nsip_log,*p)
+                fitted = lin_fit(Nsip_log[:idx_cut+2],*p)
+                
+                p2, cov2 = curve_fit(lin_fit, Nsip_log[idx_cut:],
+                                   rel_dev[idx_cut:],
+                                   sigma=rel_err[idx_cut:])   
+                print(mom_n, p2, np.sqrt(np.diag(cov2)))        
+                
+                fitted2 = lin_fit(Nsip_log[:],*p2)
+                
+#                fitted = np.exp(fitted)
+            elif cnt_m == 2:
+                
+                p, cov = curve_fit(lin_fit, Nsip_log,
+                                   rel_dev,
+                                   sigma=rel_err)   
+                
+                print(mom_n, p, np.sqrt(np.diag(cov)))        
+                
+                fitted = lin_fit(Nsip_log,*p)
+#                fitted = np.exp(fitted)
+            if cnt_m == 0:
+                yerr_low = np.where(moments_vs_Nsip_rel_dev[cnt_m]-moments_vs_Nsip_rel_err[cnt_m] <= 0,
+                                    moments_vs_Nsip_rel_dev[cnt_m]*0.999,
+                                    moments_vs_Nsip_rel_err[cnt_m])
+            else: 
+                yerr_low = moments_vs_Nsip_rel_err[cnt_m]
+            yerr_high = moments_vs_Nsip_rel_err[cnt_m]
+        elif setup == "Hall_Bott":
+#            if cnt_m == 0:
+            if cnt_m == 0:
+                p, cov = curve_fit(lin_fit, Nsip_log,
+                                   rel_dev_log,
+                                   sigma=rel_err_log)   
+                print(mom_n, p, np.sqrt(np.diag(cov)))        
+                print(mom_n, np.exp(p), np.exp(np.sqrt(np.diag(cov)))        )
+                
+                fitted = lin_fit(Nsip_log,*p)
+                fitted = np.exp(fitted)
+            elif cnt_m == 1:
+                
+                idx_cut = 8
+                p, cov = curve_fit(lin_fit, Nsip_log[:idx_cut],
+                                   rel_dev[:idx_cut],
+                                   sigma=rel_err[:idx_cut])   
+                print(mom_n, p, np.sqrt(np.diag(cov)))        
+                
+#                fitted = lin_fit(Nsip_log,*p)
+                fitted = lin_fit(Nsip_log[:idx_cut+2],*p)
+                
+                p2, cov2 = curve_fit(lin_fit, Nsip_log[idx_cut:],
+                                   rel_dev[idx_cut:],
+                                   sigma=rel_err[idx_cut:])   
+                print(mom_n, p2, np.sqrt(np.diag(cov2)))        
+                
+                fitted2 = lin_fit(Nsip_log[:],*p2)
+                
+#                fitted = np.exp(fitted)
+            elif cnt_m == 2:
+                
+                p, cov = curve_fit(lin_fit, Nsip_log,
+                                   rel_dev,
+                                   sigma=rel_err)   
+                
+                print(mom_n, p, np.sqrt(np.diag(cov)))        
+                
+                fitted = lin_fit(Nsip_log,*p)
+            if cnt_m == 0:
+                yerr_low = np.where(moments_vs_Nsip_rel_dev[cnt_m]-moments_vs_Nsip_rel_err[cnt_m] <= 0,
+                                    moments_vs_Nsip_rel_dev[cnt_m]*0.999,
+                                    moments_vs_Nsip_rel_err[cnt_m])
+            else: 
+                yerr_low = moments_vs_Nsip_rel_err[cnt_m]
+            yerr_high = moments_vs_Nsip_rel_err[cnt_m]
+            
+#        print(yerr_low.shape, yerr_high.shape)
+#        ax.plot(Nsip,moments_vs_Nsip[cnt_m])
+#        ax.plot(Nsip,moments_vs_Nsip_rel_dev[cnt_m], "x")
+        ax.errorbar(Nsip,moments_vs_Nsip_rel_dev[cnt_m],
+#                    yerr=moments_vs_Nsip_rel_err[cnt_m],
+                    yerr=(yerr_low,yerr_high),
+                    fmt = "x", ms = MS_mom, mew=MEW_mom,
+                    fillstyle="none", elinewidth = ELW_mom,
+                    capsize=capsize_mom, label = "sim"
+                    )        
+        if setup == "Long_Bott":
+            if cnt_m == 1:
+                ax.plot(Nsip[:idx_cut+2], fitted, label = "fit", linewidth= LW_conv)
+                ax.plot(Nsip, fitted2, label = "fit 2", linewidth= LW_conv)
+            else:
+                ax.plot(Nsip, fitted, label = "fit", linewidth= LW_conv)
+        if setup == "Hall_Bott":
+            if cnt_m == 1:
+                ax.plot(Nsip[:idx_cut+2], fitted, label = "fit", linewidth= LW_conv)
+                ax.plot(Nsip, fitted2, label = "fit 2", linewidth= LW_conv)
+            else:
+                ax.plot(Nsip, fitted, label = "fit", linewidth= LW_conv)
+#        if cnt_m == 0:
+#            ax.set_xscale("log")
+        ax.set_xscale("log")
+#        ax.set_yscale("log")
+#        ax.set_xticks(Nsip)
+#        ax.set_xticklabels(Nsip)
+        ax.grid(axis="y")
+        ax.legend()
+#        ax.set_xlim(10,2E4)
+        ax.set_xlabel(r"$N_\mathrm{SIP}$")
+        ax.set_title(r"$|\lambda_{0} - \lambda_\mathrm{{maxSIP}}| / \lambda_\mathrm{{maxSIP}}$".format(mom_n))
+    
+    axes[0].set_yscale("log")
+    if setup == "Long_Bott":
+    #    axes[1].set_yscale("log")
+        axes[0].set_ylim(5E-3,5E1)
+    if setup == "Hall_Bott":
+    #    axes[1].set_yscale("log")
+#        pass
+        axes[0].set_ylim(8E-4,1)
+#    
+#    axes[0].set_title("rel. dev. $(\lambda-\lambda_\mathrm{ref})/\lambda_\mathrm{ref}$")
+#    axes[1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda_\mathrm{ref}$ ")
+#    
+#    
+#    axes[0].set_xticks(np.linspace(0,60,7))
+#    axes[1].set_xticks(np.linspace(0,60,7))
+##        axes[0].set_yticks(np.logspace(-4,0,5))
+#    axes[0].set_xlim((0,60))
+#    axes[1].set_xlim((0,60))
+#    
+#    axes[0].set_xlabel("Time (min)")
+#    axes[1].set_xlabel("Time (min)")
+#        axes[-1].set_ylim((1E-5,2E-1))
+#        axes[0].set_yticks(np.linspace(-1,0.4,8))
+#        axes[1].set_yticks(np.linspace(-0.15,0.4,8))
+    pad_ax_h = 0.1
+    pad_ax_v = 0.22
+    fig.subplots_adjust(hspace=pad_ax_h) #, wspace=pad_ax_v)                    
+    fig.subplots_adjust(wspace=pad_ax_v)  
+    
+    fig.savefig(figname,
+#                bbox_inches = 0,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )   
+    
+    plt.close("all")    
