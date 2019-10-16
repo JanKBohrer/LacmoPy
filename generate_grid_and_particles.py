@@ -131,8 +131,6 @@ elif (my_OS == "TROPOS_server"):
 
 #%% PARTICLE PARAMETERS
 
-
-
 reseed = False
 seed_SIP_gen = 3721
 
