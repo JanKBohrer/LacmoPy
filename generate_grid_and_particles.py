@@ -132,7 +132,7 @@ elif (my_OS == "TROPOS_server"):
 #%% PARTICLE PARAMETERS
 
 reseed = False
-seed_SIP_gen = 3721
+seed_SIP_gen = 9001
 
 if len(sys.argv) > 2:
     seed_SIP_gen = int(sys.argv[2])

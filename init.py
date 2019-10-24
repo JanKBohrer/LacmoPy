@@ -1207,7 +1207,7 @@ def initialize_grid_and_particles_SinSIP(
         f.write("number of cells: ")
         f.write(f"{grid.no_cells[0]}, {grid.no_cells[1]} \n")
         f.write("grid steps: ")
-        f.write(f"{dx}, {dy}\n\n")
+        f.write(f"{dx}, {dy}, {dz}\n\n")
     ###
 
     ###
