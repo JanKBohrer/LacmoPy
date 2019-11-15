@@ -60,6 +60,23 @@ pgf_dict = {
     "font.family": "serif"
 }
     
+pgf_dict2 = {
+#    "backend" : "pgf",    
+    "text.usetex": True,
+#    "pgf.rcfonts": False,   # Do not set up fonts from rc parameters.
+#    "pgf.texsystem": "lualatex",
+    "pgf.texsystem": "pdflatex",
+    "pgf.preamble": [
+        r'\usepackage[ttscale=.9]{libertine}',
+        r'\usepackage[libertine]{newtxmath}',
+        r'\usepackage[T1]{fontenc}',
+        r'\usepackage[]{siunitx}',
+        r'\usepackage[]{sfmath}',
+#        r'\usepackage[no-math]{fontspec}',
+        ],
+    "font.family": "sans"
+}
+
 def generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI):
     dict_ = {'lines.linewidth' : LW,
              'lines.markersize' : MS,
