@@ -12,8 +12,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 #my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
@@ -22,6 +22,7 @@ if(my_OS == "Linux_desk"):
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
     simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+    home_path = "/Users/bohrer/"
 #    fig_path = home_path \
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "TROPOS_server"):
@@ -29,8 +30,12 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-args_plot = [1,1,1]
-#args_plot = [0,1,0]
+#args_plot = [1,1,1]
+#args_plot = [1,1,1]
+#args_plot = [1,0,0]
+
+#args_plot = [0,0,0,0]
+args_plot = [0,0,0,1]
 #args_plot = [1,0]
 #args_plot = [0,1]
 #args_plot = [1,1]
@@ -38,6 +43,7 @@ args_plot = [1,1,1]
 act_plot_grid_frames_avg = args_plot[0]
 act_plot_grid_frames_avg_shift = args_plot[1]
 act_plot_spectra_avg_Arabas = args_plot[2]
+act_plot_grid_frames_INIT = args_plot[3]
 #act_get_grid_data = args_plot[2]
 
 #%% GRID PARAMETERS
@@ -61,20 +67,22 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-no_spcm = np.array([26, 38])
+no_spcm = np.array([2, 3])
+#no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
-seed_SIP_gen = 3811
-seed_sim = 7811
+#seed_SIP_gen = 3811
+seed_SIP_gen = 2001
+seed_sim = 6811
 
-#no_seeds = 4
+#no_seeds = 1
 no_seeds = 50
 
 #%% SIM PARAMETERS
 
-#simulation_mode = "spin_up"
+simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
-simulation_mode = "with_collision"
+#simulation_mode = "with_collision"
 
 # for file names
 dt_col = 0.5
@@ -82,19 +90,19 @@ dt_col = 0.5
 
 # grid load time
 # path = simdata_path + folder_load_base
-#t_grid = 0
+t_grid = 0
 #t_grid = 7200
 #t_grid = 10800
-t_grid = 14400
+#t_grid = 14400
 
-#t_start = 0
-t_start = 7200
+t_start = 0
+#t_start = 7200
 
 #t_end = 60
 #t_end = 3600
-#t_end = 7200
+t_end = 7200
 #t_end = 10800
-t_end = 14400
+#t_end = 14400
 
 #%% PLOTTING PARAMETERS
 
@@ -115,17 +123,27 @@ no_bins_R_p = None
 no_bins_R_s = None
 
 #%% LOAD GRID AND SET PATHS
+singleGrid = True
+#dataFromServer = True
+dataFromServer = False
 
-data_folder = \
-    f"{solute_type}" \
-    + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
-    + f"eval_data_avg_Ns_{no_seeds}_" \
-    + f"sg_{seed_SIP_gen}_ss_{seed_sim}/"
+if dataFromServer:
+    data_folder = \
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen}_ss_{seed_sim}/"
+    grid_path = simdata_path + data_folder + "grid_data/" \
+                + f"{seed_SIP_gen}_{seed_sim}/"
+else:        
+    data_folder = \
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"{seed_SIP_gen}/"
+    data_path = simdata_path + data_folder
+    grid_path = simdata_path + data_folder
 
-data_path = simdata_path + data_folder
-
-grid_path = simdata_path + data_folder + "grid_data/" \
-            + f"{seed_SIP_gen}_{seed_sim}/"
+#grid_path = simdata_path + data_folder
 
 from file_handling import load_grid_from_files
 
@@ -133,25 +151,40 @@ grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
                             grid_path + f"arr_file1_{int(t_grid)}.npy",
                             grid_path + f"arr_file2_{int(t_grid)}.npy")
 
-seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
-seed_sim_list = np.load(data_path + "seed_sim_list.npy")
+grid.print_info()
 
-target_cell_list = np.load(data_path
-        + f"target_cell_list_avg_Ns_{no_seeds}_"
-        + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy")
+#grid.plot_thermodynamic_scalar_fields()
 
-no_neighbor_cells = np.load(data_path
-        + f"neighbor_cells_list_avg_Ns_{no_seeds}_"
-        + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-        )       
-no_cells_x = no_neighbor_cells[0]
-no_cells_z = no_neighbor_cells[1]
+if singleGrid:
+    figpath = home_path + "testingSubmit/"
+else:
+    seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
+    seed_sim_list = np.load(data_path + "seed_sim_list.npy")
+    
+    target_cell_list = np.load(data_path
+            + f"target_cell_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy")
+    
+    no_neighbor_cells = np.load(data_path
+            + f"neighbor_cells_list_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )       
+    no_cells_x = no_neighbor_cells[0]
+    no_cells_z = no_neighbor_cells[1]
+    
+    if no_cells_x % 2 == 0: no_cells_x += 1
+    if no_cells_z % 2 == 0: no_cells_z += 1  
+    
+    no_tg_cells = len(target_cell_list[0])   
 
-if no_cells_x % 2 == 0: no_cells_x += 1
-if no_cells_z % 2 == 0: no_cells_z += 1  
 
-no_tg_cells = len(target_cell_list[0])   
-
+#%% PLOT INIT GRID FRAMES
+if act_plot_grid_frames_INIT:
+    if not os.path.exists(figpath):
+            os.makedirs(figpath)    
+    figname_add = f"initFrames_ss_{seed_SIP_gen}_"
+    grid.plot_thermodynamic_scalar_fields(fig_path=figpath + figname_add)
+#    grid.plot_thermodynamic_scalar_fields()
 
 #%% PLOT AVG GRID FRAMES
 

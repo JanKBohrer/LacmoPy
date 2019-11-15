@@ -28,8 +28,8 @@ from file_handling import load_grid_and_particles_full,\
 
 #%% STORAGE DIRECTORIES
 #my_OS = "Linux_desk"
-#my_OS = "Mac"
-my_OS = "TROPOS_server"
+my_OS = "Mac"
+#my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
     home_path = '/home/jdesk/'
@@ -37,6 +37,7 @@ if(my_OS == "Linux_desk"):
 #    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "Mac"):
     simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+    home_path = "/Users/bohrer/"
 #    fig_path = home_path \
 #               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
 elif (my_OS == "TROPOS_server"):
@@ -99,19 +100,19 @@ spin_up_finished = True
 #spin_up_finished = False
 
 # path = simdata_path + folder_load_base
-#t_grid = 0
+t_grid = 0
 #t_grid = 7200
 #t_grid = 10800
-t_grid = 14400
+#t_grid = 14400
 
-#t_start = 0
-t_start = 7200
+t_start = 0
+#t_start = 7200
 
 #t_end = 60
 #t_end = 3600
-#t_end = 7200
+t_end = 7200
 #t_end = 10800
-t_end = 14400
+#t_end = 14400
 
 #%% PLOTTING PARAMETERS 
 
@@ -120,7 +121,8 @@ t_end = 14400
 #args_plot = [0,0,1,0,0]
 #args_plot = [0,0,0,1,0]
 #args_plot = [0,0,0,0,1]
-args_plot = [0,0,0,0,0,0,1,1,1,0]
+#args_plot = [0,0,0,0,0,0,1,1,1,0]
+args_plot = [1,0,0,0,0,0,0,0,0,0]
 #args_plot = [0,0,0,0,0,0,1,1]
 
 act_plot_scalar_fields_once = args_plot[0]

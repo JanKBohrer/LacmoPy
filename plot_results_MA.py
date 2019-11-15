@@ -106,8 +106,8 @@ DPI = 600
 mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
-#my_OS = "Mac"
+#my_OS = "Linux_desk"
+my_OS = "Mac"
 #my_OS = "TROPOS_server"
 
 if(my_OS == "Linux_desk"):
@@ -125,6 +125,7 @@ elif (my_OS == "TROPOS_server"):
 #%% CHOOSE OPERATIONS
 
 #args_plot = [0,0,0,0,0,0,0,0,1,0]
+#args_plot = [1,0,0,0,0,0,0,0,0,0]
 args_plot = [0,1,0,0,0,0,0,0,0,0]
 #args_plot = [0,0,0,1,0,0,0,0,0,0]
 
@@ -167,24 +168,26 @@ kernel_l = ["Long","Long","Long","Long","Long",
             "Long", "Long", "Long"]
 
 #%% SET SIMULATION PARAS
-#SIM_N = 1  # default
+SIM_N = 1  # default
 #SIM_N = 2 # Nsip 128
-SIM_N = 3 # pristine
+#SIM_N = 3 # pristine
 #SIM_N = 4 # polluted
 #SIM_N = 7 # Ecol 0.5
 #SIM_N = 10 # dt_col 0.1
 
 shift_cells_x = 18
 
+#Ns=1
 Ns=50
-#t_grid = 0.
-t_grid = 14400.
-#t_start=0.0
-t_start=7200.0
-#t_end=7200.0
-t_end=14400.0
+t_grid = 0.
+#t_grid = 14400.
+t_start=0.0
+#t_start=7200.0
+t_end=7200.0
+#t_end=14400.0
 dt=1. # advection TS
-simulation_mode="with_collision"
+#simulation_mode="with_collision"
+simulation_mode = "spin_up"
 
 #%% SET PLOTTING PARAMETERS
 
@@ -195,7 +198,8 @@ figsize_scalar_fields = cm2inch(16.8,20)
 figsize_scalar_fields_init = cm2inch(7.4,7.4)
 #figsize_scalar_fields = cm2inch(100,60)
 
-figpath = home_path + "Masterthesis/Figures/06TestCase/"
+figpath = home_path + "testingSubmit/"
+#figpath = home_path + "Masterthesis/Figures/06TestCase/"
 
 ### GRID FRAMES
 if SIM_N == 9:
