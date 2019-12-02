@@ -9,6 +9,7 @@ Created on Fri Nov 15 19:36:12 2019
 #%% MODULE IMPORTS
 import os
 import numpy as np
+import math
 # from datetime import datetime
 # import timeit
 
@@ -22,6 +23,7 @@ from file_handling import load_grid_and_particles_full,\
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as font_manager
+from matplotlib.colors import hex2color, LinearSegmentedColormap
 
 
 import matplotlib.ticker as mticker
@@ -57,6 +59,39 @@ mpl.use("pgf")
 #mpl.use("agg")
 mpl.rcParams.update(pgf_dict2)
 #mpl.rcParams.update(pdf_dict)
+
+#%%
+colors1 = plt.cm.get_cmap('gist_ncar_r', 256)
+#top = plt.cm.get_cmap('gist_rainbow_r', 256)
+colors2 = plt.cm.get_cmap('rainbow', 256)
+#top = plt.cm.get_cmap('Greys', 128)
+#bottom = plt.cm.get_cmap('Blues', 128)
+
+newcolors = np.vstack((colors1(np.linspace(0, 0.16, 24)),
+                       colors2(np.linspace(0, 1, 256))))
+#newcolors = np.vstack((top(np.linspace(0, 1, 128)),
+#                       bottom(np.linspace(0, 1, 128))))
+cmap_new = mpl.colors.ListedColormap(newcolors, name='my_rainbow')
+
+### CREATE COLORMAP LIKE ARABAS 2015
+hex_colors = ['#FFFFFF', '#993399', '#00CCFF', '#66CC00',
+              '#FFFF00', '#FC8727', '#FD0000']
+rgb_colors = [hex2color(cl) + tuple([1.0]) for cl in hex_colors]
+no_colors = len(rgb_colors)
+
+cdict_lcpp_colors = np.zeros( (3, no_colors, 3) )
+
+for i in range(3):
+    cdict_lcpp_colors[i,:,0] = np.linspace(0.0,1.0,no_colors)
+    for j in range(no_colors):
+        cdict_lcpp_colors[i,j,1] = rgb_colors[j][i]
+        cdict_lcpp_colors[i,j,2] = rgb_colors[j][i]
+
+cdict_lcpp = {"red": cdict_lcpp_colors[0],
+              "green": cdict_lcpp_colors[1],
+              "blue": cdict_lcpp_colors[2]}
+
+cmap_lcpp = LinearSegmentedColormap('testCmap', segmentdata=cdict_lcpp, N=256)
 
 #%%
 def gen_data_paths(solute_type_var, kernel_var, seed_SIP_gen_var, seed_sim_var,
@@ -133,7 +168,7 @@ elif (my_OS == "TROPOS_server"):
 
 #%% CHOOSE OPERATIONS
 
-#args_plot = [0,0,0,0,0,0,0,0,1,0]
+#args_plot = [0,0,0,0,0,0,0,0,0,1]
 args_plot = [0,1,0,0,0,0,0,0,0,0]
 #args_plot = [0,0,0,1,0,0,0,0,0,0]
 
@@ -152,7 +187,8 @@ act_plot_moments_vs_z = args_plot[5]
 act_plot_moments_diff_vs_z = args_plot[6]
 act_plot_moments_norm_vs_t = args_plot[7]
 act_plot_SIP_convergence = args_plot[8]
-act_compute_CFL = args_plot[8]
+act_plot_compare_two_cases = args_plot[9]
+act_compute_CFL = False
 
 # this one is not adapted for MA plots...
 #act_plot_grid_frames_avg_shift = args_plot[2]
@@ -181,6 +217,7 @@ SIM_N = 1  # default
 #SIM_N = 3 # pristine
 #SIM_N = 4 # polluted
 #SIM_N = 7 # Ecol 0.5
+#SIM_N = 8 # NaCl
 #SIM_N = 10 # dt_col 0.1
 
 shift_cells_x = 18
@@ -576,8 +613,8 @@ if act_plot_grid_frames_std:
 #%% PLOT ABSOLUTE DEVIATIONS BETWEEN TWO GRIDS
 
 #compare_type_abs_dev = "dt_col"
-compare_type_abs_dev = "Ncell"
-#compare_type_abs_dev = "solute"
+#compare_type_abs_dev = "Ncell"
+compare_type_abs_dev = "solute"
 #compare_type_abs_dev = "Kernel"
 #compare_type_abs_dev = "Nsip"
 
@@ -585,18 +622,18 @@ figsize_abs_dev = figsize_scalar_fields
 
 if act_plot_grid_frames_abs_dev:
     
-    from plotting_fcts_MA import plot_scalar_field_frames_abs_dev_MA
+    from plotting_fcts_presiMA import plot_scalar_field_frames_abs_dev_PRESI
     
     # n_aero, r_c, r_r, R_eff
 #    idx_fields_plot = (7, 5, 6, 12)
     
     ###
-#    idx_fields_plot = np.array((7,5,6,12))
-#    fields_name_add = "Naero_rc_rr_Reff_"
+    idx_fields_plot = np.array((5,6))
+    fields_name_add = "rc_rr"
     
     ###
-    idx_fields_plot = np.array((7,8,9,10))
-    fields_name_add = "Naero_Nc_Nr_Ravg_"
+#    idx_fields_plot = np.array((7,8,9,10))
+#    fields_name_add = "Naero_Nc_Nr_Ravg_"
     
     idx_times_plot = np.array((0,2,3,6))
     
@@ -760,7 +797,7 @@ if act_plot_grid_frames_abs_dev:
     if not os.path.exists(figpath):
             os.makedirs(figpath)    
             
-    plot_scalar_field_frames_abs_dev_MA(grid,
+    plot_scalar_field_frames_abs_dev_PRESI(grid,
                                         fields_with_time1,
                                         fields_with_time_std1,
                                         fields_with_time2,
@@ -828,3 +865,861 @@ if act_plot_grid_frames_abs_dev:
     plt.close("all")   
 
 
+#%% act_plot_compare_two_cases
+    
+if act_plot_compare_two_cases:
+    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    from mpl_toolkits.axes_grid1 import make_axes_locatable    
+    
+    figsize = cm2inch(12,7.6)
+    
+    sim_n1 = 1
+    sim_n2 = 8
+#    sim_n1 = 3
+#    sim_n2 = 4
+    
+    idx_times_plot = np.array((0,2,3,6))
+    
+    
+#    fields_type = 5 # r_c
+    fields_type = 6 # r_r
+    idx_fields_plot = np.array((fields_type))
+    
+    if sim_n2 == 4:
+        if fields_type == 5:
+            name_add = "poll_r_c_"
+        elif fields_type == 6:
+            name_add = "poll_r_r_"
+    elif sim_n2 == 8:
+        if fields_type == 5:
+            name_add = "SolType_r_c_"
+        elif fields_type == 6:
+            name_add = "SolType_r_r_"
+    
+    no_rows = 2
+    no_cols = len(idx_times_plot)
+    
+    tick_ranges = grid.ranges
+    no_ticks = [6,6]
+    
+    alpha = 1.0
+    
+    show_target_cells = False
+    
+    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
+                       figsize = figsize,
+                       sharex=True, sharey=True)    
+    
+    ### FIRST FIELD ###
+    SIM_N = sim_n1
+    no_cells = (ncl[SIM_N], ncl[SIM_N])
+    solute_type = solute_typel[SIM_N]
+    kernel = kernel_l[SIM_N]
+    seed_SIP_gen = gseedl[SIM_N]
+    seed_sim = sseedl[SIM_N]
+    DNC0 = [DNC1[SIM_N], DNC2[SIM_N]]
+    no_spcm = np.array([no_spcm0l[SIM_N], no_spcm1l[SIM_N]])
+    no_seeds = Ns
+    
+    dt_col = dt / no_col_per_advl[SIM_N]
+    
+    figname_base =\
+    f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}"\
+    + f"_SIP_{no_spcm[0]}_{no_spcm[1]}_Ns_{no_seeds}_DNC_{DNC0[0]}_{DNC0[1]}_dtcol_{int(dt_col*10)}"
+
+    data_folder = \
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen}_ss_{seed_sim}/"
+    
+    data_path = simdata_path + data_folder
+    
+    seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
+    seed_sim_list = np.load(data_path + "seed_sim_list.npy")    
+
+    fields_with_time = np.load(data_path
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    fields_with_time_std = np.load(data_path
+            + f"fields_vs_time_std_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    save_times_out_fr = np.load(data_path
+            + f"save_times_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    field_names_out = np.load(data_path
+            + f"field_names_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    units_out = np.load(data_path
+            + f"units_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    scales_out = np.load(data_path
+            + f"scales_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )    
+
+    fields_with_time = fields_with_time[idx_times_plot][:,idx_fields_plot]
+    fields_with_time_std = fields_with_time_std[idx_times_plot][:,idx_fields_plot]
+    save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
+    field_names_out = field_names_out[idx_fields_plot]
+    units_out = units_out[idx_fields_plot]
+    scales_out = scales_out[idx_fields_plot]
+
+#    fig_name = \
+#               f"scalar_fields_avg_" \
+#               + f"t_{save_times_out_fr[0]}_" \
+#               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+#               + f"Nfie_{len(field_names_out)}_" \
+#               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+#               + f"ss_{seed_sim_list[0]}_" \
+#               + fields_name_add + ".pdf"
+    
+    figname = "fields_compare_" + name_add + figname_base + ".pdf"
+    
+               
+    if not os.path.exists(figpath):
+            os.makedirs(figpath)    
+    
+    ### PLOT FIRST FIELD ###
+    field_n = 0
+    case_n = 0
+    for time_n in range(no_cols):
+#            ax = axes[time_n,field_n]
+        ax = axes[case_n,time_n]
+        field = fields_with_time[time_n] * scales_out
+        ax_title = field_names_out
+        unit = units_out
+        if ax_title in ["T","p",r"\Theta"]:
+            cmap = "coolwarm"
+            alpha = 1.0
+        else :
+#                cmap = "rainbow"
+            cmap = cmap_lcpp
+#                alpha = 0.8
+            
+        field_max = field.max()
+        field_min = field.min()
+        
+        xticks_major = None
+        xticks_minor = None
+        
+        title_add = None
+        title_add2 = None
+        
+        norm_ = mpl.colors.Normalize 
+        if ax_title in ["r_r", "n_r"]: #and field_max > 1E-2:
+            norm_ = mpl.colors.LogNorm
+            field_min = 0.01
+            cmap = cmap_lcpp                
+            if ax_title == "r_r":
+                field_max = 1.
+                xticks_major = [0.01,0.1,1.]
+                xticks_minor = np.concatenate((
+                        np.linspace(2E-2,1E-1,9),
+                        np.linspace(2E-1,1,9),
+                        ))
+                title_add = "R_p > \SI{25}{\micro m}"
+            elif ax_title == "n_r":
+                field_max = 10.
+                xticks_major = [0.01,0.1,1.,10.]
+                xticks_minor = np.concatenate((
+                        np.linspace(2E-2,1E-1,9),
+                        np.linspace(2E-1,1,9),
+                        np.linspace(2,10,9),
+                        ))
+        else: norm_ = mpl.colors.Normalize   
+        
+        if ax_title == r"\Theta":
+#                if SIM_N == 7:
+#                    field_min = 289.0
+#                    field_max = 292.5
+#                    xticks_major = [289,290,291,292]
+#                else:
+            field_min = 289.2
+            field_max = 292.5
+            xticks_major = [290,291,292]
+        if ax_title == "r_v":
+            field_min = 6.5
+            field_max = 7.6
+            xticks_minor = [6.75,7.25]
+        if ax_title == "r_l":
+            field_min = 0.0
+            field_max = 1.3
+            xticks_minor = [0.25,0.75,1.25]
+            
+        if ax_title == "r_c":
+            field_min = 0.0
+            field_max = 1.3
+#                xticks_major = np.linspace(0,1.2,7)
+#                xticks_major = np.linspace(0,1.25,6)
+            xticks_major = [0,0.5,1]
+            xticks_minor = [0.25,0.75,1.25]     
+          
+#            title_add = "R_p > \SI{0.5}{\micro m}"
+#            title_add2 = "R_p < \SI{25}{\micro m}"
+        if ax_title == "n_c":
+            field_min = 0.0
+            field_max = 150.
+            xticks_major = [0,50,100,150]
+            xticks_minor = [25,75,125]                
+        if ax_title == "n_\mathrm{aero}":
+            field_min = 0.0
+            field_max = 150.
+            xticks_major = [0,50,100,150]
+#                xticks_minor = [25,75,125]
+            title_add = "R_p < \SI{0.5}{\micro m}"
+        if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+            xticks_major = [1,5,10,15,20]
+#                field_min = 0.
+            field_min = 1
+#                field_min = 1.5
+            field_max = 20.
+#                cmap = cmap_new
+            # Arabas 2015
+            cmap = cmap_lcpp
+            unit = r"\si{\micro\meter}"
+
+        if SIM_N == 3:
+            title_add = "DNC = $50 / \si{cm^3}$"
+        if SIM_N == 4:
+            title_add = "DNC = $200 / \si{cm^3}$"
+        elif SIM_N == 1:
+            title_add = "ammon. sulf."
+        elif SIM_N == 8:
+            title_add = "NaCl"  
+            
+        oom_max = oom = int(math.log10(field_max))
+        
+        my_format = False
+        oom_factor = 1.0
+        
+        if oom_max > 2 or oom_max < 0:
+            my_format = True
+            oom_factor = 10**(-oom)
+            
+            field_min *= oom_factor
+            field_max *= oom_factor            
+        
+        if oom_max ==2: str_format = "%.0f"
+#            if oom_max ==2: str_format = "%.1f"
+        
+        else: str_format = "%.2g"
+#            else: str_format = "%.2f"
+        
+        if field_min/field_max < 1E-4:
+#                cmap = cmap_new
+            # Arabas 2015                
+            cmap = cmap_lcpp
+#                alpha = 0.8
+        
+        # REMOVE FIX APLHA HERE
+#            alpha = 1.0
+#        CS = ax.pcolormesh(*grid.corners, grid_r_l,
+#                           cmap=cmap, alpha=alpha,
+#                            edgecolor="face", zorder=1,
+#                            vmin=field_min, vmax=field_max,
+#                            antialiased=True, linewidth=0.0
+##                            norm = norm_(vmin=field_min, vmax=field_max)
+#                            )            
+        CS = ax.pcolormesh(*grid.corners, field*oom_factor,
+                           cmap=cmap, alpha=alpha,
+                            edgecolor="face", zorder=1,
+                            norm = norm_(vmin=field_min, vmax=field_max),
+                            rasterized=True,
+                            antialiased=True, linewidth=0.0
+                            )
+        if ax_title == r"\Theta":
+            cmap_x = mpl.cm.get_cmap('coolwarm')
+            print("cmap_x(0.0)")
+            print(cmap_x(0.0))
+            CS.cmap.set_under(cmap_x(0.0))
+#                pass
+        else:
+#            if ax_title != r"\Theta":
+            CS.cmap.set_under("white")
+        
+        ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                         tick_ranges[0,1],
+                                         no_ticks[0] ) )
+        ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                         tick_ranges[1,1],
+                                         no_ticks[1] ) )
+
+#            ax.set_xticks( np.linspace( tick_ranges[0,0],
+#                                             tick_ranges[0,1],
+#                                             no_ticks[0] ) )
+#            ax.set_yticks( np.linspace( tick_ranges[1,0],
+#                                             tick_ranges[1,1],
+#                                             no_ticks[1] ) )
+#            ax.tick_params(axis='both', which='major', labelsize=TKFS)
+        ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                       length = 2.5, width=0.6)
+#            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+#                           length = 3)            
+        ax.grid(color='gray', linestyle='dashed', zorder = 2)
+        ax.set_aspect('equal')
+        if field_n == no_rows-1:
+#                tlabels = ax.get_xticklabels()
+#                print(tlabels)
+#                tlabels[-1] = ""
+#                print(tlabels)
+#                ax.set_xticklabels(tlabels)    
+#                xticks1 = ax.xaxis.get_major_ticks()
+#                xticks1[-1].label1.set_visible(False)
+            ax.set_xlabel(r'$x$ (km)', fontsize = LFS)
+        if time_n == 0:            
+            ax.set_ylabel(r'$z$ (km)', fontsize = LFS)
+            if field_n >= 1:
+                yticks1 = ax.yaxis.get_major_ticks()
+                yticks1[-1].label1.set_visible(False)
+#            if time_n == 0:
+#                ax.set_title(
+#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
+#                             fontsize = TTFS)
+#                ax.set_title(
+#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
+#                             fontsize = TTFS)
+#            else:  
+        if field_n == 0:
+            ax.set_title( r"$t$ = {0} min".format(int(save_times_out_fr[time_n]/60)),
+                         fontsize = TTFS, pad=2)
+#            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
+#                         int(save_times[time_n]/60)),
+#                         fontsize = TTFS)
+        if time_n == no_cols-1:
+#                if no_cols == 4:
+#            if time_n == no_rows - 1:
+            axins = inset_axes(ax,
+                               width="10%",  # width = 5% of parent_bbox width
+                               height="100%",  # height
+                               loc='lower right',
+                               bbox_to_anchor=(0.14, 0.0, 1, 1),
+#                                   bbox_to_anchor=(0.3, 0.0, 1, 1),
+#                                   , 1, 1),
+                               bbox_transform=ax.transAxes,
+                               borderpad=0,
+                               )      
+#                else:
+#                    axins = inset_axes(ax,
+#                                       width="90%",  # width = 5% of parent_bbox width
+#                                       height="8%",  # height
+#                                       loc='lower center',
+#                                       bbox_to_anchor=(0.0, 1.4, 1, 1),
+#    #                                   , 1, 1),
+#                                       bbox_transform=ax.transAxes,
+#                                       borderpad=0,
+#                                       )      
+#                divider = make_axes_locatable(ax)
+#                cax = divider.append_axes("top", size="6%", pad=0.3)
+            
+            cbar = plt.colorbar(CS, cax=axins,
+#                                    fraction=0.046, pad=-0.1,
+                                format=mticker.FormatStrFormatter(str_format),
+                                orientation="vertical"
+                                )
+            
+#                axins.yaxis.set_ticks_position("left")
+            
+#                axins.xaxis.set_ticks_position("top")
+            axins.tick_params(axis="y",direction="inout",which="both")
+#                axins.tick_params(axis="x",direction="inout")
+            axins.tick_params(axis='y', which='major', labelsize=TKFS,
+                           length = 5, width=0.8)                
+            axins.tick_params(axis='y', which='minor', labelsize=TKFS,
+                           length = 3, width=0.5,bottom=True)                
+            
+            
+            if xticks_major is not None:
+                axins.yaxis.set_ticks(xticks_major)
+            if xticks_minor is not None:
+                axins.yaxis.set_ticks(xticks_minor, minor=True)
+            if ax_title == "n_c":
+                xticks2 = axins.xaxis.get_major_ticks()
+                xticks2[-1].label1.set_visible(False)                
+#                axins.set_ylabel(r"${0}$ ({1})".format(ax_title, unit))
+            
+            if title_add is None:
+                cbar.set_label(r"${0}$ ({1})".format(ax_title, unit),rotation=0)
+            elif title_add2 is None:
+                cbar.set_label(r"${0}$ ({1})".format(ax_title, unit)
+                               +"\n"
+                               +r"({0})".format(title_add),
+                               rotation=0,
+                               labelpad=23,
+                               y = 0.86)
+            else:
+                cbar.set_label(r"${0}$ ({1})".format(ax_title, unit)
+                               +"\n"
+                               +r"({0})".format(title_add)
+                               +"\n"
+                               +r"({0})".format(title_add2),
+                               rotation=0,
+                               labelpad=23,
+                               y = 0.7)
+                
+#                    cbar.axis.set_label_coords(0.05, 0.75)
+        # my_format dos not work with log scale here!!
+
+            if my_format:
+                cbar.ax.text(field_min - (field_max-field_min),
+                             field_max + (field_max-field_min)*0.01,
+                             r'$\times\,10^{{{}}}$'.format(oom_max),
+                             va='bottom', ha='left', fontsize = TKFS)
+            cbar.ax.tick_params(labelsize=TKFS)
+
+        if show_target_cells:
+            ### ad the target cells
+            no_neigh_x = no_cells_x // 2
+            no_neigh_z = no_cells_z // 2
+            dx = grid.steps[0]
+            dz = grid.steps[1]
+            
+            no_tg_cells = len(target_cell_list[0])
+            LW_rect = .5
+            for tg_cell_n in range(no_tg_cells):
+                x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+                z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+                
+        #        dx *= no_cells_x
+        #        dz *= no_cells_z
+                
+                rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                     fill=False,
+                                     linewidth = LW_rect,
+    #                                 linestyle = "dashed",
+                                     edgecolor='k',
+                                     zorder = 99)        
+                ax.add_patch(rect)
+    
+    ### SECOND FIELD ###
+    SIM_N = sim_n2
+    no_cells = (ncl[SIM_N], ncl[SIM_N])
+    solute_type = solute_typel[SIM_N]
+    kernel = kernel_l[SIM_N]
+    seed_SIP_gen = gseedl[SIM_N]
+    seed_sim = sseedl[SIM_N]
+    DNC0 = [DNC1[SIM_N], DNC2[SIM_N]]
+    no_spcm = np.array([no_spcm0l[SIM_N], no_spcm1l[SIM_N]])
+    no_seeds = Ns
+    
+    dt_col = dt / no_col_per_advl[SIM_N]
+    
+    figname_base =\
+    f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}"\
+    + f"_SIP_{no_spcm[0]}_{no_spcm[1]}_Ns_{no_seeds}_DNC_{DNC0[0]}_{DNC0[1]}_dtcol_{int(dt_col*10)}"
+
+    data_folder = \
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"eval_data_avg_Ns_{no_seeds}_" \
+        + f"sg_{seed_SIP_gen}_ss_{seed_sim}/"
+    
+    data_path = simdata_path + data_folder
+    
+    seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
+    seed_sim_list = np.load(data_path + "seed_sim_list.npy")    
+
+    fields_with_time = np.load(data_path
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    fields_with_time_std = np.load(data_path
+            + f"fields_vs_time_std_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    save_times_out_fr = np.load(data_path
+            + f"save_times_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    field_names_out = np.load(data_path
+            + f"field_names_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    units_out = np.load(data_path
+            + f"units_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    scales_out = np.load(data_path
+            + f"scales_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )    
+
+    fields_with_time = fields_with_time[idx_times_plot][:,idx_fields_plot]
+    fields_with_time_std = fields_with_time_std[idx_times_plot][:,idx_fields_plot]
+    save_times_out_fr = save_times_out_fr[idx_times_plot]-7200
+    field_names_out = field_names_out[idx_fields_plot]
+    units_out = units_out[idx_fields_plot]
+    scales_out = scales_out[idx_fields_plot]
+
+#    fig_name = \
+#               f"scalar_fields_avg_" \
+#               + f"t_{save_times_out_fr[0]}_" \
+#               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+#               + f"Nfie_{len(field_names_out)}_" \
+#               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+#               + f"ss_{seed_sim_list[0]}_" \
+#               + fields_name_add + ".pdf"
+    
+    figname = "fields_compare_" + name_add + figname_base + ".pdf"
+               
+    if not os.path.exists(figpath):
+            os.makedirs(figpath)    
+    
+    ### PLOT SECOND FIELD ###
+    field_n = 1
+    case_n = 1
+    for time_n in range(no_cols):
+#            ax = axes[time_n,field_n]
+        ax = axes[case_n,time_n]
+        field = fields_with_time[time_n] * scales_out
+        ax_title = field_names_out
+        unit = units_out
+        if ax_title in ["T","p",r"\Theta"]:
+            cmap = "coolwarm"
+            alpha = 1.0
+        else :
+#                cmap = "rainbow"
+            cmap = cmap_lcpp
+#                alpha = 0.8
+            
+        field_max = field.max()
+        field_min = field.min()
+        
+        xticks_major = None
+        xticks_minor = None
+        
+        title_add = None
+        title_add2 = None
+        
+        norm_ = mpl.colors.Normalize 
+        if ax_title in ["r_r", "n_r"]: #and field_max > 1E-2:
+            norm_ = mpl.colors.LogNorm
+            field_min = 0.01
+            cmap = cmap_lcpp                
+            if ax_title == "r_r":
+                field_max = 1.
+                xticks_major = [0.01,0.1,1.]
+                xticks_minor = np.concatenate((
+                        np.linspace(2E-2,1E-1,9),
+                        np.linspace(2E-1,1,9),
+                        ))
+                title_add = "R_p > \SI{25}{\micro m}"
+            elif ax_title == "n_r":
+                field_max = 10.
+                xticks_major = [0.01,0.1,1.,10.]
+                xticks_minor = np.concatenate((
+                        np.linspace(2E-2,1E-1,9),
+                        np.linspace(2E-1,1,9),
+                        np.linspace(2,10,9),
+                        ))
+        else: norm_ = mpl.colors.Normalize   
+        
+        if ax_title == r"\Theta":
+#                if SIM_N == 7:
+#                    field_min = 289.0
+#                    field_max = 292.5
+#                    xticks_major = [289,290,291,292]
+#                else:
+            field_min = 289.2
+            field_max = 292.5
+            xticks_major = [290,291,292]
+        if ax_title == "r_v":
+            field_min = 6.5
+            field_max = 7.6
+            xticks_minor = [6.75,7.25]
+        if ax_title == "r_l":
+            field_min = 0.0
+            field_max = 1.3
+            xticks_minor = [0.25,0.75,1.25]
+            
+        if ax_title == "r_c":
+            field_min = 0.0
+            field_max = 1.3
+#                xticks_major = np.linspace(0,1.2,7)
+#                xticks_major = np.linspace(0,1.25,6)
+            xticks_major = [0,0.5,1]
+            xticks_minor = [0.25,0.75,1.25]     
+#            title_add = "DNC ="
+#            title_add2 = "$200 / \si{cm^3}$"
+#            if SIM_N == 3:
+#                title_add = "DNC = $50 / \si{cm^3}$"
+#            if SIM_N == 4:
+#                title_add = "DNC = $200 / \si{cm^3}$"
+#            elif SIM_N == 1:
+#                title_add = "ammon. sulf."
+#            elif SIM_N == 8:
+#                title_add = "NaCl"
+                
+#            title_add = "pristine"
+#            title_add2 = "\mathrm{DNC} = 50 / \si{cm^3}"
+#            title_add = "R_p > \SI{0.5}{\micro m}"
+#            title_add2 = "R_p < \SI{25}{\micro m}"
+        if ax_title == "n_c":
+            field_min = 0.0
+            field_max = 150.
+            xticks_major = [0,50,100,150]
+            xticks_minor = [25,75,125]                
+        if ax_title == "n_\mathrm{aero}":
+            field_min = 0.0
+            field_max = 150.
+            xticks_major = [0,50,100,150]
+#                xticks_minor = [25,75,125]
+            title_add = "R_p < \SI{0.5}{\micro m}"
+        if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
+            xticks_major = [1,5,10,15,20]
+#                field_min = 0.
+            field_min = 1
+#                field_min = 1.5
+            field_max = 20.
+#                cmap = cmap_new
+            # Arabas 2015
+            cmap = cmap_lcpp
+            unit = r"\si{\micro\meter}"
+
+        if SIM_N == 3:
+            title_add = "DNC = $50 / \si{cm^3}$"
+        if SIM_N == 4:
+            title_add = "DNC = $200 / \si{cm^3}$"
+        elif SIM_N == 1:
+            title_add = "ammon. sulf."
+        elif SIM_N == 8:
+            title_add = "NaCl"  
+            
+        oom_max = oom = int(math.log10(field_max))
+        
+        my_format = False
+        oom_factor = 1.0
+        
+        if oom_max > 2 or oom_max < 0:
+            my_format = True
+            oom_factor = 10**(-oom)
+            
+            field_min *= oom_factor
+            field_max *= oom_factor            
+        
+        if oom_max ==2: str_format = "%.0f"
+#            if oom_max ==2: str_format = "%.1f"
+        
+        else: str_format = "%.2g"
+#            else: str_format = "%.2f"
+        
+        if field_min/field_max < 1E-4:
+#                cmap = cmap_new
+            # Arabas 2015                
+            cmap = cmap_lcpp
+#                alpha = 0.8
+        
+        # REMOVE FIX APLHA HERE
+#            alpha = 1.0
+#        CS = ax.pcolormesh(*grid.corners, grid_r_l,
+#                           cmap=cmap, alpha=alpha,
+#                            edgecolor="face", zorder=1,
+#                            vmin=field_min, vmax=field_max,
+#                            antialiased=True, linewidth=0.0
+##                            norm = norm_(vmin=field_min, vmax=field_max)
+#                            )            
+        CS = ax.pcolormesh(*grid.corners, field*oom_factor,
+                           cmap=cmap, alpha=alpha,
+                            edgecolor="face", zorder=1,
+                            norm = norm_(vmin=field_min, vmax=field_max),
+                            rasterized=True,
+                            antialiased=True, linewidth=0.0
+                            )
+        if ax_title == r"\Theta":
+            cmap_x = mpl.cm.get_cmap('coolwarm')
+            print("cmap_x(0.0)")
+            print(cmap_x(0.0))
+            CS.cmap.set_under(cmap_x(0.0))
+#                pass
+        else:
+#            if ax_title != r"\Theta":
+            CS.cmap.set_under("white")
+        
+        ax.set_xticks( np.linspace( tick_ranges[0,0],
+                                         tick_ranges[0,1],
+                                         no_ticks[0] ) )
+        ax.set_yticks( np.linspace( tick_ranges[1,0],
+                                         tick_ranges[1,1],
+                                         no_ticks[1] ) )
+
+#            ax.set_xticks( np.linspace( tick_ranges[0,0],
+#                                             tick_ranges[0,1],
+#                                             no_ticks[0] ) )
+#            ax.set_yticks( np.linspace( tick_ranges[1,0],
+#                                             tick_ranges[1,1],
+#                                             no_ticks[1] ) )
+#            ax.tick_params(axis='both', which='major', labelsize=TKFS)
+        ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                       length = 2.5, width=0.6)
+#            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+#                           length = 3)            
+        ax.grid(color='gray', linestyle='dashed', zorder = 2)
+        ax.set_aspect('equal')
+        if field_n == no_rows-1:
+#                tlabels = ax.get_xticklabels()
+#                print(tlabels)
+#                tlabels[-1] = ""
+#                print(tlabels)
+#                ax.set_xticklabels(tlabels)    
+#                xticks1 = ax.xaxis.get_major_ticks()
+#                xticks1[-1].label1.set_visible(False)
+            ax.set_xlabel(r'$x$ (km)', fontsize = LFS)
+            if time_n < no_cols-1:
+                xticks1 = ax.xaxis.get_major_ticks()
+                xticks1[-1].label1.set_visible(False)            
+        if time_n == 0:            
+            ax.set_ylabel(r'$z$ (km)', fontsize = LFS)
+            if field_n >= 1:
+                yticks1 = ax.yaxis.get_major_ticks()
+#                yticks1[-1].label1.set_visible(False)
+#            if time_n == 0:
+#                ax.set_title(
+#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
+#                             fontsize = TTFS)
+#                ax.set_title(
+#    r"\begin{{center}}${0}$ ({1})\\ t = 0\end{{center}}".format(ax_title, unit),
+#                             fontsize = TTFS)
+#            else:  
+        if field_n == 0:
+            ax.set_title( r"$t$ = {0} min".format(int(save_times_out_fr[time_n]/60)),
+                         fontsize = TTFS, pad=2)
+#            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
+#                         int(save_times[time_n]/60)),
+#                         fontsize = TTFS)
+        if time_n == no_cols-1:
+#                if no_cols == 4:
+#            if time_n == no_rows - 1:
+            axins = inset_axes(ax,
+                               width="10%",  # width = 5% of parent_bbox width
+                               height="100%",  # height
+                               loc='lower right',
+                               bbox_to_anchor=(0.14, 0.0, 1, 1),
+#                                   bbox_to_anchor=(0.3, 0.0, 1, 1),
+#                                   , 1, 1),
+                               bbox_transform=ax.transAxes,
+                               borderpad=0,
+                               )      
+#                else:
+#                    axins = inset_axes(ax,
+#                                       width="90%",  # width = 5% of parent_bbox width
+#                                       height="8%",  # height
+#                                       loc='lower center',
+#                                       bbox_to_anchor=(0.0, 1.4, 1, 1),
+#    #                                   , 1, 1),
+#                                       bbox_transform=ax.transAxes,
+#                                       borderpad=0,
+#                                       )      
+#                divider = make_axes_locatable(ax)
+#                cax = divider.append_axes("top", size="6%", pad=0.3)
+            
+            cbar = plt.colorbar(CS, cax=axins,
+#                                    fraction=0.046, pad=-0.1,
+                                format=mticker.FormatStrFormatter(str_format),
+                                orientation="vertical"
+                                )
+            
+#                axins.yaxis.set_ticks_position("left")
+            
+#                axins.xaxis.set_ticks_position("top")
+            axins.tick_params(axis="y",direction="inout",which="both")
+#                axins.tick_params(axis="x",direction="inout")
+            axins.tick_params(axis='y', which='major', labelsize=TKFS,
+                           length = 5, width=0.8)                
+            axins.tick_params(axis='y', which='minor', labelsize=TKFS,
+                           length = 3, width=0.5,bottom=True)                
+            
+            
+            if xticks_major is not None:
+                axins.yaxis.set_ticks(xticks_major)
+            if xticks_minor is not None:
+                axins.yaxis.set_ticks(xticks_minor, minor=True)
+            if ax_title == "n_c":
+                xticks2 = axins.xaxis.get_major_ticks()
+                xticks2[-1].label1.set_visible(False)                
+#                axins.set_ylabel(r"${0}$ ({1})".format(ax_title, unit))
+            
+            if title_add is None:
+                cbar.set_label(r"${0}$ ({1})".format(ax_title, unit),rotation=0)
+            elif title_add2 is None:
+                cbar.set_label(r"${0}$ ({1})".format(ax_title, unit)
+                               +"\n"
+                               +r"({0})".format(title_add),
+                               rotation=0,
+                               labelpad=23,
+                               y = 0.86)
+            else:
+                cbar.set_label(r"${0}$ ({1})".format(ax_title, unit)
+                               +"\n"
+                               +r"({0}".format(title_add)
+                               +"\n"
+                               +r"{0})".format(title_add2),
+                               rotation=0,
+                               labelpad=23,
+                               y = 0.7)
+                
+#                    cbar.axis.set_label_coords(0.05, 0.75)
+        # my_format dos not work with log scale here!!
+
+            if my_format:
+                cbar.ax.text(field_min - (field_max-field_min),
+                             field_max + (field_max-field_min)*0.01,
+                             r'$\times\,10^{{{}}}$'.format(oom_max),
+                             va='bottom', ha='left', fontsize = TKFS)
+            cbar.ax.tick_params(labelsize=TKFS)
+
+        if show_target_cells:
+            ### ad the target cells
+            no_neigh_x = no_cells_x // 2
+            no_neigh_z = no_cells_z // 2
+            dx = grid.steps[0]
+            dz = grid.steps[1]
+            
+            no_tg_cells = len(target_cell_list[0])
+            LW_rect = .5
+            for tg_cell_n in range(no_tg_cells):
+                x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+                z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+                
+        #        dx *= no_cells_x
+        #        dz *= no_cells_z
+                
+                rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                     fill=False,
+                                     linewidth = LW_rect,
+    #                                 linestyle = "dashed",
+                                     edgecolor='k',
+                                     zorder = 99)        
+                ax.add_patch(rect)
+
+#    if no_cols == 4:
+#    pad_ax_h = 0.1
+#    pad_ax_v = 0.05
+    pad_ax_h = -0.2
+    pad_ax_v = 0.08
+#    else:        
+#        pad_ax_h = -0.5 
+#        pad_ax_v = 0.08
+    #    pad_ax_v = 0.005
+    fig.subplots_adjust(hspace=pad_ax_h, wspace=pad_ax_v)
+#    fig.subplots_adjust(wspace=pad_ax_v)
+             
+#    fig.tight_layout()
+    if figpath is not None:
+#        if 
+#        DPI =
+        fig.savefig(figpath + figname,
+    #                    bbox_inches = 0,
+                    bbox_inches = 'tight',
+                    pad_inches = 0.03,
+#                    dpi=300,
+                    dpi=600
+                    )   
+    
+    
+    
+#%%

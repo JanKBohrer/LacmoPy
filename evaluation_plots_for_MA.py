@@ -224,7 +224,8 @@ target_cell_list = np.array([i_list.flatten(), j_list.flatten()])
 no_cells_x = 3
 no_cells_z = 3
 
-figpath = home_path + "/Masterthesis/Figures/06TestCase/"
+#figpath = home_path + "/Masterthesis/Figures/06TestCase/"
+figpath = home_path + "/PresentationMA/Figures/"
 
 ### TRACERS TRAJECTORIES
 figsize_pt_trajs = cm2inch(4.9,7)
@@ -1419,11 +1420,12 @@ if act_plot_life_cycle:
                 figsize_trace_traj = figsize_trace_traj,
                 fig_path = fig_name,
                 show_target_cells = True,
-#                fig_path_tg_cells = fig_path_tg_cells,
-#                fig_path_R_eff = fig_path_R_eff,
-                fig_path_tg_cells = None,
-                fig_path_R_eff = None,
-                trajectory = pos1_shift[ind_traj_plot1:ind_traj_plot2] )
+                fig_path_tg_cells = fig_path_tg_cells,
+                fig_path_R_eff = fig_path_R_eff,
+#                fig_path_tg_cells = None,
+#                fig_path_R_eff = None,
+                trajectory = pos1_shift[ind_traj_plot1:ind_traj_plot2],
+                show_textbox = False)
 #                trajectory = pos1_shift[:] )
 #                trajectory = pos1_shift[ind_traj_first_t:ind_traj_last_t] )
 
