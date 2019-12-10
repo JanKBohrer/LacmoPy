@@ -196,7 +196,6 @@ dt = 1.0 # s # timestep of advection
 # only even integers possible:
 no_cond_per_adv = 10
 
-
 # number of cond steps per adv step
 # possible values: 1, 2 OR no_cond_per_adv
 no_col_per_adv = 2
@@ -217,6 +216,7 @@ dt_col = dt / no_col_per_adv
 ### DERIVED END
 
 ### SET THIS
+# RENAME to no_iter_impl_mass ..
 Newton_iter = 3 # number of root finding iterations for impl. mass integration
 
 # save grid properties T, p, Theta, r_v, r_l, S every "frame_every" steps dt

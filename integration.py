@@ -962,14 +962,26 @@ propagate_particles_subloop_step_AS_par =\
 
 #%% SUBLOOP COMBINED
     
-def integrate_subloop_n_steps_np(grid_scalar_fields, grid_mat_prop, grid_velocity,
-                         grid_no_cells, grid_ranges, grid_steps,
-                         grid_volume_cell, p_ref, p_ref_inv,
-                         pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
-                         id_list, active_ids, T_p,
-                         delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
-                         dt_sub, dt_sub_pos, no_steps, Newton_iter, g_set,
-                         solute_type):
+def integrate_subloop_n_steps_np(grid_scalar_fields, grid_mat_prop,
+                                 grid_velocity, grid_no_cells, grid_ranges,
+                                 grid_steps, grid_volume_cell,
+                                 p_ref, p_ref_inv, pos, vel, cells, rel_pos,
+                                 m_w, m_s, xi, water_removed, id_list,
+                                 active_ids, T_p, delta_m_l, delta_Q_p,
+                                 delta_Theta_ad, delta_r_v_ad,
+                                 dt_sub, dt_sub_pos, no_steps,
+                                 Newton_iter, g_set, solute_type):
+    '''
+    description
+    
+    
+    Parameters
+    ----------
+    
+    
+    Returns
+    -------
+    '''
     
     # d) subloop 1
     # for n_h = 0, ..., N_h-1
