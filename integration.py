@@ -1690,7 +1690,6 @@ def simulate_interval_wout_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
 #simulate_interval_wout_col = njit()(simulate_interval_wout_col_np)
 
 #%% SIMULATE FULL
-
 ### SIMULATE FULL WITH COLLISIONS POSSIBLE (activated by act_collisions bool)
 
 # grid_scalar_fields[0] = grid.temperature
@@ -1728,20 +1727,32 @@ def simulate_interval_wout_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
 # trace ids can be an np.array = [ID0, ID1, ..] or an integer
 # -> if integer: spread this number of tracers uniformly over the ID-range
 # path: path to save data, the file notation is chosen internally
-def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
-                 water_removed,
-                 active_ids,
-                 dt, dt_col, scale_dt_cond, no_col_per_adv,
-                 t_start, t_end, Newton_iter, g_set,
-                 act_collisions,
-                 frame_every, dump_every, trace_ids, 
-                 E_col_grid, no_kernel_bins,
-                 R_kernel_low_log, bin_factor_R_log,
-                 kernel_type, kernel_method,
-                 no_cols,
-                 rnd_seed,
-                 path, simulation_mode):
-    log_file = path + f"log_sim_t_{int(t_start)}_{int(t_end)}.txt"
+
+def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
+             water_removed, no_cols, inpar, E_col_grid, output_path):
+    
+    par_keys = [ 'solute_type', 'dt_adv', 'dt_col', 'scale_dt_cond',
+                 'no_col_per_adv', 't_start', 't_end', 'no_iter_impl_mass',
+                 'g_set', 'act_collisions', 'frame_every', 'dump_every',
+                 'trace_ids', 'no_kernel_bins', 'R_kernel_low_log',
+                 'bin_factor_R_log', 'kernel_type', 'kernel_method',                 
+                 'seed_sim', 'simulation_mode' ]
+    
+    solute_type, dt, dt_col, scale_dt_cond, \
+    no_col_per_adv, t_start, t_end, no_iter_impl_mass, \
+    g_set, act_collisions, frame_every, dump_every, \
+    trace_ids, no_kernel_bins, R_kernel_low_log, \
+    bin_factor_R_log, kernel_type, kernel_method, \
+    seed_sim, simulation_mode = \
+        [inpar.get(key) for key in par_keys]
+    
+    list1 = [inpar.get(key) for key in par_keys]
+    
+#    print("dt = ", dt)
+#    print("list1")
+#    print(list1)
+    
+    log_file = output_path + f"log_sim_t_{int(t_start)}_{int(t_end)}.txt"
     
     start_time = datetime.now()
     
@@ -1812,19 +1823,19 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
         f.write(f"dt_sub = {dt_sub}\n")    
     cnt_max = (t_end - t_start) /dt
     no_grid_frames = int(math.ceil(cnt_max / frame_every))
-    np.save(path+"data_saving_paras.npy",
+    np.save(output_path+"data_saving_paras.npy",
             (frame_every, no_grid_frames, dump_every))
     dt_save = int(frame_every * dt)
     grid_save_times =\
         np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
-    np.save(path+"grid_save_times.npy", grid_save_times)
+    np.save(output_path+"grid_save_times.npy", grid_save_times)
     # frame_every = int(math.ceil(cnt_max / no_grid_frames))
     # full_save_every = int(full_save_time_interval // dt)
     
     if isinstance(trace_ids, int):
         trace_id_dist = int(math.floor(len(xi)/(trace_ids)))
         trace_ids = np.arange(int(trace_id_dist*0.5), len(xi), trace_id_dist)
-    np.save(path+"trace_ids.npy", trace_ids)
+    np.save(output_path+"trace_ids.npy", trace_ids)
     no_trace_ids = len(trace_ids)
     
     dump_factor = frame_every // dump_every
@@ -1845,12 +1856,12 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
     # traced_grid_fields =\
     #     np.zeros((dump_factor, 2, grid_no_cells[0], grid_no_cells[1]))
     
-    sim_paras = [dt, dt_sub, Newton_iter, rnd_seed]
-    sim_par_names = "dt dt_sub Newton_iter rnd_seed_sim"
-    # sim_paras = [dt, dt_sub, Newton_iter, no_trace_ids]
-    # sim_par_names = "dt dt_sub Newton_iter no_trace_ids"
-    # sim_para_file = path + "sim_paras_t_" + str(t_start) + ".txt"
-    save_sim_paras_to_file(sim_paras, sim_par_names, t_start, path)
+    sim_paras = [dt, dt_sub, no_iter_impl_mass, seed_sim]
+    sim_par_names = "dt dt_sub no_iter_impl_mass rnd_seed_sim"
+    # sim_paras = [dt, dt_sub, no_iter_impl_mass, no_trace_ids]
+    # sim_par_names = "dt dt_sub no_iter_impl_mass no_trace_ids"
+    # sim_para_file = output_path + "sim_paras_t_" + str(t_start) + ".txt"
+    save_sim_paras_to_file(sim_paras, sim_par_names, t_start, output_path)
     
     date = datetime.now()
     print("### simulation starts ###")
@@ -1862,7 +1873,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
         f.write( f"start date and time = {date}\n" )    
         f.write( f"sim time = {date-start_time}\n" )    
     ### INTEGRATION LOOP START
-    if act_collisions: np.random.seed(rnd_seed)
+    if act_collisions: np.random.seed(seed_sim)
     for frame_N in range(no_grid_frames):
         t = t_start + frame_N * frame_every * dt 
         update_grid_r_l(m_w, xi, cells,
@@ -1870,10 +1881,10 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                         grid_scalar_fields[8],
                         active_ids,
                         id_list)
-        save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
+        save_grid_scalar_fields(t, grid_scalar_fields, output_path, start_time)
         dump_particle_data_all(t, pos, vel, cells,
-                               m_w, m_s, xi, active_ids, path)
-        np.save(path + f"no_cols_{int(t)}.npy", no_cols)
+                               m_w, m_s, xi, active_ids, output_path)
+        np.save(output_path + f"no_cols_{int(t)}.npy", no_cols)
         if act_collisions:
             simulate_interval_col(
                     grid_scalar_fields, grid_mat_prop, grid_velocity,
@@ -1885,7 +1896,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                     delta_m_l, delta_Q_p,
                     dt, dt_sub, dt_sub_half, dt_col,                    
                     scale_dt_cond, no_col_per_adv, frame_every,
-                    Newton_iter, g_set,
+                    no_iter_impl_mass, g_set,
                     dump_every, trace_ids,
                     traced_vectors, traced_scalars,
                     traced_xi, traced_water,
@@ -1905,7 +1916,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                     delta_m_l, delta_Q_p,
                     dt, dt_sub, dt_sub_half, scale_dt_cond,
                     frame_every,
-                    Newton_iter, g_set,
+                    no_iter_impl_mass, g_set,
                     dump_every, trace_ids,
                     traced_vectors, traced_scalars,
                     traced_xi, traced_water, solute_type)
@@ -1916,7 +1927,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                                  traced_vectors, traced_scalars, traced_xi,
                                  traced_water,
                                  # traced_grid_fields,
-                                 path)
+                                 output_path)
     ### INTEGRATION LOOP END
     
     t = t_start + no_grid_frames * frame_every * dt
@@ -1925,14 +1936,14 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
                    grid_scalar_fields[8],
                    active_ids,
                    id_list)
-    save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)        
-    dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, path)
-    np.save(path + f"no_cols_{int(t)}.npy", no_cols)
+    save_grid_scalar_fields(t, grid_scalar_fields, output_path, start_time)        
+    dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, output_path)
+    np.save(output_path + f"no_cols_{int(t)}.npy", no_cols)
     dump_particle_data(t, pos[:,trace_ids], vel[:,trace_ids],
                        m_w[trace_ids], m_s[trace_ids], xi[trace_ids],
-                       grid_scalar_fields[0], grid_scalar_fields[4], path)
+                       grid_scalar_fields[0], grid_scalar_fields[4], output_path)
     
-    np.save(path + f"water_removed_{int(t)}", water_removed)
+    np.save(output_path + f"water_removed_{int(t)}", water_removed)
     
     # full save at t_end
     grid.temperature = grid_scalar_fields[0]
@@ -1958,7 +1969,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
     
     save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                                      active_ids,
-                                     path)
+                                     output_path)
     # total water removed by hitting the ground
     # convert to kg
     # water_removed *= 1.0E-18
@@ -1976,6 +1987,263 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
         f.write( f"t_end = {t_end}\n" ) 
         f.write( f"dt = {dt}; dt_sub = {dt_sub}\n" ) 
         f.write( f"simulation time = {end_time - start_time}\n" )  
+
+
+#%% SIMULATE 191010 Before changes:
+# added inpar dict
+# switched order of arguments  
+
+#def simulate(grid, pos, vel, cells, m_w, m_s, xi, solute_type,
+#                 water_removed,
+#                 active_ids,
+#                 dt, dt_col, scale_dt_cond, no_col_per_adv,
+#                 t_start, t_end, Newton_iter, g_set,
+#                 act_collisions,
+#                 frame_every, dump_every, trace_ids, 
+#                 E_col_grid, no_kernel_bins,
+#                 R_kernel_low_log, bin_factor_R_log,
+#                 kernel_type, kernel_method,
+#                 no_cols,
+#                 rnd_seed,
+#                 path, simulation_mode):
+#    
+#    log_file = path + f"log_sim_t_{int(t_start)}_{int(t_end)}.txt"
+#    
+#    start_time = datetime.now()
+#    
+#    # init particles
+#    rel_pos = np.zeros_like(pos)
+#    update_cells_and_rel_pos(pos, cells, rel_pos, active_ids,
+#                             grid.ranges, grid.steps)
+#    T_p = np.ones_like(m_w)
+#    
+#    id_list = np.arange(xi.shape[0])
+#    
+#    # init grid properties
+#    grid.update_material_properties()
+#    V0_inv = 1.0 / grid.volume_cell
+#    grid.rho_dry_inv =\
+#        np.ones_like(grid.mass_density_air_dry) / grid.mass_density_air_dry
+#    grid.mass_dry_inv = V0_inv * grid.rho_dry_inv
+#    
+#    delta_Q_p = np.zeros_like(grid.temperature)
+#    delta_m_l = np.zeros_like(grid.temperature)
+#    
+#    # prepare for jit-compilation
+#    grid_scalar_fields = np.array( ( grid.temperature,
+#                                     grid.pressure,
+#                                     grid.potential_temperature,
+#                                     grid.mass_density_air_dry,
+#                                     grid.mixing_ratio_water_vapor,
+#                                     grid.mixing_ratio_water_liquid,
+#                                     grid.saturation,
+#                                     grid.saturation_pressure,
+#                                     grid.mass_dry_inv,
+#                                     grid.rho_dry_inv ) )
+#    
+#    grid_mat_prop = np.array( ( grid.thermal_conductivity,
+#                                grid.diffusion_constant,
+#                                grid.heat_of_vaporization,
+#                                grid.surface_tension,
+#                                grid.specific_heat_capacity,
+#                                grid.viscosity,
+#                                grid.mass_density_fluid ) )
+#    
+#    # constants of the grid
+#    grid_velocity = grid.velocity
+#    grid_mass_flux_air_dry = grid.mass_flux_air_dry
+#    grid_ranges = grid.ranges
+#    grid_steps = grid.steps
+#    grid_no_cells = grid.no_cells
+#    grid_volume_cell = grid.volume_cell
+#    p_ref = grid.p_ref
+#    p_ref_inv = grid.p_ref_inv
+#    
+#    dt_sub = dt/(2 * scale_dt_cond)
+#    dt_sub_half = 0.5 * dt_sub
+#    print("dt = ", dt)
+#    print("dt_col = ", dt_col)
+#    print("dt_sub = ", dt_sub)
+#    with open(log_file, "w+") as f:
+#        f.write(f"simulation mode = {simulation_mode}\n")
+#        f.write(f"gravitation const = {g_set}\n")
+#        f.write(f"collisions activated = {act_collisions}\n")
+#        f.write(f"kernel_type = {kernel_type}\n")
+#        f.write(f"kernel_method = {kernel_method}")
+#        if kernel_method == "Ecol_const":
+#            f.write(f", E_col = {E_col_grid}")
+#        f.write(f"\nsolute material = {solute_type}\n")        
+#        f.write(f"dt = {dt}\n")    
+#        f.write(f"dt_col = {dt_col}\n")    
+#        f.write(f"dt_sub = {dt_sub}\n")    
+#    cnt_max = (t_end - t_start) /dt
+#    no_grid_frames = int(math.ceil(cnt_max / frame_every))
+#    np.save(path+"data_saving_paras.npy",
+#            (frame_every, no_grid_frames, dump_every))
+#    dt_save = int(frame_every * dt)
+#    grid_save_times =\
+#        np.arange(t_start, t_end + 0.5 * dt_save, dt_save).astype(int)
+#    np.save(path+"grid_save_times.npy", grid_save_times)
+#    # frame_every = int(math.ceil(cnt_max / no_grid_frames))
+#    # full_save_every = int(full_save_time_interval // dt)
+#    
+#    if isinstance(trace_ids, int):
+#        trace_id_dist = int(math.floor(len(xi)/(trace_ids)))
+#        trace_ids = np.arange(int(trace_id_dist*0.5), len(xi), trace_id_dist)
+#    np.save(path+"trace_ids.npy", trace_ids)
+#    no_trace_ids = len(trace_ids)
+#    
+#    dump_factor = frame_every // dump_every
+#    print("frame_every, no_grid_frames")
+#    print(frame_every, no_grid_frames)
+#    print("dump_every, dump_factor")
+#    print(dump_every, dump_factor)
+#    with open(log_file, "a") as f:
+#        f.write( f"frame_every, no_grid_frames\n" )
+#        f.write( f"{frame_every} {no_grid_frames}\n" )
+#        f.write( f"dump_every, dump_factor\n" )
+#        f.write( f"{dump_every} {dump_factor}\n" )
+#    traced_vectors = np.zeros((dump_factor, 2, 2, no_trace_ids))
+#    traced_scalars = np.zeros((dump_factor, 3, no_trace_ids))
+#    traced_xi = np.zeros((dump_factor, no_trace_ids))
+#    traced_water = np.zeros(dump_factor)
+##    traced_water = np.zeros(dump_factor)
+#    # traced_grid_fields =\
+#    #     np.zeros((dump_factor, 2, grid_no_cells[0], grid_no_cells[1]))
+#    
+#    sim_paras = [dt, dt_sub, Newton_iter, rnd_seed]
+#    sim_par_names = "dt dt_sub Newton_iter rnd_seed_sim"
+#    # sim_paras = [dt, dt_sub, Newton_iter, no_trace_ids]
+#    # sim_par_names = "dt dt_sub Newton_iter no_trace_ids"
+#    # sim_para_file = path + "sim_paras_t_" + str(t_start) + ".txt"
+#    save_sim_paras_to_file(sim_paras, sim_par_names, t_start, path)
+#    
+#    date = datetime.now()
+#    print("### simulation starts ###")
+#    print("start date and time =", date)
+#    print("sim time =", datetime.now() - start_time)
+#    print()
+#    with open(log_file, "a") as f:
+#        f.write( f"### simulation starts ###\n" )    
+#        f.write( f"start date and time = {date}\n" )    
+#        f.write( f"sim time = {date-start_time}\n" )    
+#    ### INTEGRATION LOOP START
+#    if act_collisions: np.random.seed(rnd_seed)
+#    for frame_N in range(no_grid_frames):
+#        t = t_start + frame_N * frame_every * dt 
+#        update_grid_r_l(m_w, xi, cells,
+#                        grid_scalar_fields[5],
+#                        grid_scalar_fields[8],
+#                        active_ids,
+#                        id_list)
+#        save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)
+#        dump_particle_data_all(t, pos, vel, cells,
+#                               m_w, m_s, xi, active_ids, path)
+#        np.save(path + f"no_cols_{int(t)}.npy", no_cols)
+#        if act_collisions:
+#            simulate_interval_col(
+#                    grid_scalar_fields, grid_mat_prop, grid_velocity,
+#                    grid_mass_flux_air_dry, p_ref, p_ref_inv,
+#                    grid_no_cells, grid_ranges,
+#                    grid_steps, grid_volume_cell,
+#                    pos, vel, cells, rel_pos, m_w, m_s, xi, water_removed,
+#                    id_list, active_ids, T_p,
+#                    delta_m_l, delta_Q_p,
+#                    dt, dt_sub, dt_sub_half, dt_col,                    
+#                    scale_dt_cond, no_col_per_adv, frame_every,
+#                    Newton_iter, g_set,
+#                    dump_every, trace_ids,
+#                    traced_vectors, traced_scalars,
+#                    traced_xi, traced_water,
+#                    E_col_grid, no_kernel_bins,
+#                    R_kernel_low_log, bin_factor_R_log, no_cols,
+#                    solute_type)
+#        else:
+#            simulate_interval_wout_col(
+#                    grid_scalar_fields,
+#                    grid_mat_prop, grid_velocity,
+#                    grid_mass_flux_air_dry, p_ref, p_ref_inv,
+#                    grid_no_cells, grid_ranges,
+#                    grid_steps, grid_volume_cell,
+#                    pos, vel, cells, rel_pos, m_w, m_s, xi,
+#                    water_removed,
+#                    id_list, active_ids, T_p,
+#                    delta_m_l, delta_Q_p,
+#                    dt, dt_sub, dt_sub_half, scale_dt_cond,
+#                    frame_every,
+#                    Newton_iter, g_set,
+#                    dump_every, trace_ids,
+#                    traced_vectors, traced_scalars,
+#                    traced_xi, traced_water, solute_type)
+#            
+#        time_block =\
+#            np.arange(t, t + frame_every * dt, dump_every * dt).astype(int)
+#        dump_particle_tracer_data_block(time_block,
+#                                 traced_vectors, traced_scalars, traced_xi,
+#                                 traced_water,
+#                                 # traced_grid_fields,
+#                                 path)
+#    ### INTEGRATION LOOP END
+#    
+#    t = t_start + no_grid_frames * frame_every * dt
+#    update_grid_r_l(m_w, xi, cells,
+#                   grid_scalar_fields[5],
+#                   grid_scalar_fields[8],
+#                   active_ids,
+#                   id_list)
+#    save_grid_scalar_fields(t, grid_scalar_fields, path, start_time)        
+#    dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, path)
+#    np.save(path + f"no_cols_{int(t)}.npy", no_cols)
+#    dump_particle_data(t, pos[:,trace_ids], vel[:,trace_ids],
+#                       m_w[trace_ids], m_s[trace_ids], xi[trace_ids],
+#                       grid_scalar_fields[0], grid_scalar_fields[4], path)
+#    
+#    np.save(path + f"water_removed_{int(t)}", water_removed)
+#    
+#    # full save at t_end
+#    grid.temperature = grid_scalar_fields[0]
+#    grid.pressure = grid_scalar_fields[1]
+#    grid.potential_temperature = grid_scalar_fields[2]
+#    grid.mass_density_air_dry = grid_scalar_fields[3]
+#    grid.mixing_ratio_water_vapor = grid_scalar_fields[4]
+#    grid.mixing_ratio_water_liquid = grid_scalar_fields[5]
+#    grid.saturation = grid_scalar_fields[6]
+#    grid.saturation_pressure = grid_scalar_fields[7]
+#    
+#    grid.thermal_conductivity = grid_mat_prop[0]
+#    grid.diffusion_constant = grid_mat_prop[1]
+#    grid.heat_of_vaporization = grid_mat_prop[2]
+#    grid.surface_tension = grid_mat_prop[3]
+#    grid.specific_heat_capacity = grid_mat_prop[4]
+#    grid.viscosity = grid_mat_prop[5]
+#    grid.mass_density_fluid = grid_mat_prop[6]
+#    
+##    active_ids = np.nonzero(xi)[0]
+##    removed_ids = np.where(xi == 0)[0]
+##    removed_ids = np.invert(active_ids)
+#    
+#    save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
+#                                     active_ids,
+#                                     path)
+#    # total water removed by hitting the ground
+#    # convert to kg
+#    # water_removed *= 1.0E-18
+#    print()
+#    print("### simulation ended ###")
+#    print("t_start = ", t_start)
+#    print("t_end = ", t_end)
+#    print("dt = ", dt, "; dt_sub = ", dt_sub)
+#    print("simulation time:")
+#    end_time = datetime.now()
+#    print(end_time - start_time)
+#    with open(log_file, "a") as f:
+#        f.write( f"### simulation ended ###\n" )    
+#        f.write( f"t_start = {t_start}\n" )    
+#        f.write( f"t_end = {t_end}\n" ) 
+#        f.write( f"dt = {dt}; dt_sub = {dt_sub}\n" ) 
+#        f.write( f"simulation time = {end_time - start_time}\n" )  
+
+
 
 #%% SIMULATE FULL WORKING VERSION WITHOUT COLLISIONS
 ### NOT LONGER REQUIRED, INCLUDED IN FUNCTION ABOVE        

@@ -207,6 +207,8 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
     
     for i in range(no_cells_x):
         if no_modes == 1:
+#            print('mu_m_log, sigma_m_log,kappa,r_critmin')
+#            print(mu_m_log, sigma_m_log,kappa,r_critmin)
             masses, weights, m_low, bins = \
                 gen_mass_ensemble_weights_SinSIP_lognormal(
                     mu_m_log, sigma_m_log, mass_density,

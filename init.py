@@ -5,7 +5,8 @@ Created on Mon Apr 29 11:31:49 2019
 
 @author: jdesk
 """
-#%%
+#%% IMPORT MODULES
+import os
 import numpy as np
 import math
 # import matplotlib.pyplot as plt
@@ -16,6 +17,8 @@ import constants as c
 from grid import Grid
 from grid import interpolate_velocity_from_cell_bilinear
 from microphysics import compute_mass_from_radius_jit
+from microphysics import compute_mass_from_radius_vec
+
 from microphysics import compute_initial_mass_fraction_solute_m_s_NaCl
 from microphysics import compute_initial_mass_fraction_solute_m_s_AS, \
                          compute_dml_and_gamma_impl_Newton_full_NaCl,\
@@ -39,17 +42,16 @@ from atmosphere import compute_kappa_air_moist,\
                        kappa_air_dry,\
                        compute_beta_without_liquid
 from file_handling import save_grid_and_particles_full
+from file_handling import load_kernel_data
 
 #from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
 #from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal_grid
 from generate_SIP_ensemble_dst import \
     gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
 
+from grid import compute_no_grid_cells_from_step_sizes
 
-#%%
-# IN WORK: what do you need from grid.py?
-# from grid import *
-# from physical_relations_and_constants import *
+#%% FUNCTION DEFS    
 
 # stream function
 pi_inv = 1.0/np.pi
@@ -105,7 +107,196 @@ def compute_j_max(j_max_base, grid):
            / np.sqrt(2.0 * 1500.0 * 1500.0)
 
 ####
-           
+    
+
+#%% CONFIG FILE PROCESSING
+
+def set_initial_gen_config(inpar):
+    
+    inpar["no_spcm"] = np.array(inpar["no_spcm"])
+    solute_type = inpar["solute_type"]
+    no_spcm = inpar["no_spcm"]
+    seed_SIP_gen = inpar["seed_SIP_gen"]
+    no_cells = compute_no_grid_cells_from_step_sizes(
+            ((inpar['x_min'], inpar['x_max']),
+            (inpar['z_min'], inpar['z_max'])),
+            (inpar['dx'], inpar['dz']))
+    
+    ### set the load and save paths
+    
+    grid_folder =\
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"{seed_SIP_gen}/"
+    
+    grid_path = inpar["simdata_path"] + grid_folder
+    if not os.path.exists(grid_path):
+        os.makedirs(grid_path)
+    
+    if inpar['eta_threshold'] == "weak":
+        weak_threshold = True
+    else: weak_threshold = False
+    
+    inpar['weak_threshold'] = weak_threshold
+    
+    idx_mode_nonzero = np.nonzero(no_spcm)[0]
+    inpar['idx_mode_nonzero'] = idx_mode_nonzero
+    
+    no_modes = len(idx_mode_nonzero)
+
+#    print(no_spcm)
+#    print(no_modes)
+#    print(idx_mode_nonzero)
+
+    inpar['no_modes'] = no_modes
+    
+    if no_modes == 1:
+        no_spcm = no_spcm[idx_mode_nonzero][0]
+    else:    
+        no_spcm = no_spcm[idx_mode_nonzero]
+    
+    if inpar['dist'] == "lognormal":
+        sigma_R = inpar['sigma_R']
+        mu_R = inpar['mu_R']
+        r_critmin = inpar['r_critmin']
+        DNC0 = inpar['DNC0']
+        if no_modes == 1:
+            sigma_R = sigma_R[idx_mode_nonzero][0]
+            mu_R = mu_R[idx_mode_nonzero][0]
+    #        no_rpcm = no_rpcm[idx_mode_nonzero][0]
+            
+            inpar['r_critmin'] = r_critmin[idx_mode_nonzero][0] # mu
+            inpar['DNC0'] = DNC0[idx_mode_nonzero][0] # mu
+            
+        else:    
+            sigma_R = sigma_R[idx_mode_nonzero]
+            mu_R = mu_R[idx_mode_nonzero]
+    #        no_rpcm = no_rpcm[idx_mode_nonzero]
+            r_critmin = r_critmin[idx_mode_nonzero] # mu
+            DNC0 = DNC0[idx_mode_nonzero] # mu
+    
+#        mu_R_log = np.log( mu_R )
+        sigma_R_log = np.log( sigma_R )    
+        # derive parameters of lognormal distribution of mass f_m(m)
+        # assuming mu_R in mu and density in kg/m^3
+        # mu_m in 1E-18 kg
+        mu_m_log = np.log(compute_mass_from_radius_vec(mu_R,
+                                                       c.mass_density_NaCl_dry))
+        sigma_m_log = 3.0 * sigma_R_log
+        dist_par = (mu_m_log, sigma_m_log)    
+    
+    inpar['dist_par'] = dist_par
+    data_paths = \
+        {
+            "simdata"   : inpar["simdata_path"],
+            "grid"      : grid_path
+        }
+    return data_paths
+
+def set_initial_sim_config(inpar):
+    
+    simulation_mode = inpar["simulation_mode"]
+    t_start = inpar["t_start"]
+    solute_type = inpar["solute_type"]
+    no_cells = inpar["no_cells"]
+    no_spcm = inpar["no_spcm"]
+    seed_SIP_gen = inpar["seed_SIP_gen"]
+    seed_sim = inpar["seed_sim"]
+    
+    ### set the load and save paths
+    if simulation_mode == "spin_up" or int(t_start) == 0:
+        inpar["spin_up_before"] = False
+    
+    # g must be positive (9.8...) or 0.0 (for spin up)
+    if simulation_mode == "spin_up":
+        g_set = 0.0
+    else:
+        g_set = c.earth_gravity
+    
+    inpar["g_set"] = g_set
+    
+    if simulation_mode == "with_collision":
+        inpar["act_collisions"] = True
+    else:    
+        inpar["act_collisions"] = False
+    
+    if simulation_mode == "spin_up":
+        save_folder = "spin_up_wo_col_wo_grav/"
+    elif simulation_mode == "wo_collision":
+        if inpar["spin_up_before"]:
+            save_folder = "w_spin_up_wo_col/"
+        else:
+            save_folder = "wo_spin_up_wo_col/"
+    elif simulation_mode == "with_collision":
+        if inpar["spin_up_before"]:
+            save_folder = "w_spin_up_w_col/"
+        else:
+            save_folder = "wo_spin_up_w_col/"
+    
+    grid_folder =\
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
+        + f"{seed_SIP_gen}/"
+    
+    save_path = inpar["simdata_path"] + grid_folder + save_folder
+    
+    if inpar["act_collisions"]:
+        save_path += f"{seed_sim}/"
+    #path = simdata_path + folder_save
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    
+    if inpar["spin_up_before"]:
+    #    if t_start <= 7200.:
+        if t_start <= 7201.:
+            grid_folder += "spin_up_wo_col_wo_grav/"
+        elif simulation_mode == "with_collision":
+            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
+    
+    # set "counters" for number of collisions and total removed water
+    no_cols = np.array((0,0))
+    
+    # load water_removed or create new
+    if t_start > 0.:
+        water_removed = np.load(inpar["simdata_path"]
+                                + grid_folder
+                                + f"water_removed_{int(t_start)}.npy")
+    else:        
+        water_removed = np.array([0.0])    
+    
+    # timescale "scale_dt" of subloop with timestep dt_sub = dt/(2 * scale_dt)
+    # => scale_dt = dt/(2 dt_sub)
+    # with implicit Newton:
+    # from experience: dt_sub <= 0.1 s,
+    # then depends on dt, e.g. 1.0, 5.0 or 10.0:
+    # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR 10.0/0.2 = 50
+#    scale_dt_cond = inpar["no_cond_per_adv"] // 2
+    inpar["scale_dt_cond"] = inpar["no_cond_per_adv"] // 2
+    inpar["dt_col"] = inpar["dt_adv"] / inpar["no_col_per_adv"]
+    
+    ### load collision kernel data
+    E_col_grid, radius_grid, \
+    R_kernel_low, bin_factor_R, \
+    R_kernel_low_log, bin_factor_R_log, \
+    no_kernel_bins =\
+        load_kernel_data(inpar["kernel_method"],
+                         inpar["save_folder_Ecol_grid"] + "/" 
+                         + inpar["kernel_type"] + "/",
+                         inpar["E_col_const"])
+    
+    inpar["no_kernel_bins"] = no_kernel_bins
+    inpar["R_kernel_low_log"] = R_kernel_low_log
+    inpar["bin_factor_R_log"] = bin_factor_R_log
+    
+    data_paths = \
+        {
+            "simdata"   : inpar["simdata_path"],
+            "grid"      : inpar["simdata_path"] + grid_folder,
+            "output"    : save_path
+        }
+    
+    return data_paths, E_col_grid, no_cols, water_removed           
+       
 #%% DISTRIBUTIONS
            
 # par[0] = mu
@@ -1166,32 +1357,55 @@ def compute_profiles_T_p_rhod_S_without_liquid(
 # particle_file = "stored_particles.txt"
 # particle_file = path + particle_file
 
-def initialize_grid_and_particles_SinSIP(
-        x_min, x_max, z_min, z_max, dx, dy, dz,
-        p_0, p_ref, r_tot_0, Theta_l,
-        solute_type,
-        DNC0, no_spcm, no_modes, dist, dst_par,
-        eta, eta_threshold, r_critmin, m_high_over_m_low,
-        rnd_seed, reseed,
-        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, save_path):
-    import os
+def initialize_grid_and_particles_SinSIP(genpar, save_path):
+    # VERSION WITH PARTICLE PROPERTIES IN ARRAYS, not particle class
+    ##########################################################################
+    ### 1. set base grid
+    ##########################################################################
+    
+    x_min = genpar['x_min']
+    x_max = genpar['x_max']
+    z_min = genpar['z_min']
+    z_max = genpar['z_max']
+    dx = genpar['dx']
+    dy = genpar['dy']
+    dz = genpar['dz']
+    
+    p_0 = genpar['p_0']
+    p_ref = genpar['p_ref']
+    r_tot_0 = genpar['r_tot_0']
+    Theta_l = genpar['Theta_l']
+    solute_type = genpar['solute_type']
+    DNC0 = genpar['DNC0']
+    no_spcm = genpar['no_spcm']
+    
+    no_modes = genpar['no_modes']
+    idx_mode_nonzero = genpar['idx_mode_nonzero']
+    dist = genpar['dist']
+    dist_par = genpar['dist_par']
+    eta = genpar['eta']
+    eta_threshold = genpar['eta_threshold']
+    r_critmin = genpar['r_critmin']
+    
+    m_high_over_m_low = genpar['m_high_over_m_low']
+    rnd_seed = genpar['seed_SIP_gen']
+    reseed = genpar['reseed']
+    
+    S_init_max = genpar['S_init_max']
+    dt_init = genpar['dt_init']
+    Newton_iterations = genpar['Newton_iterations']
+    iter_cnt_limit = genpar['iter_cnt_limit']
+#    save_path = genpar['save_path']
     if not os.path.exists(save_path):
         os.makedirs(save_path)
-    # VERSION WITH PARTICLE PROPERTIES IN ARRAYS, not particle class
-    ##############################################
-    ### 1. set base grid
-    ##############################################
+ 
+    log_file = save_path + f"log_grid.txt"
+        
     # grid dimensions ("ranges")
-    # note that the step size is fix.
-    # The grid dimensions will be adjusted such that they are
+    # the step size is off all cells is the same
+    # the grid dimensions will be adjusted such that they are
     # AT LEAST x_max - x_min, etc... but may also be larger,
     # if the sizes are no integer multiples of the step sizes
-    log_file = save_path + f"log_grid.txt"
-#    if logfile is not None:
-#        log_file = save_path + "log_grid.txt"
-#        log_handle = open(log_file, "w")
-#        sys.stdout = log_handle
-        
     grid_ranges = [ [x_min, x_max],
     #                 [y_min, y_max], 
                     [z_min, z_max] ]
@@ -1208,13 +1422,10 @@ def initialize_grid_and_particles_SinSIP(
         f.write(f"{grid.no_cells[0]}, {grid.no_cells[1]} \n")
         f.write("grid steps: ")
         f.write(f"{dx}, {dy}, {dz}\n\n")
-    ###
-
-    ###
     
-    ##############################################
+    ##########################################################################
     ### 2. Set initial profiles without liquid water
-    ##############################################
+    ##########################################################################
     
     # INITIAL PROFILES
     
@@ -1264,12 +1475,12 @@ def initialize_grid_and_particles_SinSIP(
         f.write(f'nr of modes in dry distribution = {no_modes}\n')
     ### DERIVED PARAMETERS SIP INIT
     if dist == "lognormal":
-        mu_m_log = dst_par[0]
-        sigma_m_log = dst_par[1]
+        mu_m_log = dist_par[0]
+        sigma_m_log = dist_par[1]
         
         # derive scaling parameter kappa from no_spcm
         if no_modes == 1:
-            kappa_dst = np.ceil( no_spcm / 20 * 28) * 0.1
+            kappa_dst = np.ceil( no_spcm[idx_mode_nonzero][0] / 20 * 28) * 0.1
             kappa_dst = np.maximum(kappa_dst, 0.1)
         elif no_modes == 2:        
             kappa_dst = np.ceil( no_spcm / 20 * np.array([33,25])) * 0.1
@@ -1285,16 +1496,19 @@ def initialize_grid_and_particles_SinSIP(
             f.write("\n")
         with open(log_file, "a") as f:
             f.write("kappa = ")
-            for k_ in kappa_dst:
-                f.write(f"{k_:.1f} ")
+            if no_modes == 1:
+                f.write(f"{kappa_dst:.1f} ")
+            else:
+                for k_ in kappa_dst:
+                    f.write(f"{k_:.1f} ")
             f.write("\n")
 
     with open(log_file, "a") as f:
         f.write(f'timestep for sat. adj.: dt_init = {dt_init}\n')
     
 #    if dist == "expo":
-#        DNC0 = dst_par[0]
-#        DNC0_over_LWC0 = dst_par[1]
+#        DNC0 = dist_par[0]
+#        DNC0_over_LWC0 = dist_par[1]
 #
 #        # derive scaling parameter kappa from no_spcm
 #        kappa = np.rint( no_spcm * 2) * 0.1
@@ -1324,8 +1538,11 @@ def initialize_grid_and_particles_SinSIP(
     print("no_rpcm_0 = ", no_rpcm_0)
     with open(log_file, "a") as f:
         f.write("no_rpcm_0 = ")
-        for no_rpcm_ in no_rpcm_0:
-            f.write(f"{no_rpcm_:.2e} ")
+        if no_modes == 1:
+            f.write(f"{no_rpcm_0:.2e} ")
+        else:
+            for no_rpcm_ in no_rpcm_0:
+                f.write(f"{no_rpcm_:.2e} ")
         f.write("\n")
         f.write("\n")
     no_rpct_0 = np.sum(no_rpcm_0)
@@ -1360,7 +1577,7 @@ def initialize_grid_and_particles_SinSIP(
 #    
 #    ### generate particle radii and weights for the whole grid
 #    R_s, weights_R_s = generate_random_radii_multimodal_lognorm(
-#                               grid, dst_par, no_spcm, rnd_seed, reseed)
+#                               grid, dist_par, no_spcm, rnd_seed, reseed)
 #    # convert to dry masses
 ##    print()
 ##    print("type(R_s)")
@@ -1481,12 +1698,17 @@ def initialize_grid_and_particles_SinSIP(
         print("no_rpcm = ", no_rpcm)
         with open(log_file, "a") as f:
             f.write("no_rpcm = ")
-            for no_rpcm_ in no_rpcm:
-                f.write(f"{no_rpcm_:.2e} ")
+            if no_modes == 1:
+                f.write(f"{no_rpcm:.2e} ")
+            else:
+                for no_rpcm_ in no_rpcm:
+                    f.write(f"{no_rpcm_:.2e} ")
             f.write("\n")
         
         no_rpcm_scale_factors_lvl_wise[j] = no_rpcm_scale_factor
         no_rpt_should += no_rpcm * grid.no_cells[0]
+        
+#        if no_modes == 1: no_rpcm = no_rpcm[idx_mode_nonzero][0]
         
     ### create SIP ensemble for this level -> list of 
     
@@ -1496,14 +1718,19 @@ def initialize_grid_and_particles_SinSIP(
             mass_density_dry = c.mass_density_AS_dry
         # m_s_lvl = [ m_s[0,j], m_s[1,j], ... ]
         # xi_lvl = ...
+        
+        print('kappa_dst')
+        print(kappa_dst)
         if dist == "lognormal":
             m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
-                gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
+                gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(
+                        no_modes,
                         mu_m_log, sigma_m_log, mass_density_dry,
-                        grid.volume_cell, kappa_dst, eta, weak_threshold,
-                        r_critmin,
-                        m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
-                        setseed=False)
+                        grid.volume_cell, kappa_dst, eta,
+                        weak_threshold, r_critmin,
+                        m_high_over_m_low, rnd_seed,
+                        grid.no_cells[0], no_rpcm,
+                        setseed=reseed)
 #        elif dist == "expo":
             
         no_spc[:,j] = no_spc_lvl
@@ -1943,13 +2170,16 @@ def initialize_grid_and_particles_SinSIP(
         f.write("rel dev:\n")
     
     if no_modes == 1:
+#        print('no_rpt_should')
+#        print(no_rpt_should)
 #        print(0, np.sum(xi), no_rpt_should, np.sum(xi) - no_rpt_should)
+        rel_dev_ = (np.sum(xi) - no_rpt_should)/no_rpt_should
         print(0, f"{np.sum(xi):.3e}",
               f"{no_rpt_should:.3e}",
-              f"{np.sum(xi) - no_rpt_should:.3e}")
+              f"{rel_dev_:.3e}")
         with open(log_file, "a") as f:
             f.write(f"0 {np.sum(xi):.3e} {no_rpt_should:.3e} ")
-            f.write(f"{(np.sum(xi) - no_rpt_should)/no_rpt_should:.3e}\n")
+            f.write(f"{rel_dev_:.3e}\n")
     else:
         for mode_n in range(no_modes):
             ind_mode = modes == mode_n
@@ -2104,7 +2334,7 @@ def initialize_grid_and_particles_SinSIP(
     
     paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
              Theta_l, DNC0, no_spcm, dist,
-             dst_par, kappa_dst, eta, eta_threshold,
+             dist_par, kappa_dst, eta, eta_threshold,
              r_critmin, m_high_over_m_low,
              eta, rnd_seed, S_init_max, dt_init,
              Newton_iterations, iter_cnt_limit]
@@ -2137,6 +2367,982 @@ def initialize_grid_and_particles_SinSIP(
            active_ids 
 #    return grid, pos, cells, vel, m_w_flat, m_s_flat, xi_flat,\
 #           active_ids, removed_ids
+
+
+#%% SAVE 191216
+#def initialize_grid_and_particles_SinSIP(
+#        x_min, x_max, z_min, z_max, dx, dy, dz,
+#        p_0, p_ref, r_tot_0, Theta_l,
+#        solute_type,
+#        DNC0, no_spcm, no_modes, dist, dst_par,
+#        eta, eta_threshold, r_critmin, m_high_over_m_low,
+#        rnd_seed, reseed,
+#        S_init_max, dt_init, Newton_iterations, iter_cnt_limit, save_path):
+#    import os
+#    if not os.path.exists(save_path):
+#        os.makedirs(save_path)
+#    # VERSION WITH PARTICLE PROPERTIES IN ARRAYS, not particle class
+#    ##############################################
+#    ### 1. set base grid
+#    ##############################################
+#    # grid dimensions ("ranges")
+#    # note that the step size is fix.
+#    # The grid dimensions will be adjusted such that they are
+#    # AT LEAST x_max - x_min, etc... but may also be larger,
+#    # if the sizes are no integer multiples of the step sizes
+#    log_file = save_path + f"log_grid.txt"
+##    if logfile is not None:
+##        log_file = save_path + "log_grid.txt"
+##        log_handle = open(log_file, "w")
+##        sys.stdout = log_handle
+#        
+#    grid_ranges = [ [x_min, x_max],
+#    #                 [y_min, y_max], 
+#                    [z_min, z_max] ]
+#    grid_steps = [dx, dz]
+#
+#    grid = Grid( grid_ranges, grid_steps, dy )
+#    grid.print_info()
+#    
+#    with open(log_file, "w+") as f:
+#        f.write("grid basic parameters:\n")
+#        f.write(f"grid ranges [x_min, x_max] [z_min, z_max]:\n")
+#        f.write(f"{x_min} {x_max} {z_min} {z_max}\n")
+#        f.write("number of cells: ")
+#        f.write(f"{grid.no_cells[0]}, {grid.no_cells[1]} \n")
+#        f.write("grid steps: ")
+#        f.write(f"{dx}, {dy}, {dz}\n\n")
+#    ###
+#
+#    ###
+#    
+#    ##############################################
+#    ### 2. Set initial profiles without liquid water
+#    ##############################################
+#    
+#    # INITIAL PROFILES
+#    
+#    levels_z = grid.corners[1][0]
+#    centers_z = grid.centers[1][0]
+#    
+#    # for testing on a smaller grid: r_tot as array in centers
+#    r_tot_centers = np.ones_like( centers_z ) * r_tot_0
+#    # r_tot_centers = np.linspace(1.15, 1.3, np.shape(centers_z)[0]) * r_tot_0
+#    
+#    p_env_init_bottom = np.zeros_like(levels_z)
+#    p_env_init_bottom[0] = p_0
+#    
+#    p_env_init_center = np.zeros_like(centers_z)
+#    T_env_init_center = np.zeros_like(centers_z)
+#    rho_dry_env_init_center = np.zeros_like(centers_z)
+#    r_v_env_init_center = np.ones_like(centers_z) * r_tot_centers
+#    r_l_env_init_center = np.zeros_like(centers_z)
+#    S_env_init_center = np.zeros_like(centers_z)
+#    
+#    # p_env_init_center = np.zeros_like(levels_z)
+#    # T_env_init_center = np.zeros_like(levels_z)
+#    # rho_dry_env_init = np.zeros_like(levels_z)
+#    # r_v_env_init = np.ones_like(levels_z) * r_tot
+#    # r_l_env_init = np.zeros_like(r_v_env_init)
+#    # S_env_init = np.zeros_like(levels_z)
+#    # T_env_init = np.zeros_like(levels_z)
+#    # rho_dry_env_init = np.zeros_like(levels_z)
+#    # r_v_env_init = np.ones_like(levels_z) * r_tot
+#    # r_l_env_init = np.zeros_like(r_v_env_init)
+#    # S_env_init = np.zeros_like(levels_z)
+#    
+#    # T_env_init[0], p_env_init[0], rho_dry_env_init[0], S_env_init[0] =\
+#    #     compute_profiles_T_p_rhod_S_without_liquid(
+#    #         z_0, z_0, p_0, p_ref, Theta_l, r_tot )
+#    
+#    ##############################################
+#    ### 3. Go through levels from the ground and place particles 
+#    ##############################################
+#    print(
+#      "\n### particle placement and saturation adjustment for each z-level ###")
+#    print('timestep for sat. adj.: dt_init = ', dt_init)
+#    with open(log_file, "a") as f:
+#        f.write(
+#    "### particle placement and saturation adjustment for each z-level ###\n")
+#        f.write(f'solute material = {solute_type}\n')
+#        f.write(f'nr of modes in dry distribution = {no_modes}\n')
+#    ### DERIVED PARAMETERS SIP INIT
+#    if dist == "lognormal":
+#        mu_m_log = dst_par[0]
+#        sigma_m_log = dst_par[1]
+#        
+#        # derive scaling parameter kappa from no_spcm
+#        if no_modes == 1:
+#            kappa_dst = np.ceil( no_spcm / 20 * 28) * 0.1
+#            kappa_dst = np.maximum(kappa_dst, 0.1)
+#        elif no_modes == 2:        
+#            kappa_dst = np.ceil( no_spcm / 20 * np.array([33,25])) * 0.1
+#            kappa_dst = np.maximum(kappa_dst, 0.1)
+#        else:        
+#            kappa_dst = np.ceil( no_spcm / 20 * 28) * 0.1
+#            kappa_dst = np.maximum(kappa_dst, 0.1)
+#        print("kappa =", kappa_dst)
+#        with open(log_file, "a") as f:
+#            f.write("intended SIPs per mode and cell = ")
+#            for k_ in no_spcm:
+#                f.write(f"{k_:.1f} ")
+#            f.write("\n")
+#        with open(log_file, "a") as f:
+#            f.write("kappa = ")
+#            for k_ in kappa_dst:
+#                f.write(f"{k_:.1f} ")
+#            f.write("\n")
+#
+#    with open(log_file, "a") as f:
+#        f.write(f'timestep for sat. adj.: dt_init = {dt_init}\n')
+#    
+##    if dist == "expo":
+##        DNC0 = dst_par[0]
+##        DNC0_over_LWC0 = dst_par[1]
+##
+##        # derive scaling parameter kappa from no_spcm
+##        kappa = np.rint( no_spcm * 2) * 0.1
+##        kappa = np.maximum(kappa, 0.1)
+##        print("kappa =", kappa)
+#    
+#    if eta_threshold == "weak":
+#        weak_threshold = True
+#    else: weak_threshold = False
+#    
+#    # start at level 0 (from surface!)
+#    
+#    # produce random numbers for relative location:
+#    np.random.seed( rnd_seed )
+#    
+#    # IN WORK: remove?
+#    V0 = grid.volume_cell
+#    
+#    # total number of real particles per mode in one grid cell:
+#    # total number of real particles in mode 'k' (= 1,2) in cell [i,j]
+#    # reference value at p_ref (marked by 0)
+#    no_rpcm_0 =  (np.ceil( V0*DNC0 )).astype(int)
+#    
+#    ### REMOVE 
+##    print("{no_rpcm_0[0]} {no_rpcm_0[1]}" )
+##    print(f"{no_rpcm_0[0]} {no_rpcm_0[1]}" )
+#    print("no_rpcm_0 = ", no_rpcm_0)
+#    with open(log_file, "a") as f:
+#        f.write("no_rpcm_0 = ")
+#        for no_rpcm_ in no_rpcm_0:
+#            f.write(f"{no_rpcm_:.2e} ")
+#        f.write("\n")
+#        f.write("\n")
+#    no_rpct_0 = np.sum(no_rpcm_0)
+#    
+#    # empty cell list
+#    ids_in_cell = []
+#    for i in range(grid.no_cells[0]):
+#        row_list = []
+#        for j in range(grid.no_cells[1]):
+#            row_list.append( [] )
+#        ids_in_cell.append(row_list)
+#    
+#    ids_in_level = []    
+#    for j in range(grid.no_cells[1]):
+#        ids_in_level.append( [] )
+#    
+#    # particle_list_by_id = []
+#    
+#    # cell numbers is sorted as [ [0,0], [1,0], [2,0] ]  
+#    # i.e. keeping z- level fixed and run through x-range
+#    # cell_numbers = []
+#    
+#    # running particle ID
+##    ID = 0
+#    
+#    ##########################################################################
+#    # WORKING VERSION
+#    # number of super particles
+##    no_spcm = np.array(no_spcm) # input: nr of super part. per cell and mode
+##    no_spct = np.sum(no_spcm) # no super part. per cell (total)
+##    # no_spt = no_spct * grid.no_cells_tot # no super part total in full domain
+##    
+##    ### generate particle radii and weights for the whole grid
+##    R_s, weights_R_s = generate_random_radii_multimodal_lognorm(
+##                               grid, dst_par, no_spcm, rnd_seed, reseed)
+##    # convert to dry masses
+###    print()
+###    print("type(R_s)")
+###    print(type(R_s))
+###    print(R_s)
+###    print()
+##                   
+##    m_s = compute_mass_from_radius_vec(R_s, c.mass_density_NaCl_dry)
+##    w_s = np.zeros_like(m_s) # init weight fraction
+##    m_w = np.zeros_like(m_s) # init particle water masses to zero
+##    m_p = np.zeros_like(m_s) # init particle full mass
+##    R_p = np.zeros_like(m_s) # init particle radius
+##    rho_p = np.zeros_like(m_s) # init particle density
+##    xi = np.zeros_like(m_s).astype(int)
+#    ##########################################################################
+#    
+#    mass_water_liquid_levels = []
+#    mass_water_vapor_levels = []
+#    # start with a cell [i,j]
+#    # we start with fixed 'z' value to assign levels as well
+#    iter_cnt_max = 0
+#    iter_cnt_max_level = 0
+#    # maximal allowed iter counts
+#    # iter_cnt_limit = 500
+#    rho_dry_0 = p_0 / (c.specific_gas_constant_air_dry * 293.0)
+#    no_rpt_should = np.zeros_like(no_rpcm_0)
+#    
+#    np.random.seed(rnd_seed)
+#    
+#    m_w = []
+#    m_s = []
+#    xi = []
+#    cells_x = []
+#    cells_z = []
+#    modes = []
+#    
+#    no_spc = np.zeros(grid.no_cells, dtype = np.int64)
+#    
+#    no_rpcm_scale_factors_lvl_wise = np.zeros(grid.no_cells[1])
+#    
+#    ### go through z-levels from the ground, j is the cell index resp. z
+#    for j in range(grid.no_cells[1]):
+#    #     print('next j')
+#    #     we are now in column 'j', fixed z-level
+#
+#        n_top = j + 1
+#        n_bot = j
+#        
+#        z_bot = levels_z[n_bot]
+#        z_top = levels_z[n_top]
+#        
+#        r_tot = r_tot_centers[j]
+#        
+#        kappa_tot = compute_kappa_air_moist(r_tot) # [-]
+#        kappa_tot_inv = 1.0 / kappa_tot # [-]
+#        
+#    #     T_prev = T_env_init[n_prev]
+#        # p at bottom of level
+#        p_bot = p_env_init_bottom[n_bot]
+#    #     rho_dry_prev = rho_dry_env_init[n_prev]
+#    #     S_prev = S_env_init[n_prev]
+#    #     r_v_prev = r_v_env_init[n_prev]
+#    
+#        # initial guess at borders of new level from analytical
+#        # integration without liquid: r_v = r_tot
+#        # with boundary condition P(z_bot) = p_bot is set
+#        # calc values for bottom of level
+#        T_bot, p_bot, rho_dry_bot, S_bot = \
+#            compute_profiles_T_p_rhod_S_without_liquid(
+#                z_bot, z_bot, p_bot, p_ref, Theta_l, r_tot)
+#        # calc values for top of level
+#        T_top, p_top, rho_dry_top, S_top = \
+#            compute_profiles_T_p_rhod_S_without_liquid(
+#                z_top, z_bot, p_bot, p_ref, Theta_l, r_tot)
+#        
+#        p_avg = (p_bot + p_top) * 0.5
+#        T_avg = (T_bot + T_top) * 0.5
+#        rho_dry_avg = (rho_dry_bot + rho_dry_top  ) * 0.5
+#        S_avg = (S_bot + S_top) * 0.5
+#        r_v_avg = r_tot
+#        
+#        # ambient properties for this level
+#        # diffusion_constant = compute_diffusion_constant( T_avg, p_avg )
+#        # thermal_conductivity_air = compute_thermal_conductivity_air(T_avg)
+#        # specific_heat_capacity_air =\
+#        # compute_specific_heat_capacity_air_moist(r_v_avg)
+#        # adiabatic_index = 1.4
+#        # accomodation_coefficient = 1.0
+#        # condensation_coefficient = 0.0415
+#        
+#        # calc mass dry from 
+#        # int dV (rho_dry) = dx * dy * int dz rho_dry
+#        # rho_dry = dp/dz / [g*( 1+r_tot )]
+#        # => m_s = dx dy / (g*(1+r_tot)) * (p(z_1)-p(z_2))
+#        mass_air_dry_level = grid.sizes[0] * dy * (p_bot - p_top )\
+#                             / ( c.earth_gravity * (1 + r_tot) )
+#        mass_water_vapor_level = r_v_avg * mass_air_dry_level # in kg
+#        mass_water_liquid_level = 0.0
+#        mass_particles_level = 0.0
+#        dm_l_level = 0.0
+#        dm_p_level = 0.0
+#        
+#        print('\n### level', j, "###")
+#        print('S_env_init0 = ', S_avg)
+#        with open(log_file, "a") as f:
+#            f.write(f"### level {j} ###\n")
+#            f.write(f"S_env_init0 = {S_avg:.5f}\n")
+#    ########################################################
+#    ### 3a. (first initialization setting S_eq = S_amb if possible)
+#    ########################################################
+#        
+#        # nr of real particle per cell and mode is now given for rho_dry_avg
+#        no_rpcm_scale_factor = rho_dry_avg / rho_dry_0
+#        no_rpcm = np.rint( no_rpcm_0 * no_rpcm_scale_factor ).astype(int)
+#        ### REMOVE
+##        print("{no_rpcm[0]} {no_rpcm[1]}" )
+##        print(f"{no_rpcm[0]} {no_rpcm[1]}" )
+#        print("no_rpcm = ", no_rpcm)
+#        with open(log_file, "a") as f:
+#            f.write("no_rpcm = ")
+#            for no_rpcm_ in no_rpcm:
+#                f.write(f"{no_rpcm_:.2e} ")
+#            f.write("\n")
+#        
+#        no_rpcm_scale_factors_lvl_wise[j] = no_rpcm_scale_factor
+#        no_rpt_should += no_rpcm * grid.no_cells[0]
+#        
+#    ### create SIP ensemble for this level -> list of 
+#    
+#        if solute_type == "NaCl":
+#            mass_density_dry = c.mass_density_NaCl_dry
+#        elif solute_type == "AS":
+#            mass_density_dry = c.mass_density_AS_dry
+#        # m_s_lvl = [ m_s[0,j], m_s[1,j], ... ]
+#        # xi_lvl = ...
+#        if dist == "lognormal":
+#            m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
+#                gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
+#                        mu_m_log, sigma_m_log, mass_density_dry,
+#                        grid.volume_cell, kappa_dst, eta, weak_threshold,
+#                        r_critmin,
+#                        m_high_over_m_low, rnd_seed, grid.no_cells[0], no_rpcm,
+#                        setseed=False)
+##        elif dist == "expo":
+#            
+#        no_spc[:,j] = no_spc_lvl
+#        if solute_type == "NaCl":
+#            w_s_lvl = compute_initial_mass_fraction_solute_m_s_NaCl(
+#                              m_s_lvl, S_avg, T_avg)
+#        elif solute_type == "AS":            
+#            w_s_lvl = compute_initial_mass_fraction_solute_m_s_AS(
+#                              m_s_lvl, S_avg, T_avg)
+#        m_p_lvl = m_s_lvl / w_s_lvl
+##        rho_p_lvl = compute_density_particle(w_s_lvl, T_avg)
+##        R_p_lvl = compute_radius_from_mass_vec(m_p_lvl, rho_p_lvl)
+#        m_w_lvl = m_p_lvl - m_s_lvl
+#        dm_l_level += np.sum(m_w_lvl * xi_lvl)
+#        dm_p_level += np.sum(m_p_lvl * xi_lvl)
+#        for mode_n in range(no_modes):
+#            no_pt_mode_ = len(xi_lvl[modes_lvl==mode_n])
+#            print("placed", no_pt_mode_,
+#                  f"SIPs in mode {mode_n}")
+#            with open(log_file, "a") as f:
+#                f.write(f"placed {no_pt_mode_} ")
+#                f.write(f"SIPs in mode {mode_n}, ")
+#                f.write(f"-> {no_pt_mode_/grid.no_cells[0]:.2f} ")
+#                f.write("SIPs per cell\n")
+#                
+#    #####################################################################
+#    # OLD WORKING                                 
+##        for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+##            # print("weights_R_s[l][:,j]")
+##            # print("no_rpcm[l]")
+##            # print(weights_R_s[l][:,j])
+##            # print(no_rpcm[l])
+##            # the number concentration is not constant but depends on the
+##            # mass density of the vicinity
+##            xi[l][:,j] = np.rint(weights_R_s[l][:,j]
+##                                 * no_rpcm[np.nonzero(no_spcm)][l]).astype(int)
+##            # print("xi[l][:,j]")
+##            # print(xi[l][:,j])
+##            # initial weight fraction of this level dependent on S_amb
+##            # -> try to place the particles with m_w such that S = S_eq
+###            w_s[l][:,j] = compute_initial_mass_fraction_solute_m_s_NaCl(
+###                          m_s[l][:,j], S_avg, T_avg)
+##            w_s[l][:,j] = compute_initial_mass_fraction_solute_NaCl(
+##                          R_s[l][:,j], S_avg, T_avg)
+##            m_p[l][:,j] = m_s[l][:,j] / w_s[l][:,j]
+##            rho_p[l][:,j] = compute_density_particle(w_s[l][:,j], T_avg)
+##            R_p[l][:,j] = compute_radius_from_mass_vec(m_p[l][:,j],
+##                                                       rho_p[l][:,j])
+##            m_w[l][:,j] = m_p[l][:,j] - m_s[l][:,j]
+##            dm_l_level += np.sum(m_w[l][:,j] * xi[l][:,j])
+##            dm_p_level += np.sum(m_p[l][:,j] * xi[l][:,j])
+##            print("placed", len(xi[l][:,j].flatten()), "particles in a mode")
+#    # OLD WORKING END                                 
+#    #####################################################################
+#    
+#        # print('level = ', j)
+#    
+#        # convert from 10^-18 kg to kg
+#        dm_l_level *= 1.0E-18 
+#        dm_p_level *= 1.0E-18 
+#        mass_water_liquid_level += dm_l_level
+#        mass_particles_level += dm_p_level
+#        
+#        # now we distributed the particles between levels 0 and 1
+#        # thereby sampling liquid water,
+#        # i.e. the mass of water vapor has dropped
+#        mass_water_vapor_level -= dm_l_level
+#        
+#        # and the ambient fluid is heated by Q = m_l * L_v = C_p dT
+#        # C_p = m_dry_end*c_p_dry + m_v*c_p_v + m_p_end*c_p_p
+#        heat_capacity_level =\
+#            mass_air_dry_level * c.specific_heat_capacity_air_dry_NTP\
+#            + mass_water_vapor_level * c.specific_heat_capacity_water_vapor_20C\
+#            + mass_particles_level * c.specific_heat_capacity_water_NTP
+#        heat_of_vaporization = compute_heat_of_vaporization(T_avg)
+#        
+#        dT_avg = dm_l_level * heat_of_vaporization / heat_capacity_level
+#        
+#        # assume homogeneous heating: bottom, mid and top are heated equally
+#        # i.e. the slope (lapse rate) of the temperature in the level
+#        # remains constant,
+#        # but the whole (linear) T-curve is shifted by dT_avg
+#        T_avg += dT_avg
+#        T_bot += dT_avg
+#        T_top += dT_avg
+#        
+#        r_v_avg = mass_water_vapor_level / mass_air_dry_level
+#        
+#    #     R_m_avg = compute_specific_gas_constant_air_moist(r_v_avg)
+#        
+#        # EVEN BETTER:
+#        # assume linear T-profile
+#        # BETTER: exponential for const T and r_v:
+#        # p_2 = p_1 np.exp(-a/b * dz/T)
+#        # also poss.:
+#        # implicit formula for p
+#        # p_n+1 = p_n (1 - a/(2b) * dz/T) / (1 + a/(2b) * dz/T)
+#        # a = (1 + r_t) g, b = R_d(1 + r_v/eps)
+#        # chi = ( 1 + r_tot / (1 + r_v_avg ) )
+#        # this is equal to expo above up to order 2 in taylor!
+#        
+#        # IN WORK: check if kappa_tot_inv is right or it should be kappa(r_v)
+#
+#        p_top = p_bot * (T_top/T_bot)**( ( (1 + r_tot) * c.earth_gravity * dz )\
+#                / ( (1 + r_v_avg / epsilon_gc ) * c.specific_gas_constant_air_dry * (T_bot - T_top) ) )
+#
+#        # for assumed Theta_moist = const:
+#        # then (p/p1) = (T/T1) ^ [(eps + r_t)/ (kappa_t * (eps + r_v))]
+##        p_top = p_bot * (T_top/T_bot)**( kappa_tot_inv * ( epsilon_gc + r_tot )\
+##                / (epsilon_gc + r_v_avg) )
+#        
+#        p_avg = 0.5 * (p_bot + p_top)
+#        
+#        # from integration of dp/dz = - (1 + r_tot) g rho_dry
+#        rho_dry_avg = (p_bot - p_top) / ( dz * (1 + r_tot) * c.earth_gravity )
+#        mass_air_dry_level = grid.sizes[0] * dy * dz * rho_dry_avg
+#        
+#        r_l_avg = mass_water_liquid_level / mass_air_dry_level
+#        r_v_avg = r_tot - r_l_avg
+#        mass_water_vapor_level = r_v_avg * mass_air_dry_level
+#        
+#        e_s_avg = compute_saturation_pressure_vapor_liquid(T_avg)
+#        
+#        S_avg = compute_pressure_vapor( rho_dry_avg * r_v_avg, T_avg ) \
+#                / e_s_avg
+#        
+#    #     rho_m_avg = p_avg / (R_m_avg * T_avg)
+#    #     rho_tot_avg = rho_m_avg * ((1 + r_tot)/(1 + r_v_avg))
+#    #     p = p_prev  - earth_gravity * rho_tot_avg * dz
+#        
+#    ########################################################
+#    ### 3b. saturation adjustment in level, CELL WISE
+#    # this was the initial placement of particles
+#    # now comes the saturation adjustment incl. condensation/vaporization
+#    # due to supersaturation/subsaturation
+#    # note that there will also be subsaturation if S is smaller than S_act,
+#    # because water vapor was taken from the atm. in the intitial
+#    # particle placement step
+#    ########################################################
+#    
+#        # initialize for saturation adjustment loop
+#        # loop until the change in dm_l_level is sufficiently small:
+#        grid.mixing_ratio_water_vapor[:,j] = r_v_avg
+#        grid.mixing_ratio_water_liquid[:,j] = r_l_avg
+#        grid.saturation_pressure[:,j] = e_s_avg
+#        grid.saturation[:,j] = S_avg
+#    
+#        dm_l_level = mass_water_liquid_level
+#        iter_cnt = 0
+#        
+#        print('S_env_init after placement =', S_avg)
+#        print("sat. adj. start")
+#        with open(log_file, "a") as f:
+#            f.write(f"S_env_init after placement = {S_avg:.5f}\n")
+#            f.write("sat. adj. start\n")
+#        # need to define criterium -> use relative change in liquid water
+#        while ( np.abs(dm_l_level/mass_water_liquid_level) > 1e-5
+#                and iter_cnt < iter_cnt_limit ):
+#            ## loop over particles in level:
+#            dm_l_level = 0.0
+#            dm_p_level = 0.0
+#            
+#            D_v = compute_diffusion_constant( T_avg, p_avg )
+#            K = compute_thermal_conductivity_air(T_avg)
+#            # c_p = compute_specific_heat_capacity_air_moist(r_v_avg)
+#            L_v = compute_heat_of_vaporization(T_avg)
+#    
+#            for i in range(grid.no_cells[0]):
+#                cell = (i,j)
+#                e_s_avg = grid.saturation_pressure[cell]
+#                # set arbitrary maximum saturation during spin up to
+#                # avoid overshoot
+#                # at high saturations, since S > 1.05 can happen initially
+#                S_avg = grid.saturation[cell]
+#                S_avg2 = np.min([S_avg, S_init_max ])
+#                
+#                ind_x = cells_x_lvl == i
+#                
+#                m_w_cell = m_w_lvl[ind_x]
+#                m_s_cell = m_s_lvl[ind_x]
+#                
+#                if solute_type == "NaCl":
+#                    R_p_cell, w_s_cell, rho_p_cell =\
+#                        compute_R_p_w_s_rho_p_NaCl(m_w_cell, m_s_cell, T_avg)
+#                    sigma_p_cell = compute_surface_tension_water(T_avg)
+#                    dm_l, gamma_ =\
+#                    compute_dml_and_gamma_impl_Newton_full_NaCl(
+#                        dt_init, Newton_iterations, m_w_cell,
+#                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+#                        rho_p_cell,
+#                        T_avg, p_avg, S_avg2, e_s_avg,
+#                        L_v, K, D_v, sigma_p_cell)
+#                elif solute_type == "AS":
+#                    R_p_cell, w_s_cell, rho_p_cell =\
+#                        compute_R_p_w_s_rho_p_AS(m_w_cell, m_s_cell, T_avg)
+#                    sigma_p_cell = compute_surface_tension_AS(w_s_cell, T_avg)
+#                    dm_l, gamma_ =\
+#                    compute_dml_and_gamma_impl_Newton_full_AS(
+#                        dt_init, Newton_iterations, m_w_cell,
+#                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+#                        rho_p_cell,
+#                        T_avg, p_avg, S_avg2, e_s_avg,
+#                        L_v, K, D_v, sigma_p_cell)
+#                
+#                
+#                m_w_lvl[ind_x] += dm_l
+##                m_w[l][cell] += dm_l
+#                
+#                dm_l_level += np.sum(dm_l * xi_lvl[ind_x])
+#                dm_p_level += np.sum(dm_l * xi_lvl[ind_x])
+#                
+#            ######################################################
+#            # OLD WORKING                
+##                for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+##                    m_w_cell = m_w[l][cell]
+##                    m_s_cell = m_s[l][cell]
+##                    
+##                    R_p_cell, w_s_cell, rho_p_cell =\
+##                        compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_avg)
+##                    
+##                    dm_l, gamma_ =\
+##                    compute_dml_and_gamma_impl_Newton_full_np(
+##                        dt_init, Newton_iterations, m_w_cell,
+##                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+##                        rho_p_cell,
+##                        T_avg, p_avg, S_avg2, e_s_avg, L_v, K, D_v, sigma_w)
+##                    
+##                    m_w[l][cell] += dm_l
+##                    
+##                    dm_l_level += np.sum(dm_l * xi[l][cell])
+##                    dm_p_level += np.sum(dm_l * xi[l][cell])
+#            # OLD WORKING                
+#            ######################################################
+#                
+#            # IN WORK: check if the temperature, pressure etc is right
+#            # BEFORE the level starts and check the addition to these values!
+#            # after 'sampling' water from all particles: heat the cell volume:
+#            # convert from 10^-18 kg to kg
+#            dm_l_level *= 1.0E-18 
+#            dm_p_level *= 1.0E-18 
+#            mass_water_liquid_level += dm_l_level
+#            mass_particles_level += dm_p_level
+#    
+#            # now we distributed the particles between levels 0 and 1
+#            # thereby sampling liquid water,
+#            # i.e. the mass of water vapor has dropped
+#            mass_water_vapor_level -= dm_l_level
+#    
+#            # and the ambient fluid is heated by Q = m_l * L_v = C_p dT
+#            # C_p = m_dry_end*c_p_dry + m_v*c_p_v + m_p_end*c_p_p
+#            heat_capacity_level =\
+#                mass_air_dry_level * c.specific_heat_capacity_air_dry_NTP \
+#                + mass_water_vapor_level\
+#                  * c.specific_heat_capacity_water_vapor_20C \
+#                + mass_particles_level * c.specific_heat_capacity_water_NTP
+#            heat_of_vaporization = compute_heat_of_vaporization(T_avg)
+#    
+#            dT_avg = dm_l_level * heat_of_vaporization / heat_capacity_level
+#    
+#            # assume homogeneous heating: bottom, mid and top are heated equally
+#            # i.e. the slope (lapse rate) of the temperature in the level
+#            # remains constant,
+#            # but the whole (linear) T-curve is shifted by dT_avg
+#            T_avg += dT_avg
+#            T_bot += dT_avg
+#            T_top += dT_avg
+#    
+#            r_v_avg = mass_water_vapor_level / mass_air_dry_level
+#    
+#            # EVEN BETTER:
+#            # assume linear T-profile
+#            # then (p/p1) = (T/T1) ^ [(eps + r_t)/ (kappa_t * (eps + r_v))]
+#            # BETTER: exponential for const T and r_v:
+#            # p_2 = p_1 np.exp(-a/b * dz/T)
+#            # also poss.:
+#            # implicit formula for p
+#            # p_n+1 = p_n (1 - a/(2b) * dz/T) / (1 + a/(2b) * dz/T)
+#            # a = (1 + r_t) g, b = R_d(1 + r_v/eps)
+#            # chi = ( 1 + r_tot / (1 + r_v_avg ) )
+#            # this is equal to expo above up to order 2 in taylor!
+#    
+#            # IN WORK: check if kappa_tot_inv is right or should be kappa(r_v)
+#            # -> should be right,
+#            # because the lapse rate dT/dt ~ beta_tot is not altered!
+#            # the T curve is shifted upwards in total
+#            p_top = p_bot * (T_top/T_bot)**( kappa_tot_inv
+#                                             * ( epsilon_gc + r_tot )
+#                                             / ( epsilon_gc + r_v_avg ) )
+#            p_avg = 0.5 * (p_bot + p_top)
+#    
+#            # from integration of dp/dz = - (1 + r_tot) * g * rho_dry
+#            rho_dry_avg = (p_bot - p_top)\
+#                          / ( dz * (1 + r_tot) * c.earth_gravity )
+#            mass_air_dry_level = grid.sizes[0] * dy * dz * rho_dry_avg
+#            mass_air_dry_cell = dx * dy * dz * rho_dry_avg
+#            
+#            r_l_avg = mass_water_liquid_level / mass_air_dry_level
+#            r_v_avg = r_tot - r_l_avg
+#            
+#            grid.mixing_ratio_water_liquid[:,j].fill(0.0)
+#            for i in range(grid.no_cells[0]):
+#                cell = (i,j)
+#                ind_x = cells_x_lvl == i
+#                grid.mixing_ratio_water_liquid[cell] +=\
+#                    np.sum(m_w_lvl[ind_x] * xi_lvl[ind_x])
+#                
+##                for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+##                    grid.mixing_ratio_water_liquid[cell] +=\
+##                        np.sum(m_w[l][cell] * xi[l][cell])
+#    
+#            grid.mixing_ratio_water_liquid[:,j] *= 1.0E-18 / mass_air_dry_cell
+#            grid.mixing_ratio_water_vapor[:,j] =\
+#                r_tot - grid.mixing_ratio_water_liquid[:,j]
+#            
+#            grid.saturation_pressure[:,j] =\
+#                compute_saturation_pressure_vapor_liquid(T_avg)
+#            grid.saturation[:,j] =\
+#                compute_pressure_vapor(
+#                    rho_dry_avg * grid.mixing_ratio_water_vapor[:,j], T_avg )\
+#                / grid.saturation_pressure[:,j]
+#            
+#            mass_water_vapor_level = r_v_avg * mass_air_dry_level
+#            
+#            e_s_avg = compute_saturation_pressure_vapor_liquid(T_avg)
+#    
+#            S_avg = compute_pressure_vapor( rho_dry_avg * r_v_avg, T_avg ) \
+#                    / e_s_avg
+#            
+#            iter_cnt += 1
+#        
+##        print(grid.mixing_ratio_water_vapor[:,j])
+#        
+#        if iter_cnt_max < iter_cnt: 
+#            iter_cnt_max = iter_cnt
+#            iter_cnt_max_level = j
+#    #     print('iter_cnt_max: ', iter_cnt_max)
+#        print('sat. adj. end: iter_cnt = ', iter_cnt,
+#              ', S_avg_end = ', S_avg,
+#              '\ndm_l_level = ', dm_l_level,
+#              ', m_l_level = ', mass_water_liquid_level,
+#              '\ndm_l_level/mass_water_liquid_level = ',
+#              dm_l_level/mass_water_liquid_level)
+#        with open(log_file, "a") as f:
+#            f.write(f'sat. adj. end: iter_cnt = {iter_cnt}, ')
+#            f.write(f"S_avg_end = {S_avg:.5f}\n")
+#            f.write(f"dm_l_level = {dm_l_level}\n")
+#            f.write(f"m_l_level = {mass_water_liquid_level}\n")
+#            f.write(f"dm_l_level/mass_water_liquid_level = ")
+#            f.write(f"{dm_l_level/mass_water_liquid_level}\n\n")
+#        mass_water_liquid_levels.append(mass_water_liquid_level)
+#        mass_water_vapor_levels.append( mass_water_vapor_level )
+#    
+#        p_env_init_bottom[n_top] = p_top
+#        p_env_init_center[j] = p_avg
+#        T_env_init_center[j] = T_avg
+#        r_v_env_init_center[j] = r_v_avg
+#        r_l_env_init_center[j] = r_l_avg
+#        rho_dry_env_init_center[j] = rho_dry_avg
+#        S_env_init_center[j] = S_avg
+#        
+#        m_w.append(m_w_lvl)
+#        m_s.append(m_s_lvl)
+#        xi.append(xi_lvl)
+#        
+#        cells_x.append(cells_x_lvl)
+#        cells_z.append(np.ones_like(cells_x_lvl) * j)        
+#        
+#        modes.append(modes_lvl)        
+#        
+#    m_w = np.concatenate(m_w)        
+#    m_s = np.concatenate(m_s)        
+#    xi = np.concatenate(xi)        
+#    cells_x = np.concatenate(cells_x)        
+#    cells_z = np.concatenate(cells_z)   
+#    cells_comb = np.array( (cells_x, cells_z) )
+#    modes = np.concatenate(modes)   
+#    
+#    print('')
+#    print("### Saturation adjustment ended for all lvls ###")
+#    print('iter count max = ', iter_cnt_max, ' level = ', iter_cnt_max_level)
+#    # total number of particles in grid
+#    no_particles_tot = np.size(m_w)
+#    print('last particle ID = ', len(m_w) - 1 )
+#    print ('no_super_particles_tot placed = ', no_particles_tot)
+#    # print('no_super_particles_tot should',
+#    #       no_super_particles_tot  )
+#    print('no_cells x N_p_cell_tot =', np.sum(no_rpct_0)*grid.no_cells[0]\
+#                                                        *grid.no_cells[1] )
+#    
+#    with open(log_file, "a") as f:
+#        f.write("\n")
+#        f.write("### Saturation adjustment ended for all lvls ###\n")
+#        f.write(f'iter cnt max = {iter_cnt_max}, at lvl {iter_cnt_max_level}')
+#        f.write("\n")
+#        f.write(f'last particle ID = {len(m_w) - 1}\n' )
+#        f.write(f'no_super_particles_tot placed = {no_particles_tot}\n')
+#        f.write('no_cells x N_p_cell_tot = ')
+#        f.write(
+#        f"{np.sum(no_rpct_0) * grid.no_cells[0] * grid.no_cells[1]:.3e}\n")
+#    
+#    for i in range(grid.no_cells[0]):
+#        grid.pressure[i] = p_env_init_center
+#        grid.temperature[i] = T_env_init_center
+#        grid.mass_density_air_dry[i] = rho_dry_env_init_center
+#        
+#    p_dry = grid.mass_density_air_dry * c.specific_gas_constant_air_dry\
+#            * grid.temperature
+#    
+#    grid.potential_temperature = grid.temperature\
+#                                 * ( 1.0E5 / p_dry )**kappa_air_dry
+#                                 
+#    grid.saturation_pressure =\
+#        compute_saturation_pressure_vapor_liquid(grid.temperature)
+#       
+#    rho_dry_env_init_bottom = 0.5 * ( rho_dry_env_init_center[0:-1]
+#                                      + rho_dry_env_init_center[1:])
+#    rho_dry_env_init_bottom =\
+#        np.insert( rho_dry_env_init_bottom, 0, 
+#                   0.5 * ( 3.0 * rho_dry_env_init_center[0]
+#                           - rho_dry_env_init_center[1] ))
+#    rho_dry_env_init_bottom =\
+#        np.append( rho_dry_env_init_bottom,
+#                   0.5 * ( 3.0 * rho_dry_env_init_center[-1]
+#                           - rho_dry_env_init_center[-2] ) )
+#    
+#    print()
+#    print("placed ", len(m_w.flatten()), "super particles" )
+#    print("representing ", np.sum(xi.flatten()), "real particles:" )
+#    print("mode real_part_placed, real_part_should, " + 
+#          "rel_dev:")
+#    
+#    with open(log_file, "a") as f:
+#        f.write("\n")
+#        f.write(f"placed {len(m_w.flatten())} super particles\n")
+#        f.write(f"representing {np.sum(xi.flatten()):.3e} real particles:\n")
+#        f.write("mode real_part_placed, real_part_should, ")
+#        f.write("rel dev:\n")
+#    
+#    if no_modes == 1:
+##        print(0, np.sum(xi), no_rpt_should, np.sum(xi) - no_rpt_should)
+#        print(0, f"{np.sum(xi):.3e}",
+#              f"{no_rpt_should:.3e}",
+#              f"{np.sum(xi) - no_rpt_should:.3e}")
+#        with open(log_file, "a") as f:
+#            f.write(f"0 {np.sum(xi):.3e} {no_rpt_should:.3e} ")
+#            f.write(f"{(np.sum(xi) - no_rpt_should)/no_rpt_should:.3e}\n")
+#    else:
+#        for mode_n in range(no_modes):
+#            ind_mode = modes == mode_n
+#            rel_dev_ = (np.sum(xi[ind_mode]) - no_rpt_should[mode_n])\
+#                      /no_rpt_should[mode_n]
+#            print(mode_n, f"{np.sum(xi[ind_mode]):.3e}",
+#                  f"{no_rpt_should[mode_n]:.3e}",
+#                  f"{rel_dev_:.3e}")
+#            with open(log_file, "a") as f:
+#                f.write(f"{mode_n} {np.sum(xi[ind_mode]):.3e} ")
+#                f.write(f"{no_rpt_should[mode_n]:.3e} ")
+#                f.write(f"{rel_dev_:.3e}\n")
+#    
+##    l_ = 0
+##    for l, N_l in enumerate( no_spcm ):
+##        if l in np.nonzero(no_spcm)[0]:
+##            print( l, np.sum(xi[l_]), no_rpt_should[l],
+##                   np.sum(xi[l_]) - no_rpt_should[l])
+##            l_ += 1
+##        else:
+##            print( l, 0, no_rpt_should[l], -no_rpt_should[l])
+#    
+#    r_tot_err =\
+#        np.sum(np.abs(grid.mixing_ratio_water_liquid
+#                      + grid.mixing_ratio_water_vapor
+#                      - r_tot_0))
+#    print()
+#    print(f"accumulated abs. error"
+#          + "|(r_l + r_v) - r_tot_should| over all cells = "
+#          + f"{r_tot_err:.4e}")
+#    with open(log_file, "a") as f:
+#        f.write("\n")
+#        f.write(f"accumulated abs. error |(r_l + r_v) - r_tot_should| ")
+#        f.write(f"over all cells ")
+#        f.write(f"= {r_tot_err:.4e}\n")
+#    ########################################################
+#    ### 4. set mass flux and velocity grid
+#    ######################################################## 
+#    
+#    j_max = 0.6 * np.sqrt(grid.sizes[0] * grid.sizes[0] +
+#                          grid.sizes[1] * grid.sizes[1])\
+#                / np.sqrt(2.0 * 1500.0*1500.0)
+#    print()
+#    print('j_max')
+#    print(j_max)
+#    with open(log_file, "a") as f:
+#        f.write(f"\nj_max = {j_max}")
+#    grid.mass_flux_air_dry =\
+#        compute_initial_mass_flux_air_dry_kinematic_2D_ICMW_2012_case1( grid,
+#                                                                        j_max )
+#    
+#    # grid.mass_flux_air_dry[1]:
+#    # j_z - positions taken at the z-bottom positions
+#    # every element mass_flux_air_dry[1][i] is a z-profile at fix x
+#    # and gets divided by the dry density profile at the bottoms
+#    # note that this is checked to provide the right division by numpy:
+#    # since mass_flux_air_dry[1] is an 2D array of shape (Nx, Nz)
+#    # and rho_dry_env_init_bottom is a 1D array of shape (Nz,)
+#    # each element of mass_flux_air_dry[1] (which is itself an array of dim Nz)
+#    # is divided BY THE FULL ARRAY 'rho_dry_env_init_bottom'
+#    # grid.mass_flux_air_dry[0]:
+#    # j_x - positions taken at the z-center positions
+#    # every element mass_flux_air_dry[0][i] is a z-profile at fix x_i
+#    # and gets divided by the dry density profile at the centers
+#    # note that this is checked to provide the right division by numpy:
+#    # since mass_flux_air_dry[0] is an 2D array of shape (Nx, Nz)
+#    # and rho_dry_env_init_bottom is a 1D array of shape (Nz,)
+#    # each element of mass_flux_air_dry[0] (which is itself an array of dim Nz)
+#    # is divided BY THE FULL ARRAY 'rho_dry_env_init_bottom' BUT
+#    # we need to add a dummy density for the center in a cell above
+#    # the highest cell, because velocity has
+#    # the same dimensions as grid.corners and not grid.centers
+#    grid.velocity[0] = grid.mass_flux_air_dry[0] / rho_dry_env_init_bottom
+#    grid.velocity[1] =\
+#        grid.mass_flux_air_dry[1]\
+#        / np.append(rho_dry_env_init_center, rho_dry_env_init_center[-1])
+#    
+#    grid.update_material_properties()
+#    V0_inv = 1.0 / grid.volume_cell
+#    grid.rho_dry_inv = np.ones_like(grid.mass_density_air_dry)\
+#                       / grid.mass_density_air_dry
+#    grid.mass_dry_inv = V0_inv * grid.rho_dry_inv
+#    
+#    # assign random positions to particles
+#    
+#    pos, rel_pos, cells = generate_random_positions(grid, no_spc, rnd_seed,
+#                                                    set_seed=False)
+#    # init velocities
+#    #vel = np.zeros_like(pos)
+#    
+#    # generate cell array [ [i1,j1], [i2,j2], ... ] and flatten particle masses
+##    ID = 0
+##    m_w_flat = np.zeros(len(pos[0]))
+##    m_s_flat = np.zeros(len(pos[0]))
+##    xi_flat = np.zeros(len(pos[0]), dtype = np.int64)
+##    cell_list = np.zeros( (2, len(pos[0])), dtype = int )
+#    
+#    # @njit()
+#    # def flatten_m_w_m_s(m_w,m_s,m_w_flat,m_s_flat, no_spcm, grid_no_cells):
+#    #     for j in range(grid_no_cells[1]):
+#    #         for i in range(grid_no_cells[0]):
+#    #             for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+#    #                 for n, m_w_ in m_w[l][i,j]:
+#    #                     cell_list[0,ID] = i
+#    #                     cell_list[1,ID] = j
+#    #                     m_w_flat[ID] = m_w[l][i,j][n]
+#    #                     m_s_flat[ID] = m_s[l][i,j][n]
+#                        
+##    for j in range(grid.no_cells[1]):
+##        for i in range(grid.no_cells[0]):
+##            for l, N_l in enumerate( no_spcm[ np.nonzero(no_spcm) ] ):
+##                if isinstance(m_w[l][i,j], (list, tuple, np.ndarray)):
+##                    for n, m_w_ in enumerate(m_w[l][i,j]):
+##                        cell_list[0,ID] = i
+##                        cell_list[1,ID] = j
+##                        m_w_flat[ID] = m_w[l][i,j][n]
+##                        m_s_flat[ID] = m_s[l][i,j][n]
+##                        xi_flat[ID] = xi[l][i,j][n]
+##                        ID += 1
+##                else:
+##                    cell_list[0,ID] = i
+##                    cell_list[1,ID] = j
+##                    m_w_flat[ID] = m_w[l][i,j]
+##                    m_s_flat[ID] = m_s[l][i,j]
+##                    xi_flat[ID] = xi[l][i,j]
+##                    ID += 1
+#### IN WORK    
+#    vel = interpolate_velocity_from_cell_bilinear(cells, rel_pos,
+#                                                      grid.velocity,
+#                                                      grid.no_cells)
+#    
+##    active_ids = list(range(len(m_s_flat)))
+##    active_ids = list(range(len(m_s)))
+##    active_ids = list(range(len(m_s)))
+##    removed_ids = []
+#    
+#    active_ids = np.full( len(m_s), True )
+##    removed_ids = np.full( len(m_s), False )
+#    
+#    t = 0
+#    save_grid_and_particles_full(t, grid, pos, cells, vel,
+#                                 m_w, m_s, xi,
+#                                 active_ids, save_path)
+#    
+#    np.save(save_path + "modes_0", modes)
+#    np.save(save_path + "no_rpcm_scale_factors_lvl_wise",
+#            no_rpcm_scale_factors_lvl_wise)
+#    
+##    save_grid_and_particles_full(t, grid, pos, cell_list, vel,
+##                                 m_w_flat, m_s_flat, xi_flat,
+##                                 active_ids, removed_ids, save_path)
+#    
+#    paras = [x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, r_tot_0,
+#             Theta_l, DNC0, no_spcm, dist,
+#             dst_par, kappa_dst, eta, eta_threshold,
+#             r_critmin, m_high_over_m_low,
+#             eta, rnd_seed, S_init_max, dt_init,
+#             Newton_iterations, iter_cnt_limit]
+#    para_names = "x_min, x_max, z_min, z_max, dx, dy, dz, p_0, p_ref, " \
+#    + "r_tot_0, Theta_l, DNC0, no_super_particles_cell_mode, dist, " \
+#    + "mu_m_log, sigma_m_log, kappa_dst, eta, eta_threshold, " \
+#    + "r_critmin, m_high_over_m_low, rnd_seed, S_init_max, dt_init, " \
+#    + "Newton_iterations_init, iter_cnt_limit"
+#    
+#    grid_para_file = save_path + "grid_paras.txt"
+#    with open(grid_para_file, "w") as f:
+#        f.write( para_names + '\n' )
+#        for item in paras:
+#            type_ = type(item)
+#            if type_ is list or type_ is np.ndarray or type_ is tuple:
+#                for el in item:
+#                    tp_e = type(el)
+#                    if tp_e is list or tp_e is np.ndarray or tp_e is tuple:
+#                        for el_ in el:
+#                            f.write( f'{el_} ' )
+#                    else:
+#                        f.write( f'{el} ' )
+#            else: f.write( f'{item} ' )        
+#    
+##    if logfile:
+##        sys.stdout = sys.__stdout__
+##        log_handle.close()
+#    
+#    return grid, pos, cells, cells_comb, vel, m_w, m_s, xi,\
+#           active_ids 
+##    return grid, pos, cells, vel, m_w_flat, m_s_flat, xi_flat,\
+##           active_ids, removed_ids
+           
+
 
 
 #%% testing (commented)
