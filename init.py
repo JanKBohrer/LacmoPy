@@ -212,11 +212,17 @@ def set_initial_sim_config(inpar):
         g_set = 0.0
     else:
         g_set = c.earth_gravity
+
+    if simulation_mode in ["spin_up", "with_collision_spin_up_included"]:
+        inpar['t_start'] = inpar['t_start_spin_up']
+        inpar['t_end'] = inpar['t_end_spin_up']
     
     inpar["g_set"] = g_set
     
     if simulation_mode == "with_collision":
         inpar["act_collisions"] = True
+        inpar['t_start'] = inpar['t_start_sim']
+        inpar['t_end'] = inpar['t_end_sim']
     else:    
         inpar["act_collisions"] = False
     

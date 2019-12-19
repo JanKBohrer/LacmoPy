@@ -8,7 +8,8 @@ Created on Mon Dec 16 11:57:05 2019
 
 dict1 = {
         'a'         : 15.7,
-        'str'       : 'solute_type'
+        'str'       : 'solute_type',
+        'b'         : 'a'
         }
 
 

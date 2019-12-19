@@ -1,21 +1,15 @@
 #!/bin/bash
 # execute generate grid and particles n times with different seeds
 
-sseed=3709
-system="TROPOS_server"
-#system="Mac"
-solute_type="AS"
-no_spcm0=26
-no_spcm1=38
-dx=20
-dz=20
+first_seed_gen=1401
+no_sims=7
 
-for x in {1..50}
+for ((n=0; n<$no_sims; n++))
 do
     export OMP_NUM_THREADS=8
-    #export MKL_NUM_THREADS=4
     export NUMBA_NUM_THREADS=16
-    echo $((sseed + 2*x))
-    #python3 generate_grid_and_particles.py TROPOS_server $((sseed + 2*x)) &
-    python3 generate_grid_and_particles.py $system $((sseed + 2*x)) $solute_type $no_spcm0 $no_spcm1 $dx $dz &
+    #export MKL_NUM_THREADS=4
+    python3 generate_grid_and_particles_mod.py $((first_seed_gen + 2*n)) &
+    echo $((first_seed_gen + 2*n))
+    sleep 0.05
 done
