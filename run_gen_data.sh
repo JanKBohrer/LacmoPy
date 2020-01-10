@@ -1,32 +1,47 @@
 #!/bin/bash
-gseed=(3711 3811 3811 3411 3311 3811 4811 4811 3711 3711 3811)
-sseed=(6711 6811 6811 6411 6311 7811 6811 7811 6711 6711 8811)
-Ns=50
-system="TROPOS_server"
-#system="Mac"
-#system="Linux_desk"
+# statistical analysis of the plot data and generation of plotable data
+# for a number of Ns independent simulations
+# a new directory will be generated, where the eval. data is stored.
+# The form of the new directory is
+# "eval_data_avg_Ns_{no_seeds}_sg_{gseed}_ss_{sseed}_t_{t_start}_{t_end}/"
+# ignore "RuntimeWarning: invalid value encountered in true_divide"
+# parameters can be adjusted in detail in
+# "gen_plot_data.py" under "ANALYSIS PARAMETERS"
+# in there, one needs to choose, which of the time indices
+# of the stored data shall be evaluated by setting
+# the arrays "time_ind" (for scalar fields) and
+# "time_ind_moments" (for moment analysis)
+# also, one can choose which fields are plotted,
+# which volumes are analyzed for particle spectra etc.
+# the generated data can be plotted with "plot_results_MA.py".
+# In there, a configuration must be added in the parameter lists indicated
+# and lateron chosen by setting SIM_N (see "plot_results_MA.py")
 
-#t_start=0.0
-t_start=7200.0
-#t_end=7200.0
-t_end=14400.0
+# basic parameter setup in this file:
+#storage_path="/Users/bohrer/sim_data_cloudMP/" # sim data is in here
+storage_path="/Users/bohrer/sim_data_cloudMP_TEST200108/" # sim data is in here
 
-no_cells=(75 75 75 75 75 75 75 75 75 150 75)
-#no_cells_z=75
-solute_type=("AS" "AS" "AS" "AS" "AS" "AS" "AS" "AS" "NaCl" "AS" "AS")
-no_spcm0=(13 26 52 26 26 26 26 26 26 26 26)
-no_spcm1=(19 38 76 38 38 38 38 38 38 38 38)
-no_col_per_adv=(2 2 2 2 2 2 2 2 2 2 10)
-sim_type="with_collision"
+gseed=9001 # SIP generation seed
+sseed=9001 # simulation seed
+no_sim=20 # number of seeds
 
-#array1=(a b cc)
-#array2=(1 2 10)
+# load the basic grid time t_grid.
+# The setting of t_grid is just for plotting of the grid
+# and has no influence on the analysis of the simulation runs,
+# for which one needs to set t_start and t_end below
+t_grid=600 # in s
+t_start=300 # in s
+t_end=600 # in s
 
-#for i in {0..8}
-for i in 9 10
-do
-    export OMP_NUM_THREADS=8
-    #export MKL_NUM_THREADS=4
-    export NUMBA_NUM_THREADS=16
-    python3 gen_plot_data.py $system ${no_cells[$i]} ${no_cells[$i]} ${solute_type[$i]} ${no_spcm0[$i]} ${no_spcm1[$i]} $Ns ${gseed[$i]} ${sseed[$i]} $sim_type $t_start $t_end ${no_col_per_adv[$i]} >> log_gen_data.log &
-done
+no_cells_x=10
+no_cells_z=10
+solute_type="AS"
+no_spcm0=2 # number of super particles first mode
+no_spcm1=2 # number of super particles 2nd mode
+no_col_per_adv=2 # # number of collisions steps per advection step
+sim_type="with_collision" # possible: "spin_up", "with_collision", "wo_collision"
+
+export OMP_NUM_THREADS=8
+export NUMBA_NUM_THREADS=16
+echo $gseed $sseed
+python3 gen_plot_data.py $storage_path $no_cells_x $no_cells_z $solute_type $no_spcm0 $no_spcm1 $no_sim ${gseed} ${sseed} $sim_type $t_grid $t_start $t_end $no_col_per_adv &

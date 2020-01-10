@@ -13,20 +13,25 @@ import matplotlib.pyplot as plt
 
 #%% STORAGE DIRECTORIES
 #my_OS = "Linux_desk"
-my_OS = "Mac"
-#my_OS = "TROPOS_server"
+#my_OS = "Mac"
+##my_OS = "TROPOS_server"
+#
+#if(my_OS == "Linux_desk"):
+#    home_path = '/home/jdesk/'
+#    simdata_path = "/mnt/D/sim_data_cloudMP/"
+##    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
+#elif (my_OS == "Mac"):
+#    simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+#    home_path = "/Users/bohrer/"
+##    fig_path = home_path \
+##               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
+#elif (my_OS == "TROPOS_server"):
+#    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
-if(my_OS == "Linux_desk"):
-    home_path = '/home/jdesk/'
-    simdata_path = "/mnt/D/sim_data_cloudMP/"
-#    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
-elif (my_OS == "Mac"):
-    simdata_path = "/Users/bohrer/sim_data_cloudMP/"
-    home_path = "/Users/bohrer/"
-#    fig_path = home_path \
-#               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
-elif (my_OS == "TROPOS_server"):
-    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
+
+simdata_path = "/Users/bohrer/sim_data_cloudMP_TEST200108/"
+home_path = "/Users/bohrer/"
+
 
 #%% CHOOSE OPERATIONS
 
@@ -35,7 +40,7 @@ elif (my_OS == "TROPOS_server"):
 #args_plot = [1,0,0]
 
 #args_plot = [0,0,0,0]
-args_plot = [0,0,0,1]
+args_plot = [1,1,1,0]
 #args_plot = [1,0]
 #args_plot = [0,1]
 #args_plot = [1,1]
@@ -49,10 +54,10 @@ act_plot_grid_frames_INIT = args_plot[3]
 #%% GRID PARAMETERS
 
 # needed for filename
-no_cells = (75, 75)
-#no_cells = (3, 3)
+#no_cells = (75, 75)
+no_cells = (10, 10)
 
-shift_cells_x = 18
+shift_cells_x = 3
 #shift_cells_x = 56
 
 #%% PARTICLE PARAMETERS
@@ -67,22 +72,22 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-no_spcm = np.array([2, 3])
+no_spcm = np.array([2, 2])
 #no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
 #seed_SIP_gen = 3811
-seed_SIP_gen = 2001
-seed_sim = 6811
+seed_SIP_gen = 9001
+seed_sim = 9001
 
 #no_seeds = 1
-no_seeds = 50
+no_seeds = 20
 
 #%% SIM PARAMETERS
 
-simulation_mode = "spin_up"
+#simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
-#simulation_mode = "with_collision"
+simulation_mode = "with_collision"
 
 # for file names
 dt_col = 0.5
@@ -95,12 +100,12 @@ t_grid = 0
 #t_grid = 10800
 #t_grid = 14400
 
-t_start = 0
-#t_start = 7200
+#t_start = 0
+t_start = 300
 
 #t_end = 60
 #t_end = 3600
-t_end = 7200
+t_end = 600
 #t_end = 10800
 #t_end = 14400
 
@@ -123,9 +128,10 @@ no_bins_R_p = None
 no_bins_R_s = None
 
 #%% LOAD GRID AND SET PATHS
-singleGrid = True
-#dataFromServer = True
-dataFromServer = False
+#singleGrid = True
+singleGrid = False
+dataFromServer = True
+#dataFromServer = False
 
 if dataFromServer:
     data_folder = \
@@ -133,6 +139,7 @@ if dataFromServer:
         + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
         + f"eval_data_avg_Ns_{no_seeds}_" \
         + f"sg_{seed_SIP_gen}_ss_{seed_sim}/"
+    data_path = simdata_path + data_folder
     grid_path = simdata_path + data_folder + "grid_data/" \
                 + f"{seed_SIP_gen}_{seed_sim}/"
 else:        

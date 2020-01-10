@@ -22,7 +22,7 @@ simpar = \
 ### DATA PATH
 # path to the parent directory, which was chosen for storing the grid data.
 # the program will create subdirectories automatically, where simulation
-# data will be output.
+# data will written.
 #'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
 'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
 # need to set number of grid cells [x,z] for data path assignments
@@ -44,8 +44,8 @@ simpar = \
 # "spin_up" can also be executed without subsequent simulation
 # "simulation" can also be executed without preceding spin-up OR
 # from an existing spin_up state
-#'execute_spin_up'       : True,
-'execute_spin_up'       : False,
+'execute_spin_up'       : True,
+#'execute_spin_up'       : False,
 
 'execute_simulation'    : True,
 #'execute_simulation'    : False,
@@ -61,8 +61,8 @@ simpar = \
 # if "execute_spin_up" = True
 # this value gives the opportunity to simulate directly without spin-up
 # in this case, set "execute_spin_up" False and "spin_up_complete" False
-'spin_up_complete'        : True,
-#'spin_up_complete'        : False,
+#'spin_up_complete'        : True,
+'spin_up_complete'        : False,
 
 ### SIMULATION TIME AND INTEGRATION PARAMETERS
 # start time of the simulation (seconds)

@@ -19,23 +19,30 @@ from microphysics import compute_radius_from_mass_vec
 from file_handling import load_grid_and_particles_full 
 
 #%% STORAGE DIRECTORIES
-my_OS = "Linux_desk"
+
+#simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+simdata_path = "/Users/bohrer/sim_data_cloudMP_TEST200108/"
+
+if len(sys.argv) > 1:
+    simdata_path = sys.argv[1]
+
+#my_OS = "Linux_desk"
 #my_OS = "Mac"
 #my_OS = "TROPOS_server"
 
-if len(sys.argv) > 1:
-    my_OS = sys.argv[1]
+#if len(sys.argv) > 1:
+#    my_OS = sys.argv[1]
 
-if(my_OS == "Linux_desk"):
-    home_path = '/home/jdesk/'
-    simdata_path = "/mnt/D/sim_data_cloudMP/"
-#    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
-elif (my_OS == "Mac"):
-    simdata_path = "/Users/bohrer/sim_data_cloudMP/"
-#    fig_path = home_path \
-#               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
-elif (my_OS == "TROPOS_server"):
-    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
+#if(my_OS == "Linux_desk"):
+#    home_path = '/home/jdesk/'
+#    simdata_path = "/mnt/D/sim_data_cloudMP/"
+##    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
+#elif (my_OS == "Mac"):
+#    simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+##    fig_path = home_path \
+##               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
+#elif (my_OS == "TROPOS_server"):
+#    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
 #%% CHOOSE OPERATIONS
 
@@ -52,13 +59,13 @@ act_gen_moments_all_grid_cells = args_gen[3]
 #%% GRID PARAMETERS
 
 #no_cells = (75, 75)
-no_cells = np.array((75, 75))
+#no_cells = np.array((75, 75))
+no_cells = np.array((10, 10))
 
 if len(sys.argv) > 2:
     no_cells[0] = int(sys.argv[2])
 if len(sys.argv) > 3:
     no_cells[1] = int(sys.argv[3])
-
 
 #%% PARTICLE PARAMETERS
 
@@ -74,7 +81,8 @@ if len(sys.argv) > 4:
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([16, 24])
-no_spcm = np.array([20, 30])
+#no_spcm = np.array([20, 30])
+no_spcm = np.array([2, 2])
 #no_spcm = np.array([26, 38])
 
 if len(sys.argv) > 5:
@@ -82,7 +90,7 @@ if len(sys.argv) > 5:
 if len(sys.argv) > 6:
     no_spcm[1] = int(sys.argv[6])
 
-no_seeds = 4
+no_seeds = 20
 #no_seeds = 50
 
 if len(sys.argv) > 7:
@@ -90,7 +98,7 @@ if len(sys.argv) > 7:
 
 # seed of the SIP generation -> needed for the right grid folder
 # start seed and also seed for base grid loading
-seed_SIP_gen = 3711
+seed_SIP_gen = 9001
 
 if len(sys.argv) > 8:
     seed_SIP_gen = int(sys.argv[8])
@@ -99,7 +107,7 @@ seed_SIP_gen_list = np.arange(seed_SIP_gen, seed_SIP_gen + no_seeds * 2, 2)
 
 
 # start seed collisions
-seed_sim = 4711
+seed_sim = 9001
 
 if len(sys.argv) > 9:
     seed_sim = int(sys.argv[9])
@@ -122,21 +130,25 @@ spin_up_finished = True
 #t_grid = 0
 #t_grid = 7200
 #t_grid = 10800
-t_grid = 14400
+#t_grid = 14400
+t_grid = 600
 
 #t_start = 0
-t_start = 7200
+#t_start = 7200
+t_start = 300
 
-#t_end = 60
+t_end = 600
 #t_end = 3600
 #t_end = 7200
 #t_end = 10800
-t_end = 14400
+#t_end = 14400
 
 if len(sys.argv) > 11:
-    t_start = float(sys.argv[11])
+    t_grid = float(sys.argv[11])
 if len(sys.argv) > 12:
-    t_end = float(sys.argv[12])
+    t_start = float(sys.argv[12])
+if len(sys.argv) > 13:
+    t_end = float(sys.argv[13])
 
 dt = 1.0 # s # timestep of advection
 
@@ -149,8 +161,8 @@ no_cond_per_adv = 10
 no_col_per_adv = 2
 #no_col_per_adv = no_cond_per_adv
 
-if len(sys.argv) > 13:
-    no_col_per_adv = int(sys.argv[13])
+if len(sys.argv) > 14:
+    no_col_per_adv = int(sys.argv[14])
 
 dt_col = dt / no_col_per_adv
 
@@ -159,23 +171,49 @@ dt_col = dt / no_col_per_adv
 ### GRID FRAMES
 #plot_frame_every = 6
 
+# possible field indices:
+#0: r_v
+#1: r_l
+#2: Theta
+#3: T
+#4: p
+#5: S
+# possibe derived indices:
+# 0: r_aero
+# 1: r_cloud
+# 2: r_rain     
+# 3: n_aero
+# 4: n_c
+# 5: n_r 
+# 6: R_avg
+# 7: R_1/2 = 2nd moment / 1st moment
+# 8: R_eff = 3rd moment/ 2nd moment of R-distribution
+
 field_ind = np.array((2,5,0,1))
 #    field_ind_ext = np.array((0,1,2))
 field_ind_deri = np.array((0,1,2,3,4,5,6,7,8))
 
-#    time_ind = np.arange(0, len(grid_save_times), plot_frame_every)
-
+# the save times correspond to the times, when the "grid frames" are stored 
+# the time values are written to "grid_save_times.npy" during the simulation
 #time_ind = np.array((0,2,4,6,8,10,12))
-time_ind = np.arange(0,25,2)
+#time_ind = np.arange(0,25,2)
+time_ind = np.array((0,1))
 #    time_ind = np.array((0,3,6,9))
 
 ### SPECTRA
 # target cells for spectra analysis
-i_tg = [16,58,66]
+i_tg = [2,5,8]
 #i_tg = [20,40,60]
-j_tg = [27, 37, 44, 46, 51, 72][::-1]
+j_tg = [2, 5, 8][::-1]
 #j_tg = [27, 44, 46, 51, 72][::-1]
 #j_tg = [20,40,50,60,65,70]
+
+# corresponding to Arabas 2015
+#i_tg = [16,58,66]
+##i_tg = [20,40,60]
+#j_tg = [27, 37, 44, 46, 51, 72][::-1]
+##j_tg = [27, 44, 46, 51, 72][::-1]
+##j_tg = [20,40,50,60,65,70]
 
 # target list from ordered mesh grid
 # may also set the target list manually as [[i0, i1, ...], [j0, j1, ...]]
@@ -193,22 +231,27 @@ no_cols = len(i_tg)
 no_cells_x = 3
 no_cells_z = 3
 
+# time indices for the spectra analysis only
 # time indices may be chosen individually for each spectrum
 # where the cell of each spectrum is given in target_cell_list (s.a.)
 #time_ind = np.array((0,2,4,6,8,10,12))
 #    ind_time = np.zeros(len(target_cell_list[0]), dtype = np.int64)
-ind_time = 6 * np.ones(len(target_cell_list[0]), dtype = np.int64)
+ind_time = 1 * np.ones(len(target_cell_list[0]), dtype = np.int64)
 
 no_bins_R_p = 30
 no_bins_R_s = 30
 
 ### TIMES FOR GRID DATA
 # gen_seed = list[0], sim_seed = list[0]
-grid_times = [0,7200,14400]
+#grid_times = [0,7200,10800]
+grid_times = [0,300,600]
+
+duration_spin_up = 300
 
 ### MOMENTS
 no_moments = 4
-time_ind_moments = np.arange(0,25,2)
+#time_ind_moments = np.arange(0,25,2)
+time_ind_moments = np.arange(0,2,1)
 
 #%% DERIVED    
 #no_seeds = len(seed_SIP_gen_list)
@@ -508,7 +551,8 @@ if act_get_grid_data:
                             output_path)
                 shutil.copy(grid_path_base + "arr_file1_0.npy", output_path)
                 shutil.copy(grid_path_base + "arr_file2_0.npy", output_path)
-            elif gt <= 7200.1:
+            elif gt <= duration_spin_up:
+#            elif gt <= duration_spin_up 7200.1:
                 shutil.copy(grid_path_base + "spin_up_wo_col_wo_grav/"
                              + f"grid_basics_{int(gt)}.txt",
                              output_path)
@@ -518,7 +562,8 @@ if act_get_grid_data:
                 shutil.copy(grid_path_base + "spin_up_wo_col_wo_grav/"
                              + f"arr_file2_{int(gt)}.npy",
                              output_path)
-            elif gt > 7200.1:
+            elif gt > duration_spin_up:
+#            elif gt > 7200.1:
                 shutil.copy(grid_path_base
                              + f"w_spin_up_w_col/{seed_sim_list[seed_n]}/"
                              + f"grid_basics_{int(gt)}.txt",
