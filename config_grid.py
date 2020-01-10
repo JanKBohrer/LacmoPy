@@ -18,7 +18,7 @@ genpar = \
 # In the following example,
 # the parameter 'seed_SIP_gen'would be overwritten to 4711:
 # "python3 generate_grid_and_particles.py 4711"
-'seed_SIP_gen'      : 5001,
+'seed_SIP_gen'      : 1001,
 # set, if the number generator should be reseeded at every z-level:
 # 'False' is usually fine. 'True' is usually not necessary for the given setup.
 'reseed'            : False, 
@@ -27,7 +27,8 @@ genpar = \
 # path to the parent directory, where data of the grid and simulations shall
 # be stored. in here, the program will create subdirectories automatically.
 #'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
-'simdata_path'      : '/Users/bohrer/sim_data_cloudMP_TEST191216/',
+#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP_TEST191216/',
+'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
 
 ### GRID AND INITIAL ATMOSPHERIC PROFILE
 # domain sizes (2D)
@@ -37,7 +38,7 @@ genpar = \
 'z_max'             : 1500.,
 
 # spatial step sizes
-# the number of grid cells is calculated from step sizes and domain
+# the number of grid cells is calculated from step sizes and domain sizes
 'dx'                : 150.,
 'dz'                : 150.,
 #'dx'                : 20.,

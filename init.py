@@ -180,8 +180,8 @@ def set_initial_gen_config(inpar):
         # derive parameters of lognormal distribution of mass f_m(m)
         # assuming mu_R in mu and density in kg/m^3
         # mu_m in 1E-18 kg
-        mu_m_log = np.log(compute_mass_from_radius_vec(mu_R,
-                                                       c.mass_density_NaCl_dry))
+        mu_m_log =\
+            np.log(compute_mass_from_radius_vec(mu_R, c.mass_density_NaCl_dry))
         sigma_m_log = 3.0 * sigma_R_log
         dist_par = (mu_m_log, sigma_m_log)    
     
@@ -195,76 +195,92 @@ def set_initial_gen_config(inpar):
 
 def set_initial_sim_config(inpar):
     
-    simulation_mode = inpar["simulation_mode"]
-    t_start = inpar["t_start"]
-    solute_type = inpar["solute_type"]
-    no_cells = inpar["no_cells"]
-    no_spcm = inpar["no_spcm"]
-    seed_SIP_gen = inpar["seed_SIP_gen"]
-    seed_sim = inpar["seed_sim"]
+    simulation_mode = inpar['simulation_mode']
     
-    ### set the load and save paths
-    if simulation_mode == "spin_up" or int(t_start) == 0:
-        inpar["spin_up_before"] = False
-    
-    # g must be positive (9.8...) or 0.0 (for spin up)
     if simulation_mode == "spin_up":
-        g_set = 0.0
-    else:
-        g_set = c.earth_gravity
-
-    if simulation_mode in ["spin_up", "with_collision_spin_up_included"]:
         inpar['t_start'] = inpar['t_start_spin_up']
         inpar['t_end'] = inpar['t_end_spin_up']
-    
-    inpar["g_set"] = g_set
-    
-    if simulation_mode == "with_collision":
-        inpar["act_collisions"] = True
+        inpar['spin_up_complete'] = False
+        g_set = 0.0
+    else:
         inpar['t_start'] = inpar['t_start_sim']
         inpar['t_end'] = inpar['t_end_sim']
-    else:    
-        inpar["act_collisions"] = False
+        g_set = c.earth_gravity
+
+    inpar['g_set'] = g_set
+        
+    t_start = inpar['t_start']
+    solute_type = inpar['solute_type']
+    no_cells = inpar['no_cells']
+    no_spcm = inpar['no_spcm']
+    seed_SIP_gen = inpar['seed_SIP_gen']
+    seed_sim = inpar['seed_sim']
     
+    # g must be positive (9.8...) or 0.0 (for spin up)
+    
+    if simulation_mode == "with_collision":
+        inpar['act_collisions'] = True
+    else:    
+        inpar['act_collisions'] = False
+    
+    ### set the load and save paths
+    # grid_folder is extended below
+    grid_folder =\
+        f"{solute_type}" \
+        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+        + f"{seed_SIP_gen}/"
+
     if simulation_mode == "spin_up":
         save_folder = "spin_up_wo_col_wo_grav/"
     elif simulation_mode == "wo_collision":
-        if inpar["spin_up_before"]:
+        if inpar['spin_up_complete']:
             save_folder = "w_spin_up_wo_col/"
         else:
             save_folder = "wo_spin_up_wo_col/"
     elif simulation_mode == "with_collision":
-        if inpar["spin_up_before"]:
+        if inpar['spin_up_complete']:
             save_folder = "w_spin_up_w_col/"
         else:
             save_folder = "wo_spin_up_w_col/"
     
-    grid_folder =\
-        f"{solute_type}" \
-        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/" \
-        + f"{seed_SIP_gen}/"
+    if inpar['act_collisions']:
+        save_folder += f"{seed_sim}/"
     
-    save_path = inpar["simdata_path"] + grid_folder + save_folder
-    
-    if inpar["act_collisions"]:
-        save_path += f"{seed_sim}/"
+    save_path = inpar['simdata_path'] + grid_folder + save_folder
+            
     #path = simdata_path + folder_save
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     
-    if inpar["spin_up_before"]:
-    #    if t_start <= 7200.:
-        if t_start <= 7201.:
+    # IN WORK make it possible to continue simulation from sim state
+    if simulation_mode != "spin_up":
+        if inpar['continued_simulation']:
+            grid_folder += save_folder
+        else:    
             grid_folder += "spin_up_wo_col_wo_grav/"
-        elif simulation_mode == "with_collision":
-            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
+    
+#    if inpar['spin_up_complete']:
+#        if inpar['continued_simulation']:
+#            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
+#            
+#        grid_folder += "spin_up_wo_col_wo_grav/"
+#        
+#        elif simulation_mode == "with_collision":
+#            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
+#    
+#    if inpar['spin_up_complete']:
+#    #    if t_start <= 7200.:
+#        if t_start <= 7201.:
+#            grid_folder += "spin_up_wo_col_wo_grav/"
+#        elif simulation_mode == "with_collision":
+#            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
     
     # set "counters" for number of collisions and total removed water
     no_cols = np.array((0,0))
     
     # load water_removed or create new
     if t_start > 0.:
-        water_removed = np.load(inpar["simdata_path"]
+        water_removed = np.load(inpar['simdata_path']
                                 + grid_folder
                                 + f"water_removed_{int(t_start)}.npy")
     else:        
@@ -277,28 +293,28 @@ def set_initial_sim_config(inpar):
     # then depends on dt, e.g. 1.0, 5.0 or 10.0:
     # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR 10.0/0.2 = 50
 #    scale_dt_cond = inpar["no_cond_per_adv"] // 2
-    inpar["scale_dt_cond"] = inpar["no_cond_per_adv"] // 2
-    inpar["dt_col"] = inpar["dt_adv"] / inpar["no_col_per_adv"]
+    inpar['scale_dt_cond'] = inpar['no_cond_per_adv'] // 2
+    inpar['dt_col'] = inpar['dt_adv'] / inpar['no_col_per_adv']
     
     ### load collision kernel data
     E_col_grid, radius_grid, \
     R_kernel_low, bin_factor_R, \
     R_kernel_low_log, bin_factor_R_log, \
     no_kernel_bins =\
-        load_kernel_data(inpar["kernel_method"],
-                         inpar["save_folder_Ecol_grid"] + "/" 
-                         + inpar["kernel_type"] + "/",
-                         inpar["E_col_const"])
+        load_kernel_data(inpar['kernel_method'],
+                         inpar['save_folder_Ecol_grid'] + "/" 
+                         + inpar['kernel_type'] + "/",
+                         inpar['E_col_const'])
     
-    inpar["no_kernel_bins"] = no_kernel_bins
-    inpar["R_kernel_low_log"] = R_kernel_low_log
-    inpar["bin_factor_R_log"] = bin_factor_R_log
+    inpar['no_kernel_bins'] = no_kernel_bins
+    inpar['R_kernel_low_log'] = R_kernel_low_log
+    inpar['bin_factor_R_log'] = bin_factor_R_log
     
     data_paths = \
         {
-            "simdata"   : inpar["simdata_path"],
-            "grid"      : inpar["simdata_path"] + grid_folder,
-            "output"    : save_path
+            'simdata'   : inpar['simdata_path'],
+            'grid'      : inpar['simdata_path'] + grid_folder,
+            'output'    : save_path
         }
     
     return data_paths, E_col_grid, no_cols, water_removed           
@@ -2172,8 +2188,11 @@ def initialize_grid_and_particles_SinSIP(genpar, save_path):
         f.write("\n")
         f.write(f"placed {len(m_w.flatten())} super particles\n")
         f.write(f"representing {np.sum(xi.flatten()):.3e} real particles:\n")
-        f.write("mode real_part_placed, real_part_should, ")
-        f.write("rel dev:\n")
+        ### IN WORK: write out number of SIPs place in modes and SIP/cell
+        f.write("mode real_part_placed, ")
+        f.write("real_part_should, rel dev:\n")
+#        f.write("mode SIPs_placed SIPs/cell real_part_placed, ")
+#        f.write("real_part_should, rel dev:\n")
     
     if no_modes == 1:
 #        print('no_rpt_should')

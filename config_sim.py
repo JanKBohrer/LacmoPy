@@ -16,15 +16,15 @@ simpar = \
 # In the following example, the parameters 'seed_SIP_gen' and 'seed_sim'
 # would be overwritten to 4711 and 5711:
 # "python3 generate_grid_and_particles.py 4711 5711"
-'seed_SIP_gen'          : 5001,
-'seed_sim'              : 1001,
+'seed_SIP_gen'          : 2015,
+'seed_sim'              : 1005,
 
 ### DATA PATH
 # path to the parent directory, which was chosen for storing the grid data.
 # the program will create subdirectories automatically, where simulation
 # data will be output.
 #'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
-'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST191216/',
+'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
 # need to set number of grid cells [x,z] for data path assignments
 'no_cells'              : [10,10],
 # solute material in the CCNs (possible is ammon. sulf. "AS" or "NaCl")
@@ -34,27 +34,49 @@ simpar = \
 #'no_spcm'               : [26,38],
 
 ### SIMULATION TYPE
-# "spin_up": no gravity, no collisions
 # "wo_collisions": with gravity, no collisions
 # "with_collisions": with gravity, with collisions
-#'simulation_mode'       : 'spin_up',
 'simulation_mode'       : 'with_collision',
-#'simulation_mode'       : 'with_collision_spin_up_included',
 #'simulation_mode'      : 'wo_collision',
+
+# "spin_up": no gravity, no collisions
+# "spin_up" is executed before "simulation"
+# "spin_up" can also be executed without subsequent simulation
+# "simulation" can also be executed without preceding spin-up OR
+# from an existing spin_up state
+#'execute_spin_up'       : True,
+'execute_spin_up'       : False,
+
+'execute_simulation'    : True,
+#'execute_simulation'    : False,
+
+# set True, if a "simulation" is continued from a sim state, which was stored
+# at t_start_sim given below. This is not meant for an existing spin-up. I.e. >
+# if the simulation starts from an existing spin-up state, set this to False
+#'continued_simulation'   : True,
+'continued_simulation'   : False,
+
 # set this to "True" when starting from a spin-up state,
-# will be overwritten to False automatically, if "simulation_mode" = 'spin_up'
-'spin_up_before'        : True,
-#'spin_up_before'        : False,
+# will automatically be overwritten to "False" during the spin-up phase,
+# if "execute_spin_up" = True
+# this value gives the opportunity to simulate directly without spin-up
+# in this case, set "execute_spin_up" False and "spin_up_complete" False
+'spin_up_complete'        : True,
+#'spin_up_complete'        : False,
 
 ### SIMULATION TIME AND INTEGRATION PARAMETERS
 # start time of the simulation (seconds)
 # when starting from a freshly generated grid, this must = 0
 # when starting from a saved state (e.g. from a spin up state),
 # this must correspond to the time of the saved data
+# for a direct simulation without spin-up:
+# set t_start_spin_up = 0, t_end_spin_up = 0, t_start_sim = 0
 't_start_spin_up'        : 0, # seconds
 't_end_spin_up'          : 300, # seconds
 't_start_sim'            : 300, # seconds
 't_end_sim'              : 600, # seconds
+#'t_start_sim'            : 600, # seconds
+#'t_end_sim'              : 900, # seconds
 
 # advection time step (seconds),
 # this is the largest time step of the simulation
@@ -85,7 +107,7 @@ simpar = \
 # 'kernel_type'         : 'Hydro_E_const',
 # interpolation method for the kernel, only available is "Ecol_grid_R"
 'kernel_method'         : 'Ecol_grid_R',
-# this value must be set, but is only used for kernel_method = 'Ecol_const',
+# this value must be set, but is only used for kernel_type = 'Hydro_E_const',
 'E_col_const'           : 0.5,
 # this folder should be in the same directory,
 # from which the program is executed

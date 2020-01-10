@@ -1,8 +1,8 @@
 #!/bin/bash
 # execute generate grid and particles n times with different seeds
 
-first_seed_gen=1401
-no_sims=7
+first_seed_gen=3001
+no_sims=20
 
 for ((n=0; n<$no_sims; n++))
 do
