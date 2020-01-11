@@ -55,7 +55,8 @@ act_plot_grid_frames_INIT = args_plot[3]
 
 # needed for filename
 #no_cells = (75, 75)
-no_cells = (10, 10)
+#no_cells = (10, 10)
+no_cells = (15, 15)
 
 shift_cells_x = 3
 #shift_cells_x = 56
@@ -72,16 +73,17 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-no_spcm = np.array([2, 2])
+#no_spcm = np.array([2, 2])
+no_spcm = np.array([6, 10])
 #no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
 #seed_SIP_gen = 3811
-seed_SIP_gen = 9001
-seed_sim = 9001
+seed_SIP_gen = 1001
+seed_sim = 1001
 
 #no_seeds = 1
-no_seeds = 20
+no_seeds = 10
 
 #%% SIM PARAMETERS
 
@@ -101,12 +103,12 @@ t_grid = 0
 #t_grid = 14400
 
 #t_start = 0
-t_start = 300
+t_start = 7200
 
 #t_end = 60
 #t_end = 3600
-t_end = 600
-#t_end = 10800
+#t_end = 600
+t_end = 10800
 #t_end = 14400
 
 #%% PLOTTING PARAMETERS
