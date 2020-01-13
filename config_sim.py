@@ -10,27 +10,29 @@ The corresponding simulation script is "cloudMP.py".
 
 simpar = \
 {
+### DATA PATH
+# path to the parent directory, which was chosen for storing the grid data.
+# the program will create subdirectories automatically, where simulation
+# data will written.
+'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
+#'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
+
 ### RANDOM NUMBER GENERATION
 # random number generator seeds for inital particle generation and simulations
 # this number is overwritten, IF the script is executed with arguments:
 # In the following example, the parameters 'seed_SIP_gen' and 'seed_sim'
 # would be overwritten to 4711 and 5711:
 # "python3 generate_grid_and_particles.py 4711 5711"
-'seed_SIP_gen'          : 2015,
-'seed_sim'              : 1005,
+'seed_SIP_gen'          : 3711,
+'seed_sim'              : 3711,
 
-### DATA PATH
-# path to the parent directory, which was chosen for storing the grid data.
-# the program will create subdirectories automatically, where simulation
-# data will written.
-#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
-'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
+### GRID AND PARTICLE PARAMETERS
 # need to set number of grid cells [x,z] for data path assignments
 'no_cells'              : [10,10],
 # solute material in the CCNs (possible is ammon. sulf. "AS" or "NaCl")
 'solute_type'           : 'AS',
 # number of super particles per cell and mode as list [mode0, mode1, ..]
-'no_spcm'               : [2,2],
+'no_spcm'               : [6,8],
 #'no_spcm'               : [26,38],
 
 ### SIMULATION TYPE
@@ -54,7 +56,9 @@ simpar = \
 # at t_start_sim given below. This is not meant for an existing spin-up. I.e. >
 # if the simulation starts from an existing spin-up state, set this to False
 #'continued_simulation'   : True,
-'continued_simulation'   : False,
+'continued_simulation'  : False,
+
+'include_relaxation'    : False,
 
 # set this to "True" when starting from a spin-up state,
 # will automatically be overwritten to "False" during the spin-up phase,

@@ -6,6 +6,9 @@ Created on Mon Aug 19 15:45:21 2019
 @author: bohrer
 """
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 # INWORK: add title and ax labels
 def plot_scalar_field_2D( grid_centers_x_, grid_centers_y_, field_,
                          tick_ranges_, no_ticks_=[5,5],

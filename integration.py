@@ -1260,6 +1260,25 @@ integrate_adv_and_cond_one_adv_step = \
 
 # dt = dt_adv
 # no_col_per_adv = 1,2 OR scale_dt_cond * 2
+# grid_scalar_fields[0] = grid.temperature
+# grid_scalar_fields[1] = grid.pressure
+# grid_scalar_fields[2] = grid.potential_temperature
+# grid_scalar_fields[3] = grid.mass_density_air_dry
+# grid_scalar_fields[4] = grid.mixing_ratio_water_vapor
+# grid_scalar_fields[5] = grid.mixing_ratio_water_liquid
+# grid_scalar_fields[6] = grid.saturation
+# grid_scalar_fields[7] = grid.saturation_pressure
+# grid_scalar_fields[8] = grid.mass_dry_inv
+# grid_scalar_fields[9] = grid.rho_dry_inv
+
+# grid_mat_prop[0] = grid.thermal_conductivity
+# grid_mat_prop[1] = grid.diffusion_constant
+# grid_mat_prop[2] = grid.heat_of_vaporization
+# grid_mat_prop[3] = grid.surface_tension
+# grid_mat_prop[4] = grid.specific_heat_capacity
+# grid_mat_prop[5] = grid.viscosity
+# grid_mat_prop[6] = grid.mass_density_fluid
+
 def integrate_adv_cond_coll_one_adv_step_np(
         grid_scalar_fields, grid_mat_prop, grid_velocity,
         grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -1306,6 +1325,17 @@ def integrate_adv_cond_coll_one_adv_step_np(
                          flux_type = 1,
                          boundary_conditions = np.array([0, 1]))\
                      * grid_scalar_fields[9]
+    
+    if include_relaxation:
+        # note that a 1D array is added to a 2D array
+        # in this case, the 1D array is added to each "row" of the 2D array
+        # since the 2D array[x][z], a "z-profile" is added for each FIXED x pos
+        delta_r_v_ad += compute_relaxation_term(
+                            grid_scalar_fields[4], init_profile_r_v,
+                            relaxation_time_profile, dt_sub)        
+        delta_Theta_ad += compute_relaxation_term(
+                            grid_scalar_fields[2], init_profile_Theta,
+                            relaxation_time_profile, dt_sub)
 
     ### d1) added collision here
 #    if no_col_per_adv == 2:
@@ -1383,6 +1413,17 @@ def integrate_adv_cond_coll_one_adv_step_np(
                          flux_type = 1,
                          boundary_conditions = np.array([0, 1]))\
                      * grid_scalar_fields[9] - delta_Theta_ad
+
+    if include_relaxation:
+        # note that a 1D array is added to a 2D array
+        # in this case, the 1D array is added to each "row" of the 2D array
+        # since the 2D array[x][z], a "z-profile" is added for each FIXED x pos
+        delta_r_v_ad += compute_relaxation_term(
+                            grid_scalar_fields[4], init_profile_r_v,
+                            relaxation_time_profile, 2*dt_sub)        
+        delta_Theta_ad += compute_relaxation_term(
+                            grid_scalar_fields[2], init_profile_Theta,
+                            relaxation_time_profile, 2*dt_sub)
     
     ### f2) added collision here
 #    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
@@ -1535,7 +1576,10 @@ def simulate_interval_col(grid_scalar_fields, grid_mat_prop, grid_velocity,
                 Newton_iter, g_set, solute_type,
                 E_col_grid, no_kernel_bins,
                 R_kernel_low_log, bin_factor_R_log, no_cols)
-
+        
+#        if include_relaxation:
+            
+        
 #        integrate_adv_cond_coll_one_adv_step_np(
 #                grid_scalar_fields, grid_mat_prop, grid_velocity,
 #                grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -1746,7 +1790,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
     seed_sim, simulation_mode = \
         [inpar.get(key) for key in par_keys]
     
-    list1 = [inpar.get(key) for key in par_keys]
+#    list1 = [inpar.get(key) for key in par_keys]
     
 #    print("dt = ", dt)
 #    print("list1")
