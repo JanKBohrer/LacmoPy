@@ -58,7 +58,8 @@ simpar = \
 #'continued_simulation'   : True,
 'continued_simulation'  : False,
 
-'include_relaxation'    : False,
+# activate the relaxation source term for r_v and Theta towards init. profiles
+'act_relaxation'    : False,
 
 # set this to "True" when starting from a spin-up state,
 # will automatically be overwritten to "False" during the spin-up phase,

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  1 12:28:02 2019
-
-@author: jdesk
+Microphysics module
 """
+
+#%% MODULE IMPORTS
 
 import math
 import numpy as np
@@ -18,6 +18,15 @@ from atmosphere import compute_surface_tension_water,\
                        compute_diffusion_constant,\
                        compute_thermal_conductivity_air
                        
+
+# par[0] belongs to the largest exponential x^(n-1) for par[i], i = 0, .., n 
+@njit()
+def compute_polynom(par,x):
+    res = par[0] * x + par[1]
+    for a in par[2:]:
+        res = res * x + a
+    return res
+
 ### conversions
 
 # compute mass in femto gram = 10^-18 kg 
@@ -89,14 +98,37 @@ par_sol_dens_NaCl = np.array([  7.619443952135e+02,   1.021264281453e+03,
 #@vectorize("float64(float64,float64)")  
 @njit()
 def compute_density_NaCl_solution(mass_fraction_solute_, temperature_):
-    return    par_sol_dens_NaCl[0] \
-            + par_sol_dens_NaCl[1] * mass_fraction_solute_ \
-            + par_sol_dens_NaCl[2] * temperature_ \
-            + par_sol_dens_NaCl[3] * mass_fraction_solute_ * mass_fraction_solute_ \
-            + par_sol_dens_NaCl[4] * mass_fraction_solute_ * temperature_ \
-            + par_sol_dens_NaCl[5] * temperature_ * temperature_
+    return par_sol_dens_NaCl[0] \
+        + par_sol_dens_NaCl[1] * mass_fraction_solute_ \
+        + par_sol_dens_NaCl[2] * temperature_ \
+        + par_sol_dens_NaCl[3] * mass_fraction_solute_ * mass_fraction_solute_\
+        + par_sol_dens_NaCl[4] * mass_fraction_solute_ * temperature_ \
+        + par_sol_dens_NaCl[5] * temperature_ * temperature_
 
-# approx. density of the particle (droplet)
+# NaCl solution density in kg/m^3
+# fit rho(w_s) from Tang 1994 (in Biskos 2006)
+# also used in Haemeri 2000    
+# this is for room temperature (298 K)
+# then temperature effect of water by multiplication    
+par_rho_AS = np.array([ 997.1, 592., -5.036E1, 1.024E1 ] )[::-1] / 997.1
+@vectorize("float64(float64,float64)")  
+def compute_density_AS_solution(mass_fraction_solute_, temperature_):
+    return compute_density_water(temperature_) \
+           * compute_polynom(par_rho_AS, mass_fraction_solute_)
+#  / 997.1 is included in the parameters now
+#    return compute_density_water(temperature_) / 997.1 \
+#           * compute_polynom(par_rho_AS, mass_fraction_solute_)
+
+@njit()
+def compute_density_solution(mass_fraction_solute_, temperature_, solute_type):
+    if solute_type == "AS":
+        return compute_density_AS_solution(mass_fraction_solute_,
+                                             temperature_)
+    elif solute_type == "NaCl":
+        return compute_density_NaCl_solution(mass_fraction_solute_,
+                                             temperature_)
+
+    # approx. density of the particle (droplet)
 # For now, use rho(w_s,T) for all ranges, no if then else...
 # to avoid discontinuity in the density
 #w_s_rho_p = 0.001
@@ -143,13 +175,27 @@ def compute_R_p_w_s_rho_p_NaCl(m_w, m_s, T_p):
 
 # @njit("UniTuple(float64[::1], 3)(float64[::1], float64[::1], float64[::1])",
 #       parallel = True)
-@njit(parallel = True)
-def compute_R_p_w_s_rho_p_NaCl_par(m_w, m_s, T_p):
+#@njit(parallel = True)
+#def compute_R_p_w_s_rho_p_NaCl_par(m_w, m_s, T_p):
+#    m_p = m_w + m_s
+#    w_s = m_s / m_p
+#    rho_p = compute_density_NaCl_solution(w_s, T_p)
+#    return compute_radius_from_mass_jit(m_p, rho_p), w_s, rho_p
+    
+@njit()
+def compute_R_p_w_s_rho_p_AS(m_w, m_s, T_p):
     m_p = m_w + m_s
     w_s = m_s / m_p
-    rho_p = compute_density_NaCl_solution(w_s, T_p)
+    rho_p = compute_density_AS_solution(w_s, T_p)
     return compute_radius_from_mass_jit(m_p, rho_p), w_s, rho_p
-    
+
+@njit()
+def compute_R_p_w_s_rho_p(m_w, m_s, T_p, solute_type):
+    if solute_type == "AS":
+        return compute_R_p_w_s_rho_p_AS(m_w, m_s, T_p)
+    elif solute_type == "NaCl":
+        return compute_R_p_w_s_rho_p_NaCl(m_w, m_s, T_p)
+
 def compute_particle_radius_from_ws_T_ms_NaCl( mass_fraction_solute_,
                                          temperature_, dry_mass_):
 #     rhop = np.where( mass_fraction_ < 0.001, 
@@ -165,6 +211,9 @@ def compute_particle_radius_from_ws_T_ms_NaCl( mass_fraction_solute_,
            * compute_density_NaCl_solution(mass_fraction_solute_, temperature_) )
     return (c.pi_times_4_over_3_inv * Vp)**(c.one_third)
 
+
+
+
 # solubility of NaCl in water as mass fraction w_s_sol
 # saturation mass fraction (kg_solute/kg_solution)    
 # fit to data from CRC 2005 page 8-115
@@ -173,6 +222,22 @@ par_solub = np.array([  3.77253081e-01,  -8.68998172e-04,   1.64705858e-06])
 def compute_solubility_NaCl(temperature_):
     return par_solub[0] + par_solub[1] * temperature_\
          + par_solub[2] * temperature_ * temperature_
+
+# solubility of ammonium sulfate in water as mass fraction w_s_sol
+# saturation mass fraction (kg_solute/kg_solution)    
+# fit to data from CRC 2005 page 8-115
+par_solub_AS = np.array([0.15767235, 0.00092684])
+@vectorize("float64(float64)") 
+def compute_solubility_AS(temperature_):
+    return par_solub_AS[0] + par_solub_AS[1] * temperature_
+
+def compute_solubility(temperature_, solute_type):
+    if solute_type == "AS":
+        return compute_solubility_AS(temperature_)
+    elif solute_type == "NaCl":
+        return compute_solubility_NaCl(temperature_)
+    
+### IN WORK: resolve the split-up in AS and NaCl...
 
 # the supersat factor is a crude approximation
 # such that the EffRH curve fits data from Biskos better
@@ -797,21 +862,9 @@ njit(parallel = True)(compute_mass_rate_and_derivative_NaCl_np)
 
 #%% AMMONIUM SULFATE
 
-# par[0] belongs to the largest exponential x^(n-1) for par[i], i = 0, .., n 
-@njit()
-def compute_polynom(par,x):
-    res = par[0] * x + par[1]
-    for a in par[2:]:
-        res = res * x + a
-    return res
 
-# solubility of ammonium sulfate in water as mass fraction w_s_sol
-# saturation mass fraction (kg_solute/kg_solution)    
-# fit to data from CRC 2005 page 8-115
-par_solub_AS = np.array([0.15767235, 0.00092684])
-@vectorize("float64(float64)") 
-def compute_solubility_AS(temperature_):
-    return par_solub_AS[0] + par_solub_AS[1] * temperature_
+
+
 
 # formula from Biskos 2006, he took it from Tang 1997, table (here also 
 # values for NaCl and other)
@@ -827,26 +880,9 @@ par_wat_act_AS = np.array([1.0, -2.715E-1, 3.113E-1, -2.336, 1.412 ])[::-1]
 def compute_water_activity_AS(w_s):
     return compute_polynom(par_wat_act_AS, w_s)
 
-# NaCl solution density in kg/m^3
-# fit rho(w_s) from Tang 1994 (in Biskos 2006)
-# also used in Haemeri 2000    
-# this is for room temperature (298 K)
-# then temperature effect of water by multiplication    
-par_rho_AS = np.array([ 997.1, 592., -5.036E1, 1.024E1 ] )[::-1] / 997.1
-@vectorize("float64(float64,float64)")  
-def compute_density_AS_solution(mass_fraction_solute_, temperature_):
-    return compute_density_water(temperature_) \
-           * compute_polynom(par_rho_AS, mass_fraction_solute_)
-#  / 997.1 is included in the parameters now
-#    return compute_density_water(temperature_) / 997.1 \
-#           * compute_polynom(par_rho_AS, mass_fraction_solute_)
 
-@njit()
-def compute_R_p_w_s_rho_p_AS(m_w, m_s, T_p):
-    m_p = m_w + m_s
-    w_s = m_s / m_p
-    rho_p = compute_density_AS_solution(w_s, T_p)
-    return compute_radius_from_mass_jit(m_p, rho_p), w_s, rho_p
+
+
 
 # compute_surface_tension_water(298) = 0.0719953
 # molality in mol/kg_water           
