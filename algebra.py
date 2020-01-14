@@ -7,9 +7,17 @@ Created on Wed May  1 14:34:40 2019
 """
 
 #import numpy.sqrt
-import math.sqrt
+import math
 
 from numba import njit
+
+# par[0] belongs to the largest exponential x^(N-1) for par[i], i = 0, .., N 
+@njit()
+def compute_polynom(par,x):
+    res = par[0] * x + par[1]
+    for a in par[2:]:
+        res = res * x + a
+    return res
 
 # VECTOR LENGTH
 # vector must be a list or an array of more than one component

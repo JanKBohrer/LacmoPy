@@ -123,18 +123,6 @@ def compute_viscosity_air(T_):
 def compute_viscosity_air_par(T_):
     return 1.458E-6 * T_**(1.5) / (T_ + 110.4)
 
-# IN WORK: shift to microphysics??
-#    surface tension in N/m = J/m^2
-#    depends on T and not significantly on pressure (see Massoudi 1974)
-#    formula from IAPWS 2014
-#    note that the surface tension is in gen. dep. on 
-#    the mass fraction of the solution (kg solute/ kg solution)
-#    which is not considered!
-@vectorize("float64(float64)") 
-def compute_surface_tension_water(temperature_):
-    tau = 1 - temperature_ / 647.096
-    return 0.2358 * tau**(1.256) * (1 - 0.625 * tau)
-
 # latent enthalpy of vaporazation in J/kg
 # formula by Dake 1972
 # (in Henderson Sellers 1984

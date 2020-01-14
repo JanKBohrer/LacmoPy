@@ -95,7 +95,7 @@ molar_mass_water = 18.015E-3 # kg/mol
 # CRC 2005
 molar_mass_NaCl = 58.4428E-3 # kg/mol
 # https://pubchem.ncbi.nlm.nih.gov/compound/Ammonium-sulfate
-molar_mass_AS = 132.14
+molar_mass_AS = 132.14E-3 # kg/mol
 
 ### Heat capacities
 # molar_heat_capacity_dry_air_NTP = 20.8 # J/(mol K)

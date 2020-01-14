@@ -1,24 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  1 14:28:39 2019
-
-@author: jdesk
 """
 
-#%% NOTES
-### IN WORK:
-## 1
-# add recycling process for removed particles and particles for which xi is 
-# too small
-## 2
-# add implementation for solutes consisting of multiple materials
-# -> simple chemistry
-# -> surface tension, water activity of (w_s1, w_s2, ...) etc. 
-
 #%% MODULE IMPORTS
-#import os
-#os.environ["OMP_NUM_THREADS"] = "1"
 import math
 import numpy as np
 from numba import njit,jit
@@ -49,8 +34,6 @@ from file_handling import dump_particle_data, save_grid_scalar_fields,\
 from grid import update_grid_r_l
 from datetime import datetime                      
 
-#from collision.AON import \
-#    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp
 from collision.AON import \
     collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
 
@@ -101,48 +84,22 @@ def compute_limiter_from_scalar_grid_upwind( a0, a1, a2 ):
 #                      ( a0 - a1 ) * 1.0E8 * np.sign(da12)
 #                    )
     return compute_limiter( r )
-#        r = np.where(   np.abs(delta_field_x) > 1.0E16,
-#                    ( field_x[2:Nx+3] - field_x[1:Nx+2] ) / ( delta_field_x ),
-#                    1.0
-#                )
-#        return compute_limiter( r )
-
-#def compute_limiter_from_scalar_grid_upwind( a0, a1, da12 ):
-#    r = ( a0 - a1 ) / da12
-#    
-##        r = np.where( np.abs(da12) > 1.0E-8 * np.abs( a0-a1 ) ,
-##                      ( a0 - a1 ) / da12,
-##                      ( a0 - a1 ) * 1.0E8 * np.sign(da12)
-##                    )
-#    return compute_limiter( r )
-##        r = np.where(   np.abs(delta_field_x) > 1.0E16,
-##                    ( field_x[2:Nx+3] - field_x[1:Nx+2] ) / ( delta_field_x ),
-##                    1.0
-##                )
-##        return compute_limiter( r )
     
 #######################################
-### IN WORK: DONT INPUT OF flux_type=X, but direct input of the "flux field"
-# to use
 # computes divergencence of (a * vec) based on vec at the grid cell "surfaces".
-# for quantity a, it is calculated
+# for scalar field quantity a, it is calculated
 # div( a * vec ) = d/dx (a * vec_x) + d/dz (a * vec_z)
 # method: 3rd order upwind scheme following Hundsdorfer 1996
-# vec = velocity OR mass_flux_air_dry given by flux_type (s.b.)
-# grid has corners and centers
-# grid is needed for
-# Nx, Nz, grid.steps and grid.velocity or grid.mass_flux_air_dry
-# possible boundary conditions as list in [x,z]:
+# vec = velocity OR mass_flux_air_dry
+# possible boundary conditions as list/array in [x,z]:
 # 0 = 'periodic',
 # 1 = 'solid'
 # flux_field = one of
 # grid_velocity
 # grid_mass_flux_air_dry
 def compute_divergence_upwind_np(field, flux_field,
-                              # grid_velocity,
-                              # grid_mass_flux_air_dry,
-                              grid_no_cells, grid_steps, flux_type = 1,
-                              boundary_conditions = np.array([0, 1])):
+                                 grid_no_cells, grid_steps,
+                                 boundary_conditions = np.array([0, 1])):
     Nx = grid_no_cells[0]
     Nz = grid_no_cells[1]
     
@@ -359,8 +316,11 @@ compute_divergence_upwind = njit()(compute_divergence_upwind_np)
 # #                 * (1 + r_v) * grid.volume_cell ) )/grid.mass_density_air_dry
 #     return T, r_v
 
+
+
 @njit()
-def update_material_properties(grid_mat_prop, grid_scalar_fields):
+#def update_material_properties(grid_mat_prop, grid_scalar_fields):
+def update_material_properties(grid_scalar_fields, grid_mat_prop):
     grid_mat_prop[0] = compute_thermal_conductivity_air(grid_scalar_fields[0])
     grid_mat_prop[1] = compute_diffusion_constant(grid_scalar_fields[0],
                                                   grid_scalar_fields[1])
@@ -423,7 +383,7 @@ def propagate_grid_subloop_step_np(grid_scalar_fields, grid_mat_prop,
         compute_pressure_vapor(
             grid_scalar_fields[3] * grid_scalar_fields[4],
             grid_scalar_fields[0] ) / grid_scalar_fields[7]
-    update_material_properties(grid_mat_prop, grid_scalar_fields)
+    update_material_properties(grid_scalar_fields, grid_mat_prop)
     # grid.update_material_properties()
 # IN WORK: if function takes only np arrays as arguments, like Theta, rv,...
 # we can try this with njit (!!??) -> then to paralize the numpy functions ?
