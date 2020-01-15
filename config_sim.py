@@ -53,7 +53,7 @@ simpar = \
 #'execute_simulation'    : False,
 
 # set True, if a "simulation" is continued from a sim state, which was stored
-# at t_start_sim given below. This is not meant for an existing spin-up. I.e. >
+# at t_start_sim given below. This is not meant for an existing spin-up. I.e., 
 # if the simulation starts from an existing spin-up state, set this to False
 #'continued_simulation'   : True,
 'continued_simulation'  : False,

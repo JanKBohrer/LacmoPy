@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 
 from microphysics import compute_water_activity_AS
 from microphysics import compute_water_activity_NaCl
-from microphysics import compute_mass_from_radius_jit
-from microphysics import compute_radius_from_mass_jit
+from microphysics import compute_mass_from_radius
+from microphysics import compute_radius_from_mass
 from microphysics import compute_molality_from_mass_fraction
 from microphysics import compute_mass_fraction_from_molality
 from microphysics import compute_density_AS_solution
@@ -24,7 +24,6 @@ from microphysics import compute_R_p_w_s_rho_p_AS
 from microphysics import compute_R_p_w_s_rho_p_NaCl
 
 import constants as c
-
 
 #%%
 
@@ -94,8 +93,11 @@ mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 #compute_equilibrium_saturation_AS(w_s, R_p, T_p, rho_p, sigma_w)
 #compute_equilibrium_saturation_AS_mf(w_s, T_p, m_s)
 
-figdir = "/home/jdesk/Masterthesis/Figures/03Particles/"
+#figdir = "/home/jdesk/Masterthesis/Figures/03Particles/"
+figdir = "/Users/bohrer/CloudMP/PLOTS/"
 figname = "Seq_vs_Rp.pdf"
+#figname = "aw_vs_Rp.pdf"
+#figname = "aw_vs_ws.pdf"
 
 rho_AS = c.mass_density_AS_dry
 rho_SC = c.mass_density_NaCl_dry
@@ -120,8 +122,8 @@ ax_titles = [
 for cnt, R_s in enumerate(R_s_list):
     ax = axes[cnt]
 
-    m_AS = compute_mass_from_radius_jit(R_s, rho_AS)
-    m_SC = compute_mass_from_radius_jit(R_s, rho_SC)
+    m_AS = compute_mass_from_radius(R_s, rho_AS)
+    m_SC = compute_mass_from_radius(R_s, rho_SC)
     
     w_s_max_AS = 0.5
     
@@ -133,7 +135,8 @@ for cnt, R_s in enumerate(R_s_list):
     m_w_SC = m_SC * (1/w_s - 1)
     
     aw_AS = compute_water_activity_AS(w_s)
-    aw_SC = compute_water_activity_NaCl(m_w_SC, m_SC, w_s)
+#    aw_SC = compute_water_activity_NaCl(m_w_SC, m_SC, w_s)
+    aw_SC = compute_water_activity_NaCl(w_s)
     
     #fig, axes = plt.subplots(figsize=(6,6))
     #
@@ -151,6 +154,10 @@ for cnt, R_s in enumerate(R_s_list):
     R_AS,_,_ = compute_R_p_w_s_rho_p_AS(m_w_AS, m_AS, T_p)
     R_SC,_,_ = compute_R_p_w_s_rho_p_NaCl(m_w_SC, m_SC, T_p)
     
+#    ax.plot(w_s, aw_AS, label = "AS")
+#    ax.plot(w_s, aw_SC, label = "SC")
+#    ax.plot(R_AS, aw_AS, label = "AS")
+#    ax.plot(R_SC, aw_SC, label = "SC")
     ax.plot(R_AS, S_AS, label = "AS")
     ax.plot(R_SC, S_SC, label = "SC")
 #    ax.set_xlim(R_AS[-1],8E-1)

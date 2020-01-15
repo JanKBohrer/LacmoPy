@@ -10,6 +10,10 @@ from numba import njit,jit
 
 import constants as c
 from grid import interpolate_velocity_from_cell_bilinear
+from microphysics import compute_R_p_w_s_rho_p
+
+from materialproperties import compute_surface_tension_solution
+
 from microphysics import compute_R_p_w_s_rho_p_NaCl
 from microphysics import compute_R_p_w_s_rho_p_AS,\
                          compute_dml_and_gamma_impl_Newton_full_AS,\
@@ -722,6 +726,89 @@ update_m_w_and_delta_m_l_impl_Newton_AS =\
 update_m_w_and_delta_m_l_impl_Newton_AS_par =\
     njit(parallel=True)(update_m_w_and_delta_m_l_impl_Newton_AS_np)
 
+#%% new: combined update_m_w
+def update_m_w_and_delta_m_l_impl_Newton_np(
+        grid_temperature, grid_pressure, grid_saturation,
+        grid_saturation_pressure, grid_thermal_conductivity, 
+        grid_diffusion_constant, grid_heat_of_vaporization,
+        grid_surface_tension, cells, m_w, m_s, xi, id_list, active_ids,
+        R_p, w_s, rho_p, T_p, solute_type,
+        delta_m_l, delta_Q_p, dt_sub,  Newton_iter):
+    delta_m_l.fill(0.0)
+    ### ACTIVATE
+    # delta_Q_p.fill(0.0)
+#    for ID, xi_ in enumerate(xi):
+#        if xi_ != 0:
+    for ID in id_list[active_ids]:
+        cell = (cells[0,ID], cells[1,ID])
+        T_amb = grid_temperature[cell]
+        p_amb = grid_pressure[cell]
+        S_amb = grid_saturation[cell]
+        e_s_amb = grid_saturation_pressure[cell]
+        # rho_f_amb = grid.mass_density_fluid[cell]
+        L_v = grid_heat_of_vaporization[cell]
+        K = grid_thermal_conductivity[cell]
+        D_v = grid_diffusion_constant[cell]
+        # sigma w is right now calc. with the ambient temperature...
+        # can be changed to the particle temp, if tracked
+#        sigma_p = grid_surface_tension[cell]
+#        sigma_p = compute_surface_tension_AS(w_s[ID], T_p[ID])
+        sigma_p = compute_surface_tension_solution(w_s[ID], T_p[ID], solute_type)
+        
+        # c_p_f = grid.specific_heat_capacity[cell]
+        # mu_f = grid.viscosity[cell]
+        
+        # req. w_s, R_p, rho_p, T_p (check)
+        
+        if solute_type == "AS":
+            dm, gamma = compute_dml_and_gamma_impl_Newton_full_AS(
+                            dt_sub, Newton_iter, m_w[ID], m_s[ID],
+                            w_s[ID], R_p[ID],
+                            T_p[ID], rho_p[ID],
+                            T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p)
+        elif solute_type == "NaCl":
+            dm, gamma = compute_dml_and_gamma_impl_Newton_full_NaCl(
+                            dt_sub, Newton_iter, m_w[ID], m_s[ID],
+                            w_s[ID], R_p[ID],
+                            T_p[ID], rho_p[ID],
+                            T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p)
+        # ### 3.
+        # ### ACTIVATE
+        # T_eq_old = particle.equilibrium_temperature
+
+        # ### 4.
+        # # T_eq_new req. radius, which req. density,
+        # which req. self.temperature, self.mass_fraction_solute
+        # ### ACTIVATE
+        # particle.equilibrium_temperature =\
+        #   T_amb + L_v * mass_rate * 1.0E-12\
+        #           / (4.0 * np.pi * particle.radius * K)
+
+        # ### 5.
+        # ### ACTIVATE
+        # delta_Q_p[cell] += particle.compute_heat_capacity()\
+        #                    * particle.multiplicity \
+        #                    * particle.mass\
+        #                    * (particle.equilibrium_temperature - T_eq_old)
+
+        ### 6.
+        m_w[ID] += dm
+
+        ### 7. 
+        delta_m_l[cell] += dm * xi[ID]
+        
+        ### 8.
+        ### ACTIVATE
+        # delta_Q_p[cell] += particle.compute_heat_capacity()\
+        #                    * delta_m * particle.multiplicity\
+        #                    * (particle.equilibrium_temperature - T_amb)    
+    delta_m_l *= 1.0E-18
+update_m_w_and_delta_m_l_impl_Newton =\
+    njit()(update_m_w_and_delta_m_l_impl_Newton_np)
+#update_m_w_and_delta_m_l_impl_Newton_AS_par =\
+#    njit(parallel=True)(update_m_w_and_delta_m_l_impl_Newton_AS_np)    
+    
+
 # dt_sub_pos is ONLY for the particle location step x_new = x_old + v*dt_sub_loc
 # -->> give the opportunity to adjust this step, usually dt_sub_pos = dt_sub
 # at the end of subloop 2: dt_sub_pos = dt_sub_half
@@ -918,6 +1005,113 @@ propagate_particles_subloop_step_AS = \
     njit()(propagate_particles_subloop_step_AS_np)
 propagate_particles_subloop_step_AS_par =\
     njit(parallel = True)(propagate_particles_subloop_step_AS_np)
+
+
+#%% new subloop STEP combined
+
+# dt_sub_pos is ONLY for the particle location step x_new = x_old + v*dt_sub_loc
+# -->> give the opportunity to adjust this step, usually dt_sub_pos = dt_sub
+# at the end of subloop 2: dt_sub_pos = dt_sub_half
+# UPDATE 25.02.19: use full Newton implicit for delta_m
+# UPDATE 26.02: use one step implicit for velocity and mass,
+# for velocity use m_(n+1) and v_n in |u-v_n| for calcing the Reynolds number
+# IN WORK: NOTE THAT dt_sub_half is not used anymore...
+# grid_scalar_fields = np.array([T, p, Theta, rho_dry, r_v, r_l, S, e_s])
+# grid_mat_prop = np.array([K, D_v, L, sigma_w, c_p_f, mu_f, rho_f])
+def propagate_particles_subloop_step_np(grid_scalar_fields, grid_mat_prop,
+                                        grid_velocity,
+                                        grid_no_cells, grid_ranges, grid_steps,
+                                        pos, vel, cells, rel_pos, m_w, m_s, xi,
+                                        water_removed, id_list, active_ids,
+                                        T_p, solute_type,
+                                        delta_m_l, delta_Q_p,
+                                        dt_sub, dt_sub_pos,
+                                        Newton_iter, g_set):
+                                        # ,ind):
+    # removed_ids_step = []
+    # delta_m_l.fill(0.0)
+    ### 1. T_p = T_f
+    # use this in vectorized version, because the subfunction compute_radius ..
+    # in compute_R_p_w_s_rho_p (below) is defined by vectorize() and not by jit
+    # update_T_p(grid_scalar_fields[ind["T"]], cells, T_p)
+    # update_T_p(grid_scalar_fields[idx_T], cells, T_p)
+    # update_T_p(grid_scalar_fields[i_T], cells, T_p)
+    update_T_p(grid_scalar_fields[0], cells, T_p)
+    # update_T_p(grid_scalar_fields[i_T], cells, T_p)
+    # update_T_p(grid_scalar_fields[ind[0]], cells, T_p)
+    # update_T_p(grid_scalar_fields[0], cells, T_p)
+    
+    # not possible with numba: getitem<> from array with (tuple(int64) x 2)
+    # T_p = grid_scalar_fields[i.T][cells[0],cells[1]]
+    
+    ### 2. to 8. compute mass rate and delta_m and update m_w
+    # use this in vectorized version, because the subfunction compute_radius ..
+    # is defined by vectorize() and not by jit
+#    R_p, w_s, rho_p = compute_R_p_w_s_rho_p_AS(m_w, m_s, T_p)
+    
+    R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w, m_s, T_p, solute_type)
+    
+    # update_m_w_and_delta_m_l_impl_Newton(
+    ### IN WORK: make universal
+    update_m_w_and_delta_m_l_impl_Newton_AS(
+        grid_scalar_fields[0], grid_scalar_fields[1],
+        grid_scalar_fields[6], grid_scalar_fields[7],
+        grid_mat_prop[0], grid_mat_prop[1],
+        grid_mat_prop[2], grid_mat_prop[3],
+        cells, m_w, m_s, xi, id_list, active_ids, R_p, w_s, rho_p, T_p,
+        delta_m_l, delta_Q_p, dt_sub, Newton_iter)
+    # update_m_w_and_delta_m_l_impl_Newton(
+    #     grid_scalar_fields[ind["T"]], grid_scalar_fields[ind["p"]],
+    #     grid_scalar_fields[ind["S"]], grid_scalar_fields[ind["es"]],
+    #     grid_mat_prop[ind["K"]], grid_mat_prop[ind["Dv"]],
+    #     grid_mat_prop[ind["L"]], grid_mat_prop[ind["sigmaw"]],
+    #     cells, m_w, m_s, xi, R_p, w_s, rho_p, T_p,
+    #     delta_m_l, delta_Q_p, dt_sub, Newton_iter)
+    
+    # update_m_w_and_delta_m_l_impl_Newton(
+    #     grid_scalar_fields[i.T], grid_scalar_fields[i.p],
+    #     grid_scalar_fields[i.S],
+    #     grid_scalar_fields[i.es], grid_mat_prop[i.K], 
+    #     grid_mat_prop[i.Dv], grid_mat_prop[i.L],
+    #     grid_mat_prop[i.sigmaw], cells, m_w, m_s, xi, R_p, w_s, rho_p, T_p,
+    #     delta_m_l, delta_Q_p, dt_sub, Newton_iter)
+    
+    ### 9. v_n -> v_n+1
+    # (CHANGED TO FULL TIMESTEP WITH k_d(m_(n+1), x_(n+1/2), |u_n+1/2 - v_n|) )
+    # req. R_p -> self.density + m_p (changed)
+    # -> mass_fraction (changed) + temperature (changed)
+    # req. cell (check, unchanged) + location (check, unchanged)
+    # use this in vectorized version, because the subfunction compute_radius...
+    # is defined by vectorize() and not by jit
+    R_p, w_s, rho_p = compute_R_p_w_s_rho_p_AS(m_w, m_s, T_p)
+    ### ACTIVATE
+    # particle.temperature = particle.equilibrium_temperature
+    # g_set >= 0 !!
+    # update_vel_impl(
+    update_vel_impl(vel, cells, rel_pos, xi, id_list, active_ids,
+                    R_p, rho_p, grid_velocity,
+                    grid_mat_prop[5], grid_mat_prop[6], 
+                    grid_no_cells, g_set, dt_sub)
+    # update_vel_impl(vel, cells, rel_pos, xi, R_p, rho_p, grid_velocity,
+    #                 grid_mat_prop[ind["muf"]], grid_mat_prop[ind["rhof"]], 
+    #                 grid_no_cells, g_set, dt_sub)
+    ### 10.
+    update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
+                              water_removed, id_list,
+                              active_ids,
+                              grid_ranges, grid_steps, dt_sub_pos)
+
+    # update_pos_from_vel_BC_PS(pos, vel, xi, grid_ranges, dt_sub_pos)
+    ### 11.
+    update_cells_and_rel_pos(pos, cells, rel_pos, active_ids,
+                             grid_ranges, grid_steps)
+propagate_particles_subloop_step_AS = \
+    njit()(propagate_particles_subloop_step_AS_np)
+propagate_particles_subloop_step_AS_par =\
+    njit(parallel = True)(propagate_particles_subloop_step_AS_np)
+
+    
+    
 
 
 #%% SUBLOOP COMBINED

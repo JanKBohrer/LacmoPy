@@ -11,13 +11,14 @@ from numba import njit, vectorize
 # from help_functions import *
 # from physical_relations_and_constants import *
 import constants as c
-from atmosphere import compute_heat_of_vaporization,\
+from materialproperties import compute_heat_of_vaporization,\
                        compute_thermal_conductivity_air,\
                        compute_diffusion_constant,\
-                       compute_specific_heat_capacity_air_moist,\
                        compute_viscosity_air,\
                        compute_surface_tension_water
 from plotting import plot_scalar_field_2D
+
+from atmosphere import compute_specific_heat_capacity_air_moist
 #from analysis import plot_scalar_field_2D
 
 omega = 0.3

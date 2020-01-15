@@ -36,7 +36,9 @@ from materialproperties import compute_density_water,\
                                par_sol_dens_NaCl,\
                                par_rho_AS,\
                                par_wat_act_AS,\
+                               par_wat_act_NaCl,\
                                par_sigma_AS,\
+                               par_sigma_NaCl,\
                                w_s_max_AS,\
                                w_s_max_NaCl
                                
@@ -634,7 +636,7 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
     return w_s_init
 
 ###############################################################################
-#%% MASS RATE NaCl
+#%% MASS RATE FUNCTIONS
     
 # Size corrections Fukuta (both in mu!)
 # size corrections in droplet growth equation of Fukuta 1970
@@ -645,6 +647,7 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
 accommodation_coeff = 1.0
 adiabatic_index_inv = 0.7142857142857143
 
+### linearization of the size correction functions of Fukuta 1970
 T_alpha_0 = 289. # K
 c_alpha_1 = 1.0E6 * math.sqrt(2.0 * np.pi * c.specific_gas_constant_air_dry 
                               * T_alpha_0 )\
@@ -723,6 +726,18 @@ def compute_mass_rate_NaCl(w_s, R_p, T_p, rho_p,
     return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq)\
            / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v) 
 
+# in fg/s = 1.0E-18 kg/s
+@vectorize(
+"float64(\
+float64, float64, float64, float64, float64, float64,\
+float64, float64, float64, float64, float64, float64)")
+def compute_mass_rate_AS(w_s, R_p, T_p, rho_p,
+                         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
+    S_eq = compute_equilibrium_saturation_AS(w_s, R_p,
+                                          T_p, rho_p, sigma_p)
+    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq)\
+           / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)  
+
 #@vectorize(
 #"float64(float64, float64, float64, float64, float64, float64, float64,\
 #float64, float64, float64, float64, float64, float64, float64)",
@@ -737,7 +752,7 @@ def compute_mass_rate_NaCl(w_s, R_p, T_p, rho_p,
 #@vectorize(
 # "float64(float64, float64, float64, float64, float64, float64, float64,\
 # float64, float64, float64, float64, float64, float64, float64)")
-def compute_mass_rate_derivative_NaCl_np(
+def compute_mass_rate_derivative_NaCl_vH_np(
         m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb, S_amb, e_s_amb,
         L_v, K, D_v, sigma_w):
     R_p_SI = 1.0E-6 * R_p # in SI: meter   
@@ -792,13 +807,13 @@ def compute_mass_rate_derivative_NaCl_np(
 #    f2 = S_amb - S_eq
     return f1f3 * ( ( S_amb - S_eq )\
                     * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
-compute_mass_rate_derivative_NaCl =\
-njit()(compute_mass_rate_derivative_NaCl_np)
+compute_mass_rate_derivative_NaCl_vH =\
+njit()(compute_mass_rate_derivative_NaCl_vH_np)
 #compute_mass_rate_derivative_NaCl_par =\
 #njit(parallel = True)(compute_mass_rate_derivative_NaCl_np)
 
 # return mass rate in fg/s and mass rate deriv in SI: 1/s
-def compute_mass_rate_and_derivative_NaCl_np(m_w, m_s, w_s, R_p, T_p, rho_p,
+def compute_mass_rate_and_derivative_NaCl_vH_np(m_w, m_s, w_s, R_p, T_p, rho_p,
                                         T_amb, p_amb, S_amb, e_s_amb,
                                         L_v, K, D_v, sigma_p):
 #    R_p_SI = 1.0E-6 * R_p # in SI: meter   
@@ -853,24 +868,100 @@ def compute_mass_rate_and_derivative_NaCl_np(m_w, m_s, w_s, R_p, T_p, rho_p,
 #    return 1.0E6 * f1f3 * f2,\
 #           1.0E-12 * f1f3\
 #           * ( f2 * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+compute_mass_rate_and_derivative_NaCl_vH =\
+njit()(compute_mass_rate_and_derivative_NaCl_vH_np)
+#compute_mass_rate_and_derivative_NaCl_par =\
+#njit(parallel = True)(compute_mass_rate_and_derivative_NaCl_np)
+
+
+#%% IN WORK: new without vant Hoff
+
+
+par_wat_act_deriv_NaCl = np.copy(par_wat_act_NaCl[:-1]) \
+                       * np.arange(1,len(par_wat_act_NaCl))[::-1]
+
+# return mass rate in fg/s and mass rate deriv in SI: 1/s
+def compute_mass_rate_and_derivative_NaCl_np(m_w, m_s, w_s, R_p, T_p, rho_p,
+                                             T_amb, p_amb, S_amb, e_s_amb,
+                                             L_v, K, D_v, sigma_p):
+#    R_p_SI = 1.0E-6 * R_p # in SI: meter   
+    
+    # thermal size correction in SI
+    l_alpha_plus_R_p = 1.0E-6 * (R_p + compute_l_alpha_lin(T_amb, p_amb, K))
+    # diffusive size correction in SI
+    l_beta_plus_R_p = 1.0E-6 * (R_p + compute_l_beta_lin(T_amb, D_v) )
+       
+    m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
+    # dont use piecewise for now to avoid discontinuity in density...
+    drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
+                       * ( par_sol_dens_NaCl[1] \
+                           + 2.0 * par_sol_dens_NaCl[3] * w_s \
+                           + par_sol_dens_NaCl[4] * T_p)
+
+    dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
+    dR_p_dm = 1.0E-6 * dR_p_dm_over_R_p * R_p
+    
+    eps_k = compute_kelvin_argument(R_p, T_p, rho_p, sigma_p) # in SI - no unit
+    kelvin_term = np.exp(eps_k)
+    
+#    vH = compute_vant_Hoff_factor_NaCl(w_s)
+#    dvH_dws = compute_dvH_dws_NaCl(w_s)
+#    dvH_dws = np.where(w_s < mf_cross_NaCl, np.zeros_like(w_s),
+#                       np.ones_like(w_s) * par_vH_NaCl[1])
+    # dont convert masses here
+#    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
+    
+    # no unit
+    a_w = compute_water_activity_NaCl(w_s)
+    
+    
+    # in 1/kg
+    da_w_dm = -m_p_inv_SI * w_s * compute_polynom(par_wat_act_deriv_NaCl, w_s)
+    
+    # IN WORK: UNITS?
+    dsigma_dm = -par_sigma_NaCl * compute_surface_tension_water(T_p) \
+                * m_p_inv_SI * ( w_s / ( (1.-w_s)*(1.-w_s) ) )
+            
+#    S_eq = m_w * h1_inv * np.exp(eps_k)
+#    S_eq = a_w * np.exp(eps_k)
+    S_eq = a_w * kelvin_term    
+    
+#    S_eq = m_w * h1_inv * np.exp(eps_k)
+    
+#    dSeq_dm =\
+#        S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho )\
+#                - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
+#                  * h1_inv * 1.0E18)
+    
+    dSeq_dm = da_w_dm * kelvin_term \
+              + S_eq * eps_k * ( dsigma_dm / sigma_p
+                                 - drho_dm_over_rho - dR_p_dm_over_R_p )
+    
+    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb )
+    c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
+    # in SI : m^2 s / kg
+    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) 
+    
+    f1f3 = 4.0 * np.pi * R_p * R_p * f3 # in 1E-12
+    # set l_alpha l_beta constant, i.e. neglect their change with m_p here
+    dg1_dm = (dSeq_dm * (l_alpha_plus_R_p) + S_eq * dR_p_dm ) * c1 + dR_p_dm*c2
+    # use name S_eq = f2
+    S_eq = S_amb - S_eq
+#    f2 = S_amb - S_eq
+    # NOTE: here S_eq = f2 = S_amb - S_eq
+#    return 1.0E-12 * f1f3\
+#           * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+    return 1.0E6 * f1f3 * S_eq,\
+           1.0E-12 * f1f3\
+           * ( S_eq * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
+#    return 1.0E6 * f1f3 * f2,\
+#           1.0E-12 * f1f3\
+#           * ( f2 * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
 compute_mass_rate_and_derivative_NaCl =\
 njit()(compute_mass_rate_and_derivative_NaCl_np)
 #compute_mass_rate_and_derivative_NaCl_par =\
 #njit(parallel = True)(compute_mass_rate_and_derivative_NaCl_np)
 
-#%% MASS RATE AMMONIUM SULFATE
-# in fg/s = 1.0E-18 kg/s
-@vectorize(
-"float64(\
-float64, float64, float64, float64, float64, float64,\
-float64, float64, float64, float64, float64, float64)")
-def compute_mass_rate_AS(w_s, R_p, T_p, rho_p,
-                         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
-    S_eq = compute_equilibrium_saturation_AS(w_s, R_p,
-                                          T_p, rho_p, sigma_p)
-    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq)\
-           / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)           
-           
 
 #par_rho_deriv_AS = np.copy(par_rho_AS)
 #for n in range(len(par_rho_deriv_AS)):
@@ -1117,20 +1208,20 @@ compute_dml_and_gamma_impl_Newton_lin_NaCl =\
 #compute_dml_and_gamma_impl_Newton_lin_NaCl_par =\
 #njit(parallel = True)(compute_dml_and_gamma_impl_Newton_lin_NaCl_np)
 
-# NEW 04.05.19
+w_s_max_NaCl_inv = 1. / w_s_max_NaCl
 # Full Newton method with no_iter iterations,
 # the derivative is calculated every iteration
 def compute_dml_and_gamma_impl_Newton_full_NaCl_np(
         dt_sub, Newton_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
-        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
-    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-                             T_p)
-    m_w_effl = m_s * (w_s_effl_inv - 1.0)
+        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
+#    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
+#                             T_p)
+    m_w_effl = m_s * (w_s_max_NaCl_inv - 1.0)
     
     gamma0, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
                             m_w, m_s, w_s, R_p, T_p, rho_p,
                             T_amb, p_amb, S_amb, e_s_amb,
-                            L_v, K, D_v, sigma_w)
+                            L_v, K, D_v, sigma_p)
 #    Newton_iter = 3
     dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
     denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
@@ -1151,7 +1242,7 @@ def compute_dml_and_gamma_impl_Newton_full_NaCl_np(
         gamma, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
                                mass_new, m_s, w_s, R, T_p, rho,
                                T_amb, p_amb, S_amb, e_s_amb,
-                               L_v, K, D_v, sigma_w)
+                               L_v, K, D_v, sigma_p)
                                
         dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
         denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
@@ -1215,7 +1306,6 @@ compute_dml_and_gamma_impl_Newton_lin_AS =\
 #compute_dml_and_gamma_impl_Newton_lin_AS_par =\
 #njit(parallel = True)(compute_dml_and_gamma_impl_Newton_lin_AS_np)
 
-# NEW 04.05.19
 # Full Newton method with no_iter iterations,
 # the derivative is calculated every iteration
 # might change gamma0 to gamma in return, but not important for now
