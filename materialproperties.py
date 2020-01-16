@@ -86,6 +86,7 @@ par_solub_AS = np.array([0.15767235, 0.00092684])
 def compute_solubility_AS(temperature_):
     return par_solub_AS[0] + par_solub_AS[1] * temperature_
 
+@njit()
 def compute_solubility(temperature_, solute_type):
     if solute_type == "AS":
         return compute_solubility_AS(temperature_)
@@ -182,12 +183,13 @@ def compute_surface_tension_AS(w_s, T_p):
     return compute_surface_tension_water(T_p) \
                * (1.0 + par_sigma_AS * w_s / (1. - w_s))
     
-    
+@njit()
 def compute_surface_tension_solution(w_s, T_p, solute_type):
     if solute_type == "AS":
         return compute_surface_tension_AS(w_s, T_p)
     elif solute_type == "NaCl":
-        return compute_surface_tension_NaCl(w_s, T_p)    
+        return compute_surface_tension_NaCl(w_s, T_p)
+    else: return 0.0    
     
 ### WATER ACTIVITY OF SOLUTIONS
         

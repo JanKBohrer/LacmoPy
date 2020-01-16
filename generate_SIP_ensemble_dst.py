@@ -16,9 +16,9 @@ import matplotlib.pyplot as plt
 import constants as c
 # from microphysics import compute_mass_from_radius
 from microphysics import compute_radius_from_mass_vec
-from microphysics import compute_radius_from_mass_jit
+from microphysics import compute_radius_from_mass
 from microphysics import compute_mass_from_radius_vec
-from microphysics import compute_mass_from_radius_jit
+from microphysics import compute_mass_from_radius
 
 
 # exponential distr. such that int ( f(x) dx ) = 1
@@ -52,7 +52,7 @@ def gen_mass_ensemble_weights_SinSIP_expo_np(
         m_high_over_m_low=1.0E6,
         seed=3711, setseed=True):
     if setseed: np.random.seed(seed)
-    m_low = compute_mass_from_radius_jit(r_critmin, mass_density) # in 1E-18 kg
+    m_low = compute_mass_from_radius(r_critmin, mass_density) # in 1E-18 kg
     m_mean_inv = 1.0 / m_mean
     
     bin_factor = 10**(1.0/kappa)
@@ -115,7 +115,7 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_np(
         m_high_over_m_low,
         seed, setseed=True):
     if setseed: np.random.seed(seed)
-    m_low = compute_mass_from_radius_jit(r_critmin, mass_density) # in 1E-18 kg
+    m_low = compute_mass_from_radius(r_critmin, mass_density) # in 1E-18 kg
     
     bin_factor = 10**(1.0/kappa)
     m_high = m_low * m_high_over_m_low
@@ -380,7 +380,7 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_grid(
 #mass_density = 1E3
 #
 #R_mean = 9.3 # mu
-#m_mean = compute_mass_from_radius_jit(R_mean, mass_density) # in 1E-18 kg
+#m_mean = compute_mass_from_radius(R_mean, mass_density) # in 1E-18 kg
 #
 #dV = 1.0
 #kappa = 10

@@ -42,7 +42,7 @@ if simpar['execute_spin_up']:
     grid, pos, cells, vel, m_w, m_s, xi, active_ids = \
         load_grid_and_particles_full(simpar['t_start'], data_paths['grid'])
     simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
-             water_removed, no_cols, simpar, E_col_grid, data_paths['output'])
+             water_removed, no_cols, simpar, E_col_grid, data_paths)
     simpar['simulation_mode'] = sim_mode
     simpar['spin_up_complete'] = True
 
@@ -64,5 +64,4 @@ if simpar['execute_simulation']:
         load_grid_and_particles_full(simpar['t_start'], data_paths['grid'])
     
     simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
-             water_removed, no_cols, simpar, E_col_grid, data_paths['output'])
-
+             water_removed, no_cols, simpar, E_col_grid, data_paths)

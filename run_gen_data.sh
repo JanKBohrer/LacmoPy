@@ -21,17 +21,17 @@
 #storage_path="/Users/bohrer/sim_data_cloudMP/" # sim data is in here
 storage_path="/Users/bohrer/sim_data_cloudMP_TEST200108/" # sim data is in here
 
-gseed=9001 # SIP generation seed
-sseed=9001 # simulation seed
-no_sim=20 # number of seeds
+gseed=2001 # SIP generation seed
+sseed=1001 # simulation seed
+no_sim=6 # number of seeds
 
 # load the basic grid time t_grid.
 # The setting of t_grid is just for plotting of the grid
 # and has no influence on the analysis of the simulation runs,
 # for which one needs to set t_start and t_end below
-t_grid=600 # in s
-t_start=300 # in s
-t_end=600 # in s
+t_grid=7200 # in s
+t_start=3600 # in s
+t_end=7200 # in s
 
 no_cells_x=10
 no_cells_z=10

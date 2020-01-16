@@ -2,9 +2,9 @@
 # execute generate grid and particles n times with different seeds
 # the seed lists will start with the "first" values declared here
 # and increment by 2: [seed0, seed0 + 2, seed0 + 4, ...]
-first_seed_gen=9001
-first_seed_sim=9001
-no_sims=20
+first_seed_gen=2001
+first_seed_sim=1001
+no_sims=6
 
 for ((n=0; n<$no_sims; n++))
 do

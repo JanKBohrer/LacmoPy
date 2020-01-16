@@ -195,10 +195,11 @@ field_ind_deri = np.array((0,1,2,3,4,5,6,7,8))
 
 # the save times correspond to the times, when the "grid frames" are stored 
 # the time values are written to "grid_save_times.npy" during the simulation
-#time_ind = np.array((0,2,4,6,8,10,12))
-#time_ind = np.arange(0,25,2)
-time_ind = np.array((0,1))
-#    time_ind = np.array((0,3,6,9))
+#time_ind_grid = np.array((0,2,4,6,8,10,12))
+#time_ind_grid = np.arange(0,25,2)
+time_ind_grid = np.arange(0,13,2)
+#time_ind_grid = np.array((0,1))
+#    time_ind_grid = np.array((0,3,6,9))
 
 ### SPECTRA
 # target cells for spectra analysis
@@ -244,14 +245,15 @@ no_bins_R_s = 30
 ### TIMES FOR GRID DATA
 # gen_seed = list[0], sim_seed = list[0]
 #grid_times = [0,7200,10800]
-grid_times = [0,300,600]
+grid_times = [0,3600,7200]
 
-duration_spin_up = 300
+duration_spin_up = 3600
 
 ### MOMENTS
 no_moments = 4
 #time_ind_moments = np.arange(0,25,2)
-time_ind_moments = np.arange(0,2,1)
+time_ind_moments = np.arange(0,13,2)
+#time_ind_moments = np.arange(0,2,1)
 
 #%% DERIVED    
 #no_seeds = len(seed_SIP_gen_list)
@@ -282,6 +284,8 @@ else:
     grid_path = simdata_path + grid_folder + save_folder
 
 load_path = simdata_path + grid_folder + save_folder
+
+#print("t_grid = ", t_grid)
 
 #reload = True
 #
@@ -338,7 +342,7 @@ if act_gen_grid_frames_avg:
     fields_with_time, fields_with_time_std, save_times_out,\
     field_names_out, units_out, scales_out = \
         generate_field_frame_data_avg(load_path_list,
-                                        field_ind, time_ind,
+                                        field_ind, time_ind_grid,
                                         field_ind_deri,
                                         grid.mass_dry_inv,
                                         grid.volume_cell,

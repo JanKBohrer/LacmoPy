@@ -16,31 +16,36 @@ from numba import njit
 import constants as c
 from grid import Grid
 from grid import interpolate_velocity_from_cell_bilinear
-from microphysics import compute_mass_from_radius_jit
+from microphysics import compute_mass_from_radius
 from microphysics import compute_mass_from_radius_vec
 
-from microphysics import compute_initial_mass_fraction_solute_m_s_NaCl
-from microphysics import compute_initial_mass_fraction_solute_m_s_AS, \
-                         compute_dml_and_gamma_impl_Newton_full_NaCl,\
-                         compute_dml_and_gamma_impl_Newton_full_AS,\
-                         compute_R_p_w_s_rho_p_NaCl, \
-                         compute_R_p_w_s_rho_p_AS, \
-                         compute_surface_tension_NaCl, \
-                         compute_surface_tension_AS
+from microphysics import \
+    compute_initial_mass_fraction_solute_m_s_NaCl, \
+    compute_initial_mass_fraction_solute_m_s_AS, \
+    compute_R_p_w_s_rho_p_NaCl, \
+    compute_R_p_w_s_rho_p_AS, \
+    compute_surface_tension_NaCl, \
+    compute_surface_tension_AS
 #                         compute_mass_from_radius_vec,\
 #                         compute_radius_from_mass_vec,\
 #                         compute_density_particle,\
 #                         compute_initial_mass_fraction_solute_NaCl,\
+
+from integration import \
+    compute_dml_and_gamma_impl_Newton_full_NaCl,\
+    compute_dml_and_gamma_impl_Newton_full_AS
+
+from materialproperties import \
+    compute_diffusion_constant,\
+    compute_thermal_conductivity_air,\
+    compute_heat_of_vaporization,\
+    compute_saturation_pressure_vapor_liquid,\
+    compute_surface_tension_water
                          
 from atmosphere import compute_kappa_air_moist,\
-                       compute_diffusion_constant,\
-                       compute_thermal_conductivity_air,\
-                       compute_heat_of_vaporization,\
-                       compute_saturation_pressure_vapor_liquid,\
-                       compute_pressure_vapor,\
-                       epsilon_gc, compute_surface_tension_water,\
                        kappa_air_dry,\
-                       compute_beta_without_liquid
+                       compute_pressure_vapor,\
+                       compute_beta_without_liquid, epsilon_gc
 from file_handling import save_grid_and_particles_full
 from file_handling import load_kernel_data
 
@@ -229,6 +234,8 @@ def set_initial_sim_config(inpar):
         f"{solute_type}" \
         + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
         + f"{seed_SIP_gen}/"
+    
+    init_path = inpar['simdata_path'] + grid_folder
 
     if simulation_mode == "spin_up":
         save_folder = "spin_up_wo_col_wo_grav/"
@@ -247,7 +254,7 @@ def set_initial_sim_config(inpar):
         save_folder += f"{seed_sim}/"
     
     save_path = inpar['simdata_path'] + grid_folder + save_folder
-            
+                
     #path = simdata_path + folder_save
     if not os.path.exists(save_path):
         os.makedirs(save_path)
@@ -313,6 +320,7 @@ def set_initial_sim_config(inpar):
     data_paths = \
         {
             'simdata'   : inpar['simdata_path'],
+            'init'      : init_path,
             'grid'      : inpar['simdata_path'] + grid_folder,
             'output'    : save_path
         }
@@ -754,7 +762,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold(
         eta, seed, setseed):
     
     if setseed: np.random.seed(seed)
-    m_low = compute_mass_from_radius_jit(r_critmin,
+    m_low = compute_mass_from_radius(r_critmin,
                                      c.mass_density_water_liquid_NTP)
     # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
     #                                            cnt_lim=1E8)
@@ -866,7 +874,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint(
         eta=1.0E-9, seed=4711, setseed = True):
     
     if setseed: np.random.seed(seed)
-    m_low = compute_mass_from_radius_jit(r_critmin,
+    m_low = compute_mass_from_radius(r_critmin,
                                      c.mass_density_water_liquid_NTP)
     # m_high = num_int_expo_impl_right_border(0.0, p_max, 1.0/par*0E-6, par,
     #                                            cnt_lim=1E8)
@@ -981,7 +989,7 @@ def generate_SIP_ensemble_expo_SingleSIP_weak_threshold_nonint2(
         par, no_rpc, r_critmin=0.6, m_high_by_m_low=1.0E6, kappa=40,
         eta=1.0E-9, seed=4711, setseed = True):
     bin_factor = 10**(1.0/kappa)
-    m_low = compute_mass_from_radius_jit(r_critmin,c.mass_density_water_liquid_NTP)
+    m_low = compute_mass_from_radius(r_critmin,c.mass_density_water_liquid_NTP)
     m_left = m_low
     # l_max = kappa * log_10(m_high/m_low)
     l_max = int(kappa * np.log10(m_high_by_m_low)) + 1

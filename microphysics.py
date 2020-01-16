@@ -149,8 +149,8 @@ def compute_particle_reynolds_number(radius_, velocity_dev_, fluid_density_,
 # R_p in mu
 # result without unit -> conversion from mu 
 @vectorize("float64(float64,float64,float64,float64)")
-def compute_kelvin_argument(R_p, T_p, rho_p, sigma_w):
-    return 2.0E6 * sigma_w \
+def compute_kelvin_argument(R_p, T_p, rho_p, sigma_p):
+    return 2.0E6 * sigma_p \
            / ( c.specific_gas_constant_water_vapor * T_p * rho_p * R_p )
 
 #@vectorize(
