@@ -18,10 +18,8 @@ import constants as c
 from materialproperties import compute_density_water,\
                                compute_density_NaCl_solution,\
                                compute_density_AS_solution,\
-                               compute_density_solution,\
                                compute_solubility_NaCl,\
                                compute_solubility_AS,\
-                               compute_solubility,\
                                compute_surface_tension_water,\
                                compute_surface_tension_NaCl,\
                                compute_surface_tension_AS,\
@@ -31,7 +29,6 @@ from materialproperties import compute_density_water,\
                                compute_water_activity_NaCl_vH,\
                                compute_dvH_dws_NaCl,\
                                compute_efflorescence_mass_fraction_NaCl,\
-                               compute_efflorescence_mass_fraction_AS,\
                                molar_mass_ratio_w_NaCl,\
                                par_sol_dens_NaCl,\
                                par_rho_AS,\
@@ -162,9 +159,9 @@ def compute_kelvin_argument(R_p, T_p, rho_p, sigma_w):
 def compute_kelvin_term(R_p, T_p, rho_p, sigma_w):
     return np.exp(compute_kelvin_argument(R_p, T_p, rho_p, sigma_w))
 
-@vectorize( "float64(float64, float64, float64, float64)", target = "parallel")
-def compute_kelvin_term_par(R_p, T_p, rho_p, sigma_w):
-    return np.exp(compute_kelvin_argument(R_p, T_p, rho_p, sigma_w))
+#@vectorize( "float64(float64, float64, float64, float64)", target = "parallel")
+#def compute_kelvin_term_par(R_p, T_p, rho_p, sigma_w):
+#    return np.exp(compute_kelvin_argument(R_p, T_p, rho_p, sigma_w))
 
 @njit()
 def compute_kelvin_term_mf(mass_fraction_solute_,
@@ -276,7 +273,6 @@ def compute_equilibrium_saturation_AS_mf(w_s, T_p, m_s):
 # w_s can not get larger than that.
 # the border is chosen, because the approximation of sigma_AS(w_s)
 # is only given for 0 < w_s < 0.78
-w_s_max_AS_inv = 1.0/w_s_max_AS           
            
 @njit()
 def compute_equilibrium_saturation_negative_NaCl_mf(w_s, T_p, m_s):
@@ -544,14 +540,11 @@ def compute_initial_mass_fraction_solute_m_s_NaCl_vH(m_s,
     # else:
     return w_s_init
 
-
 #%% INITIAL MASS FRACTION AMMONIUM SULFATE
 # for ammonium sulfate: fix a maximum border for w_s: w_s_max = 0.78
 # w_s can not get larger than that.
 # the border is chosen, because the approximation of sigma_AS(w_s)
 # is only given for 0 < w_s < 0.78
-w_s_max_AS_inv = 1.0/w_s_max_AS           
-           
 @njit()
 def compute_equilibrium_saturation_negative_AS_mf(w_s, T_p, m_s):
     return -compute_equilibrium_saturation_AS_mf(
@@ -715,12 +708,16 @@ def compute_mass_rate_NaCl_vH(m_w, m_s, w_s, R_p, T_p, rho_p,
            / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
 
 # in fg/s = 1.0E-18 kg/s
+# function was compared to   compute_mass_rate_NaCl_vH:
+# for small m_w, there are deviations up to 10 %, as expected
+# due to different paramentrizations of water activity.
+# for large m_w, the fcts converge           
 @vectorize(
 "float64(\
 float64, float64, float64, float64, float64, float64,\
 float64, float64, float64, float64, float64, float64)")
 def compute_mass_rate_NaCl(w_s, R_p, T_p, rho_p,
-                         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
+                           T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
     S_eq = compute_equilibrium_saturation_NaCl(w_s, R_p,
                                           T_p, rho_p, sigma_p)
     return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq)\
@@ -873,14 +870,13 @@ njit()(compute_mass_rate_and_derivative_NaCl_vH_np)
 #compute_mass_rate_and_derivative_NaCl_par =\
 #njit(parallel = True)(compute_mass_rate_and_derivative_NaCl_np)
 
-
-#%% IN WORK: new without vant Hoff
-
-
+# return mass rate in fg/s and mass rate deriv in SI: 1/s
+# function was compared to compute_mass_rate_NaCl and yields same results
+# (1E-15 rel err.)
+# analytic derivative was tested versus numerical derivative:
+# rel error is < 1E-8 for sufficiently small increments
 par_wat_act_deriv_NaCl = np.copy(par_wat_act_NaCl[:-1]) \
                        * np.arange(1,len(par_wat_act_NaCl))[::-1]
-
-# return mass rate in fg/s and mass rate deriv in SI: 1/s
 def compute_mass_rate_and_derivative_NaCl_np(m_w, m_s, w_s, R_p, T_p, rho_p,
                                              T_amb, p_amb, S_amb, e_s_amb,
                                              L_v, K, D_v, sigma_p):
@@ -1058,305 +1054,5 @@ njit()(compute_mass_rate_and_derivative_AS_np)
 #compute_mass_rate_and_derivative_AS_par =\
 #njit(parallel = True)(compute_mass_rate_and_derivative_AS_np)
 
-#%% INTEGRATION
-##############################################################################
-### integration
-# mass:
-# returns the difference dm_w = m_w_n+1 - m_w_n during condensation/evaporation
-# during one timestep using linear implicit explicit euler
-# masses in femto gram    
-# IN WORK: NOT UPDATED TO NUMBA
-# def compute_delta_water_liquid_imex_linear( dt_, mass_water_, mass_solute_, 
-#                                                   temperature_particle_,
-#                                                   amb_temp_, amb_press_,
-#                                                   amb_sat_, amb_sat_press_,
-#                                                   diffusion_constant_,
-#                                                   thermal_conductivity_air_,
-#                                                   specific_heat_capacity_air_,
-#                                                   surface_tension_,
-#                                                   adiabatic_index_,
-#                                                   accomodation_coefficient_,
-#                                                   condensation_coefficient_, 
-#                                                   heat_of_vaporization_,
-#                                                   verbose = False):
-
-#     dt_left = dt_
-# #    dt = dt_
-#     mass_water_new = mass_water_
-    
-#     mass_fraction_solute_effl = compute_efflorescence_mass_fraction_NaCl(
-#                                     temperature_particle_)
-    
-#     while (dt_left > 0.0):
-#         m_p = mass_water_new + mass_solute_
-#         w_s = mass_solute_ / m_p
-#         rho = compute_density_particle(w_s, temperature_particle_)
-#         R = compute_radius_from_mass(m_p, rho)
-#         # mass_rate = compute_mass_rate_from_water_mass_Szumowski(
-#         #                 mass_water_new, mass_solute_, #  in femto gram
-#         #                 temperature_particle_,
-#         #                 amb_temp_, amb_press_,
-#         #                 amb_sat_, amb_sat_press_,
-#         #                 diffusion_constant_,
-#         #                 thermal_conductivity_air_,
-#         #                 specific_heat_capacity_air_,
-#         #                 adiabatic_index_,
-#         #                 accomodation_coefficient_,
-#         #                 condensation_coefficient_, 
-#         #                 heat_of_vaporization_)
-#         # # masses in femto gram
-#         # mass_rate_derivative = compute_mass_rate_derivative_Szumowski(
-#         #                            mass_water_new, mass_solute_,
-#         #                            temperature_particle_,
-#         #                            amb_temp_, amb_press_,
-#         #                            amb_sat_, amb_sat_press_,
-#         #                            diffusion_constant_,
-#         #                            thermal_conductivity_air_,
-#         #                            specific_heat_capacity_air_,
-#         #                            adiabatic_index_,
-#         #                            accomodation_coefficient_,
-#         #                            condensation_coefficient_, 
-#         #                            heat_of_vaporization_)
-#         mass_rate, mass_rate_derivative\
-#             = compute_mass_rate_and_mass_rate_derivative_Szumowski(
-#                     mass_water_, mass_solute_,
-#                     m_p, w_s, R,
-#                     temperature_particle_, rho,
-#                     amb_temp_, amb_press_,
-#                     amb_sat_, amb_sat_press_,
-#                     diffusion_constant_,
-#                     thermal_conductivity_air_,
-#                     specific_heat_capacity_air_,
-#                     heat_of_vaporization_,
-#                     surface_tension_,
-#                     adiabatic_index_,
-#                     accomodation_coefficient_,
-#                     condensation_coefficient_)
-#         if (verbose):
-#             print('mass_rate, mass_rate_derivative:')
-#             print(mass_rate, mass_rate_derivative)
-#         # safety to avoid (1 - dt/2 * f'(m_n)) going to zero
-#         if mass_rate_derivative * dt_ < 1.0:
-#             dt = dt_left
-#             dt_left = -1.0
-#         else:
-#             dt = 1.0 / mass_rate_derivative
-#             dt_left -= dt
-    
-#         mass_water_new +=  mass_rate * dt\
-#                            / ( 1.0 - 0.5 * mass_rate_derivative * dt )
-        
-#         mass_water_effl = mass_solute_\
-#                               * (1.0 / mass_fraction_solute_effl - 1.0)
-        
-# #        mass_fraction_solute_new =\
-# #            mass_solute_ / (mass_water_new + mass_solute_)
-        
-# #        if (mass_fraction_solute_new > mass_fraction_solute_effl
-# #            or mass_water_new < 0.0):
-#         if (mass_water_new  < mass_water_effl):
-# #            mass_water_new = mass_solute_\
-# #                             * (1.0 / mass_fraction_solute_effl - 1.0)
-#             mass_water_new = mass_water_effl
-#             dt_left = -1.0
-# #            print('w_s_effl reached')
-    
-#     return mass_water_new - mass_water_
-
-### NEW 04.05.2019
-# Newton method with no_iter iterations, the derivative is calculated only once
-# IN WORK: might return gamma and not gamma0 for particle heat,
-# but this is not important right now
-def compute_dml_and_gamma_impl_Newton_lin_NaCl_np(
-        dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
-        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
-    
-    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-                             T_p)
-    m_w_effl = m_s * (w_s_effl_inv - 1.0)
-    gamma0, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
-                            m_w, m_s, w_s, R_p, T_p, rho_p,
-                            T_amb, p_amb, S_amb, e_s_amb,
-                            L_v, K, D_v, sigma_w)
-#    no_iter = 3
-    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                         np.ones_like(dt_sub_times_dgamma_dm)*10.0)
-#    if (dt_sub_ * dgamma_dm < 0.9):
-#        denom_inv = 
-#    else:
-#        denom_inv = 10.0
-     
-    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
-    
-    for cnt in range(no_iter-1):
-        m_p = mass_new + m_s
-        w_s = m_s / m_p
-        rho = compute_density_NaCl_solution(w_s, T_p)
-        R = compute_radius_from_mass(m_p, rho)
-        gamma = compute_mass_rate_NaCl(
-                    mass_new, m_s, w_s, R, T_p, rho,
-                    T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w)
-                    
-        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
-        mass_new = np.maximum( m_w_effl, mass_new )
-        
-    return mass_new - m_w, gamma0
-compute_dml_and_gamma_impl_Newton_lin_NaCl =\
-    njit()(compute_dml_and_gamma_impl_Newton_lin_NaCl_np)
-#compute_dml_and_gamma_impl_Newton_lin_NaCl_par =\
-#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_lin_NaCl_np)
-
-w_s_max_NaCl_inv = 1. / w_s_max_NaCl
-# Full Newton method with no_iter iterations,
-# the derivative is calculated every iteration
-def compute_dml_and_gamma_impl_Newton_full_NaCl_np(
-        dt_sub, Newton_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
-        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
-#    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-#                             T_p)
-    m_w_effl = m_s * (w_s_max_NaCl_inv - 1.0)
-    
-    gamma0, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
-                            m_w, m_s, w_s, R_p, T_p, rho_p,
-                            T_amb, p_amb, S_amb, e_s_amb,
-                            L_v, K, D_v, sigma_p)
-#    Newton_iter = 3
-    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                         np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
-#    if (dt_sub_ * dgamma_dm < 0.9):
-#        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
-#    else:
-#        denom_inv = 10.0
-     
-    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
-    
-    for cnt in range(Newton_iter-1):
-        m_p = mass_new + m_s
-        w_s = m_s / m_p
-        rho = compute_density_NaCl_solution(w_s, T_p)
-        R = compute_radius_from_mass(m_p, rho)
-        gamma, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
-                               mass_new, m_s, w_s, R, T_p, rho,
-                               T_amb, p_amb, S_amb, e_s_amb,
-                               L_v, K, D_v, sigma_p)
-                               
-        dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-        denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                             1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                     np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
-#        if (dt_sub_ * dgamma_dm < 0.9):
-#            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
-#        else:
-#            denom_inv = 10.0
-        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
-        mass_new = np.maximum( m_w_effl, mass_new )
-        
-    return mass_new - m_w, gamma0
-compute_dml_and_gamma_impl_Newton_full_NaCl =\
-njit()(compute_dml_and_gamma_impl_Newton_full_NaCl_np)
-#compute_dml_and_gamma_impl_Newton_full_NaCl_par =\
-#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_NaCl_np)
-
-#%% INTEGRATION AMMONIUM SULFATE
-
-# Newton method with no_iter iterations, the derivative is calculated only once
-# IN WORK: might return gamma and not gamma0 for particle heat,
-# but this is not important right now
-def compute_dml_and_gamma_impl_Newton_lin_AS_np(
-        dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
-        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
-    
-#    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-#                             T_p)
-    m_w_effl = m_s * (w_s_max_AS_inv - 1.0)
-    gamma0, dgamma_dm = compute_mass_rate_and_derivative_AS(
-                            m_w, m_s, w_s, R_p, T_p, rho_p,
-                                           T_amb, p_amb, S_amb, e_s_amb,
-                                           L_v, K, D_v, sigma_p)
-#    no_iter = 3
-    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                         np.ones_like(dt_sub_times_dgamma_dm)*10.0)
-#    if (dt_sub_ * dgamma_dm < 0.9):
-#        denom_inv = 
-#    else:
-#        denom_inv = 10.0
-     
-    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
-    
-    for cnt in range(no_iter-1):
-        m_p = mass_new + m_s
-        w_s = m_s / m_p
-        rho = compute_density_AS_solution(w_s, T_p)
-        R = compute_radius_from_mass(m_p, rho)
-        gamma = compute_mass_rate_AS(w_s, R, T_p, rho,
-                         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p)
-                    
-        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
-        mass_new = np.maximum( m_w_effl, mass_new )
-        
-    return mass_new - m_w, gamma0
-compute_dml_and_gamma_impl_Newton_lin_AS =\
-    njit()(compute_dml_and_gamma_impl_Newton_lin_AS_np)
-#compute_dml_and_gamma_impl_Newton_lin_AS_par =\
-#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_lin_AS_np)
-
-# Full Newton method with no_iter iterations,
-# the derivative is calculated every iteration
-# might change gamma0 to gamma in return, but not important for now
-def compute_dml_and_gamma_impl_Newton_full_AS_np(
-        dt_sub, Newton_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
-        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
-#    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
-#                             T_p)
-    m_w_effl = m_s * (w_s_max_AS_inv - 1.0)
-    
-    gamma0, dgamma_dm = compute_mass_rate_and_derivative_AS(
-            m_w, m_s, w_s, R_p, T_p, rho_p,
-            T_amb, p_amb, S_amb, e_s_amb,
-            L_v, K, D_v, sigma_p)
-#    Newton_iter = 3
-    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                         np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
-#    if (dt_sub_ * dgamma_dm < 0.9):
-#        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
-#    else:
-#        denom_inv = 10.0
-     
-    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
-    
-    for cnt in range(Newton_iter-1):
-        m_p = mass_new + m_s
-        w_s = m_s / m_p
-        rho = compute_density_AS_solution(w_s, T_p)
-        R = compute_radius_from_mass(m_p, rho)
-        sigma = compute_surface_tension_AS(w_s,T_p)
-        gamma, dgamma_dm = compute_mass_rate_and_derivative_AS(
-                               mass_new, m_s, w_s, R, T_p, rho,
-                               T_amb, p_amb, S_amb, e_s_amb,
-                               L_v, K, D_v, sigma)
-                               
-        dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-        denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-                             1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                     np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
-#        if (dt_sub_ * dgamma_dm < 0.9):
-#            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
-#        else:
-#            denom_inv = 10.0
-        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
-        mass_new = np.maximum( m_w_effl, mass_new )
-        
-    return mass_new - m_w, gamma0
-compute_dml_and_gamma_impl_Newton_full_AS =\
-njit()(compute_dml_and_gamma_impl_Newton_full_AS_np)
-#compute_dml_and_gamma_impl_Newton_full_AS_par =\
-#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_AS_np)     
+   
     

@@ -13,7 +13,7 @@ from numba import njit
 #import kernel
 from collision.kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
                    compute_E_col_Long_Bott, compute_kernel_Golovin
-from microphysics import compute_radius_from_mass_jit
+from microphysics import compute_radius_from_mass
 from microphysics import compute_radius_from_mass_vec
 from microphysics import compute_R_p_w_s_rho_p_AS
 from microphysics import compute_R_p_w_s_rho_p_NaCl
@@ -293,7 +293,7 @@ def collision_step_Ecol_grid_R_np(
                 masses[ind_min] = (xi_min*m_min + xi_col*m_max) / xi_min
                 # mass changed: update radius
                 radii[ind_min] =\
-                    compute_radius_from_mass_jit(masses[ind_min],
+                    compute_radius_from_mass(masses[ind_min],
                                                  mass_densities[ind_min])
                 xis[ind_max] -= xi_col
                 # rad of ind_min changed -> update kernel index:
@@ -313,7 +313,7 @@ def collision_step_Ecol_grid_R_np(
                                       / xi_ges
                     masses[ind_max] = masses[ind_min]
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit(masses[ind_min],
+                        compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     radii[ind_max] = radii[ind_min]
                     xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -327,7 +327,7 @@ def collision_step_Ecol_grid_R_np(
                 else:
                     masses[ind_min] += m_max
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit(masses[ind_min],
+                        compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     xis[ind_max] -= xi_min
                     # rad of ind_min changed -> update kernel index:
@@ -383,7 +383,7 @@ collision_step_Ecol_grid_R = \
 #                masses[ind_min] = (xi_min*m_min + xi_col*m_max) / xi_min
 #                # mass changed: update radius
 #                radii[ind_min] =\
-#                    compute_radius_from_mass_jit(masses[ind_min],
+#                    compute_radius_from_mass(masses[ind_min],
 #                                                 mass_densities[ind_min])
 #                xis[ind_max] -= xi_col
 #                # rad of ind_min changed -> update kernel index:
@@ -403,7 +403,7 @@ collision_step_Ecol_grid_R = \
 #                                      / xi_ges
 #                    masses[ind_max] = masses[ind_min]
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(masses[ind_min],
+#                        compute_radius_from_mass(masses[ind_min],
 #                                                     mass_densities[ind_min])
 #                    radii[ind_max] = radii[ind_min]
 #                    xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -417,7 +417,7 @@ collision_step_Ecol_grid_R = \
 #                else:
 #                    masses[ind_min] += m_max
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(masses[ind_min],
+#                        compute_radius_from_mass(masses[ind_min],
 #                                                     mass_densities[ind_min])
 #                    xis[ind_max] -= xi_min
 #                    # rad of ind_min changed -> update kernel index:
@@ -476,7 +476,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
                 
                 # mass changed: update radius
                 radii[ind_min] =\
-                    compute_radius_from_mass_jit(masses[ind_min],
+                    compute_radius_from_mass(masses[ind_min],
                                                  mass_densities[ind_min])
                 xis[ind_max] -= xi_col
                 # rad of ind_min changed -> update kernel index:
@@ -496,7 +496,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
                                       / xi_ges
                     masses[ind_max] = masses[ind_min]
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit(masses[ind_min],
+                        compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     radii[ind_max] = radii[ind_min]
                     xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -510,7 +510,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
                 else:
                     masses[ind_min] += m_max
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit(masses[ind_min],
+                        compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     xis[ind_max] -= xi_min
                     # rad of ind_min changed -> update kernel index:
@@ -572,10 +572,10 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
                 # mass changed: update radius
                 # IMPORTANT: need to but (m_w + m_s) in paranthesis for jit
                 radii[ind_min] =\
-                    compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
+                    compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                  mass_densities[ind_min])
 #                radii[ind_min] =\
-#                    compute_radius_from_mass_jit(m_w[ind_min] + m_s[ind_min],
+#                    compute_radius_from_mass(m_w[ind_min] + m_s[ind_min],
 #                                                 mass_densities[ind_min])
                 xis[ind_max] -= xi_col
                 # rad of ind_min changed -> update kernel index:
@@ -598,10 +598,10 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
                     m_w[ind_max] = m_w[ind_min]
                     m_s[ind_max] = m_s[ind_min]
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
+                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                      mass_densities[ind_min])
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_s[ind_min],
+#                        compute_radius_from_mass(m_w[ind_min]+m_s[ind_min],
 #                                                     mass_densities[ind_min])
                     radii[ind_max] = radii[ind_min]
                     xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -616,10 +616,10 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
                     m_w[ind_min] += m_w_max
                     m_s[ind_min] += m_s_max
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
+                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                      mass_densities[ind_min])
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_w[ind_min],
+#                        compute_radius_from_mass(m_w[ind_min]+m_w[ind_min],
 #                                                     mass_densities[ind_min])
                     xis[ind_max] -= xi_min
                     # rad of ind_min changed -> update kernel index:
@@ -681,10 +681,10 @@ def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
                 # mass changed: update radius
                 # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
                 radii[ind_min] =\
-                    compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
+                    compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                  mass_densities[ind_min])
 #                radii[ind_min] =\
-#                    compute_radius_from_mass_jit(m_w[ind_min] + m_s[ind_min],
+#                    compute_radius_from_mass(m_w[ind_min] + m_s[ind_min],
 #                                                 mass_densities[ind_min])
                 xis[ind_max] -= xi_col
                 # rad of ind_min changed -> update kernel index:
@@ -708,10 +708,10 @@ def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
                     m_s[ind_max] = m_s[ind_min]
                     # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
+                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                      mass_densities[ind_min])
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_s[ind_min],
+#                        compute_radius_from_mass(m_w[ind_min]+m_s[ind_min],
 #                                                     mass_densities[ind_min])
                     radii[ind_max] = radii[ind_min]
                     xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -727,10 +727,10 @@ def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
                     m_s[ind_min] += m_s_max
                     # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
                     radii[ind_min] =\
-                        compute_radius_from_mass_jit((m_w[ind_min] + m_s[ind_min]),
+                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                      mass_densities[ind_min])
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_w[ind_min],
+#                        compute_radius_from_mass(m_w[ind_min]+m_w[ind_min],
 #                                                     mass_densities[ind_min])
                     xis[ind_max] -= xi_min
                     # rad of ind_min changed -> update kernel index:
@@ -792,7 +792,7 @@ collision_step_Long_Bott_Ecol_const_2D_multicomp = \
 #                m_s[ind_min] = m_s_min + p_crit * m_s_max
 #                # mass changed: update radius
 #                radii[ind_min] =\
-#                    compute_radius_from_mass_jit(m_w[ind_min] + m_s[ind_min],
+#                    compute_radius_from_mass(m_w[ind_min] + m_s[ind_min],
 #                                                 mass_densities[ind_min])
 #                xis[ind_max] -= xi_col
 #                # rad of ind_min changed -> update kernel index:
@@ -815,7 +815,7 @@ collision_step_Long_Bott_Ecol_const_2D_multicomp = \
 #                    m_w[ind_max] = m_w[ind_min]
 #                    m_s[ind_max] = m_s[ind_min]
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_s[ind_min],
+#                        compute_radius_from_mass(m_w[ind_min]+m_s[ind_min],
 #                                                     mass_densities[ind_min])
 #                    radii[ind_max] = radii[ind_min]
 #                    xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -830,7 +830,7 @@ collision_step_Long_Bott_Ecol_const_2D_multicomp = \
 #                    m_w[ind_min] += m_w_max
 #                    m_s[ind_min] += m_s_max
 #                    radii[ind_min] =\
-#                        compute_radius_from_mass_jit(m_w[ind_min]+m_w[ind_min],
+#                        compute_radius_from_mass(m_w[ind_min]+m_w[ind_min],
 #                                                     mass_densities[ind_min])
 #                    xis[ind_max] -= xi_min
 #                    # rad of ind_min changed -> update kernel index:

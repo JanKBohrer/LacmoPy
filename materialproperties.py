@@ -353,9 +353,9 @@ def compute_thermal_conductivity_air(temperature_):
 @vectorize("float64(float64)")
 def compute_viscosity_air(T_):
     return 1.458E-6 * T_**(1.5) / (T_ + 110.4)
-@vectorize("float64(float64)", target="parallel") 
-def compute_viscosity_air_par(T_):
-    return 1.458E-6 * T_**(1.5) / (T_ + 110.4)    
+#@vectorize("float64(float64)", target="parallel") 
+#def compute_viscosity_air_par(T_):
+#    return 1.458E-6 * T_**(1.5) / (T_ + 110.4)    
 
 # Diffusion coefficient of water vapor in air
 # Formula from Pruppacher 1997
@@ -364,10 +364,10 @@ def compute_viscosity_air_par(T_):
 def compute_diffusion_constant(ambient_temperature_ = 293.15,
                                ambient_pressure_ = 101325 ):
     return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
-@vectorize("float64(float64, float64)", target="parallel") 
-def compute_diffusion_constant_par(ambient_temperature_,
-                               ambient_pressure_):
-    return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
+#@vectorize("float64(float64, float64)", target="parallel") 
+#def compute_diffusion_constant_par(ambient_temperature_,
+#                               ambient_pressure_):
+#    return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
 
 # latent enthalpy of vaporazation of water in J/kg
 # formula by Dake 1972
@@ -383,7 +383,7 @@ def compute_heat_of_vaporization(temperature_):
 @vectorize("float64(float64)")
 def compute_saturation_pressure_vapor_liquid(temperature_):
     return 2.53E11 * np.exp( -5420.0 / temperature_ )
-@vectorize("float64(float64)", target="parallel") 
-def compute_saturation_pressure_vapor_liquid_par(temperature_):
-    return 2.53E11 * np.exp( -5420.0 / temperature_ )
+#@vectorize("float64(float64)", target="parallel") 
+#def compute_saturation_pressure_vapor_liquid_par(temperature_):
+#    return 2.53E11 * np.exp( -5420.0 / temperature_ )
     

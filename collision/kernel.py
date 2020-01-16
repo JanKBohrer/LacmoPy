@@ -14,7 +14,11 @@ from numba import njit, vectorize
 import math
 
 import constants as c
-from microphysics import compute_radius_from_mass_jit
+from microphysics import compute_radius_from_mass
+
+from materialproperties import compute_viscosity_air
+from materialproperties import compute_surface_tension_water
+
 #from microphysics import compute_mass_from_radius_jit
 from grid import bilinear_weight
 
@@ -142,8 +146,7 @@ def update_velocity_Beard(vel, R):
 # (rel dev <0.6% for small R and <0.8% for large R)
 # and might come from different material
 # constants: sigma_w, g, rho_a, rho_w ...
-from atmosphere import compute_viscosity_air
-from atmosphere import compute_surface_tension_water
+
 viscosity_air_NTP = compute_viscosity_air(293.15)
 sigma_w_NTP = compute_surface_tension_water(293.15)
 
@@ -344,8 +347,8 @@ def compute_kernel_Long_Bott_R(R_i, R_j):
 # masses in 1E-18 kg
 @njit()
 def compute_kernel_Long_Bott_m(m_i, m_j, mass_density):
-    R_i = compute_radius_from_mass_jit(m_i, mass_density)
-    R_j = compute_radius_from_mass_jit(m_j, mass_density)
+    R_i = compute_radius_from_mass(m_i, mass_density)
+    R_j = compute_radius_from_mass(m_j, mass_density)
     return compute_kernel_Long_Bott_R(R_i, R_j)
 
 # Kernel "Golovin" 

@@ -6,40 +6,49 @@
 #%% MODULE IMPORTS
 import math
 import numpy as np
-from numba import njit,jit
-
-import constants as c
-from grid import interpolate_velocity_from_cell_bilinear
-from microphysics import compute_R_p_w_s_rho_p
-
-from materialproperties import compute_surface_tension_solution
-
-from microphysics import compute_R_p_w_s_rho_p_NaCl
-from microphysics import compute_R_p_w_s_rho_p_AS,\
-                         compute_dml_and_gamma_impl_Newton_full_AS,\
-                         compute_dml_and_gamma_impl_Newton_full_NaCl,\
-                         compute_particle_reynolds_number, \
-                         compute_surface_tension_AS
-from atmosphere import compute_Theta_over_T, c_pv_over_c_pd,\
-                       compute_p_dry_over_p_ref,\
-                       compute_specific_heat_capacity_air_moist,\
-                       kappa_air_dry, epsilon_gc,\
-                       compute_saturation_pressure_vapor_liquid,\
-                       compute_pressure_vapor,\
-                       compute_heat_of_vaporization,\
-                       compute_thermal_conductivity_air,\
-                       compute_diffusion_constant,\
-                       compute_viscosity_air,\
-                       compute_surface_tension_water
-from file_handling import dump_particle_data, save_grid_scalar_fields,\
-                          dump_particle_tracer_data_block,\
-                          save_grid_and_particles_full,\
-                          save_sim_paras_to_file, dump_particle_data_all
-from grid import update_grid_r_l
+from numba import njit, jit
 from datetime import datetime                      
 
+import constants as c
+from grid import interpolate_velocity_from_cell_bilinear, update_grid_r_l
+from materialproperties import \
+    compute_saturation_pressure_vapor_liquid,\
+    compute_heat_of_vaporization,\
+    compute_thermal_conductivity_air,\
+    compute_diffusion_constant,\
+    compute_viscosity_air,\
+    compute_surface_tension_water
+    compute_surface_tension_solution,\
+    compute_surface_tension_AS,\
+    compute_surface_tension_NaCl,\
+    compute_density_AS_solution,\
+    compute_density_NaCl_solution,\
+    compute_density_solution,\
+    w_s_max_AS,\
+    w_s_max_NaCl
+from microphysics import \
+    compute_R_p_w_s_rho_p,\
+    compute_R_p_w_s_rho_p_NaCl,\
+    compute_R_p_w_s_rho_p_AS,\
+    compute_particle_reynolds_number,\
+    compute_radius_from_mass,\
+    compute_mass_rate_AS,\
+    compute_mass_rate_NaCl,\
+    compute_mass_rate_and_derivative_AS,\
+    compute_mass_rate_and_derivative_NaCl
+from atmosphere import \
+    compute_Theta_over_T, c_pv_over_c_pd,\
+    compute_p_dry_over_p_ref,\
+    compute_specific_heat_capacity_air_moist,\
+    compute_pressure_vapor,\
+   kappa_air_dry, epsilon_gc
 from collision.AON import \
     collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
+from file_handling import \
+    dump_particle_data, save_grid_scalar_fields,\
+    dump_particle_tracer_data_block,\
+    save_grid_and_particles_full,\
+    save_sim_paras_to_file, dump_particle_data_all
 
 #%% ADVECTION
             
@@ -551,6 +560,199 @@ def update_vel_impl_np(vel, cells, rel_pos, xi, id_list, active_ids,
 #                        / (1.0 + k_dt)
 update_vel_impl = njit()(update_vel_impl_np)
 update_vel_impl_par = njit(parallel=True)(update_vel_impl_np)
+
+#%% MASS PROPAGATION
+
+### COMPUTE CHANGE Delta m_liq MASS RATE
+# Newton method with no_iter iterations, the derivative is calculated only once
+def compute_dml_and_gamma_impl_Newton_lin_NaCl_np(
+        dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
+        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w):
+    
+    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
+                             T_p)
+    m_w_effl = m_s * (w_s_effl_inv - 1.0)
+    gamma0, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
+                            m_w, m_s, w_s, R_p, T_p, rho_p,
+                            T_amb, p_amb, S_amb, e_s_amb,
+                            L_v, K, D_v, sigma_w)
+#    no_iter = 3
+    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
+    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
+                         np.ones_like(dt_sub_times_dgamma_dm)*10.0)
+#    if (dt_sub_ * dgamma_dm < 0.9):
+#        denom_inv = 
+#    else:
+#        denom_inv = 10.0
+     
+    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
+    
+    for cnt in range(no_iter-1):
+        m_p = mass_new + m_s
+        w_s = m_s / m_p
+        rho = compute_density_NaCl_solution(w_s, T_p)
+        R = compute_radius_from_mass(m_p, rho)
+        gamma = compute_mass_rate_NaCl(
+                    mass_new, m_s, w_s, R, T_p, rho,
+                    T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_w)
+                    
+        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
+        mass_new = np.maximum( m_w_effl, mass_new )
+        
+    return mass_new - m_w, gamma0
+compute_dml_and_gamma_impl_Newton_lin_NaCl =\
+    njit()(compute_dml_and_gamma_impl_Newton_lin_NaCl_np)
+#compute_dml_and_gamma_impl_Newton_lin_NaCl_par =\
+#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_lin_NaCl_np)
+
+w_s_max_NaCl_inv = 1. / w_s_max_NaCl
+# Full Newton method with no_iter iterations,
+# the derivative is calculated every iteration
+def compute_dml_and_gamma_impl_Newton_full_NaCl_np(
+        dt_sub, Newton_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
+        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
+#    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
+#                             T_p)
+    m_w_effl = m_s * (w_s_max_NaCl_inv - 1.0)
+    
+    gamma0, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
+                            m_w, m_s, w_s, R_p, T_p, rho_p,
+                            T_amb, p_amb, S_amb, e_s_amb,
+                            L_v, K, D_v, sigma_p)
+#    Newton_iter = 3
+    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
+    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
+                         np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
+#    if (dt_sub_ * dgamma_dm < 0.9):
+#        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
+#    else:
+#        denom_inv = 10.0
+     
+    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
+    
+    for cnt in range(Newton_iter-1):
+        m_p = mass_new + m_s
+        w_s = m_s / m_p
+        rho = compute_density_NaCl_solution(w_s, T_p)
+        R = compute_radius_from_mass(m_p, rho)
+        gamma, dgamma_dm = compute_mass_rate_and_derivative_NaCl(
+                               mass_new, m_s, w_s, R, T_p, rho,
+                               T_amb, p_amb, S_amb, e_s_amb,
+                               L_v, K, D_v, sigma_p)
+                               
+        dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
+        denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+                             1.0 / (1.0 - dt_sub_times_dgamma_dm),
+                     np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
+#        if (dt_sub_ * dgamma_dm < 0.9):
+#            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
+#        else:
+#            denom_inv = 10.0
+        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
+        mass_new = np.maximum( m_w_effl, mass_new )
+        
+    return mass_new - m_w, gamma0
+compute_dml_and_gamma_impl_Newton_full_NaCl =\
+njit()(compute_dml_and_gamma_impl_Newton_full_NaCl_np)
+#compute_dml_and_gamma_impl_Newton_full_NaCl_par =\
+#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_NaCl_np)
+
+w_s_max_AS_inv = 1. / w_s_max_AS
+# Newton method with no_iter iterations, the derivative is calculated only once
+def compute_dml_and_gamma_impl_Newton_lin_AS_np(
+        dt_sub, no_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
+        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
+    
+#    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
+#                             T_p)
+    m_w_effl = m_s * (w_s_max_AS_inv - 1.0)
+    gamma0, dgamma_dm = compute_mass_rate_and_derivative_AS(
+                            m_w, m_s, w_s, R_p, T_p, rho_p,
+                                           T_amb, p_amb, S_amb, e_s_amb,
+                                           L_v, K, D_v, sigma_p)
+#    no_iter = 3
+    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
+    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
+                         np.ones_like(dt_sub_times_dgamma_dm)*10.0)
+#    if (dt_sub_ * dgamma_dm < 0.9):
+#        denom_inv = 
+#    else:
+#        denom_inv = 10.0
+     
+    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
+    
+    for cnt in range(no_iter-1):
+        m_p = mass_new + m_s
+        w_s = m_s / m_p
+        rho = compute_density_AS_solution(w_s, T_p)
+        R = compute_radius_from_mass(m_p, rho)
+        gamma = compute_mass_rate_AS(w_s, R, T_p, rho,
+                         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p)
+                    
+        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
+        mass_new = np.maximum( m_w_effl, mass_new )
+        
+    return mass_new - m_w, gamma0
+compute_dml_and_gamma_impl_Newton_lin_AS =\
+    njit()(compute_dml_and_gamma_impl_Newton_lin_AS_np)
+#compute_dml_and_gamma_impl_Newton_lin_AS_par =\
+#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_lin_AS_np)
+
+# Full Newton method with no_iter iterations,
+# the derivative is calculated every iteration
+def compute_dml_and_gamma_impl_Newton_full_AS_np(
+        dt_sub, Newton_iter, m_w, m_s, w_s, R_p, T_p, rho_p,
+        T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p):
+#    w_s_effl_inv = 1.0 / compute_efflorescence_mass_fraction_NaCl(
+#                             T_p)
+    m_w_effl = m_s * (w_s_max_AS_inv - 1.0)
+    
+    gamma0, dgamma_dm = compute_mass_rate_and_derivative_AS(
+            m_w, m_s, w_s, R_p, T_p, rho_p,
+            T_amb, p_amb, S_amb, e_s_amb,
+            L_v, K, D_v, sigma_p)
+#    Newton_iter = 3
+    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
+    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
+                         np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
+#    if (dt_sub_ * dgamma_dm < 0.9):
+#        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
+#    else:
+#        denom_inv = 10.0
+     
+    mass_new = np.maximum(m_w_effl, m_w + dt_sub * gamma0 * denom_inv)
+    
+    for cnt in range(Newton_iter-1):
+        m_p = mass_new + m_s
+        w_s = m_s / m_p
+        rho = compute_density_AS_solution(w_s, T_p)
+        R = compute_radius_from_mass(m_p, rho)
+        sigma = compute_surface_tension_AS(w_s,T_p)
+        gamma, dgamma_dm = compute_mass_rate_and_derivative_AS(
+                               mass_new, m_s, w_s, R, T_p, rho,
+                               T_amb, p_amb, S_amb, e_s_amb,
+                               L_v, K, D_v, sigma)
+                               
+        dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
+        denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+                             1.0 / (1.0 - dt_sub_times_dgamma_dm),
+                     np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
+#        if (dt_sub_ * dgamma_dm < 0.9):
+#            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
+#        else:
+#            denom_inv = 10.0
+        mass_new += ( dt_sub * gamma + m_w - mass_new) * denom_inv
+        mass_new = np.maximum( m_w_effl, mass_new )
+        
+    return mass_new - m_w, gamma0
+compute_dml_and_gamma_impl_Newton_full_AS =\
+njit()(compute_dml_and_gamma_impl_Newton_full_AS_np)
+#compute_dml_and_gamma_impl_Newton_full_AS_par =\
+#njit(parallel = True)(compute_dml_and_gamma_impl_Newton_full_AS_np)  
 
 # runtime test:
 # no_spt = 400
@@ -1579,15 +1781,19 @@ def integrate_adv_cond_coll_one_adv_step_np(
                      * grid_scalar_fields[9]
     
     if include_relaxation:
-        # note that a 1D array is added to a 2D array
-        # in this case, the 1D array is added to each "row" of the 2D array
-        # since the 2D array[x][z], a "z-profile" is added for each FIXED x pos
-        delta_r_v_ad += compute_relaxation_term(
-                            grid_scalar_fields[4], init_profile_r_v,
-                            relaxation_time_profile, dt_sub)        
-        delta_Theta_ad += compute_relaxation_term(
-                            grid_scalar_fields[2], init_profile_Theta,
-                            relaxation_time_profile, dt_sub)
+        pass
+        #####################
+#        # note that a 1D array is added to a 2D array
+#        # in this case, the 1D array is added to each "row" of the 2D array
+#        # since the 2D array[x][z], a "z-profile" is added for each FIXED x pos
+#        delta_r_v_ad += compute_relaxation_term(
+#                            grid_scalar_fields[4], init_profile_r_v,
+#                            relaxation_time_profile, dt_sub)        
+#        delta_Theta_ad += compute_relaxation_term(
+#                            grid_scalar_fields[2], init_profile_Theta,
+#                            relaxation_time_profile, dt_sub)
+
+        #####################
 
     ### d1) added collision here
 #    if no_col_per_adv == 2:
