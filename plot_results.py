@@ -190,7 +190,6 @@ else:
     
     no_tg_cells = len(target_cell_list[0])   
 
-
 #%% PLOT INIT GRID FRAMES
 if act_plot_grid_frames_INIT:
     if not os.path.exists(figpath):

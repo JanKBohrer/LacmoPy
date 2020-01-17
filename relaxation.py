@@ -21,5 +21,6 @@ def compute_relaxation_time_profile(z):
 # return: relaxation source term profile(z) for one time step dt
 @njit()    
 def compute_relaxation_term(field, profile0, t_relax, dt):
-    return dt * (profile0 - np.average(field, axis = 0)) / t_relax
+#    return dt * (profile0 - np.average(field, axis = 0)) / t_relax
+    return dt * (profile0 - np.sum(field, axis = 0) / field.shape[0]) / t_relax
     

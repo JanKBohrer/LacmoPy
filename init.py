@@ -223,7 +223,7 @@ def set_initial_sim_config(inpar):
     
     # g must be positive (9.8...) or 0.0 (for spin up)
     
-    if simulation_mode == "with_collision":
+    if simulation_mode == "with_collisions":
         inpar['act_collisions'] = True
     else:    
         inpar['act_collisions'] = False
@@ -244,7 +244,7 @@ def set_initial_sim_config(inpar):
             save_folder = "w_spin_up_wo_col/"
         else:
             save_folder = "wo_spin_up_wo_col/"
-    elif simulation_mode == "with_collision":
+    elif simulation_mode == "with_collisions":
         if inpar['spin_up_complete']:
             save_folder = "w_spin_up_w_col/"
         else:
@@ -272,14 +272,14 @@ def set_initial_sim_config(inpar):
 #            
 #        grid_folder += "spin_up_wo_col_wo_grav/"
 #        
-#        elif simulation_mode == "with_collision":
+#        elif simulation_mode == "with_collisions":
 #            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
 #    
 #    if inpar['spin_up_complete']:
 #    #    if t_start <= 7200.:
 #        if t_start <= 7201.:
 #            grid_folder += "spin_up_wo_col_wo_grav/"
-#        elif simulation_mode == "with_collision":
+#        elif simulation_mode == "with_collisions":
 #            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
     
     # set "counters" for number of collisions and total removed water

@@ -2591,6 +2591,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
         f.write(f"simulation mode = {simulation_mode}\n")
         f.write(f"gravitation const = {g_set}\n")
         f.write(f"collisions activated = {act_collisions}\n")
+        f.write(f"relaxation activated = {act_relaxation}\n")
         f.write(f"kernel_type = {kernel_type}\n")
         f.write(f"kernel_method = {kernel_method}")
         if kernel_method == "Ecol_const":

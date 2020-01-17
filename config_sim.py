@@ -23,7 +23,7 @@ simpar = \
 # In the following example, the parameters 'seed_SIP_gen' and 'seed_sim'
 # would be overwritten to 4711 and 5711:
 # "python3 generate_grid_and_particles.py 4711 5711"
-'seed_SIP_gen'          : 1001,
+'seed_SIP_gen'          : 3001,
 'seed_sim'              : 2001,
 
 ### GRID AND PARTICLE PARAMETERS
@@ -39,8 +39,8 @@ simpar = \
 ### SIMULATION TYPE
 # "wo_collisions": with gravity, no collisions
 # "with_collisions": with gravity, with collisions
-'simulation_mode'       : 'with_collision',
-#'simulation_mode'      : 'wo_collision',
+'simulation_mode'       : 'with_collisions',
+#'simulation_mode'      : 'wo_collisions',
 
 # "spin_up": no gravity, no collisions
 # "spin_up" is executed before "simulation"
@@ -60,7 +60,8 @@ simpar = \
 'continued_simulation'  : False,
 
 # activate the relaxation source term for r_v and Theta towards init. profiles
-'act_relaxation'    : False,
+#'act_relaxation'    : False,
+'act_relaxation'    : True,
 
 # set this to "True" when starting from a spin-up state,
 # will automatically be overwritten to "False" during the spin-up phase,
