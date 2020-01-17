@@ -105,7 +105,6 @@ if len(sys.argv) > 8:
 
 seed_SIP_gen_list = np.arange(seed_SIP_gen, seed_SIP_gen + no_seeds * 2, 2)
 
-
 # start seed collisions
 seed_sim = 9001
 
@@ -118,7 +117,7 @@ seed_sim_list = np.arange(seed_sim, seed_sim + no_seeds * 2, 2)
 
 #simulation_mode = "spin_up"
 #simulation_mode = "wo_collision"
-simulation_mode = "with_collision"
+simulation_mode = "with_collisions"
 if len(sys.argv) > 10:
     simulation_mode = sys.argv[10]
     
@@ -271,7 +270,7 @@ elif simulation_mode == "wo_collision":
         save_folder = "w_spin_up_wo_col/"
     else:
         save_folder = "wo_spin_up_wo_col/"
-elif simulation_mode == "with_collision":
+elif simulation_mode == "with_collisions":
     if spin_up_finished:
         save_folder = f"w_spin_up_w_col/{seed_sim}/"
     else:
@@ -330,7 +329,7 @@ if act_gen_grid_frames_avg:
                 save_folder_ = "w_spin_up_wo_col/"
             else:
                 save_folder_ = "wo_spin_up_wo_col/"
-        elif simulation_mode == "with_collision":
+        elif simulation_mode == "with_collisions":
             if spin_up_finished:
                 save_folder_ = f"w_spin_up_w_col/{seed_sim_}/"
             else:
@@ -420,7 +419,7 @@ if act_gen_spectra_avg_Arabas:
                 save_folder_ = "w_spin_up_wo_col/"
             else:
                 save_folder_ = "wo_spin_up_wo_col/"
-        elif simulation_mode == "with_collision":
+        elif simulation_mode == "with_collisions":
             if spin_up_finished:
                 save_folder_ = f"w_spin_up_w_col/{seed_sim_}/"
             else:
@@ -604,7 +603,7 @@ if act_gen_moments_all_grid_cells:
                 save_folder_ = "w_spin_up_wo_col/"
             else:
                 save_folder_ = "wo_spin_up_wo_col/"
-        elif simulation_mode == "with_collision":
+        elif simulation_mode == "with_collisions":
             if spin_up_finished:
                 save_folder_ = f"w_spin_up_w_col/{seed_sim_}/"
             else:

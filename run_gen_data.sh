@@ -21,9 +21,9 @@
 #storage_path="/Users/bohrer/sim_data_cloudMP/" # sim data is in here
 storage_path="/Users/bohrer/sim_data_cloudMP_TEST200108/" # sim data is in here
 
-gseed=2001 # SIP generation seed
-sseed=1001 # simulation seed
-no_sim=6 # number of seeds
+gseed=2011 # SIP generation seed
+sseed=2001 # simulation seed
+no_sim=5 # number of seeds
 
 # load the basic grid time t_grid.
 # The setting of t_grid is just for plotting of the grid
@@ -39,7 +39,7 @@ solute_type="AS"
 no_spcm0=2 # number of super particles first mode
 no_spcm1=2 # number of super particles 2nd mode
 no_col_per_adv=2 # # number of collisions steps per advection step
-sim_type="with_collision" # possible: "spin_up", "with_collision", "wo_collision"
+sim_type="with_collisions" # possible: "spin_up", "with_collisions", "wo_collisions"
 
 export OMP_NUM_THREADS=8
 export NUMBA_NUM_THREADS=16

@@ -28,10 +28,8 @@ import matplotlib.pyplot as plt
 #elif (my_OS == "TROPOS_server"):
 #    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
-
 simdata_path = "/Users/bohrer/sim_data_cloudMP_TEST200108/"
 home_path = "/Users/bohrer/"
-
 
 #%% CHOOSE OPERATIONS
 
@@ -80,12 +78,12 @@ no_spcm = np.array([2, 2])
 #no_spcm = np.array([52, 76])
 
 #seed_SIP_gen = 3811
-seed_SIP_gen = 2001
-seed_sim = 1001
+seed_SIP_gen = 2011
+seed_sim = 2001
 
 #no_seeds = 1
 #no_seeds = 10
-no_seeds = 6
+no_seeds = 5
 
 #%% SIM PARAMETERS
 
