@@ -25,8 +25,8 @@ simpar = \
 # In the following example, the parameters 'seed_SIP_gen' and 'seed_sim'
 # would be overwritten to 4711 and 5711:
 # "python3 generate_grid_and_particles.py 4711 5711"
-'seed_SIP_gen'          : 1001,
-'seed_sim'              : 1001,
+'seed_SIP_gen'          : 1021,
+'seed_sim'              : 1021,
 
 ### GRID AND PARTICLE PARAMETERS
 # need to set number of grid cells [x,z] for data path assignments
@@ -82,12 +82,20 @@ simpar = \
 # this must correspond to the time of the saved data
 # for a direct simulation without spin-up:
 # set t_start_spin_up = 0, t_end_spin_up = 0, t_start_sim = 0
+
+#'t_start_spin_up'        : 0, # seconds
+#'t_end_spin_up'          : 3600, # seconds
+#'t_start_sim'            : 3600, # seconds
+#'t_end_sim'              : 7200, # seconds
+
+
 't_start_spin_up'        : 0, # seconds
-'t_end_spin_up'          : 3600, # seconds
-'t_start_sim'            : 3600, # seconds
+'t_end_spin_up'          : 600, # seconds
+'t_start_sim'            : 600, # seconds
+'t_end_sim'              : 1200, # seconds
+
 #'t_start_sim'            : 7200, # seconds
 #'t_end_sim'              : 10800, # seconds
-'t_end_sim'              : 7200, # seconds
 #'t_start_sim'            : 600, # seconds
 #'t_end_sim'              : 900, # seconds
 

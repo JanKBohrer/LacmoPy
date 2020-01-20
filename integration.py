@@ -770,14 +770,15 @@ def compute_dml_and_gamma_impl_Newton_full_np(
 #    no_iter_impl_mass = 3
         
 #    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-    dt_sub_times_dgamma_dm = np.ones_like(dt_sub * dgamma_dm)
+#    dt_sub_times_dgamma_dm = np.ones_like(dt_sub * dgamma_dm) * dt_sub * dgamma_dm
+    dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
     
 #    denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
 #                         1.0 / (1.0 - dt_sub_times_dgamma_dm),
 #                         np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
     denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
                              1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                             dt_sub_times_dgamma_dm * 10.0)
+                             np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
 #    if (dt_sub_ * dgamma_dm < 0.9):
 #        denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
 #    else:
@@ -803,16 +804,17 @@ def compute_dml_and_gamma_impl_Newton_full_np(
                                    T_amb, p_amb, S_amb, e_s_amb,
                                    L_v, K, D_v, sigma)
                                
-#        dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
-        dt_sub_times_dgamma_dm = np.ones_like( dt_sub * dgamma_dm )
+        dt_sub_times_dgamma_dm = dt_sub * dgamma_dm
+#        dt_sub_times_dgamma_dm = np.ones_like( dt_sub * dgamma_dm )
         
         
-#        denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
-#                             1.0 / (1.0 - dt_sub_times_dgamma_dm),
-#                     np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
         denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
                              1.0 / (1.0 - dt_sub_times_dgamma_dm),
-                             dt_sub_times_dgamma_dm * 10.0)
+                             np.ones_like(dt_sub_times_dgamma_dm) * 10.0)
+
+#        denom_inv = np.where(dt_sub_times_dgamma_dm < 0.9,
+#                             1.0 / (1.0 - dt_sub_times_dgamma_dm),
+#                             dt_sub_times_dgamma_dm * 10.0)
 #        if (dt_sub_ * dgamma_dm < 0.9):
 #            denom_inv = 1.0 / (1.0 - dt_sub_ * dgamma_dm)
 #        else:

@@ -28,7 +28,8 @@ import matplotlib.pyplot as plt
 #elif (my_OS == "TROPOS_server"):
 #    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
-simdata_path = "/Users/bohrer/sim_data_cloudMP_TEST200108/"
+simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+#simdata_path = "/Users/bohrer/sim_data_cloudMP_ab_Jan20/"
 home_path = "/Users/bohrer/"
 
 #%% CHOOSE OPERATIONS
@@ -53,8 +54,8 @@ act_plot_grid_frames_INIT = args_plot[3]
 #%% GRID PARAMETERS
 
 # needed for filename
-#no_cells = (75, 75)
-no_cells = (10, 10)
+no_cells = (75, 75)
+#no_cells = (10, 10)
 #no_cells = (15, 15)
 
 shift_cells_x = 3
@@ -72,18 +73,19 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-no_spcm = np.array([2, 2])
+#no_spcm = np.array([2, 2])
 #no_spcm = np.array([6, 10])
-#no_spcm = np.array([26, 38])
+no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
 #seed_SIP_gen = 3811
-seed_SIP_gen = 2011
-seed_sim = 2001
+seed_SIP_gen = 3811
+seed_sim = 6811
 
 #no_seeds = 1
 #no_seeds = 10
-no_seeds = 5
+#no_seeds = 20
+no_seeds = 50
 
 #%% SIM PARAMETERS
 
@@ -103,14 +105,14 @@ t_grid = 0
 #t_grid = 14400
 
 #t_start = 0
-#t_start = 7200
-t_start = 3600
+#t_start = 3600
+t_start = 7200
 
 #t_end = 60
 #t_end = 3600
 #t_end = 600
-t_end = 7200
-#t_end = 10800
+#t_end = 7200
+t_end = 10800
 #t_end = 14400
 
 #%% PLOTTING PARAMETERS
@@ -190,10 +192,13 @@ else:
 
 #%% PLOT INIT GRID FRAMES
 if act_plot_grid_frames_INIT:
-    if not os.path.exists(figpath):
-            os.makedirs(figpath)    
-    figname_add = f"initFrames_ss_{seed_SIP_gen}_"
-    grid.plot_thermodynamic_scalar_fields(fig_path=figpath + figname_add)
+    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
+    fig_name = \
+               f"grid_init_frames_" \
+               + f"t_{t_grid}.png"
+#    if not os.path.exists(figpath):
+#            os.makedirs(figpath)    
+    grid.plot_thermodynamic_scalar_fields(fig_path=fig_path + fig_name)
 #    grid.plot_thermodynamic_scalar_fields()
 
 #%% PLOT AVG GRID FRAMES
@@ -249,6 +254,7 @@ if act_plot_grid_frames_avg:
                                         no_cells_x = no_cells_x,
                                         no_cells_z = no_cells_z)     
     plt.close("all")   
+
 
 #%% PLOT AVG GRID FRAMES SHIFT IN X DIRECTION
 
