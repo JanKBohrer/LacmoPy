@@ -23,9 +23,7 @@ from microphysics import \
     compute_initial_mass_fraction_solute_m_s_NaCl, \
     compute_initial_mass_fraction_solute_m_s_AS, \
     compute_R_p_w_s_rho_p_NaCl, \
-    compute_R_p_w_s_rho_p_AS, \
-    compute_surface_tension_NaCl, \
-    compute_surface_tension_AS
+    compute_R_p_w_s_rho_p_AS
 #                         compute_mass_from_radius_vec,\
 #                         compute_radius_from_mass_vec,\
 #                         compute_density_particle,\
@@ -40,6 +38,8 @@ from materialproperties import \
     compute_thermal_conductivity_air,\
     compute_heat_of_vaporization,\
     compute_saturation_pressure_vapor_liquid,\
+    compute_surface_tension_NaCl, \
+    compute_surface_tension_AS, \
     compute_surface_tension_water
                          
 from atmosphere import compute_kappa_air_moist,\

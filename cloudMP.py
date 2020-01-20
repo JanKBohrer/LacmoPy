@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec  6 16:35:52 2019
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinetic framework
+(Test Case 1 ICMW 2012)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
 
-@author: bohrer
+MAIN SIMULATION SCRIPT
 """
 
 #%% MODULE IMPORTS
@@ -22,6 +26,7 @@ from init import set_initial_sim_config
 #%% IMPORT PARAMETERS FROM CONFIG FILE
 from config_sim import simpar
 
+# overwrite generation seed and simulation seed, when given by argument
 if len(sys.argv) > 1:
     simpar['seed_SIP_gen'] = int(sys.argv[1])
 if len(sys.argv) > 2:

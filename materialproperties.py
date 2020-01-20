@@ -184,12 +184,13 @@ def compute_surface_tension_AS(w_s, T_p):
                * (1.0 + par_sigma_AS * w_s / (1. - w_s))
     
 @njit()
+#@vectorize("float64(float64,float64)")
 def compute_surface_tension_solution(w_s, T_p, solute_type):
     if solute_type == "AS":
         return compute_surface_tension_AS(w_s, T_p)
     elif solute_type == "NaCl":
         return compute_surface_tension_NaCl(w_s, T_p)
-    else: return 0.0    
+#    else: return 0.0
     
 ### WATER ACTIVITY OF SOLUTIONS
         

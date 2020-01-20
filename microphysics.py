@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Microphysics module
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinetic framework
+(Test Case 1 ICMW 2012)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
+
+microphysics module
 """
 
 #%% MODULE IMPORTS
@@ -15,29 +21,40 @@ from numba import njit, vectorize
 import constants as c
 #import materialproperties
 #molar_mass_ratio_w_NaCl = materialproperties.molar_mass_ratio_w_NaCl
-from materialproperties import compute_density_water,\
-                               compute_density_NaCl_solution,\
-                               compute_density_AS_solution,\
-                               compute_solubility_NaCl,\
-                               compute_solubility_AS,\
-                               compute_surface_tension_water,\
-                               compute_surface_tension_NaCl,\
-                               compute_surface_tension_AS,\
-                               compute_water_activity_NaCl,\
-                               compute_water_activity_AS,\
-                               compute_vant_Hoff_factor_NaCl,\
-                               compute_water_activity_NaCl_vH,\
-                               compute_dvH_dws_NaCl,\
-                               compute_efflorescence_mass_fraction_NaCl,\
-                               molar_mass_ratio_w_NaCl,\
-                               par_sol_dens_NaCl,\
-                               par_rho_AS,\
-                               par_wat_act_AS,\
-                               par_wat_act_NaCl,\
-                               par_sigma_AS,\
-                               par_sigma_NaCl,\
-                               w_s_max_AS,\
-                               w_s_max_NaCl
+import materialproperties as mat
+
+par_sol_dens_NaCl = mat.par_sol_dens_NaCl
+par_rho_AS = mat.par_rho_AS
+
+par_wat_act_AS = mat.par_wat_act_AS
+par_wat_act_NaCl = mat.par_wat_act_NaCl
+
+par_sigma_AS = mat.par_sigma_AS
+par_sigma_NaCl = mat.par_sigma_NaCl
+
+#from materialproperties import compute_density_water,\
+#                               compute_density_NaCl_solution,\
+#                               compute_density_AS_solution,\
+#                               compute_solubility_NaCl,\
+#                               compute_solubility_AS,\
+#                               compute_surface_tension_water,\
+#                               compute_surface_tension_NaCl,\
+#                               compute_surface_tension_AS,\
+#                               compute_water_activity_NaCl,\
+#                               compute_water_activity_AS,\
+#                               compute_vant_Hoff_factor_NaCl,\
+#                               compute_water_activity_NaCl_vH,\
+#                               compute_dvH_dws_NaCl,\
+#                               compute_efflorescence_mass_fraction_NaCl,\
+#                               molar_mass_ratio_w_NaCl,\
+#                               par_sol_dens_NaCl,\
+#                               par_rho_AS,\
+#                               par_wat_act_AS,\
+#                               par_wat_act_NaCl,\
+#                               par_sigma_AS,\
+#                               par_sigma_NaCl,\
+#                               w_s_max_AS,\
+#                               w_s_max_NaCl
                                
 #from atmosphere import compute_specific_heat_capacity_air_moist,\
 #                       compute_diffusion_constant,\
@@ -95,14 +112,14 @@ def compute_molality_from_mass_fraction(mass_fraction_, molecular_weight_):
 def compute_R_p_w_s_rho_p_NaCl(m_w, m_s, T_p):
     m_p = m_w + m_s
     w_s = m_s / m_p
-    rho_p = compute_density_NaCl_solution(w_s, T_p)
+    rho_p = mat.compute_density_NaCl_solution(w_s, T_p)
     return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
     
 @njit()
 def compute_R_p_w_s_rho_p_AS(m_w, m_s, T_p):
     m_p = m_w + m_s
     w_s = m_s / m_p
-    rho_p = compute_density_AS_solution(w_s, T_p)
+    rho_p = mat.compute_density_AS_solution(w_s, T_p)
     return compute_radius_from_mass(m_p, rho_p), w_s, rho_p
 
 @njit()
@@ -116,7 +133,8 @@ def compute_particle_radius_from_ws_T_ms_NaCl( mass_fraction_solute_,
                                          temperature_, dry_mass_):
     Vp = dry_mass_\
         / ( mass_fraction_solute_ \
-           * compute_density_NaCl_solution(mass_fraction_solute_, temperature_) )
+           * mat.compute_density_NaCl_solution(mass_fraction_solute_,
+                                               temperature_) )
     return (c.pi_times_4_over_3_inv * Vp)**(c.one_third)
 
 ###############################################################################
@@ -149,6 +167,7 @@ def compute_particle_reynolds_number(radius_, velocity_dev_, fluid_density_,
 # R_p in mu
 # result without unit -> conversion from mu 
 @vectorize("float64(float64,float64,float64,float64)")
+#@njit()
 def compute_kelvin_argument(R_p, T_p, rho_p, sigma_p):
     return 2.0E6 * sigma_p \
            / ( c.specific_gas_constant_water_vapor * T_p * rho_p * R_p )
@@ -180,13 +199,13 @@ def compute_kelvin_term_mf(mass_fraction_solute_,
 @vectorize(
     "float64(float64, float64, float64, float64, float64)")
 def compute_equilibrium_saturation_NaCl(w_s, R_p, T_p, rho_p, sigma_w):
-    return compute_water_activity_NaCl(w_s)\
+    return mat.compute_water_activity_NaCl(w_s)\
            * compute_kelvin_term(R_p, T_p, rho_p, sigma_w)
 
 @vectorize(
     "float64(float64, float64, float64, float64, float64)")
 def compute_equilibrium_saturation_AS(w_s, R_p, T_p, rho_p, sigma_w):
-    return compute_water_activity_AS(w_s)\
+    return mat.compute_water_activity_AS(w_s)\
            * compute_kelvin_term(R_p, T_p, rho_p, sigma_w)
            
 # @vectorize(
@@ -208,14 +227,14 @@ def compute_water_activity_NaCl_vH_mf(mass_fraction_solute_, vant_Hoff_):
 #                       * compute_vant_Hoff_factor_NaCl(mass_fraction_solute_))\
 #                   * mass_fraction_solute_ )
     return (1. - mass_fraction_solute_)\
-         / ( 1. - ( 1. - molar_mass_ratio_w_NaCl * vant_Hoff_ )
+         / ( 1. - ( 1. - mat.molar_mass_ratio_w_NaCl * vant_Hoff_ )
                  * mass_fraction_solute_ )
 
 @vectorize(
 "float64(float64, float64, float64, float64, float64, float64, float64)")
 def compute_equilibrium_saturation_NaCl_vH(m_w, m_s, w_s, R_p,
                                         T_p, rho_p, sigma_w):
-    return compute_water_activity_NaCl_vH(m_w, m_s, w_s)\
+    return mat.compute_water_activity_NaCl_vH(m_w, m_s, w_s)\
            * compute_kelvin_term(R_p, rho_p, T_p, sigma_w)
 
 @njit()
@@ -248,23 +267,24 @@ def compute_equilibrium_saturation_NaCl_vH_mf(mass_fraction_solute_,
     return compute_equilibrium_saturation_NaCl_from_vH_mf(
                mass_fraction_solute_,
                temperature_,
-               compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
+               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
                mass_solute_,
-               compute_density_NaCl_solution(mass_fraction_solute_, temperature_),
-               compute_surface_tension_water(temperature_))
+               mat.compute_density_NaCl_solution(mass_fraction_solute_,
+                                                 temperature_),
+               mat.compute_surface_tension_water(temperature_))
 
 @njit()
 def compute_equilibrium_saturation_NaCl_mf(w_s, T_p, m_s):
-    rho_p = compute_density_NaCl_solution(w_s, T_p)
-    sigma_p = compute_surface_tension_NaCl(w_s, T_p)
-    return compute_water_activity_NaCl(w_s) \
+    rho_p = mat.compute_density_NaCl_solution(w_s, T_p)
+    sigma_p = mat.compute_surface_tension_NaCl(w_s, T_p)
+    return mat.compute_water_activity_NaCl(w_s) \
            * compute_kelvin_term_mf(w_s, T_p, m_s, rho_p, sigma_p)
 
 @njit()
 def compute_equilibrium_saturation_AS_mf(w_s, T_p, m_s):
-    rho_p = compute_density_AS_solution(w_s, T_p)
-    sigma_p = compute_surface_tension_AS(w_s, T_p)
-    return compute_water_activity_AS(w_s) \
+    rho_p = mat.compute_density_AS_solution(w_s, T_p)
+    sigma_p = mat.compute_surface_tension_AS(w_s, T_p)
+    return mat.compute_water_activity_AS(w_s) \
            * compute_kelvin_term_mf(w_s, T_p, m_s, rho_p, sigma_p)
 
 #%% INITIAL MASS FRACTION NaCl
@@ -299,17 +319,18 @@ def compute_initial_mass_fraction_solute_m_s_NaCl(m_s,
 #    m_s = compute_mass_from_radius(radius_dry_, c.mass_density_NaCl_dry)
 #    w_s_effl = compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
     # 1.
-    S_effl = compute_equilibrium_saturation_NaCl_mf(w_s_max_NaCl,
+    S_effl = compute_equilibrium_saturation_NaCl_mf(mat.w_s_max_NaCl,
                                                   ambient_temperature_, m_s)
     # 2.
     # np.where(ambient_saturation_ <= S_effl, w_s_init = w_s_effl,)
     if ambient_saturation_ <= S_effl:
-        w_s_init = w_s_max_NaCl
+        w_s_init = mat.w_s_max_NaCl
     else:
         # 3.
         w_s_act, S_act, flag, nofc  = \
             fminbound(compute_equilibrium_saturation_negative_NaCl_mf,
-                      x1=1E-8, x2=w_s_max_NaCl, args=(ambient_temperature_, m_s),
+                      x1=1E-8, x2=mat.w_s_max_NaCl,
+                      args=(ambient_temperature_, m_s),
                       xtol = 1.0E-12, full_output=True )
         # 4.
         # increase w_s_act slightly to avoid numerical problems
@@ -319,7 +340,7 @@ def compute_initial_mass_fraction_solute_m_s_NaCl(m_s,
         # set w_s_act (i.e. the min bound for brentq() solve below )
         # to deliqu. mass fraction if fminbound does not converge
         else:
-            w_s_act = compute_solubility_NaCl(ambient_temperature_)
+            w_s_act = mat.compute_solubility_NaCl(ambient_temperature_)
         # update S_act to S_act* < S_act (right branch of S_eq vs w_s curve)
         S_act = compute_equilibrium_saturation_NaCl_mf(w_s_act,
                                                    ambient_temperature_, m_s)
@@ -335,7 +356,7 @@ def compute_initial_mass_fraction_solute_m_s_NaCl(m_s,
                     #               w, ambient_temperature_, m_s)\
                     #           - ambient_saturation_,
                     w_s_act,
-                    w_s_max_NaCl,
+                    mat.w_s_max_NaCl,
                     (ambient_temperature_, m_s, ambient_saturation_),
                     xtol = 1e-15,
                     full_output=True)
@@ -365,10 +386,11 @@ def compute_equilibrium_saturation_negative_NaCl_vH_mf(mass_fraction_solute_,
     return -compute_equilibrium_saturation_NaCl_from_vH_mf(
                mass_fraction_solute_,
                temperature_,
-               compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
+               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
                mass_solute_,
-               compute_density_NaCl_solution(mass_fraction_solute_, temperature_),
-               compute_surface_tension_water(temperature_))
+               mat.compute_density_NaCl_solution(mass_fraction_solute_,
+                                             temperature_),
+               mat.compute_surface_tension_water(temperature_))
 
 def compute_equilibrium_saturation_minus_S_amb_NaCl_vH_mf(mass_fraction_solute_,
                                            temperature_,
@@ -376,10 +398,11 @@ def compute_equilibrium_saturation_minus_S_amb_NaCl_vH_mf(mass_fraction_solute_,
     return -ambient_saturation_ + compute_equilibrium_saturation_NaCl_from_vH_mf(
                mass_fraction_solute_,
                temperature_,
-               compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
+               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
                mass_solute_,
-               compute_density_NaCl_solution(mass_fraction_solute_, temperature_),
-               compute_surface_tension_water(temperature_))
+               mat.compute_density_NaCl_solution(mass_fraction_solute_,
+                                                 temperature_),
+               mat.compute_surface_tension_water(temperature_))
 
 ### INITIALIZE MASS FRACTION
 # input:
@@ -480,10 +503,11 @@ def compute_initial_mass_fraction_solute_m_s_NaCl_vH(m_s,
                                                   ):
     # 0.
 #    m_s = compute_mass_from_radius(radius_dry_, c.mass_density_NaCl_dry)
-    w_s_effl = compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
+    w_s_effl =\
+        mat.compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
     # 1.
     S_effl = compute_equilibrium_saturation_NaCl_mf(w_s_effl,
-                                                ambient_temperature_, m_s)
+                                                    ambient_temperature_, m_s)
     # 2.
     # np.where(ambient_saturation_ <= S_effl, w_s_init = w_s_effl,)
     if ambient_saturation_ <= S_effl:
@@ -502,7 +526,7 @@ def compute_initial_mass_fraction_solute_m_s_NaCl_vH(m_s,
         # set w_s_act (i.e. the min bound for brentq() solve below )
         # to deliqu. mass fraction if fminbound does not converge
         else:
-            w_s_act = compute_solubility_NaCl(ambient_temperature_)
+            w_s_act = mat.compute_solubility_NaCl(ambient_temperature_)
         # update S_act to S_act* < S_act (right branch of S_eq vs w_s curve)
         S_act = compute_equilibrium_saturation_NaCl_mf(w_s_act,
                                                    ambient_temperature_, m_s)
@@ -570,17 +594,18 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
 #    m_s = compute_mass_from_radius(radius_dry_, c.mass_density_NaCl_dry)
 #    w_s_effl = compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
     # 1.
-    S_effl = compute_equilibrium_saturation_AS_mf(w_s_max_AS,
+    S_effl = compute_equilibrium_saturation_AS_mf(mat.w_s_max_AS,
                                                   ambient_temperature_, m_s)
     # 2.
     # np.where(ambient_saturation_ <= S_effl, w_s_init = w_s_effl,)
     if ambient_saturation_ <= S_effl:
-        w_s_init = w_s_max_AS
+        w_s_init = mat.w_s_max_AS
     else:
         # 3.
         w_s_act, S_act, flag, nofc  = \
             fminbound(compute_equilibrium_saturation_negative_AS_mf,
-                      x1=1E-8, x2=w_s_max_AS, args=(ambient_temperature_, m_s),
+                      x1=1E-8, x2=mat.w_s_max_AS,
+                      args=(ambient_temperature_, m_s),
                       xtol = 1.0E-12, full_output=True )
         # 4.
         # increase w_s_act slightly to avoid numerical problems
@@ -590,7 +615,7 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
         # set w_s_act (i.e. the min bound for brentq() solve below )
         # to deliqu. mass fraction if fminbound does not converge
         else:
-            w_s_act = compute_solubility_AS(ambient_temperature_)
+            w_s_act = mat.compute_solubility_AS(ambient_temperature_)
         # update S_act to S_act* < S_act (right branch of S_eq vs w_s curve)
         S_act = compute_equilibrium_saturation_AS_mf(w_s_act,
                                                    ambient_temperature_, m_s)
@@ -602,11 +627,8 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
             solve_result = \
                 brentq(
                     compute_equilibrium_saturation_minus_S_amb_AS_mf,
-                    # lambda w: compute_equilibrium_saturation_NaCl_mf(
-                    #               w, ambient_temperature_, m_s)\
-                    #           - ambient_saturation_,
                     w_s_act,
-                    w_s_max_AS,
+                    mat.w_s_max_AS,
                     (ambient_temperature_, m_s, ambient_saturation_),
                     xtol = 1e-15,
                     full_output=True)
@@ -778,18 +800,18 @@ def compute_mass_rate_derivative_NaCl_vH_np(
     
     eps_k = compute_kelvin_argument(R_p, T_p, rho_p, sigma_w) # in SI - no unit
     
-    vH = compute_vant_Hoff_factor_NaCl(w_s)
-    dvH_dws = compute_dvH_dws_NaCl(w_s)
+    vH = mat.compute_vant_Hoff_factor_NaCl(w_s)
+    dvH_dws = mat.compute_dvH_dws_NaCl(w_s)
 #    dvH_dws = np.where(w_s < mf_cross_NaCl, 0.0, par_vH_NaCl[1])
     
-    # dont convert masses here
-    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
+    # dont convert masses here 
+    h1_inv = 1.0 / (m_w + m_s * mat.molar_mass_ratio_w_NaCl * vH) 
         
     S_eq = m_w * h1_inv * np.exp(eps_k)
     
     dSeq_dm =\
         S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho )\
-                - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
+                - (1 - mat.molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
                   * h1_inv * 1.0E18)
     
     c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb)
@@ -831,18 +853,18 @@ def compute_mass_rate_and_derivative_NaCl_vH_np(m_w, m_s, w_s, R_p, T_p, rho_p,
     
     eps_k = compute_kelvin_argument(R_p, T_p, rho_p, sigma_p) # in SI - no unit
     
-    vH = compute_vant_Hoff_factor_NaCl(w_s)
-    dvH_dws = compute_dvH_dws_NaCl(w_s)
+    vH = mat.compute_vant_Hoff_factor_NaCl(w_s)
+    dvH_dws = mat.compute_dvH_dws_NaCl(w_s)
 #    dvH_dws = np.where(w_s < mf_cross_NaCl, np.zeros_like(w_s),
 #                       np.ones_like(w_s) * par_vH_NaCl[1])
     # dont convert masses here
-    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
+    h1_inv = 1.0 / (m_w + m_s * mat.molar_mass_ratio_w_NaCl * vH) 
         
     S_eq = m_w * h1_inv * np.exp(eps_k)
     
     dSeq_dm =\
         S_eq * (1.0E18 / m_w - eps_k * ( dR_p_dm_over_R_p + drho_dm_over_rho )\
-                - (1 - molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
+                - (1 - mat.molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
                   * h1_inv * 1.0E18)
     
     c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb )
@@ -888,11 +910,12 @@ def compute_mass_rate_and_derivative_NaCl_np(m_w, m_s, w_s, R_p, T_p, rho_p,
     l_beta_plus_R_p = 1.0E-6 * (R_p + compute_l_beta_lin(T_amb, D_v) )
        
     m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
-    # dont use piecewise for now to avoid discontinuity in density...
+    #### diff1
     drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
                        * ( par_sol_dens_NaCl[1] \
                            + 2.0 * par_sol_dens_NaCl[3] * w_s \
                            + par_sol_dens_NaCl[4] * T_p)
+    ####
 
     dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
     dR_p_dm = 1.0E-6 * dR_p_dm_over_R_p * R_p
@@ -908,14 +931,14 @@ def compute_mass_rate_and_derivative_NaCl_np(m_w, m_s, w_s, R_p, T_p, rho_p,
 #    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
     
     # no unit
-    a_w = compute_water_activity_NaCl(w_s)
+    a_w = mat.compute_water_activity_NaCl(w_s)
     
     
     # in 1/kg
     da_w_dm = -m_p_inv_SI * w_s * compute_polynom(par_wat_act_deriv_NaCl, w_s)
     
     # IN WORK: UNITS?
-    dsigma_dm = -par_sigma_NaCl * compute_surface_tension_water(T_p) \
+    dsigma_dm = -par_sigma_NaCl * mat.compute_surface_tension_water(T_p) \
                 * m_p_inv_SI * ( w_s / ( (1.-w_s)*(1.-w_s) ) )
             
 #    S_eq = m_w * h1_inv * np.exp(eps_k)
@@ -974,8 +997,6 @@ par_rho_deriv_AS = np.copy(par_rho_AS[:-1]) \
 
 par_wat_act_deriv_AS = np.copy(par_wat_act_AS[:-1]) \
                        * np.arange(1,len(par_wat_act_AS))[::-1]
-
-           
 # convert now sigma_w to sigma_p (surface tension)
 # return mass rate in fg/s and mass rate deriv in SI: 1/s
 def compute_mass_rate_and_derivative_AS_np(m_w, m_s, w_s, R_p, T_p, rho_p,
@@ -989,16 +1010,17 @@ def compute_mass_rate_and_derivative_AS_np(m_w, m_s, w_s, R_p, T_p, rho_p,
     l_beta_plus_R_p = 1.0E-6 * (R_p + compute_l_beta_lin(T_amb, D_v) )
        
     m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
-    # dont use piecewise for now to avoid discontinuity in density...
-    # IN WORK: UNITS?
-    drho_dm_over_rho = -compute_density_water(T_p) * m_p_inv_SI / rho_p\
+    #### diff1
+    drho_dm_over_rho = -mat.compute_density_water(T_p) * m_p_inv_SI / rho_p\
                        * w_s * compute_polynom(par_rho_deriv_AS, w_s)
-                           
+    ####                       
+
     dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
     dR_p_dm = 1.0E-6 * dR_p_dm_over_R_p * R_p
     
     eps_k = compute_kelvin_argument(R_p, T_p, rho_p, sigma_p) # in SI - no unit
     kelvin_term = np.exp(eps_k)
+
 #    vH = compute_vant_Hoff_factor_NaCl(w_s)
 #    dvH_dws = compute_dvH_dws(w_s)
 #    dvH_dws = np.where(w_s < mf_cross_NaCl, np.zeros_like(w_s),
@@ -1007,13 +1029,13 @@ def compute_mass_rate_and_derivative_AS_np(m_w, m_s, w_s, R_p, T_p, rho_p,
 #    h1_inv = 1.0 / (m_w + m_s * molar_mass_ratio_w_NaCl * vH) 
     
     # no unit
-    a_w = compute_water_activity_AS(w_s)
+    a_w = mat.compute_water_activity_AS(w_s)
     
     # in 1/kg
     da_w_dm = -m_p_inv_SI * w_s * compute_polynom(par_wat_act_deriv_AS, w_s)
     
     # IN WORK: UNITS?
-    dsigma_dm = -par_sigma_AS * compute_surface_tension_water(T_p) \
+    dsigma_dm = -par_sigma_AS * mat.compute_surface_tension_water(T_p) \
                 * m_p_inv_SI * ( w_s / ( (1.-w_s)*(1.-w_s) ) )
             
 #    S_eq = m_w * h1_inv * np.exp(eps_k)
@@ -1050,7 +1072,7 @@ def compute_mass_rate_and_derivative_AS_np(m_w, m_s, w_s, R_p, T_p, rho_p,
 #           1.0E-12 * f1f3\
 #           * ( f2 * ( 2.0 * dR_p_dm_over_R_p - f3 * dg1_dm ) - dSeq_dm )
 compute_mass_rate_and_derivative_AS =\
-njit()(compute_mass_rate_and_derivative_AS_np)
+    njit()(compute_mass_rate_and_derivative_AS_np)
 #compute_mass_rate_and_derivative_AS_par =\
 #njit(parallel = True)(compute_mass_rate_and_derivative_AS_np)
 
