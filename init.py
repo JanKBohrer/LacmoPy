@@ -22,16 +22,12 @@ from microphysics import compute_mass_from_radius_vec
 from microphysics import \
     compute_initial_mass_fraction_solute_m_s_NaCl, \
     compute_initial_mass_fraction_solute_m_s_AS, \
-    compute_R_p_w_s_rho_p_NaCl, \
-    compute_R_p_w_s_rho_p_AS
-#                         compute_mass_from_radius_vec,\
-#                         compute_radius_from_mass_vec,\
-#                         compute_density_particle,\
-#                         compute_initial_mass_fraction_solute_NaCl,\
+    compute_R_p_w_s_rho_p
+#    compute_R_p_w_s_rho_p_NaCl, \
+#    compute_R_p_w_s_rho_p_AS
 
 from integration import \
-    compute_dml_and_gamma_impl_Newton_full_NaCl,\
-    compute_dml_and_gamma_impl_Newton_full_AS
+    compute_dml_and_gamma_impl_Newton_full
 
 from materialproperties import \
     compute_diffusion_constant,\
@@ -62,7 +58,6 @@ from grid import compute_no_grid_cells_from_step_sizes
 pi_inv = 1.0/np.pi
 def compute_stream_function_Arabas(x_, z_, j_max_, x_domain_, z_domain_):
     return -j_max_ * x_domain_ * pi_inv * np.sin(np.pi * z_ / z_domain_)\
-                                        * np.cos( 2 * np.pi * x_ / x_domain_)
 
 # dry mass flux  j_d = rho_d * vel
 # Z = domain height z
@@ -1942,29 +1937,41 @@ def initialize_grid_and_particles_SinSIP(genpar, save_path):
                 m_w_cell = m_w_lvl[ind_x]
                 m_s_cell = m_s_lvl[ind_x]
                 
-                if solute_type == "NaCl":
-                    R_p_cell, w_s_cell, rho_p_cell =\
-                        compute_R_p_w_s_rho_p_NaCl(m_w_cell, m_s_cell, T_avg)
-                    sigma_p_cell = compute_surface_tension_water(T_avg)
-                    dm_l, gamma_ =\
-                    compute_dml_and_gamma_impl_Newton_full_NaCl(
-                        dt_init, Newton_iterations, m_w_cell,
-                        m_s_cell, w_s_cell, R_p_cell, T_avg,
-                        rho_p_cell,
-                        T_avg, p_avg, S_avg2, e_s_avg,
-                        L_v, K, D_v, sigma_p_cell)
-                elif solute_type == "AS":
-                    R_p_cell, w_s_cell, rho_p_cell =\
-                        compute_R_p_w_s_rho_p_AS(m_w_cell, m_s_cell, T_avg)
-                    sigma_p_cell = compute_surface_tension_AS(w_s_cell, T_avg)
-                    dm_l, gamma_ =\
-                    compute_dml_and_gamma_impl_Newton_full_AS(
-                        dt_init, Newton_iterations, m_w_cell,
-                        m_s_cell, w_s_cell, R_p_cell, T_avg,
-                        rho_p_cell,
-                        T_avg, p_avg, S_avg2, e_s_avg,
-                        L_v, K, D_v, sigma_p_cell)
-                
+                R_p_cell, w_s_cell, rho_p_cell =\
+                    compute_R_p_w_s_rho_p(m_w_cell, m_s_cell, T_avg, solute_type)
+                sigma_p_cell = compute_surface_tension_water(T_avg)
+                dm_l, gamma_ =\
+                compute_dml_and_gamma_impl_Newton_full(
+                    dt_init, Newton_iterations, m_w_cell,
+                    m_s_cell, w_s_cell, R_p_cell, T_avg,
+                    rho_p_cell,
+                    T_avg, p_avg, S_avg2, e_s_avg,
+                    L_v, K, D_v, sigma_p_cell, solute_type)
+
+############## OLD
+#                if solute_type == "NaCl":
+#                    R_p_cell, w_s_cell, rho_p_cell =\
+#                        compute_R_p_w_s_rho_p_NaCl(m_w_cell, m_s_cell, T_avg)
+#                    sigma_p_cell = compute_surface_tension_water(T_avg)
+#                    dm_l, gamma_ =\
+#                    compute_dml_and_gamma_impl_Newton_full_NaCl(
+#                        dt_init, Newton_iterations, m_w_cell,
+#                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+#                        rho_p_cell,
+#                        T_avg, p_avg, S_avg2, e_s_avg,
+#                        L_v, K, D_v, sigma_p_cell)
+#                elif solute_type == "AS":
+#                    R_p_cell, w_s_cell, rho_p_cell =\
+#                        compute_R_p_w_s_rho_p_AS(m_w_cell, m_s_cell, T_avg)
+#                    sigma_p_cell = compute_surface_tension_AS(w_s_cell, T_avg)
+#                    dm_l, gamma_ =\
+#                    compute_dml_and_gamma_impl_Newton_full_AS(
+#                        dt_init, Newton_iterations, m_w_cell,
+#                        m_s_cell, w_s_cell, R_p_cell, T_avg,
+#                        rho_p_cell,
+#                        T_avg, p_avg, S_avg2, e_s_avg,
+#                        L_v, K, D_v, sigma_p_cell)
+###############                
                 
                 m_w_lvl[ind_x] += dm_l
 #                m_w[l][cell] += dm_l

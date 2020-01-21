@@ -19,8 +19,6 @@ from scipy.optimize import brentq
 from numba import njit, vectorize
 
 import constants as c
-#import materialproperties
-#molar_mass_ratio_w_NaCl = materialproperties.molar_mass_ratio_w_NaCl
 import materialproperties as mat
 
 par_sol_dens_NaCl = mat.par_sol_dens_NaCl
@@ -31,34 +29,6 @@ par_wat_act_NaCl = mat.par_wat_act_NaCl
 
 par_sigma_AS = mat.par_sigma_AS
 par_sigma_NaCl = mat.par_sigma_NaCl
-
-#from materialproperties import compute_density_water,\
-#                               compute_density_NaCl_solution,\
-#                               compute_density_AS_solution,\
-#                               compute_solubility_NaCl,\
-#                               compute_solubility_AS,\
-#                               compute_surface_tension_water,\
-#                               compute_surface_tension_NaCl,\
-#                               compute_surface_tension_AS,\
-#                               compute_water_activity_NaCl,\
-#                               compute_water_activity_AS,\
-#                               compute_vant_Hoff_factor_NaCl,\
-#                               compute_water_activity_NaCl_vH,\
-#                               compute_dvH_dws_NaCl,\
-#                               compute_efflorescence_mass_fraction_NaCl,\
-#                               molar_mass_ratio_w_NaCl,\
-#                               par_sol_dens_NaCl,\
-#                               par_rho_AS,\
-#                               par_wat_act_AS,\
-#                               par_wat_act_NaCl,\
-#                               par_sigma_AS,\
-#                               par_sigma_NaCl,\
-#                               w_s_max_AS,\
-#                               w_s_max_NaCl
-                               
-#from atmosphere import compute_specific_heat_capacity_air_moist,\
-#                       compute_diffusion_constant,\
-#                       compute_thermal_conductivity_air
                        
 from algebra import compute_polynom
 

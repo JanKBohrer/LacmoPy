@@ -2,7 +2,7 @@
 # execute generate grid and particles n times with different seeds
 
 first_seed_gen=1001
-no_sims=20
+no_sims=5
 
 for ((n=0; n<$no_sims; n++))
 do
