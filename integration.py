@@ -24,37 +24,6 @@ import atmosphere as atm
 import microphysics as mp
 from relaxation import compute_relaxation_time_profile, compute_relaxation_term
 
-#from materialproperties import \
-#    compute_saturation_pressure_vapor_liquid,\
-#    compute_heat_of_vaporization,\
-#    compute_thermal_conductivity_air,\
-#    compute_diffusion_constant,\
-#    compute_viscosity_air,\
-#    compute_surface_tension_water
-#    compute_surface_tension_solution,\
-#    compute_surface_tension_AS,\
-#    compute_surface_tension_NaCl,\
-#    compute_density_AS_solution,\
-#    compute_density_NaCl_solution,\
-#    compute_density_solution,\
-#    w_s_max_AS,\
-#    w_s_max_NaCl
-#from microphysics import \
-#    compute_R_p_w_s_rho_p,\
-#    compute_R_p_w_s_rho_p_NaCl,\
-#    compute_R_p_w_s_rho_p_AS,\
-#    compute_particle_reynolds_number,\
-#    compute_radius_from_mass,\
-#    compute_mass_rate_AS,\
-#    compute_mass_rate_NaCl,\
-#    compute_mass_rate_and_derivative_AS,\
-#    compute_mass_rate_and_derivative_NaCl
-#from atmosphere import \
-#    compute_Theta_over_T, c_pv_over_c_pd,\
-#    compute_p_dry_over_p_ref,\
-#    compute_specific_heat_capacity_air_moist,\
-#    compute_pressure_vapor,\
-#   kappa_air_dry, epsilon_gc
 from collision.AON import \
     collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
 from file_handling import \
@@ -108,8 +77,7 @@ def compute_limiter_from_scalar_grid_upwind( a0, a1, a2 ):
 #                      ( a0 - a1 ) * 1.0E8 * np.sign(da12)
 #                    )
     return compute_limiter( r )
-    
-#######################################
+
 # computes divergencence of (a * vec) based on vec at the grid cell "surfaces".
 # for scalar field quantity a, it is calculated
 # div( a * vec ) = d/dx (a * vec_x) + d/dz (a * vec_z)
@@ -130,17 +98,6 @@ def compute_divergence_upwind_np(field, flux_field,
     u = flux_field[0][:, 0:-1]
     # transpose w to get same dimensions and routine
     w = np.transpose(flux_field[1][0:-1, :])
-    # if (flux_type == 0):
-    #     u = grid_velocity[0][:, 0:-1]
-    #     # transpose w to get same dimensions and routine
-    #     w = np.transpose(grid_velocity[1][0:-1, :])
-    # elif (flux_type == 1):
-    #     u = grid_mass_flux_air_dry [0][:, 0:-1]
-    #     # transpose w to get same dimensions and routine
-    #     w = np.transpose(grid_mass_flux_air_dry[1][0:-1, :])
-    # else:
-    #     print ('ERROR: invalid flux type' )
-    #     return 0
     
     N = Nx
     if (boundary_conditions[0] == 0):
@@ -148,38 +105,17 @@ def compute_divergence_upwind_np(field, flux_field,
         field_x =\
             np.vstack( ( np.vstack((field[N-2], field[N-1])),
                           field, np.vstack((field[0], field[1])) ) )
-            # np.vstack( ( field[N-2,np.newaxis], field[N-1,np.newaxis],
-            #              field, field[0,np.newaxis], field[1,np.newaxis] ) )
     elif (boundary_conditions[0] == 1):
         # fixed bc
         field_x =\
             np.vstack( ( np.vstack((field[0], field[0])),
                           field, np.vstack((field[N-1], field[N-1])) ) )        
-            # np.vstack( ( field[0,np.newaxis], field[0,np.newaxis], field,
-            #              field[N-1,np.newaxis], field[N-1,np.newaxis] ) )
-            # np.vstack( ( field[0], field[0], field,
-            #              field[N-1], field[N-1] ) )
     else:
         print ('ERROR: invalid boundary type' )
-        # return 0
-    # i_old range from 0 .. Nx - 1
-    # i_new = i_old + 2, and ranges from 0 ... Nx + 3
-    # Nx + 2 is last entry of u[i,j]
-    # need limiter in every cell of u[i,j] : i = 0 .. Nx, j = 0 .. Nz-1
-    # i_old = 0 -> i_new = 2
-    # field_x[2:4] is NOT including 4
     a0 = field_x[2:N+3]
     a1 = field_x[1:N+2]
-#        a2 = field_x[0:N+1]
     a2 = field_x[0:N+1]
     limiter = compute_limiter_from_scalar_grid_upwind( a0, a1, a2 )
-#    da12 = field_x[1:N+2] - field_x[0:N+1]
-#    limiter = compute_limiter_from_scalar_grid_upwind( a0, a1, da12 )
-#    r = (a0 - a1) / (a1 - a2)
-#    print('limiter argument x pos')
-#    print(r[slicer])
-#    print('limiter x pos')
-#    print(limiter[slicer])
     
     # calc f_i_pos = F_i^(+) / u_i
     # where F_i^(+) = flux through surface cell 'i' LEFT BORDER in case u > 0
@@ -190,11 +126,8 @@ def compute_divergence_upwind_np(field, flux_field,
     # a1 and a0 switch places
     # a1 = a0
     # a0 = a1
-#    da12 = a0 - field_x[3:N+4]
-#    limiter = compute_limiter_from_scalar_grid_upwind( a1, a0, da12 )
     a2 = field_x[3:N+4]
     limiter = compute_limiter_from_scalar_grid_upwind( a1, a0, a2 )
-#    print(limiter[slicer])
     f_neg = a0 + 0.5 * limiter * (a0 - a2)
     
     # np.where to make cases u <> 0
@@ -208,14 +141,7 @@ def compute_divergence_upwind_np(field, flux_field,
         F[-1] = 0.0
     
     div = (F[1:] - F[0:-1]) / grid_steps[0]
-#    print( 'div_x' )
-#    print(div[24:27,77:])
     
-#        print( '' )
-#        print( 'div_x' )
-#        print( div_x )
-    
-    ###
     # now for z / w component
     # transpose to get same dimensions and routine
     N = Nz
@@ -224,27 +150,17 @@ def compute_divergence_upwind_np(field, flux_field,
 
         field_x = np.vstack( ( np.vstack((field_x[N-2], field_x[N-1])), field_x,
                                 np.vstack((field_x[0], field_x[1])) ) )
-#        field_x = np.vstack( ( field[N-2], field[N-1], field,
-#                               field[0], field[1] ) )
     elif (boundary_conditions[1] == 1):
         field_x =  np.vstack( ( np.vstack((field_x[0], field_x[0])), field_x,
                                 np.vstack((field_x[N-1], field_x[N-1])) ) )
-#        field_x = np.vstack( ( field[0], field[0], field,
-#                               field[N-1], field[N-1] ) )
     else:
         print ('ERROR: invalid boundary type' )
-        # return 0
 
     a0 = field_x[2:N+3]
     a1 = field_x[1:N+2]
-#        a2 = field_x[0:N+1]
-#    da12 = field_x[1:N+2] - field_x[0:N+1]
-#    limiter = compute_limiter_from_scalar_grid_upwind( a0, a1, da12 )
     a2 = field_x[0:N+1]
     limiter = compute_limiter_from_scalar_grid_upwind( a0, a1, a2 )
-#    print('limiter z pos')
-#    print(limiter[slicer])
-    
+
     # calc f_i_pos = F_i^(+) / u_i
     # where F_i^(+) = flux through surface cell 'i' LEFT BORDER in case u > 0
     
@@ -254,11 +170,8 @@ def compute_divergence_upwind_np(field, flux_field,
     # a1 and a0 switch places
     # a1 = a0
     # a0 = a1
-#    da12 = a0 - field_x[3:N+4]
-#    limiter = compute_limiter_from_scalar_grid_upwind( a1, a0, da12 )
     a2 = field_x[3:N+4]
     limiter = compute_limiter_from_scalar_grid_upwind( a1, a0, a2 )
-#    print(limiter[slicer])
     
     f_neg = a0 + 0.5 * limiter * (a0 - a2)
     
@@ -270,77 +183,8 @@ def compute_divergence_upwind_np(field, flux_field,
     if(boundary_conditions[1] == 1):
         F[0] = 0.0
         F[-1] = 0.0
-#        div += np.transpose( (F[1:] - F[0:-1]) / grid.steps[1] )
-    
-#        print('')
-#        print('div_z')
-#        print(div_z)
-    
-#        divs.append(div_x + np.transpose(div_z))
-#    div_z = np.transpose( (F[1:] - F[0:-1]) / grid.steps[1] )
-#    print('div_z')
-#    print(div_z[24:27,77:])
     return div + np.transpose( (F[1:] - F[0:-1]) / grid_steps[1] )
-#    return div + div_z
 compute_divergence_upwind = njit()(compute_divergence_upwind_np)
-
-
-# def compute_new_Theta_and_r_v_advection_and_condensation(
-#         grid, delta_m_l, delta_Q_con_f, dt,
-#         flux_type=1, boundary_conditions=[0,1] ):
-    
-#     # RK2 term for T
-#     # calc k_T first, since it req. r_v at beginning of timestep
-#     k_T = ( -dt * compute_divergence_upwind(
-#                       grid, grid.potential_temperature,
-#                       flux_type=flux_type,
-#                       boundary_conditions=boundary_conditions) \
-#             - delta_Q_con_f \
-#               / ( compute_specific_heat_capacity_air_moist(
-#                       grid.mixing_ratio_water_vapor)
-#                   * (1 + grid.mixing_ratio_water_vapor)*grid.volume_cell ) )\
-#           / grid.mass_density_air_dry
-#     # RK2 term for r_v
-#     k_r_v = ( -1.0 * dt * compute_divergence_upwind(
-#                               grid, grid.mixing_ratio_water_vapor,
-#                               flux_type = flux_type,
-#                               boundary_conditions=boundary_conditions) \
-#               - delta_m_l / grid.volume_cell) / grid.mass_density_air_dry
-#     # new r_v array
-#     r_v = grid.mixing_ratio_water_vapor\
-#           - ( dt * compute_divergence_upwind(
-#                        grid, grid.mixing_ratio_water_vapor + 0.5 * k_r_v,
-#                        flux_type = flux_type,
-#                        boundary_conditions=boundary_conditions) 
-#               + delta_m_l / grid.volume_cell ) / grid.mass_density_air_dry
-    
-# #     delta_r_v = ( -1.0 * dt * compute_divergence_upwind(
-# #                               grid,
-# #                               grid.mixing_ratio_water_vapor + 0.5 * k_r_v,
-# #                               flux_type = 1) \
-# #                   - delta_m_l / grid.volume_cell)/grid.mass_density_air_dry
-# #     grid.mixing_ratio_water_vapor += delta_r_v
-#     # calc T last, because it req. r_v at end of timestep
-#     T = grid.potential_temperature\
-#             - ( dt * compute_divergence_upwind(
-#                          grid, 
-#                          grid.potential_temperature + 0.5 * k_T,
-#                          flux_type = flux_type,
-#                          boundary_conditions=boundary_conditions) 
-#                 + delta_Q_con_f \
-#                   / ( compute_specific_heat_capacity_air_moist(r_v)
-#                       * (1.0 + r_v) * grid.volume_cell ) )\
-#               / grid.mass_density_air_dry
-# #     delta_T = ( -1.0 * dt * compute_divergence_upwind(
-# #                                 grid, 
-# #                                 grid.temperature + 0.5 * k_T,
-# #                                 flux_type = 1) \
-# #             - delta_Q_con_f \
-# #             / ( compute_specific_heat_capacity_air_moist(r_v) \
-# #                 * (1 + r_v) * grid.volume_cell ) )/grid.mass_density_air_dry
-#     return T, r_v
-
-
 
 @njit()
 #def update_material_properties(grid_mat_prop, grid_scalar_fields):
@@ -2058,6 +1902,10 @@ def integrate_adv_step_np(
                          boundary_conditions = np.array([0, 1]))\
                      * grid_scalar_fields[9]
     
+    ### CAN BE REMOVED
+    delta_r_v_wo_relax = np.copy(delta_r_v_ad)
+    delta_Theta_wo_relax = np.copy(delta_Theta_ad)
+    
     # c1) add relaxation source term, if activated
     if act_relaxation:
         # note that a 1D array is added to a 2D array
@@ -2069,7 +1917,10 @@ def integrate_adv_step_np(
         delta_Theta_ad += compute_relaxation_term(
                             grid_scalar_fields[2], init_profile_Theta,
                             relaxation_time_profile, dt_sub)
-
+        ### CAN BE REMOVED
+        delta_r_v_w_relax = np.copy(delta_r_v_ad)
+        delta_Theta_w_relax = np.copy(delta_Theta_ad)
+    
     # d1) added collision step to the subloop below
     # d) SUBLOOP 1 START
     # for n_h = 0, ..., N_h-1
@@ -2116,12 +1967,12 @@ def integrate_adv_step_np(
         # note that a 1D array is added to a 2D array
         # in this case, the 1D array is added to each "row" of the 2D array
         # since the 2D array[x][z], a "z-profile" is added for each FIXED x pos
-        delta_r_v_ad += compute_relaxation_term(
-                            grid_scalar_fields[4], init_profile_r_v,
-                            relaxation_time_profile, dt_sub)        
-        delta_Theta_ad += compute_relaxation_term(
-                            grid_scalar_fields[2], init_profile_Theta,
-                            relaxation_time_profile, dt_sub)
+        delta_r_v_ad += 2. * compute_relaxation_term(
+                                grid_scalar_fields[4], init_profile_r_v,
+                                relaxation_time_profile, dt_sub)        
+        delta_Theta_ad += 2. * compute_relaxation_term(
+                                grid_scalar_fields[2], init_profile_Theta,
+                                relaxation_time_profile, dt_sub)
 
     ### f2) added collision step to the subloop below
     # f) SUBLOOP 2 START
@@ -2170,6 +2021,9 @@ def integrate_adv_step_np(
                                 delta_Theta_ad, delta_r_v_ad,
                                 delta_m_l, delta_Q_p,
                                 grid_volume_cell)    
+    ### CAN BE REMOVED
+    return delta_r_v_wo_relax, delta_r_v_w_relax, \
+           delta_Theta_wo_relax, delta_Theta_w_relax
     
 integrate_adv_step = njit()(integrate_adv_step_np)
 
@@ -2438,8 +2292,11 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
             # traced_grid_fields[dump_N,0] = np.copy(grid_scalar_fields[0])
             # traced_grid_fields[dump_N,1] = np.copy(grid_scalar_fields[4])
 
-            dump_N +=1
-            
+            dump_N += 1
+        
+        ### CAN BE REMOVED
+        delta_r_v_wo_relax, delta_r_v_w_relax, \
+        delta_Theta_wo_relax, delta_Theta_w_relax = \
         integrate_adv_step_np(
             grid_scalar_fields, grid_mat_prop, grid_velocity,
             grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -2456,6 +2313,45 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
             no_iter_impl_mass, g_set, 
             E_col_grid, no_kernel_bins,
             R_kernel_low_log, bin_factor_R_log, no_cols)
+    
+    ### CAN BE REMOVED
+    return delta_r_v_wo_relax, delta_r_v_w_relax, \
+           delta_Theta_wo_relax, delta_Theta_w_relax
+    
+    ###### SAVE    
+#    dt_col_over_dV = dt_col / grid_volume_cell
+##    dt_col_over_dV = 0.5 * dt / grid_volume_cell
+#    dump_N = 0
+#    for cnt in range(no_adv_steps):
+#        if cnt % dump_every == 0:
+#            traced_vectors[dump_N,0] = pos[:,trace_ids]
+#            traced_vectors[dump_N,1] = vel[:,trace_ids]
+#            traced_scalars[dump_N,0] = m_w[trace_ids]
+#            traced_scalars[dump_N,1] = m_s[trace_ids]
+#            traced_scalars[dump_N,2] = T_p[trace_ids]
+#            traced_xi[dump_N] = xi[trace_ids]
+#            traced_water[dump_N] = water_removed[0]
+#            # traced_grid_fields[dump_N,0] = np.copy(grid_scalar_fields[0])
+#            # traced_grid_fields[dump_N,1] = np.copy(grid_scalar_fields[4])
+#
+#            dump_N += 1
+#            
+#        integrate_adv_step_np(
+#            grid_scalar_fields, grid_mat_prop, grid_velocity,
+#            grid_mass_flux_air_dry, p_ref, p_ref_inv,
+#            grid_no_cells, grid_ranges,
+#            grid_steps, grid_volume_cell,
+#            pos, vel, cells, rel_pos, m_w, m_s, xi, solute_type,
+#            water_removed,
+#            id_list, active_ids, T_p,
+#            delta_m_l, delta_Q_p,
+#            dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond,
+#            no_col_per_adv, act_collisions,
+#            act_relaxation, init_profile_r_v, init_profile_Theta,
+#            relaxation_time_profile,
+#            no_iter_impl_mass, g_set, 
+#            E_col_grid, no_kernel_bins,
+#            R_kernel_low_log, bin_factor_R_log, no_cols)
 
 
 #%% SIMULATE FULL
@@ -2686,7 +2582,9 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
                                m_w, m_s, xi, active_ids, output_path)
         np.save(output_path + f"no_cols_{int(t)}.npy", no_cols)
 
-
+        ### CAN BE REMOVED
+        delta_r_v_wo_relax, delta_r_v_w_relax, \
+        delta_Theta_wo_relax, delta_Theta_w_relax = \
         simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                       grid_mass_flux_air_dry, p_ref, p_ref_inv,
                       grid_no_cells, grid_ranges,
@@ -2706,6 +2604,17 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
                       traced_xi, traced_water,
                       E_col_grid, no_kernel_bins,
                       R_kernel_low_log, bin_factor_R_log, no_cols)
+        
+        ### CAN BE REMOVED
+        tt = t + frame_every * dt
+        np.save(output_path + f"delta_r_v_wo_relax_{int(tt)}.npy",
+                delta_r_v_wo_relax)
+        np.save(output_path + f"delta_r_v_w_relax_{int(tt)}.npy",
+                delta_r_v_w_relax)
+        np.save(output_path + f"delta_Theta_w_relax_{int(tt)}.npy",
+                delta_Theta_w_relax)
+        np.save(output_path + f"delta_Theta_wo_relax_{int(tt)}.npy",
+                delta_Theta_wo_relax)
         
 #        if act_collisions:
 #            simulate_interval_col(
