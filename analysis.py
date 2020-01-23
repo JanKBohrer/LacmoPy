@@ -1823,7 +1823,7 @@ def generate_moments_avg_std(load_path_list,
     
     save_times_out = np.zeros(no_times, dtype = np.int64)
     
-    print(time_indices)
+#    print(time_indices)
     for time_n in range(no_times):
         idx_t = time_indices[time_n]        
         save_times_out[time_n] = grid_save_times[idx_t]

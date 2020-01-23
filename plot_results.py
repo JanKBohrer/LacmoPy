@@ -12,52 +12,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #%% STORAGE DIRECTORIES
-#my_OS = "Linux_desk"
-#my_OS = "Mac"
-##my_OS = "TROPOS_server"
-#
-#if(my_OS == "Linux_desk"):
-#    home_path = '/home/jdesk/'
-#    simdata_path = "/mnt/D/sim_data_cloudMP/"
-##    fig_path = home_path + 'Onedrive/Uni/Masterthesis/latex/Report/Figures/'
-#elif (my_OS == "Mac"):
-#    simdata_path = "/Users/bohrer/sim_data_cloudMP/"
-#    home_path = "/Users/bohrer/"
-##    fig_path = home_path \
-##               + 'OneDrive - bwedu/Uni/Masterthesis/latex/Report/Figures/'
-#elif (my_OS == "TROPOS_server"):
-#    simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
-simdata_path = "/Users/bohrer/sim_data_cloudMP/"
-#simdata_path = "/Users/bohrer/sim_data_cloudMP_ab_Jan20/"
+#simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+simdata_path = "/Users/bohrer/sim_data_cloudMP_ab_Jan20/"
 home_path = "/Users/bohrer/"
 
 #%% CHOOSE OPERATIONS
 
-#args_plot = [1,1,1]
-#args_plot = [1,1,1]
-#args_plot = [1,0,0]
-
 #args_plot = [0,0,0,0]
 #args_plot = [1,1,1,0]
 args_plot = [1,0,0,0]
-#args_plot = [1,0]
-#args_plot = [0,1]
-#args_plot = [1,1]
 
 act_plot_grid_frames_avg = args_plot[0]
 act_plot_grid_frames_avg_shift = args_plot[1]
 act_plot_spectra_avg_Arabas = args_plot[2]
 act_plot_grid_frames_INIT = args_plot[3]
-#act_get_grid_data = args_plot[2]
 
 #%% GRID PARAMETERS
 
 # needed for filename
-no_cells = (75, 75)
 #no_cells = (10, 10)
 #no_cells = (15, 15)
+no_cells = (75, 75)
 
+# for plots, the periodic grid can be shifted horizont. by shift_cells_x cells
 shift_cells_x = 3
 #shift_cells_x = 56
 
@@ -71,21 +49,21 @@ solute_type = "AS"
 # N1 = no super part. per cell in mode 1 etc.
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
-#no_spcm = np.array([16, 24])
-#no_spcm = np.array([20, 30])
 #no_spcm = np.array([2, 2])
 #no_spcm = np.array([6, 10])
-no_spcm = np.array([26, 38])
+no_spcm = np.array([16, 24])
+#no_spcm = np.array([20, 30])
+#no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
-#seed_SIP_gen = 3811
-seed_SIP_gen = 3811
-seed_sim = 6811
+seed_SIP_gen = 2101
+seed_sim = 2101
 
 #no_seeds = 1
 #no_seeds = 10
 #no_seeds = 20
-no_seeds = 50
+no_seeds = 30
+#no_seeds = 50
 
 #%% SIM PARAMETERS
 
@@ -99,8 +77,8 @@ dt_col = 0.5
 
 # grid load time
 # path = simdata_path + folder_load_base
-t_grid = 0
-#t_grid = 7200
+#t_grid = 0
+t_grid = 7200
 #t_grid = 10800
 #t_grid = 14400
 
@@ -109,8 +87,8 @@ t_grid = 0
 t_start = 7200
 
 #t_end = 60
-#t_end = 3600
 #t_end = 600
+#t_end = 3600
 #t_end = 7200
 t_end = 10800
 #t_end = 14400
@@ -134,12 +112,9 @@ no_bins_R_p = None
 no_bins_R_s = None
 
 #%% LOAD GRID AND SET PATHS
-#singleGrid = True
-singleGrid = False
-dataFromServer = True
-#dataFromServer = False
+data_generated_with_gen_plot_data = True
 
-if dataFromServer:
+if data_generated_with_gen_plot_data:
     data_folder = \
         f"{solute_type}" \
         + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
@@ -156,8 +131,6 @@ else:
     data_path = simdata_path + data_folder
     grid_path = simdata_path + data_folder
 
-#grid_path = simdata_path + data_folder
-
 from file_handling import load_grid_from_files
 
 grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
@@ -166,29 +139,24 @@ grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
 
 grid.print_info()
 
-#grid.plot_thermodynamic_scalar_fields()
+seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
+seed_sim_list = np.load(data_path + "seed_sim_list.npy")
 
-if singleGrid:
-    figpath = home_path + "testingSubmit/"
-else:
-    seed_SIP_gen_list = np.load(data_path + "seed_SIP_gen_list.npy" )
-    seed_sim_list = np.load(data_path + "seed_sim_list.npy")
-    
-    target_cell_list = np.load(data_path
-            + f"target_cell_list_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy")
-    
-    no_neighbor_cells = np.load(data_path
-            + f"neighbor_cells_list_avg_Ns_{no_seeds}_"
-            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )       
-    no_cells_x = no_neighbor_cells[0]
-    no_cells_z = no_neighbor_cells[1]
-    
-    if no_cells_x % 2 == 0: no_cells_x += 1
-    if no_cells_z % 2 == 0: no_cells_z += 1  
-    
-    no_tg_cells = len(target_cell_list[0])   
+target_cell_list = np.load(data_path
+        + f"target_cell_list_avg_Ns_{no_seeds}_"
+        + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy")
+
+no_neighbor_cells = np.load(data_path
+        + f"neighbor_cells_list_avg_Ns_{no_seeds}_"
+        + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+        )       
+no_cells_x = no_neighbor_cells[0]
+no_cells_z = no_neighbor_cells[1]
+
+if no_cells_x % 2 == 0: no_cells_x += 1
+if no_cells_z % 2 == 0: no_cells_z += 1  
+
+no_tg_cells = len(target_cell_list[0])   
 
 #%% PLOT INIT GRID FRAMES
 if act_plot_grid_frames_INIT:
@@ -196,10 +164,8 @@ if act_plot_grid_frames_INIT:
     fig_name = \
                f"grid_init_frames_" \
                + f"t_{t_grid}.png"
-#    if not os.path.exists(figpath):
-#            os.makedirs(figpath)    
     grid.plot_thermodynamic_scalar_fields(fig_path=fig_path + fig_name)
-#    grid.plot_thermodynamic_scalar_fields()
+    print("plotted initial grid frames at t = ", t_grid)
 
 #%% PLOT AVG GRID FRAMES
 
@@ -254,7 +220,8 @@ if act_plot_grid_frames_avg:
                                         no_cells_x = no_cells_x,
                                         no_cells_z = no_cells_z)     
     plt.close("all")   
-
+    
+    print("plotted ensemble-averaged grid frames")
 
 #%% PLOT AVG GRID FRAMES SHIFT IN X DIRECTION
 
@@ -304,13 +271,14 @@ if act_plot_grid_frames_avg_shift:
                                         alpha = 1.0,
                                         TTFS = 12, LFS = 10, TKFS = 10,
                                         cbar_precision = 2,
-#                                        show_target_cells = False,
                                         show_target_cells = show_target_cells,
                                         target_cell_list = target_cell_list,
                                         no_cells_x = no_cells_x,
                                         no_cells_z = no_cells_z,
                                         shift_cells_x = shift_cells_x)     
-#    plt.close("all")   
+
+    print("plotted ensemble-averaged grid frames shifted horiz. by",
+          shift_cells_x, "cells")
 
 #%% PLOT SPECTRA AVG 
 
@@ -359,7 +327,7 @@ if act_plot_spectra_avg_Arabas:
         no_rows = no_rowcol[0]
         no_cols = no_rowcol[1]
         
-    print(no_rows, no_cols)    
+    
     if no_bins_R_p is None:
         no_bins_p_s = np.load(data_path
                 + f"no_bins_p_s_avg_Ns_{no_seeds}_"
@@ -412,4 +380,5 @@ if act_plot_spectra_avg_Arabas:
                                )        
     plt.close("all")    
     
-    
+    print("plotted spectra in target cells:")
+    print(target_cell_list)
