@@ -8,6 +8,11 @@ Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
 MAIN SIMULATION SCRIPT
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
 #%% MODULE IMPORTS

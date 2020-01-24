@@ -7,7 +7,12 @@ Super-Droplet method in two-dimensional kinetic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-time integration algorithms
+time integration algorithms module
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
 #%% MODULE IMPORTS
@@ -22,7 +27,6 @@ from grid import interpolate_velocity_from_cell_bilinear, update_grid_r_l
 import materialproperties as mat
 import atmosphere as atm
 import microphysics as mp
-from relaxation import compute_relaxation_time_profile, compute_relaxation_term
 
 from collision.AON import \
     collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
@@ -177,6 +181,32 @@ def compute_divergence_upwind_np(field, flux_field,
         F[-1] = 0.0
     return div + np.transpose( (F[1:] - F[0:-1]) / grid_steps[1] )
 compute_divergence_upwind = njit()(compute_divergence_upwind_np)
+
+#%% RELAXATION SOURCE TERM
+#   horizontal means of the atmosph. fields Theta and r_v are relaxed towards
+#   the inital profiles with height dependent relaxation time according to
+#   test case 1 ICMW 2012, Muhlbauer et al. 2013
+
+# ICMW 2012 Test case 1 (Muhlbauer 2013, used in Arabas 2015)
+# returns relax_time(z) profile in seconds
+def compute_relaxation_time_profile(z):
+    return 300 * np.exp(z/200)
+
+# field is an 2D array(x,z)
+# profile0 is an 1D profile(z)
+# t_relax is the relaxation time profile(z)
+# dt is the time step
+# return: relaxation source term profile(z) for one time step dt
+# note that the same value is added to every grid cell in a certain height
+# thus, if the horizontal mean at some z is equal or very close to 
+# the horizontal mean of the initial profile (z), then there is no 
+# contribution to the source term of Theta or r_v
+# this can be the case, when we have an updraft and downdraft tunnel of equal
+# strength
+@njit()    
+def compute_relaxation_term(field, profile0, t_relax, dt):
+#    return dt * (profile0 - np.average(field, axis = 0)) / t_relax
+    return dt * (profile0 - np.sum(field, axis = 0) / field.shape[0]) / t_relax
 
 #%% GRID PROPAGATION
 
@@ -599,8 +629,8 @@ def integrate_adv_step_np(
                      * grid_scalar_fields[9]
     
     ### CAN BE REMOVED
-    delta_r_v_wo_relax = np.copy(delta_r_v_ad)
-    delta_Theta_wo_relax = np.copy(delta_Theta_ad)
+#    delta_r_v_wo_relax = np.copy(delta_r_v_ad)
+#    delta_Theta_wo_relax = np.copy(delta_Theta_ad)
     
     # c1) add relaxation source term, if activated
     if act_relaxation:
@@ -613,13 +643,15 @@ def integrate_adv_step_np(
         delta_Theta_ad += compute_relaxation_term(
                             grid_scalar_fields[2], init_profile_Theta,
                             relaxation_time_profile, dt_sub)
-        ### CAN BE REMOVED
-        delta_r_v_w_relax = np.copy(delta_r_v_ad)
-        delta_Theta_w_relax = np.copy(delta_Theta_ad)
+
+#        ### CAN BE REMOVED
+#        delta_r_v_w_relax = np.copy(delta_r_v_ad)
+#        delta_Theta_w_relax = np.copy(delta_Theta_ad)
     
-    else:
-        delta_r_v_w_relax = delta_r_v_wo_relax
-        delta_Theta_w_relax = delta_Theta_wo_relax
+#    else:
+#        delta_r_v_w_relax = delta_r_v_wo_relax
+#        delta_Theta_w_relax = delta_Theta_wo_relax
+        
     # d1) added collision step to the subloop below
     # d) SUBLOOP 1 START
     # for n_h = 0, ..., N_h-1
@@ -720,9 +752,10 @@ def integrate_adv_step_np(
                                 delta_Theta_ad, delta_r_v_ad,
                                 delta_m_l, delta_Q_p,
                                 grid_volume_cell)    
+
     ### CAN BE REMOVED
-    return delta_r_v_wo_relax, delta_r_v_w_relax, \
-           delta_Theta_wo_relax, delta_Theta_w_relax
+#    return delta_r_v_wo_relax, delta_r_v_w_relax, \
+#           delta_Theta_wo_relax, delta_Theta_w_relax
     
 integrate_adv_step = njit()(integrate_adv_step_np)
 
@@ -752,8 +785,6 @@ integrate_adv_step = njit()(integrate_adv_step_np)
 # with subloop integration with timestep dt_sub
 # since coll step is 2 times faster in np-version, there is no njit() here
 # the np version is the "normal" version
-# test also to use numpy version of integrate_adv_cond_coll_one_adv_step_np
-# should not make much of a difference, but who knows?    
 def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                       grid_mass_flux_air_dry, p_ref, p_ref_inv,
                       grid_no_cells, grid_ranges,
@@ -773,7 +804,6 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                       traced_xi, traced_water,
                       E_col_grid, no_kernel_bins,
                       R_kernel_low_log, bin_factor_R_log, no_cols):
-                         # , traced_grid_fields
     dt_col_over_dV = dt_col / grid_volume_cell
     dump_N = 0
     for cnt in range(no_adv_steps):
@@ -789,8 +819,9 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
             dump_N += 1
         
         ### CAN BE REMOVED
-        delta_r_v_wo_relax, delta_r_v_w_relax, \
-        delta_Theta_wo_relax, delta_Theta_w_relax = \
+#        delta_r_v_wo_relax, delta_r_v_w_relax, \
+#        delta_Theta_wo_relax, delta_Theta_w_relax = \
+        
         integrate_adv_step_np(
             grid_scalar_fields, grid_mat_prop, grid_velocity,
             grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -809,8 +840,8 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
             R_kernel_low_log, bin_factor_R_log, no_cols)
     
     ### CAN BE REMOVED
-    return delta_r_v_wo_relax, delta_r_v_w_relax, \
-           delta_Theta_wo_relax, delta_Theta_w_relax
+#    return delta_r_v_wo_relax, delta_r_v_w_relax, \
+#           delta_Theta_wo_relax, delta_Theta_w_relax
     
     ###### SAVE    
 #    dt_col_over_dV = dt_col / grid_volume_cell
@@ -1064,8 +1095,9 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
         np.save(output_path + f"no_cols_{int(t)}.npy", no_cols)
 
         ### CAN BE REMOVED
-        delta_r_v_wo_relax, delta_r_v_w_relax, \
-        delta_Theta_wo_relax, delta_Theta_w_relax = \
+#        delta_r_v_wo_relax, delta_r_v_w_relax, \
+#        delta_Theta_wo_relax, delta_Theta_w_relax = \
+        
         simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                       grid_mass_flux_air_dry, p_ref, p_ref_inv,
                       grid_no_cells, grid_ranges,
@@ -1087,15 +1119,15 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
                       R_kernel_low_log, bin_factor_R_log, no_cols)
         
         ### CAN BE REMOVED
-        tt = t + frame_every * dt
-        np.save(output_path + f"delta_r_v_wo_relax_{int(tt)}.npy",
-                delta_r_v_wo_relax)
-        np.save(output_path + f"delta_r_v_w_relax_{int(tt)}.npy",
-                delta_r_v_w_relax)
-        np.save(output_path + f"delta_Theta_w_relax_{int(tt)}.npy",
-                delta_Theta_w_relax)
-        np.save(output_path + f"delta_Theta_wo_relax_{int(tt)}.npy",
-                delta_Theta_wo_relax)
+#        tt = t + frame_every * dt
+#        np.save(output_path + f"delta_r_v_wo_relax_{int(tt)}.npy",
+#                delta_r_v_wo_relax)
+#        np.save(output_path + f"delta_r_v_w_relax_{int(tt)}.npy",
+#                delta_r_v_w_relax)
+#        np.save(output_path + f"delta_Theta_w_relax_{int(tt)}.npy",
+#                delta_Theta_w_relax)
+#        np.save(output_path + f"delta_Theta_wo_relax_{int(tt)}.npy",
+#                delta_Theta_wo_relax)
             
         time_block =\
             np.arange(t, t + frame_every * dt, dump_every * dt).astype(int)

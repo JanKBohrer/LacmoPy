@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jan 13 11:40:20 2020
-
-@author: bohrer
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinetic framework
+(Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
 """
 
 import numpy as np
 from numba import njit
+
 
 # ICMW 2012 Test case 1 (Muhlbauer 2013, used in Arabas 2015)
 # returns relax_time(z) profile in seconds
@@ -29,18 +32,3 @@ def compute_relaxation_time_profile(z):
 def compute_relaxation_term(field, profile0, t_relax, dt):
 #    return dt * (profile0 - np.average(field, axis = 0)) / t_relax
     return dt * (profile0 - np.sum(field, axis = 0) / field.shape[0]) / t_relax
-
-#%%
-    
-#A = np.reshape(np.arange(12), (4,3))
-#
-#
-##print(A)
-#
-#A = np.random.rand(4,3)
-#
-#avg1 = np.average(A, axis = 0)
-#avg2 = np.sum(A, axis = 0) / A.shape[0]
-#
-#print(avg1)
-#print(avg2)

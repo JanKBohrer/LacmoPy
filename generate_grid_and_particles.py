@@ -3,7 +3,7 @@
 """
 @author: Jan Bohrer
 Script for grid and particle generation.
-Set parameters in the corresponding config file config_grid.py.
+Set parameters in the corresponding config file "config_grid.py".
 """
 
 #%% MODULE IMPORTS

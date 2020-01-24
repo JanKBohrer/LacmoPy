@@ -13,24 +13,19 @@ particle radius in micro meter ("mu")
 all other quantities in SI units
 """
 
-#%% MODULE IMPORTS
-
 import matplotlib.pyplot as plt
 import numpy as np
 import math
-from numba import njit
+from numba import njit, vectorize
 import constants as c
-import materialproperties as mat
-#from materialproperties import compute_heat_of_vaporization,\
-#                       compute_thermal_conductivity_air,\
-#                       compute_diffusion_constant,\
-#                       compute_viscosity_air,\
-#                       compute_surface_tension_water
+from materialproperties import compute_heat_of_vaporization,\
+                       compute_thermal_conductivity_air,\
+                       compute_diffusion_constant,\
+                       compute_viscosity_air,\
+                       compute_surface_tension_water
 from plotting import plot_scalar_field_2D
 
 from atmosphere import compute_specific_heat_capacity_air_moist
-
-#%% STANDARD FIELDS AND PROFILES
 
 omega = 0.3
 def u_rot_field(x_, y_):
@@ -49,8 +44,6 @@ p_ref = 101325.0 # Pa
 def pressure_field_exponential(x_, y_):
     return p_ref * np.exp( -y_ * c.earth_gravity * c.molar_mass_air_dry\
                            / ( T_ref * c.universal_gas_constant ) )
-
-#%% OPERATIONS ON THE GRID CELLS
 
 @njit()
 def compute_cell_and_relative_position(pos, grid_ranges, grid_steps):
@@ -122,11 +115,13 @@ def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
         vel_ipol[1,n] = v
     return vel_ipol
 
+# function was tested versus the grid.interpol.. function
 @njit()
 def interpolate_velocity_from_position_bilinear(pos,
         grid_vel, grid_no_cells, grid_ranges, grid_steps):
     cells, rel_pos = compute_cell_and_relative_position(pos,grid_ranges,
                                                             grid_steps)
+    # return cells, rel_pos
     return interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                 grid_vel, grid_no_cells)
 
@@ -144,8 +139,6 @@ def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
         no_cells.append(
             int(np.ceil( (range_i[1] - range_i[0]) / stepsizes_list_[i] ) ) )
     return np.array(no_cells)
-
-#%% GRID CLASS
 
 class Grid:
     ranges = np.array( [ [-10.0, 10.0] , [-10.0,10.0] ] )
@@ -206,7 +199,7 @@ class Grid:
         # set default field first and change grid.pressure manually later
         self.set_analytic_pressure_field_and_discretize(pressure_field_)
         
-        # material properties
+        ### new 18.02.19: material properties
         self.heat_of_vaporization = np.zeros_like(self.centers[0])
         self.thermal_conductivity = np.zeros_like(self.centers[0])
         self.diffusion_constant = np.zeros_like(self.centers[0])
@@ -220,9 +213,9 @@ class Grid:
         self.p_ref = 1.0E5
         self.p_ref_inv = 1.0E-5
         
-        ### CONVERSIONS cell <-> location
-        #   For now, we have a rect. grid with constant steps step_x, step_y
-        #   for all cells, i.e. the cell number can be calc. from a posi. (x,y)
+######################## CONVERSIONS cell <-> location
+#     For now, we have a rect. grid with constant gridsteps step_x, step_y
+#     for all cells, i.e. the cell number can be calc. from a position (x,y)
     def compute_cell(self, x, y):
         # gridranges = arr [[x_min, x_max], [y_min, y_max]]
         x = x - self.ranges[0,0]
@@ -247,8 +240,8 @@ class Grid:
         y = (j + rloc_y) * self.steps[1] + self.ranges[1][0]
         return np.array( [x, y] )
     
-    ### VELOCITY INTERPOLATION
-    #     "Standard field"
+########################## VELOCITY INTERPOLATION
+#     "Standard field"
     def analytic_velocity_field_u(self, x, y):
         omega = 0.3
         return -omega * y
@@ -265,7 +258,7 @@ class Grid:
         self.analytic_temperature_field = p_field_
         self.pressure = p_field_( *self.centers )
     
-    #     u_field and v_field have to be functions of (x,y)
+#     u_field and v_field have to be functions of (x,y)
     def set_analytic_velocity_field_and_discretize(self, u_field_, v_field_):
         self.analytic_velocity_field = [u_field_, v_field_]
         self.velocity =\
@@ -280,7 +273,7 @@ class Grid:
     def interpolate_velocity_from_cell_linear(self,i,j,rloc_x,rloc_y):
         return weight_velocities_linear(i, j, rloc_x, rloc_y, *self.velocity)
 
-    # adjusted for period. bound cond. in x and solid BC in z (BC=PS)
+# NOTE: this is adjusted for PBC in x and solid BC in z
     def interpolate_velocity_from_cell_bilinear(self, i, j, weight_x, weight_y):
         if ( j == 0 and weight_y <= 0.5):
             u, v = self.interpolate_velocity_from_cell_linear(
@@ -307,30 +300,22 @@ class Grid:
         n, rloc = self.compute_cell_and_relative_location(x, y)
         return self.interpolate_velocity_from_cell_bilinear(*n, *rloc)
 
+    # update 
     def update_material_properties(self):
         self.thermal_conductivity =\
-            mat.compute_thermal_conductivity_air(self.temperature)
+            compute_thermal_conductivity_air(self.temperature)
         self.diffusion_constant =\
-            mat.compute_diffusion_constant(self.temperature, self.pressure)
+            compute_diffusion_constant(self.temperature, self.pressure)
         self.heat_of_vaporization =\
-            mat.compute_heat_of_vaporization(self.temperature)
-        self.surface_tension = mat.compute_surface_tension_water(self.temperature)        
+            compute_heat_of_vaporization(self.temperature)
+        self.surface_tension = compute_surface_tension_water(self.temperature)        
         self.specific_heat_capacity = compute_specific_heat_capacity_air_moist(
                                           self.mixing_ratio_water_vapor)
-        self.viscosity = mat.compute_viscosity_air(self.temperature)
+        self.viscosity = compute_viscosity_air(self.temperature)
         self.mass_density_fluid = self.mass_density_air_dry\
                                   * (1 + self.mixing_ratio_water_vapor)
-
-    ### PRINT GRID INFORMATION
-    def print_info(self):
-        print('')
-        print('grid information:')
-        print('grid ranges [x_min, x_max] [z_min, z_max]:')
-        print(self.ranges)
-        print('number of cells:', self.no_cells)
-        print('grid steps:', self.steps)
     
-    ### PLOTTING
+########################## PLOTTING
         
     def plot_thermodynamic_scalar_profiles_vertical_average(self):
         fields = [self.pressure, self.temperature, self.mass_density_air_dry,
@@ -355,15 +340,79 @@ class Grid:
         for i in range(nrows):
             for j in range(ncols):
                 field = fields_avg[n]
+#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
+#                       field, no_contour_lines_, colors = 'black')
+#                ax[i,j].clabel(contours, inline=True, fontsize=8)
+#                CS = ax[i,j].contourf( grid_centers_x_, grid_centers_y_,
+#                                 field,
+#                                 levels = no_contour_colors_,
+#                                 vmax = field.max(),
+#                                 vmin = field.min(),
+#                                cmap = plt.cm.coolwarm)
                 ax[i,j].plot( field, self.centers[1][0] )
+#                ax[i,j].set_xticks( np.linspace( tick_ranges_[0,0],
+#                                                 tick_ranges_[0,1],
+#                                                 no_ticks_[0] ) )
                 ax[i,j].set_title( field_names[n] )
+                # ax[i,j].set_yticks( np.linspace( tick_ranges_[1,0],
+                #                                  tick_ranges_[1,1],
+                #                                  no_ticks_[1] ) )
+                # plt.colorbar(CS, fraction=colorbar_fraction_ ,
+                #              pad=colorbar_pad_, ax=ax[i,j])
                 ax[i,j].grid()
                 n += 1
               
         fig.tight_layout()
     
+#    def plot_thermodynamic_scalar_fields(self, no_ticks_ = [5,5],
+#                         no_contour_colors_ = 10, no_contour_lines_ = 5,
+#                         colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
+#        fields = [self.pressure, self.temperature, self.mass_density_air_dry,
+#                  self.saturation, self.mixing_ratio_water_vapor,
+#                  self.mixing_ratio_water_liquid]
+#                  
+#        field_names = ['pressure', 'temperature', 'mass_density_air_dry',
+#                       'saturation', 
+#                       'mixing_ratio_water_vapor', 'mixing_ratio_water_liquid']
+#        nfields = len(fields)
+#        ncols = 2
+#        nrows = int(np.ceil( nfields/ncols ))
+#        
+#        grid_centers_x_, grid_centers_y_ = self.centers[0], self.centers[1]
+#        tick_ranges_ = self.ranges
+#        
+#        fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize = (10,5*nrows))
+#        n = 0
+#        for i in range(nrows):
+#            for j in range(ncols):
+#                field = fields[n]
+#                
+#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
+#                       field, no_contour_lines_, colors = 'black')
+#                ax[i,j].clabel(contours, inline=True, fontsize=8)
+#                CS = ax[i,j].contourf( grid_centers_x_, grid_centers_y_,
+#                                 field,
+#                                 levels = no_contour_colors_,
+#                                 vmax = field.max(),
+#                                 vmin = field.min(),
+#                                cmap = plt.cm.coolwarm)
+#                ax[i,j].set_xticks( np.linspace( tick_ranges_[0,0],
+#                                                 tick_ranges_[0,1],
+#                                                 no_ticks_[0] ) )
+#                ax[i,j].set_yticks( np.linspace( tick_ranges_[1,0],
+#                                                 tick_ranges_[1,1],
+#                                                 no_ticks_[1] ) )
+#                ax[i,j].set_title( field_names[n] )
+#                plt.colorbar(CS, fraction=colorbar_fraction_ ,
+#                             pad=colorbar_pad_, ax=ax[i,j])
+#                n += 1
+#              
+#        fig.tight_layout()
+
     def plot_thermodynamic_scalar_fields(self, no_ticks_ = [5,5],
                                               t = 0, fig_path = None):
+#                         no_contour_colors_ = 10, no_contour_lines_ = 5,
+#                         colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
         fields = [self.pressure * 0.01, self.temperature,
                   self.potential_temperature, self.mass_density_air_dry,
                   self.saturation, self.saturation_pressure * 0.01,
@@ -380,6 +429,7 @@ class Grid:
         ncols = 2
         nrows = int(np.ceil( nfields/ncols ))
         
+        # grid_centers_x_, grid_centers_y_ = self.centers[0], self.centers[1]
         tick_ranges_ = self.ranges
         
         fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize = (10,4*nrows))
@@ -399,6 +449,9 @@ class Grid:
                     cmap = "rainbow"
                     alpha = 0.7
                     
+#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
+#                       field, no_contour_lines_, colors = 'black')
+#                ax[i,j].clabel(contours, inline=True, fontsize=8)
                 CS = ax[i,j].pcolorfast(*self.corners, field, cmap=cmap,
                                         alpha=alpha, edgecolor="face",
                                         vmin=field_min, vmax=field_max)
@@ -430,16 +483,34 @@ class Grid:
                          no_contour_colors_, no_contour_lines_,
                          colorbar_fraction_, colorbar_pad_)
         
+    
+    
     # velocity = [ velocity_x[i,j], velocity_z[i,j] ] for 2D
     def plot_velocity_field_at_cell_surface(
             self, no_major_xticks=10, no_major_yticks=10, 
             no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0,
             ARROW_WIDTH= 0.002, gridopt = 'minor'):
+        # FILL IN START
+
+        # say the x-grid ranges from x_min to x_max and x_range = x_max-x_min
+        # now, you want labeled, major x-ticks, but not too many..
+        # this number will be adjusted slightly to fit the geometry (see below)
+        # the graphical grid will be plotted for all corners of the vel. grid
+        # by using the minor ticks
+#         no_major_xticks = 10
+#         no_major_yticks = 10
+
+        # also enter how many velocity arrows should be drawn
+        # this number will be adjusted slightly to fit the geometry (see below)
+#         no_arrows_u = 20 
+#         no_arrows_v = 20
+
+        # FILL IN END
 
         # assume we have 21 cells and we want about 10 labeled x-ticks
-        # i.e. we will label the left corner
-        # of cells 0,2,4,6,8,10,12,14,16,18,20,22
-        # for 20 cells, we will label left corn. of 0,2,4,6,8,10,12,14,16,18,20
+        # i.e. we will label cell the left corner
+        # of cell 0,2,4,6,8,10,12,14,16,18,20,22
+        # for 20 cells, we will label "-" of 0,2,4,6,8,10,12,14,16,18,20
 
         if no_major_xticks < self.no_cells[0]:
             # take no_major_xticks - 1 to get the right spacing
@@ -463,13 +534,20 @@ class Grid:
         else:
             arrow_every_y = 1
 
+        # velocity_grid_xticks = corners_x[::tick_every_x]
+        # velocity_grid_yticks = corners_y[::tick_every_y]
+
         vel_pos_u = self.surface_centers[0]
         vel_pos_w = self.surface_centers[1]
         u_n = self.velocity[0]
         w_n = self.velocity[1]
         
+        LW = 2.0
+#         ARROW_SCALE = 40.0
         fig = plt.figure(figsize=(8,8), dpi = 81)
         ax = plt.gca()
+        # ax.scatter(cell_corners[0], cell_corners[1], c = 'k',s = 5)
+        # ax.scatter(vel_pos_v[0], vel_pos_v[1] , c = 'orange',s = 5)
         ax.quiver(vel_pos_u[0][::arrow_every_y,::arrow_every_x],
                   vel_pos_u[1][::arrow_every_y,::arrow_every_x],          
                   u_n[::arrow_every_y,::arrow_every_x],
@@ -488,14 +566,40 @@ class Grid:
         ax.set_yticks(self.corners[1][0,::tick_every_y])
         ax.set_xticks(self.corners[0][:,0], minor = True)
         ax.set_yticks(self.corners[1][0,:], minor = True)
+        # ax.set_xticks(np.arange(-10,12,gridsteps[0]))
+        # ax.set_yticks(np.arange(-10,12, gridsteps[1]))
 
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+        # ax.minorticks_on()
         if gridopt == 'minor':
             ax.grid(which='minor', zorder=0)
         else:
             ax.grid(which='major', zorder=0)
-
+        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+        # ax.grid(which='major', color="c")
         ax.set_xlabel('horiz. pos. [m]')
         ax.set_ylabel('vert. pos. [m]')
+#     trajectories must be a list or array of arrays:
+#     trajectories[ [x1, y1  ] , [x2, y2 ] , [...] ]
+        
+#        ax.set_xticks(self.corners[0][0,::tick_every_x])
+#        ax.set_yticks(self.corners[1][::tick_every_y,0])
+#        ax.set_xticks(self.corners[0][0], minor = True)
+#        ax.set_yticks(self.corners[1][:,0], minor = True)
+        # ax.set_xticks(np.arange(-10,12,gridsteps[0]))
+        # ax.set_yticks(np.arange(-10,12, gridsteps[1]))
+
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+#        # ax.minorticks_on()
+#        ax.grid(which='minor')
+#        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+#        # ax.grid(which='major', color="c")
+#        ax.set_xlabel('horiz. pos. [m]')
+#        ax.set_ylabel('vert. pos. [m]')
+        
+######################################################################
 
     def plot_velocity_field_centered(
             self, no_major_xticks=10, no_major_yticks=10, 
@@ -506,6 +610,8 @@ class Grid:
                              + self.velocity[0][1:,0:-1] ) * 0.5
         centered_w_field = ( self.velocity[1][0:-1,0:-1]\
                              + self.velocity[1][0:-1,1:] ) * 0.5
+        
+#        centered_velocity_field = [cent ]
         
         self.plot_external_field_list_output_centered(
                  [centered_u_field, centered_w_field],
@@ -523,6 +629,8 @@ class Grid:
         centered_w_field = ( self.mass_flux_air_dry[1][0:-1,0:-1]\
                              + self.mass_flux_air_dry[1][0:-1,1:] ) * 0.5
         
+#        centered_velocity_field = [cent ]
+        
         self.plot_external_field_list_output_centered( [centered_u_field,
                                                         centered_w_field],
                                                        no_major_xticks,
@@ -533,66 +641,120 @@ class Grid:
                                                        ARROW_WIDTH,
                                                        gridopt)     
           
-#    def plot_velocity_field_old(self, no_major_xticks=10, no_major_yticks=10, 
-#                            no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0):
-#
-#        # assume we have 21 cells and we want about 10 labeled x-ticks
-#        # i.e. we will label cell the left corner
-#        # of cell 0,2,4,6,8,10,12,14,16,18,20,22
-#        # for 20 cells, we will label left corn. of 0,2,4,6,8,10,12,14,16,18,20
-#
-#        if no_major_xticks < self.no_cells[0]:
-#            tick_every_x = self.no_cells[0] // no_major_xticks
-#        else:
-#            tick_every_x = 1
-#
-#        if no_major_yticks < self.no_cells[1]:
-#            tick_every_y = self.no_cells[1] // no_major_yticks
-#        else:
-#            tick_every_y = 1
-#
-#        if no_arrows_u < self.no_cells[0]:
-#            arrow_every_x = self.no_cells[0] // no_arrows_u
-#        else:
-#            arrow_every_x = 1
-#
-#        if no_arrows_v < self.no_cells[1]:
-#            arrow_every_y = self.no_cells[1] // no_arrows_v
-#        else:
-#            arrow_every_y = 1
-#
-#        fig = plt.figure(figsize=(8,8), dpi = 92)
-#        ax = plt.gca()
-#        ax.quiver(self.vel_pos_u[0][::arrow_every_y,::arrow_every_x],
-#                  self.vel_pos_u[1][::arrow_every_y,::arrow_every_x],          
-#                  self.u_n[::arrow_every_y,::arrow_every_x],
-#                  np.zeros_like(self.u_n[::arrow_every_y,::arrow_every_x]),
-#                  pivot = 'mid',
-#                  width = 0.002, scale = ARROW_SCALE, zorder = 3 )
-#        ax.quiver(self.vel_pos_v[0][::arrow_every_y,::arrow_every_x],
-#                  self.vel_pos_v[1][::arrow_every_y,::arrow_every_x],
-#                  np.zeros_like(self.v_n[::arrow_every_y,::arrow_every_x]),
-#                  self.v_n[::arrow_every_y,::arrow_every_x], pivot = 'mid',
-#                  width = 0.002, scale = ARROW_SCALE, zorder = 3 )
-#        ax.set_xticks(self.corners[0][0,::tick_every_x])
-#        ax.set_yticks(self.corners[1][::tick_every_y,0])
-#        ax.set_xticks(self.corners[0][0], minor = True)
-#        ax.set_yticks(self.corners[1][:,0], minor = True)
-#        ax.grid(which='minor', zorder=0)
-#        ax.set_xlabel('horiz. pos. [m]')
-#        ax.set_ylabel('vert. pos. [m]')
+        
+#######################################################
+    def plot_velocity_field_old(self, no_major_xticks=10, no_major_yticks=10, 
+                            no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0):
+        # FILL IN START
 
-    # field f returns f_x, f_y
+        # say the x-grid ranges from x_min to x_max and x_range = x_max-x_min
+        # now, you want labeled, major x-ticks, but not too many..
+        # this number will be adjusted slightly to fit the geometry (see below)
+        # the graphical grid will be plotted for all corners of the vel. grid
+        # by using the minor ticks
+#         no_major_xticks = 10
+#         no_major_yticks = 10
+
+        # also enter how many velocity arrows should be drawn
+        # this number will be adjusted slightly to fit the geometry (see below)
+#         no_arrows_u = 20 
+#         no_arrows_v = 20
+
+        # FILL IN END
+
+        # assume we have 21 cells and we want about 10 labeled x-ticks
+        # i.e. we will label cell the left corner
+        # of cell 0,2,4,6,8,10,12,14,16,18,20,22
+        # for 20 cells, we will label "-" of 0,2,4,6,8,10,12,14,16,18,20
+
+        if no_major_xticks < self.no_cells[0]:
+            tick_every_x = self.no_cells[0] // no_major_xticks
+        else:
+            tick_every_x = 1
+
+        if no_major_yticks < self.no_cells[1]:
+            tick_every_y = self.no_cells[1] // no_major_yticks
+        else:
+            tick_every_y = 1
+
+        if no_arrows_u < self.no_cells[0]:
+            arrow_every_x = self.no_cells[0] // no_arrows_u
+        else:
+            arrow_every_x = 1
+
+        if no_arrows_v < self.no_cells[1]:
+            arrow_every_y = self.no_cells[1] // no_arrows_v
+        else:
+            arrow_every_y = 1
+
+        # velocity_grid_xticks = corners_x[::tick_every_x]
+        # velocity_grid_yticks = corners_y[::tick_every_y]
+
+        LW = 2.0
+#         ARROW_SCALE = 40.0
+        fig = plt.figure(figsize=(8,8), dpi = 92)
+        ax = plt.gca()
+        # ax.scatter(cell_corners[0], cell_corners[1], c = 'k',s = 5)
+        # ax.scatter(vel_pos_v[0], vel_pos_v[1] , c = 'orange',s = 5)
+        ax.quiver(self.vel_pos_u[0][::arrow_every_y,::arrow_every_x],
+                  self.vel_pos_u[1][::arrow_every_y,::arrow_every_x],          
+                  self.u_n[::arrow_every_y,::arrow_every_x],
+                  np.zeros_like(self.u_n[::arrow_every_y,::arrow_every_x]),
+                  pivot = 'mid',
+                  width = 0.002, scale = ARROW_SCALE, zorder = 3 )
+        ax.quiver(self.vel_pos_v[0][::arrow_every_y,::arrow_every_x],
+                  self.vel_pos_v[1][::arrow_every_y,::arrow_every_x],
+                  np.zeros_like(self.v_n[::arrow_every_y,::arrow_every_x]),
+                  self.v_n[::arrow_every_y,::arrow_every_x], pivot = 'mid',
+                  width = 0.002, scale = ARROW_SCALE, zorder = 3 )
+        ax.set_xticks(self.corners[0][0,::tick_every_x])
+        ax.set_yticks(self.corners[1][::tick_every_y,0])
+        ax.set_xticks(self.corners[0][0], minor = True)
+        ax.set_yticks(self.corners[1][:,0], minor = True)
+        # ax.set_xticks(np.arange(-10,12,gridsteps[0]))
+        # ax.set_yticks(np.arange(-10,12, gridsteps[1]))
+
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+        # ax.minorticks_on()
+        ax.grid(which='minor', zorder=0)
+        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+        # ax.grid(which='major', color="c")
+        ax.set_xlabel('horiz. pos. [m]')
+        ax.set_ylabel('vert. pos. [m]')
+
+
+
+###########################################################
+
+#    field f returns f_x, f_y
     def plot_external_field_function_list_output(self, f,
                                      no_major_xticks=10, no_major_yticks=10, 
                                      no_arrows_u=10, no_arrows_v=10,
                                      ARROW_SCALE=40, ARROW_WIDTH=0.002,
                                      gridopt = 'minor'):
 
+        # FILL IN START
+
+        # say the x-grid ranges from x_min to x_max and x_range = x_max-x_min
+        # now, you want labeled, major x-ticks, but not too many..
+        # this number will be adjusted slightly to fit the geometry (see below)
+        # the graphical grid will be plotted for all corners of the vel. grid
+        # by using the minor ticks
+#         no_major_xticks = 10
+#         no_major_yticks = 10
+
+        # also enter how many velocity arrows should be drawn
+        # this number will be adjusted slightly to fit the geometry (see below)
+#         no_arrows_u = 20 
+#         no_arrows_v = 20
+
+        # FILL IN END
+
         # assume we have 21 cells and we want about 10 labeled x-ticks
         # i.e. we will label cell the left corner
         # of cell 0,2,4,6,8,10,12,14,16,18,20,22
-        # for 20 cells, we will label left corn. of 0,2,4,6,8,10,12,14,16,18,20
+        # for 20 cells, we will label "-" of 0,2,4,6,8,10,12,14,16,18,20
 
         if no_major_xticks < self.no_cells[0]:
             # take no_major_xticks - 1 to get the right spacing
@@ -616,8 +778,15 @@ class Grid:
         else:
             arrow_every_y = 1
 
+        # velocity_grid_xticks = corners_x[::tick_every_x]
+        # velocity_grid_yticks = corners_y[::tick_every_y]
+#        width = ARROW_WIDTH
+        LW = 2.0
+#        ARROW_SCALE = 40.0
         fig = plt.figure(figsize=(8,8), dpi = 92)
         ax = plt.gca()
+        # ax.scatter(cell_corners[0], cell_corners[1], c = 'k',s = 5)
+        # ax.scatter(vel_pos_v[0], vel_pos_v[1] , c = 'orange',s = 5)
         ax.quiver(
             self.corners[0][::arrow_every_y,::arrow_every_x],
             self.corners[1][::arrow_every_y,::arrow_every_x],
@@ -630,24 +799,51 @@ class Grid:
         ax.set_xticks(self.corners[0][:,0], minor = True)
         ax.set_yticks(self.corners[1][0,:], minor = True)
 
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+        # ax.minorticks_on()
         if gridopt == 'minor':
             ax.grid(which='minor', zorder=0)
         else:
             ax.grid(which='major', zorder=0)
+        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+        # ax.grid(which='major', color="c")
         ax.set_xlabel('horiz. pos. [m]')
         ax.set_ylabel('vert. pos. [m]')
+#     trajectories must be a list or array of arrays:
+#     trajectories[ [x1, y1  ] , [x2, y2 ] , [...] ]
         
-    # field f returns ARRAYS f_x[i,j], f_y[i,j]
+
+###############################################################        
+
+#    field f returns ARRAYS f_x[i,j], f_y[i,j]
     def plot_external_field_list_output_centered(self, f,
                                      no_major_xticks=10, no_major_yticks=10, 
                                      no_arrows_u=10, no_arrows_v=10,
                                      ARROW_SCALE=40, ARROW_WIDTH=0.002,
                                      gridopt = 'minor'):
 
+        # FILL IN START
+
+        # say the x-grid ranges from x_min to x_max and x_range = x_max-x_min
+        # now, you want labeled, major x-ticks, but not too many..
+        # this number will be adjusted slightly to fit the geometry (see below)
+        # the graphical grid will be plotted for all corners of the vel. grid
+        # by using the minor ticks
+#         no_major_xticks = 10
+#         no_major_yticks = 10
+
+        # also enter how many velocity arrows should be drawn
+        # this number will be adjusted slightly to fit the geometry (see below)
+#         no_arrows_u = 20 
+#         no_arrows_v = 20
+
+        # FILL IN END
+
         # assume we have 21 cells and we want about 10 labeled x-ticks
         # i.e. we will label cell the left corner
         # of cell 0,2,4,6,8,10,12,14,16,18,20,22
-        # for 20 cells, we will label left corn. of 0,2,4,6,8,10,12,14,16,18,20
+        # for 20 cells, we will label "-" of 0,2,4,6,8,10,12,14,16,18,20
 
         if no_major_xticks < self.no_cells[0]:
             # take no_major_xticks - 1 to get the right spacing
@@ -671,8 +867,15 @@ class Grid:
         else:
             arrow_every_y = 1
 
+        # velocity_grid_xticks = corners_x[::tick_every_x]
+        # velocity_grid_yticks = corners_y[::tick_every_y]
+#        width = ARROW_WIDTH
+        LW = 2.0
+#        ARROW_SCALE = 40.0
         fig = plt.figure(figsize=(8,8), dpi = 92)
         ax = plt.gca()
+        # ax.scatter(cell_corners[0], cell_corners[1], c = 'k',s = 5)
+        # ax.scatter(vel_pos_v[0], vel_pos_v[1] , c = 'orange',s = 5)
         ax.quiver(
             self.centers[0][::arrow_every_y,::arrow_every_x],
             self.centers[1][::arrow_every_y,::arrow_every_x],
@@ -680,20 +883,36 @@ class Grid:
             f[1][::arrow_every_y,::arrow_every_x],
                   pivot = 'mid',
                   width = ARROW_WIDTH, scale = ARROW_SCALE, zorder=3 )
+#         ax.quiver(self.vel_pos_v[0][::arrow_every_y,::arrow_every_x],
+#                   self.vel_pos_v[1][::arrow_every_y,::arrow_every_x],
+#                   np.zeros_like(self.v_n[::arrow_every_y,::arrow_every_x]),
+#                   self.v_n[::arrow_every_y,::arrow_every_x], pivot = 'mid',
+#                   width = 0.002, scale = ARROW_SCALE )
         ax.set_xticks(self.corners[0][::tick_every_x,0])
         ax.set_yticks(self.corners[1][0,::tick_every_y])
         ax.set_xticks(self.corners[0][:,0], minor = True)
         ax.set_yticks(self.corners[1][0,:], minor = True)
         ax.set_xlim(self.corners[0][0,0], self.corners[0][-1,0])
         ax.set_ylim(self.corners[1][0,0], self.corners[1][0,-1])
+        # ax.set_xticks(np.arange(-10,12,gridsteps[0]))
+        # ax.set_yticks(np.arange(-10,12, gridsteps[1]))
 
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+        # ax.minorticks_on()
         if gridopt == 'minor':
             ax.grid(which='minor', zorder=0)
         else:
             ax.grid(which='major', zorder=0)
+        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+        # ax.grid(which='major', color="c")
         ax.set_xlabel('horiz. pos. [m]')
         ax.set_ylabel('vert. pos. [m]')
+#     trajectories must be a list or array of arrays:
+#     trajectories[ [x1, y1  ] , [x2, y2 ] , [...] ]
         
+########################################################################        
+
     # the components of the external field f = (f_x, f_y) 
     # must be defined python functions
     # of the spatial variables (x,y): f_x(x,y), f_y (x,y)
@@ -703,10 +922,27 @@ class Grid:
                                      ARROW_SCALE=40, ARROW_WIDTH=0.002,
                                      gridopt = 'minor'):
 
+        # FILL IN START
+
+        # say the x-grid ranges from x_min to x_max and x_range = x_max-x_min
+        # now, you want labeled, major x-ticks, but not too many..
+        # this number will be adjusted slightly to fit the geometry (see below)
+        # the graphical grid will be plotted for all corners of the vel. grid
+        # by using the minor ticks
+#         no_major_xticks = 10
+#         no_major_yticks = 10
+
+        # also enter how many velocity arrows should be drawn
+        # this number will be adjusted slightly to fit the geometry (see below)
+#         no_arrows_u = 20 
+#         no_arrows_v = 20
+
+        # FILL IN END
+
         # assume we have 21 cells and we want about 10 labeled x-ticks
         # i.e. we will label cell the left corner
         # of cell 0,2,4,6,8,10,12,14,16,18,20,22
-        # for 20 cells, we will label left corn. of 0,2,4,6,8,10,12,14,16,18,20
+        # for 20 cells, we will label "-" of 0,2,4,6,8,10,12,14,16,18,20
 
         if no_major_xticks < self.no_cells[0]:
             # take no_major_xticks - 1 to get the right spacing
@@ -730,8 +966,15 @@ class Grid:
         else:
             arrow_every_y = 1
 
+        # velocity_grid_xticks = corners_x[::tick_every_x]
+        # velocity_grid_yticks = corners_y[::tick_every_y]
+#        width = ARROW_WIDTH
+        LW = 2.0
+#        ARROW_SCALE = 40.0
         fig = plt.figure(figsize=(8,8), dpi = 92)
         ax = plt.gca()
+        # ax.scatter(cell_corners[0], cell_corners[1], c = 'k',s = 5)
+        # ax.scatter(vel_pos_v[0], vel_pos_v[1] , c = 'orange',s = 5)
         ax.quiver(
             self.corners[0][::arrow_every_y,::arrow_every_x],
             self.corners[1][::arrow_every_y,::arrow_every_x],
@@ -741,19 +984,34 @@ class Grid:
                 self.corners[1][::arrow_every_y,::arrow_every_x]),
                   pivot = 'mid',
                   width = ARROW_WIDTH, scale = ARROW_SCALE, zorder=3 )
+#         ax.quiver(self.vel_pos_v[0][::arrow_every_y,::arrow_every_x],
+#                   self.vel_pos_v[1][::arrow_every_y,::arrow_every_x],
+#                   np.zeros_like(self.v_n[::arrow_every_y,::arrow_every_x]),
+#                   self.v_n[::arrow_every_y,::arrow_every_x], pivot = 'mid',
+#                   width = 0.002, scale = ARROW_SCALE )
         ax.set_xticks(self.corners[0][::tick_every_x,0])
         ax.set_yticks(self.corners[1][0,::tick_every_y])
         ax.set_xticks(self.corners[0][:,0], minor = True)
         ax.set_yticks(self.corners[1][0,:], minor = True)
+        # ax.set_xticks(np.arange(-10,12,gridsteps[0]))
+        # ax.set_yticks(np.arange(-10,12, gridsteps[1]))
+
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+        # ax.minorticks_on()
         if gridopt == 'minor':
             ax.grid(which='minor', zorder=0)
         else:
             ax.grid(which='major', zorder=0)
+        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+        # ax.grid(which='major', color="c")
         ax.set_xlabel('horiz. pos. [m]')
         ax.set_ylabel('vert. pos. [m]')
+#     trajectories must be a list or array of arrays:
+#     trajectories[ [x1, y1  ] , [x2, y2 ] , [...] ]
 
-    # trajectories must be a list or array of arrays:
-    # trajectories[ [x1, y1  ] , [x2, y2 ] , [...] ]
+
+
     def plot_field_and_trajectories(self,f_x, f_y, trajectories,
                                      no_major_xticks=10, no_major_yticks=10, 
                                      no_arrows_u=10, no_arrows_v=10, 
@@ -779,6 +1037,11 @@ class Grid:
         else:
             arrow_every_y = 1
 
+        # velocity_grid_xticks = corners_x[::tick_every_x]
+        # velocity_grid_yticks = corners_y[::tick_every_y]
+
+#         LW = 2.0
+        # ARROW_SCALE = 80.0
         if (self.sizes[0] == self.sizes[1]):
             figsize_x = 8
             figsize_y = 8
@@ -786,8 +1049,15 @@ class Grid:
             size_ratio = self.sizes[1] / self.sizes[0]
             figsize_x = 8
             figsize_y = figsize_x * size_ratio
+            #else:
+            #    figsize_y = 8
+            #    figsize_x = figsize_y / size_ratio
+            print(figsize_x, figsize_y)
         fig = plt.figure(figsize=(figsize_x, figsize_y), dpi = 92)
+#        fig = plt.figure(fig_n, figsize=(figsize_x, figsize_y), dpi = 92)
         ax = plt.gca()
+        # ax.scatter(cell_corners[0], cell_corners[1], c = 'k',s = 5)
+        # ax.scatter(vel_pos_v[0], vel_pos_v[1] , c = 'orange',s = 5)
         ax.quiver(
             self.corners[0][::arrow_every_y,::arrow_every_x],
             self.corners[1][::arrow_every_y,::arrow_every_x],
@@ -797,97 +1067,141 @@ class Grid:
                 self.corners[1][::arrow_every_y,::arrow_every_x]),
                   pivot = 'mid',
                   width = 0.002, scale = ARROW_SCALE )
+#         ax.quiver(self.vel_pos_v[0][::arrow_every_y,::arrow_every_x],
+#                   self.vel_pos_v[1][::arrow_every_y,::arrow_every_x],
+#                   np.zeros_like(self.v_n[::arrow_every_y,::arrow_every_x]),
+#                   self.v_n[::arrow_every_y,::arrow_every_x], pivot = 'mid',
+#                   width = 0.002, scale = ARROW_SCALE )
         for data_x_y in trajectories:
             ax.plot(data_x_y[0], data_x_y[1], linewidth = LW, linestyle='--')
         ax.set_xticks(self.corners[0][0,::tick_every_x])
         ax.set_yticks(self.corners[1][::tick_every_y,0])
         ax.set_xticks(self.corners[0][0], minor = True)
         ax.set_yticks(self.corners[1][:,0], minor = True)
+        # ax.set_xticks(np.arange(-10,12,gridsteps[0]))
+        # ax.set_yticks(np.arange(-10,12, gridsteps[1]))
+
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+        # ax.minorticks_on()
         ax.grid(which='minor', zorder=0)
+        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+        # ax.grid(which='major', color="c")
         ax.set_xlabel('horiz. pos. [m]')
         ax.set_ylabel('vert. pos. [m]')
 
-#    def plot_field_and_trajectories_with_particle_size(self,
-#            f_x, f_y, trajectories, particle_sizes,
-#            no_major_xticks=10, no_major_yticks=10, 
-#            no_arrows_u=10, no_arrows_v=10, circle_every = 100,
-#            fig_n = 1, LW = 0.9, ARROW_SCALE = 80.0,
-#            fig_title = '', fig_name = 'trajectory.pdf'):
-#        
-#        if no_major_xticks < self.no_cells[0]:
-#            tick_every_x = self.no_cells[0] // no_major_xticks
-#        else:
-#            tick_every_x = 1
-#
-#        if no_major_yticks < self.no_cells[1]:
-#            tick_every_y = self.no_cells[1] // no_major_yticks
-#        else:
-#            tick_every_y = 1
-#
-#        if no_arrows_u < self.no_cells[0]:
-#            arrow_every_x = self.no_cells[0] // no_arrows_u
-#        else:
-#            arrow_every_x = 1
-#
-#        if no_arrows_v < self.no_cells[1]:
-#            arrow_every_y = self.no_cells[1] // no_arrows_v
-#        else:
-#            arrow_every_y = 1
-#
-#        if (self.sizes[0] == self.sizes[1]):
-#            figsize_x = 8
-#            figsize_y = 8
-#        else:
-#            size_ratio = self.sizes[1] / self.sizes[0]
-#            figsize_x = 8
-#            figsize_y = figsize_x * size_ratio
-#        fig = plt.figure(figsize=(figsize_x, figsize_y), dpi = 92)
-#        ax = plt.gca() 
-#        ax.quiver(
-#            self.corners[0][::arrow_every_y,::arrow_every_x],
-#            self.corners[1][::arrow_every_y,::arrow_every_x],
-#            f_x(self.corners[0][::arrow_every_y,::arrow_every_x],
-#                self.corners[1][::arrow_every_y,::arrow_every_x]),
-#            f_y(self.corners[0][::arrow_every_y,::arrow_every_x],
-#                self.corners[1][::arrow_every_y,::arrow_every_x]),
-#                  pivot = 'mid',
-#                  width = 0.002, scale = ARROW_SCALE )
-#        for cnt, data_x_y in enumerate(trajectories):
-##            if cnt == 0:
-##                cmap = 'Blues'
-##            elif cnt == 1:
-##                cmap = 'Oranges'
-##            elif cnt == 2:
-##                cmap = 'Greens'
-##            elif cnt == 3:
-##                cmap = 'Reds'
-##            elif cnt == 4:
-##                cmap = 'Purples'
-##            elif cnt == 5:
-##                cmap = 'YlOrBr'
-##            elif cnt == 6:
-##                cmap = 'RdPu'
-##            else:
-##                cmap = 'Greys'
-#            ax.plot(data_x_y[0], data_x_y[1], linewidth = LW, linestyle='--')
-#            ax.scatter(data_x_y[0][::circle_every], data_x_y[1][::circle_every],
-#                       linewidth = LW,
-#                       s = particle_sizes[cnt][::circle_every]**2,
-#                       marker = 'o', alpha = 0.5,
-#                       c = particle_sizes[cnt][::circle_every], cmap = 'cool')
-#            ax.scatter(data_x_y[0][::circle_every], data_x_y[1][::circle_every],
-#                       linewidth = LW,
-#                       s = particle_sizes[cnt][::circle_every]**2, marker = 'o', 
-#                       edgecolors = 'k',
-#                       facecolors = 'none' )
-#        ax.set_xticks(self.corners[0][0,::tick_every_x])
-#        ax.set_yticks(self.corners[1][::tick_every_y,0])
-#        ax.set_xticks(self.corners[0][0], minor = True)
-#        ax.set_yticks(self.corners[1][:,0], minor = True)
-#        ax.grid(which='minor')
-#        ax.set_xlabel('horiz. pos. [m]')
-#        ax.set_ylabel('vert. pos. [m]')
-#        ax.set_title(fig_title, fontsize = 9)
-#        fig.savefig(fig_name)
-    
+    def plot_field_and_trajectories_with_particle_size(self,
+            f_x, f_y, trajectories, particle_sizes,
+            no_major_xticks=10, no_major_yticks=10, 
+            no_arrows_u=10, no_arrows_v=10, circle_every = 100,
+            fig_n = 1, LW = 0.9, ARROW_SCALE = 80.0,
+            fig_title = '', fig_name = 'trajectory.pdf'):
+        
+        if no_major_xticks < self.no_cells[0]:
+            tick_every_x = self.no_cells[0] // no_major_xticks
+        else:
+            tick_every_x = 1
 
+        if no_major_yticks < self.no_cells[1]:
+            tick_every_y = self.no_cells[1] // no_major_yticks
+        else:
+            tick_every_y = 1
+
+        if no_arrows_u < self.no_cells[0]:
+            arrow_every_x = self.no_cells[0] // no_arrows_u
+        else:
+            arrow_every_x = 1
+
+        if no_arrows_v < self.no_cells[1]:
+            arrow_every_y = self.no_cells[1] // no_arrows_v
+        else:
+            arrow_every_y = 1
+
+        # velocity_grid_xticks = corners_x[::tick_every_x]
+        # velocity_grid_yticks = corners_y[::tick_every_y]
+
+#         LW = 2.0
+        # ARROW_SCALE = 80.0
+        if (self.sizes[0] == self.sizes[1]):
+            figsize_x = 8
+            figsize_y = 8
+        else:
+            size_ratio = self.sizes[1] / self.sizes[0]
+            figsize_x = 8
+            figsize_y = figsize_x * size_ratio
+            #else:
+            #    figsize_y = 8
+            #    figsize_x = figsize_y / size_ratio
+            print(figsize_x, figsize_y)
+#        fig = plt.figure(fig_n, figsize=(figsize_x, figsize_y), dpi = 92)
+        fig = plt.figure(figsize=(figsize_x, figsize_y), dpi = 92)
+        ax = plt.gca() 
+        # ax.scatter(cell_corners[0], cell_corners[1], c = 'k',s = 5)
+        # ax.scatter(vel_pos_v[0], vel_pos_v[1] , c = 'orange',s = 5)
+        ax.quiver(
+            self.corners[0][::arrow_every_y,::arrow_every_x],
+            self.corners[1][::arrow_every_y,::arrow_every_x],
+            f_x(self.corners[0][::arrow_every_y,::arrow_every_x],
+                self.corners[1][::arrow_every_y,::arrow_every_x]),
+            f_y(self.corners[0][::arrow_every_y,::arrow_every_x],
+                self.corners[1][::arrow_every_y,::arrow_every_x]),
+                  pivot = 'mid',
+                  width = 0.002, scale = ARROW_SCALE )
+#         ax.quiver(self.vel_pos_v[0][::arrow_every_y,::arrow_every_x],
+#                   self.vel_pos_v[1][::arrow_every_y,::arrow_every_x],
+#                   np.zeros_like(self.v_n[::arrow_every_y,::arrow_every_x]),
+#                   self.v_n[::arrow_every_y,::arrow_every_x], pivot = 'mid',
+#                   width = 0.002, scale = ARROW_SCALE )
+        for cnt, data_x_y in enumerate(trajectories):
+            if cnt == 0:
+                cmap = 'Blues'
+            elif cnt == 1:
+                cmap = 'Oranges'
+            elif cnt == 2:
+                cmap = 'Greens'
+            elif cnt == 3:
+                cmap = 'Reds'
+            elif cnt == 4:
+                cmap = 'Purples'
+            elif cnt == 5:
+                cmap = 'YlOrBr'
+            elif cnt == 6:
+                cmap = 'RdPu'
+            else:
+                cmap = 'Greys'
+            ax.plot(data_x_y[0], data_x_y[1], linewidth = LW, linestyle='--')
+            ax.scatter(data_x_y[0][::circle_every], data_x_y[1][::circle_every],
+                       linewidth = LW,
+                       s = particle_sizes[cnt][::circle_every]**2,
+                       marker = 'o', alpha = 0.5,
+                       c = particle_sizes[cnt][::circle_every], cmap = 'cool')
+            ax.scatter(data_x_y[0][::circle_every], data_x_y[1][::circle_every],
+                       linewidth = LW,
+                       s = particle_sizes[cnt][::circle_every]**2, marker = 'o', 
+                       edgecolors = 'k',
+                       facecolors = 'none' )
+        ax.set_xticks(self.corners[0][0,::tick_every_x])
+        ax.set_yticks(self.corners[1][::tick_every_y,0])
+        ax.set_xticks(self.corners[0][0], minor = True)
+        ax.set_yticks(self.corners[1][:,0], minor = True)
+        # ax.set_xticks(np.arange(-10,12,gridsteps[0]))
+        # ax.set_yticks(np.arange(-10,12, gridsteps[1]))
+
+        # np.arange(gridrange_x[0],gridrange_x[1]+gridsteps[0],gridsteps[0])
+
+        # ax.minorticks_on()
+        ax.grid(which='minor')
+        # ax.grid(which='minor', color="blue", linestyle='dashed', alpha=0.5)
+        # ax.grid(which='major', color="c")
+        ax.set_xlabel('horiz. pos. [m]')
+        ax.set_ylabel('vert. pos. [m]')
+        ax.set_title(fig_title, fontsize = 9)
+        fig.savefig(fig_name)
+    
+    def print_info(self):
+        print('')
+        print('grid information:')
+        print('grid ranges [x_min, x_max] [z_min, z_max]:')
+        print(self.ranges)
+        print('number of cells:', self.no_cells)
+        print('grid steps:', self.steps)

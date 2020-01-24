@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: Jan Bohrer
 Configuration file for the Lagrangian cloud model simulation.
 The corresponding simulation script is "cloudMP.py".
 """
@@ -16,7 +15,7 @@ simpar = \
 # data will written.
 #'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
 #'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
-'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_ab_Jan20/',
+'simdata_path'          : '/Users/bohrer/sim_data_cloudMP/',
 #'simdata_path'          : '/vols/fs1/work/bohrer/sim_data_cloudMP_ab_Jan20/',
 
 ### RANDOM NUMBER GENERATION
@@ -30,19 +29,19 @@ simpar = \
 
 ### GRID AND PARTICLE PARAMETERS
 # need to set number of grid cells [x,z] for data path assignments
-#'no_cells'              : [15,15],
+'no_cells'              : [15,15],
 #'no_cells'              : [50,50],
-'no_cells'              : [75,75],
+#'no_cells'              : [75,75],
 
 # solute material in the CCNs (possible is ammon. sulf. "AS" or "NaCl")
-#'solute_type'           : 'AS',
-'solute_type'           : 'NaCl',
+'solute_type'           : 'AS',
+#'solute_type'           : 'NaCl',
 
 # number of super particles per cell and mode as list [mode0, mode1, ..]
-#'no_spcm'               : [2,2],
+'no_spcm'               : [2,3],
 #'no_spcm'               : [6,8],
 #'no_spcm'               : [10,14],
-'no_spcm'               : [16,24],
+#'no_spcm'               : [16,24],
 #'no_spcm'               : [26,38],
 
 ### SIMULATION TYPE
@@ -95,15 +94,15 @@ simpar = \
 #'t_start_sim'            : 3600, # seconds
 #'t_end_sim'              : 7200, # seconds
 
-#'t_start_spin_up'        : 0, # seconds
-#'t_end_spin_up'          : 300, # seconds
-#'t_start_sim'            : 300, # seconds
-#'t_end_sim'              : 600, # seconds
-
 't_start_spin_up'        : 0, # seconds
-'t_end_spin_up'          : 7200, # seconds
-'t_start_sim'            : 7200, # seconds
-'t_end_sim'              : 10800, # seconds
+'t_end_spin_up'          : 300, # seconds
+'t_start_sim'            : 300, # seconds
+'t_end_sim'              : 600, # seconds
+
+#'t_start_spin_up'        : 0, # seconds
+#'t_end_spin_up'          : 7200, # seconds
+#'t_start_sim'            : 7200, # seconds
+#'t_end_sim'              : 10800, # seconds
 
 #'t_start_sim'            : 7200, # seconds
 #'t_end_sim'              : 10800, # seconds
@@ -127,14 +126,14 @@ simpar = \
 # trace_ids can either be an integer or an array of ints
 # if integer: ids are spread evenly over the whole amount of particles
 # if array: this specific list of ids is used
-'trace_ids'             : 40, # (80 = default)
+'trace_ids'             : 10, # (80 = default)
 'dump_every'            : 10, # tracer data output every X time steps "dt_adv"
 
 ### COLLISION KERNEL
 # Long kernel modified by Bott (1997), J Atmos Sci 55, p.2284
-'kernel_type'           : 'Long_Bott', 
+#'kernel_type'           : 'Long_Bott', 
 # Hall kernel modified by Bott (1997), J Atmos Sci 55, p.2284
-# 'kernel_type'         : 'Hall_Bott',
+ 'kernel_type'         : 'Hall_Bott',
 # constant collision kernel, set value below
 # 'kernel_type'         : 'Hydro_E_const',
 # interpolation method for the kernel, only available is "Ecol_grid_R"

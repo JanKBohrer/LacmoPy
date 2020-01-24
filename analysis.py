@@ -1,15 +1,44 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue May  7 15:17:55 2019
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinetic framework
+(Test Case 1 ICMW 2012)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
 
-@author: jdesk
+module with functions for simulation data analysis
+and data preparation for plotting
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
+
 """
+
 
 import math
 import numpy as np
 import matplotlib.pyplot as plt
 from numba import njit
+
+### IN WORK: SHIFT PLOTTING FUNCTIONS TO PLOTTING MODULE
+### IN WORK: GENERATE COLORBAR ---> UNIFY IN SINGLE FILE
+#%% CONVENIENCE FUNCTIONS
+
+def cm2inch(*tupl):
+    inch = 2.54
+    if isinstance(tupl[0], tuple):
+        return tuple(i/inch for i in tupl[0])
+    else:
+        return tuple(i/inch for i in tupl)
+
+#            def fmt_cbar(x, pos):
+#        #        a, b = '{:.2e}'.format(x).split('e')
+#        #        a = float(a)
+#        #        b = int(b) - oom_max
+#                return r'${0:.{prec}f}$'.format(x, prec=cbar_precision) 
 
 # in unit (kg/kg)
 @njit()
@@ -28,6 +57,11 @@ def update_number_concentration_per_dry_mass(conc, xi, cells, mass_dry_inv,
     for ID in id_list[mask]:
         conc[cells[0,ID],cells[1,ID]] += xi[ID]
     conc *= mass_dry_inv 
+
+@njit()
+def update_T_p(grid_temp, cells, T_p):
+    for ID in range(len(T_p)):
+        T_p[ID] = grid_temp[cells[0,ID],cells[1,ID]] 
 
 #%% RUNTIME OF FUNCTIONS
 # functions is list of strings,
@@ -70,6 +104,12 @@ def compare_functions_run_time(functions, pars, rs, ns, globals_):
 # where pos0 = [pos_x_0, pos_z_0] is pos at time0
 # where pos_x_0 = [x0, x1, x2, ...]
 # selection = [n1, n2, ...] --> take only these indic. from the list of traj !!!
+# title font size (pt)
+# TTFS = 10
+# # labelsize (pt)
+# LFS = 10
+# # ticksize (pt)
+# TKFS = 10        
 def plot_particle_trajectories(traj, grid, selection=None,
                                no_ticks=[6,6], figsize=(8,8),
                                MS=1.0, arrow_every=5,
@@ -81,42 +121,10 @@ def plot_particle_trajectories(traj, grid, selection=None,
     centered_w_field = ( grid.velocity[1][0:-1,0:-1]
                          + grid.velocity[1][0:-1,1:] ) * 0.5
     
-    # title font size (pt)
-    # TTFS = 10
-    # # labelsize (pt)
-    # LFS = 10
-    # # ticksize (pt)
-    # TKFS = 10
-    
-    # ARROW_SCALE = 12
-    # ARROW_WIDTH = 0.005
-    # no_major_xticks = 6
-    # no_major_yticks = 6
-    # tick_every_x = grid.no_cells[0] // (no_major_xticks - 1)
-    # tick_every_y = grid.no_cells[1] // (no_major_yticks - 1)
-    
-    # arrow_every = 5
-    
-    # part_every = 2
-    # loc_every = 1
-    
     pos_x = grid.centers[0][arrow_every//2::arrow_every,
                             arrow_every//2::arrow_every]
     pos_z = grid.centers[1][arrow_every//2::arrow_every,
                             arrow_every//2::arrow_every]
-    # print(pos_x)
-    # pos_x = grid.centers[0][arrow_every//2::arrow_every,
-    #                         arrow_every//2::arrow_every]/1000
-    # pos_z = grid.centers[1][arrow_every//2::arrow_every,
-    #                         arrow_every//2::arrow_every]/1000
-    
-    # pos_x = grid.centers[0][::arrow_every,::arrow_every]/1000
-    # pos_z = grid.centers[1][::arrow_every,::arrow_every]/1000
-    
-    # pos_x = grid.centers[0][30:40,5:15]
-    # pos_z = grid.centers[1][30:40,5:15]
-    # pos_x = grid.surface_centers[1][0][30:40,5:15]
-    # pos_z = grid.surface_centers[1][1][30:40,5:15]
     
     vel_x = centered_u_field[arrow_every//2::arrow_every,
                              arrow_every//2::arrow_every]
@@ -127,7 +135,6 @@ def plot_particle_trajectories(traj, grid, selection=None,
     fig, ax = plt.subplots(figsize=figsize)
     if traj[0,0].size == 1:
         ax.plot(traj[:,0], traj[:,1] ,"o", markersize = MS)
-    # print(selection)
     else:        
         if selection == None: selection=range(len(traj[0,0]))
         for ID in selection:
@@ -149,7 +156,6 @@ def plot_particle_trajectories(traj, grid, selection=None,
     + str(t_start) + " s to " + str(t_end) + " s",
         fontsize = TTFS, y = 1.04)
     ax.grid(color='gray', linestyle='dashed', zorder = 0)    
-    # ax.grid()
     fig.tight_layout()
     if fig_name is not None:
         fig.savefig(fig_name)
@@ -161,22 +167,10 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     ind = np.nonzero(xis)
     m_sort = masses[ind]
     xi_sort = xis[ind]
-    # print(m_sort.shape)
-    # print(xi_sort.shape)
-    # print()
     
     ind = np.argsort(m_sort)
     m_sort = m_sort[ind]
     xi_sort = xi_sort[ind]
-    # print(m_sort.shape)
-    # print(xi_sort.shape)
-    
-    # plt.plot(masses, "o")
-    # plt.plot(m_sort, "o")
-    # print(np.nonzero(xis))
-    
-    # plt.loglog(m_sort, xi_sort, "+")
-    # plt.plot(m_sort, xi_sort, "+")
     
     ### merge particles with xi < xi_min
     for i in range(len(xi_sort)-1):
@@ -200,15 +194,6 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
                 # i.e. increase number of xi[i-1],
                 # then reweight mass to total mass
             m_sum = m*xi + m_sort[j]*xi_sort[j]
-            # print("added pt ", i, "to", j)
-            # print("xi_i bef=", xi)
-            # print("xi_j bef=", xi_sort[j])
-            # print("m_i bef=", m)
-            # print("m_j bef=", m_sort[j])
-            # xi_sort[j] += xi_sort[i]
-            # m_sort[j] = m_sum / xi_sort[j]
-            # print("xi_j aft=", xi_sort[j])
-            # print("m_j aft=", m_sort[j])
             xi_sort[i] = 0           
     
     if xi_sort[-1] < xi_min:
@@ -230,22 +215,6 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     xi_sort = xi_sort[ind]
     m_sort = m_sort[ind]
     
-    # print()
-    # print("xis.min()")
-    # print("xi_sort.min()")
-    # print(xis.min())
-    # print(xi_sort.min())
-    # print()
-    
-    # print("xi_sort.shape, xi_sort.dtype")
-    # print("m_sort.shape, m_sort.dtype")
-    # print(xi_sort.shape, xi_sort.dtype)
-    # print(m_sort.shape, m_sort.dtype)
-    
-    # plt.loglog(m_sort, xi_sort, "x")
-    # plt.plot(m_sort, xi_sort, "x")
-    
-    # resort, if masses have changed "places" in the selection process
     ind = np.argsort(m_sort)
     m_sort = m_sort[ind]
     xi_sort = xi_sort[ind]
@@ -253,10 +222,6 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     ### merge particles, which have masses or xis < m_lim, xi_lim
     no_bins0 = no_bins
     no_bins *= 10
-    # print("no_bins")
-    # print("no_bins0")
-    # print(no_bins)
-    # print(no_bins0)
     
     no_spc = len(xi_sort)
     n_save = int(no_spc//1000)
@@ -277,9 +242,6 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     while(n_left > 0 and i < len(xi_sort)-n_save):
         bin_mass = 0.0
         bin_xi = 0
-        # bin_center = 0.0
-        
-        # while(bin_xi < n_lim):
         while(bin_mass < m_lim and bin_xi < xi_lim and n_left > 0
               and i < len(xi_sort)-n_save):
             bin_xi += xi_sort[i]
@@ -290,8 +252,6 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
         m_bin.append(bin_mass)
         xi_bin.append(bin_xi)
             
-    # return m_bin, xi_bin, bin_centers    
-    
     xi_bin = np.array(xi_bin)
     bin_centers = np.array(bin_centers)
     m_bin = np.array(m_bin)
@@ -299,9 +259,6 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     ### merge particles, whose masses are close together in log space:
     bin_size_log =\
         (np.log10(bin_centers[-1]) - np.log10(bin_centers[0])) / no_bins0
-    
-    # print("np.sum(xi_bin*bin_centers), m_bin.sum() before")
-    # print(np.sum(xi_bin*bin_centers), m_bin.sum())
     
     i = 0
     while(i < len(xi_bin)-1):
@@ -332,37 +289,9 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     bin_centers = bin_centers[ind]        
     m_bin = m_bin[ind]
     
-    # print("np.sum(xi_bin*bin_centers), m_bin.sum() after")
-    # print(np.sum(xi_bin*bin_centers), m_bin.sum())
-    
-    ######
-    # bin_size = 0.5 * (bin_centers[-1] - bin_centers[0]) / no_bins0
-    # bin_size = (bin_centers[-1] - bin_centers[0]) / no_bins0
-    
-    # print("len(bin_centers) bef =", len(bin_centers))
-    
-    # for i, bc in enumerate(bin_centers[:-1]):
-    #     if bin_centers[i+1] - bc < bin_size and xi_bin[i] != 0:
-    #         m_sum = m_bin[i+1] + m_bin[i]
-    #         xi_sum = xi_bin[i+1] + xi_bin[i]
-    #         bin_centers[i] = m_sum / xi_sum
-    #         xi_bin[i] = xi_sum
-    #         xi_bin[i+1] = 0
-    #         m_bin[i] = m_sum
-
-    # ind = np.nonzero(xi_bin)
-    # xi_bin = xi_bin[ind]
-    # m_bin = m_bin[ind]
-    # bin_centers = bin_centers[ind]
-    ######
-    
-    # print("len(bin_centers) after =", len(bin_centers))
-
-    # radii = compute_radius_from_mass(m_sort, c.mass_density_water_liquid_NTP)
     radii = compute_radius_from_mass_vec(bin_centers,
                                      c.mass_density_water_liquid_NTP)
     
-    ###
     # find the midpoints between the masses/radii
     # midpoints = 0.5 * ( m_sort[:-1] + m_sort[1:] )
     # m_left = 2.0 * m_sort[0] - midpoints[0]
@@ -374,116 +303,32 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     
     bins = np.hstack([R_left, bins, R_right])
     bins_log = np.log(bins)
-    # print(midpoints)
-       
-    # mass_per_ln_R = m_sort * xi_sort
-    # mass_per_ln_R *= 1.0E-15/no_sims
     
     m_bin = np.array(m_bin)
-    
     g_ln_R = m_bin * 1.0E-15 / no_sims / (bins_log[1:] - bins_log[0:-1]) / dV
     
     return g_ln_R, radii, bins, xi_bin, bin_centers
 
-# masses = masses_vs_time[3]
-# xis = xis_vs_time[3]
-# radii = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
-# xi_min = 100
-# m_bin, xi_bin, bins = auto_bin_SIPs(masses, xis, xi_min)
-
-# r_bin = compute_radius_from_mass(bins, c.mass_density_water_liquid_NTP)
-
-# plt.plot(r_bin, m_bin, "o")
-
-# masses = masses_vs_time[3]
-# xis = xis_vs_time[3]
-# radii = compute_radius_from_mass(masses, c.mass_density_water_liquid_NTP)
-# print(masses.shape)
-# print(xis.shape)
-# print()
-
-# xi_min = 100
-# no_bins = 40
-# g_ln_R, R_sort, bins, xi_bi, m_bins = auto_bin_SIPs(masses,
-#                                                     xis, xi_min, no_bins,
-#                                                     dV, no_sims)
-
-# fig = plt.figure()
-# ax = plt.gca()
-# ax.loglog(R_sort, g_ln_R, "x")
-# # ax.plot(R_sort, g_ln_R, "x")
-# # ax.plot(R_sort, xi_bin)
-
-# ###
-
-# method = "log_R"
-
-# R_min = 0.99*np.amin(radii)
-# R_max = 1.01*np.amax(radii)
-# # R_max = 3.0*np.amax(radii)
-# print("R_min=", R_min)
-# print("R_max=", R_max)
-
-# no_bins = 20
-# if method == "log_R":
-#     bins = np.logspace(np.log10(R_min), np.log10(R_max), no_bins)
-# elif method == "lin_R":
-#     bins = np.linspace(R_min, R_max, no_bins)
-# # print(bins)
-
-# # masses in 10^-15 gram
-# mass_per_ln_R, _ = np.histogram(radii, bins, weights=masses*xis)
-# # convert to gram
-# mass_per_ln_R *= 1.0E-15/no_sims
-# # print(mass_per_ln_R)
-# # print(mass_per_ln_R.shape, bins.shape)
-
-# bins_log = np.log(bins)
-# # bins_mid = np.exp((bins_log[1:] + bins_log[:-1]) * 0.5)
-# bins_mid = (bins[1:] + bins[:-1]) * 0.5
-
-# g_ln_R = mass_per_ln_R / (bins_log[1:] - bins_log[0:-1]) / dV
-
-# # print(g_ln_R.shape)
-# # print(np.log(bins_mid[1:])-np.log(bins_mid[0:-1]))
-# ax.loglog( bins_mid, g_ln_R, "-" )
-###
 
 #%% PARTICLE POSITIONS AND VELOCITIES
 
 def plot_pos_vel_pt(pos, vel, grid,
                     figsize=(8,8), no_ticks = [6,6],
                     MS = 1.0, ARRSCALE=2, fig_name=None):
-    # u_g = 0.5 * ( grid.velocity[0,0:-1] + grid.velocity[0,1:] )
-    # v_g = 0.5 * ( grid.velocity[1,:,0:-1] + grid.velocity[1,:,1:] )
     fig, ax = plt.subplots(figsize=figsize)
     ax.plot(grid.corners[0], grid.corners[1], "x", color="red", markersize=MS)
     ax.plot(pos[0],pos[1], "o", color="k", markersize=2*MS)
     ax.quiver(*pos, *vel, scale=ARRSCALE, pivot="mid")
-    # ax.quiver(*grid.centers, u_g[:,0:-1], v_g[0:-1],
-              # scale=ARRSCALE, pivot="mid", color="red")
-    # ax.quiver(grid.corners[0], grid.corners[1] + 0.5*grid.steps[1],
-    #           grid.velocity[0], np.zeros_like(grid.velocity[0]),
-    #           scale=0.5, pivot="mid", color="red")
-    # ax.quiver(grid.corners[0] + 0.5*grid.steps[0], grid.corners[1],
-    #           np.zeros_like(grid.velocity[1]), grid.velocity[1],
-    #           scale=0.5, pivot="mid", color="blue")
     x_min = grid.ranges[0,0]
     x_max = grid.ranges[0,1]
     y_min = grid.ranges[1,0]
     y_max = grid.ranges[1,1]
     ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
     ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
-    # ax.set_xticks(grid.corners[0][:,0])
-    # ax.set_yticks(grid.corners[1][0,:])
     ax.set_xticks(grid.corners[0][:,0], minor = True)
     ax.set_yticks(grid.corners[1][0,:], minor = True)
-    # plt.minorticks_off()
-    # plt.minorticks_on()
     ax.grid()
     fig.tight_layout()
-    # ax.grid(which="minor")
-    # plt.show()
     if fig_name is not None:
         fig.savefig(fig_name)
         
@@ -491,8 +336,6 @@ def plot_pos_vel_pt(pos, vel, grid,
 def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
                     figsize=(8,8), no_ticks = [6,6],
                     MS = 1.0, ARRSCALE=2, fig_name=None):
-    # u_g = 0.5 * ( grid.velocity[0,0:-1] + grid.velocity[0,1:] )
-    # v_g = 0.5 * ( grid.velocity[1,:,0:-1] + grid.velocity[1,:,1:] )
     no_rows = len(pos_data)
     fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
     for i,ax in enumerate(axes):
@@ -502,33 +345,19 @@ def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
                 markersize=MS)
         ax.plot(pos[0],pos[1], "o", color="k", markersize=2*MS)
         ax.quiver(*pos, *vel, scale=ARRSCALE, pivot="mid")
-        # ax.quiver(*grid.centers, u_g[:,0:-1], v_g[0:-1],
-                  # scale=ARRSCALE, pivot="mid", color="red")
-        # ax.quiver(grid.corners[0], grid.corners[1] + 0.5*grid.steps[1],
-        #           grid.velocity[0], np.zeros_like(grid.velocity[0]),
-        #           scale=0.5, pivot="mid", color="red")
-        # ax.quiver(grid.corners[0] + 0.5*grid.steps[0], grid.corners[1],
-        #           np.zeros_like(grid.velocity[1]), grid.velocity[1],
-        #           scale=0.5, pivot="mid", color="blue")
         x_min = grid.ranges[0,0]
         x_max = grid.ranges[0,1]
         y_min = grid.ranges[1,0]
         y_max = grid.ranges[1,1]
         ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
         ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
-        # ax.set_xticks(grid.corners[0][:,0])
-        # ax.set_yticks(grid.corners[1][0,:])
         ax.set_xticks(grid.corners[0][:,0], minor = True)
         ax.set_yticks(grid.corners[1][0,:], minor = True)
-        # plt.minorticks_off()
-        # plt.minorticks_on()
         ax.grid()
         ax.set_title("t = " + str(save_times[i]) + " s")
         ax.set_xlabel('x (m)')
         ax.set_xlabel('z (m)')
     fig.tight_layout()
-    # ax.grid(which="minor")
-    # plt.show()
     if fig_name is not None:
         fig.savefig(fig_name)
 
@@ -539,13 +368,6 @@ def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
 @njit()
 def sample_masses(m_w, m_s, xi, cells, id_list, grid_temperature,
                   target_cell, no_cells_x, no_cells_z):
-    
-#    m_dry = []
-#    m_wat = []
-#    multi = []
-#    
-#    i_p = []
-#    j_p = []
     
     dx = no_cells_x // 2
     dz = no_cells_z // 2
@@ -583,13 +405,6 @@ def sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
                             grid_mass_dry_inv,
                   target_cell, no_cells_x, no_cells_z):
     
-#    m_dry = []
-#    m_wat = []
-#    multi = []
-#    
-#    i_p = []
-#    j_p = []
-    
     dx = no_cells_x // 2
     dz = no_cells_z // 2
     
@@ -620,42 +435,6 @@ def sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
     
     return m_w_out, m_s_out, xi_out, weights_out, T_p, no_cells_eval
 
-
-## @njit()
-#def sample_masses(m_w, m_s, xi, cells, target_cell, no_cells_x, no_cells_z):
-#    m_dry = []
-#    m_wat = []
-#    multi = []
-#    
-#    i_p = []
-#    j_p = []
-#    
-#    dx = no_cells_x // 2
-#    dz = no_cells_z // 2
-#    
-#    i_an = range(target_cell[0] - dx, target_cell[0] + dx + 1)
-#    j_an = range(target_cell[1] - dz, target_cell[1] + dz + 1)
-#    # print("cells.shape in sample masses")
-#    # print(cells.shape)
-#    
-#    for ID, m_s_ in enumerate(m_s):
-#        # print(ID)
-#        i = cells[0,ID]
-#        j = cells[1,ID]
-#        if i in i_an and j in j_an:
-#            m_dry.append(m_s_)
-#            m_wat.append(m_w[ID])
-#            multi.append(xi[ID])
-#            i_p.append(i)
-#            j_p.append(j)
-#    m_wat = np.array(m_wat)
-#    m_dry = np.array(m_dry)
-#    multi = np.array(multi)
-#    i = np.array(i)
-#    j = np.array(j)
-#    
-#    return m_wat, m_dry, multi, i, j
-
 from microphysics import compute_radius_from_mass_vec,\
                          compute_R_p_w_s_rho_p_NaCl,\
                          compute_R_p_w_s_rho_p_AS
@@ -667,13 +446,6 @@ def sample_radii(m_w, m_s, xi, cells, solute_type, id_list,
                                                   grid_temperature,
                                                   target_cell, no_cells_x,
                                                   no_cells_z)
-    # print("m_wat")
-    # print("m_dry")
-    # print("multi")
-    # print(m_wat)
-    # print(m_dry)
-    # print(multi)
-#    T_p = grid_temperature[i,j]
     if solute_type == "AS":
         mass_density_dry = c.mass_density_AS_dry
         compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
@@ -695,13 +467,6 @@ def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
         sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
                                 grid_mass_dry_inv,
                                 target_cell, no_cells_x, no_cells_z)
-    # print("m_wat")
-    # print("m_dry")
-    # print("multi")
-    # print(m_wat)
-    # print(m_dry)
-    # print(multi)
-#    T_p = grid_temperature[i,j]
     if solute_type == "AS":
         mass_density_dry = c.mass_density_AS_dry
         compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
@@ -713,25 +478,6 @@ def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
     R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_out, m_s_out, T_p)
     
     return R_p, R_s, xi_out, weights_out, no_cells_eval        
-#def sample_radii(m_w, m_s, xi, cells, grid_temperature,
-#                 target_cell, no_cells_x, no_cells_z, solute_type):
-#    m_wat, m_dry, multi, i, j = sample_masses(m_w, m_s, xi, cells,
-#                                        target_cell, no_cells_x, no_cells_z)
-#    # print("m_wat")
-#    # print("m_dry")
-#    # print("multi")
-#    # print(m_wat)
-#    # print(m_dry)
-#    # print(multi)
-#    T_p = grid_temperature[i,j]
-#    if solute_type == "AS":
-#        mass_density_dry = c.mass_density_AS_dry
-#        R, w_s, rho_p = compute_R_p_w_s_rho_p_AS(m_wat, m_dry, T_p)
-#    elif solute_type == "NaCl":
-#        mass_density_dry = c.mass_density_AS_dry
-#        R, w_s, rho_p = compute_R_p_w_s_rho_p_NaCl(m_wat, m_dry, T_p)
-#    R_s = compute_radius_from_mass_vec(m_dry, mass_density_dry)
-#    return R, R_s, multi        
 
 #%%
 def avg_moments_over_boxes(
@@ -759,11 +505,6 @@ def avg_moments_over_boxes(
                                                 i_tg_corner+no_cells_per_box_x)
                         cells_box_z = np.arange(j_tg_corner,
                                                 j_tg_corner+no_cells_per_box_z)
-#                        print()
-#                        print("cells_box_x")
-#                        print(cells_box_x)
-#                        print("cells_box_z")
-#                        print(cells_box_z)
                         MG = np.meshgrid(cells_box_x, cells_box_z)
                         
                         cells_box_x = MG[0].flatten()
@@ -786,7 +527,6 @@ def simple_plot(x_, y_arr_):
         ax.plot (x_, y_)
     ax.grid()
 
-# INWORK: add title and ax labels
 def plot_scalar_field_2D( grid_centers_x_, grid_centers_y_, field_,
                          tick_ranges_, no_ticks_=[5,5],
                          no_contour_colors_ = 10, no_contour_lines_ = 5,
@@ -823,8 +563,6 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid, solute_type,
     if no_cells_z % 2 == 0: no_cells_z += 1
     
     V_an = no_cells_x * no_cells_z * grid.volume_cell * 1.0E6
-    # V_an = (no_neighbors_x * 2 + 1) * (no_neighbors_z * 2 + 1)
-    # * grid.volume_cell * 1.0E6
     
     no_bins = 40
     no_bins_s = 30
@@ -832,79 +570,29 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid, solute_type,
     
     R_min = 1E-2
     Rs_max = 0.3
-    # R_max = 12.0
     R_max = 120.0
     
     R_min_log = np.log10(R_min)
     Rs_max_log = np.log10(Rs_max)
     R_max_log = np.log10(R_max)
     
-    # print(log_R.shape)
-    # print(log_Rs.shape)
-    # print(multi.shape)
-    
     h1, bins1 = np.histogram( log_R, bins=no_bins,  weights=multi/V_an )
     h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,  weights=multi/V_an )
-    # h1, bins1 = np.histogram(log_R, bins=no_bins,
-    #                          range=(R_min_log,R_max_log), weights=multi/V_an)
-    # h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,
-    #                           range=(R_min_log, Rs_max_log),
-    #                           weights=multi/V_an )
     bins1 = 10 ** bins1
     bins2 = 10 ** bins2
     d_bins1 = np.diff(bins1)
     d_bins2 = np.diff(bins2)
     
-    #########################
-    
-    # # title size (pt)
-    # TTFS = 22
-    # # labelsize (pt)
-    # LFS = 20
-    # # ticksize (pt)
-    # TKFS = 18
-    
-    # figsize_x = cm2inch(10.8)
-    # figsize_y = cm2inch(10.3)
-    # figsize_y = 8
-    
-    # no_rows = 1
-    # no_cols = 1
-    
-    def cm2inch(*tupl):
-        inch = 2.54
-        if isinstance(tupl[0], tuple):
-            return tuple(i/inch for i in tupl[0])
-        else:
-            return tuple(i/inch for i in tupl)
-    
     fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                           figsize = cm2inch(10.8,9.3),
-                           # figsize = (figsize_x*no_cols, figsize_y*no_rows),
-    #                        sharey=True,
-    #                        sharex=True,
+                             figsize = cm2inch(10.8,9.3),
                              )
     ax = axes
-    # ax.hist(R, bins = bins1, weights = multi/d_bins1)
     ax.bar(bins1[:-1], h1, width = d_bins1, align = 'edge',
-    # ax.bar(bins1[:-1], h1/d_bins1, width = d_bins1, align = 'edge',
-    #        fill = False,
-    #        color = None,
             alpha = 0.05,
-           linewidth = 0,
-    #        color = (0,0,1,0.05),
-    #        edgecolor = (0,0,0,0.0),
-           
-          )
+           linewidth = 0)
     ax.bar(bins2[:-1], h2, width = d_bins2, align = 'edge', 
-    # ax.bar(bins2[:-1], h2/d_bins2, width = d_bins2, align = 'edge',
-    #        fill = False,
-    #        color = None,
             alpha = 0.1,
-           linewidth = 0,
-    #        color = (1,0,0,0.05),
-    #        edgecolor = (1,0,0,1.0),
-          )
+           linewidth = 0)
     LW = 2
     ax.plot(np.repeat(bins1,2)[:],
             np.hstack( [[0.001], np.repeat(h1,2)[:], [0.001] ] ),
@@ -920,34 +608,22 @@ def plot_particle_size_spectra(m_w, m_s, xi, cells, grid, solute_type,
     height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
     ax.set_xlabel(r"particle radius (mu)", fontsize = LFS)
     ax.set_ylabel(r"concentration (${\mathrm{cm}^{3}}$)", fontsize = LFS)
-    # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
-    # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
     ax.set_title( f'h = {height} m ' +
                  f"tg cell ({target_cell[0]} {target_cell[1]}) "
                     + f"no cells ({no_cells_x}, {no_cells_z})",
                     fontsize = TTFS )
     
-    # X = np.linspace(1E-2,1.0,1000)
-    # Y = np.log(X)
-    # Z = gaussian(Y, np.log(0.075), np.log(1.6))
-    
-    # ax.plot(X,Z*11,'--',c="k")
-    
-    # ax.set_xticks(bins1)
     ax.set_xscale("log")
-    # ax.set_xticks(bins1)
     ax.set_yscale("log")
     ax.set_ylim( [0.01,50] )
     ax.grid(linestyle="dashed")
     
     handles, labels = ax.get_legend_handles_labels()
-    # ax.legend(handles[::-1], labels[::-1], title='Line', loc='upper left')
     ax.legend(handles[::-1], labels[::-1], ncol = 2, prop={'size': TKFS},
               loc='upper center', bbox_to_anchor=(0.5, 1.05), frameon = False)
     fig.tight_layout()
     plt.show()
     if fig_path is not None:
-#        fig.savefig(fig_path + "spectrum_" + str(height) +".pdf")
         fig.savefig(fig_path
                     + f"spectrum_cell_{target_cell[0]}_{target_cell[1]}_"
                     + f"no_cells_{no_cells_x}_{no_cells_z}.pdf")
@@ -966,9 +642,6 @@ def plot_particle_size_spectra_tg_list(
     i_list = target_cell_list[0]
     j_list = target_cell_list[1]
     
-#    no_rows = len(i_list)
-#    no_cols = len(j_list)
-    
     def cm2inch(*tupl):
         inch = 2.54
         if isinstance(tupl[0], tuple):
@@ -978,8 +651,6 @@ def plot_particle_size_spectra_tg_list(
     
     fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
                              figsize = (no_cols*5, no_rows*4) )
-#    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-#                             figsize = cm2inch(10.8,9.3))
     
     plot_n = -1
     for row_n in range(no_rows)[::-1]:
@@ -1005,8 +676,6 @@ def plot_particle_size_spectra_tg_list(
             if no_cells_z % 2 == 0: no_cells_z += 1
             
             V_an = no_cells_x * no_cells_z * grid_volume_cell * 1.0E6
-            # V_an = (no_neighbors_x * 2 + 1) * (no_neighbors_z * 2 + 1)
-            # * grid.volume_cell * 1.0E6
             
             no_bins = 40
             no_bins_s = 30
@@ -1014,69 +683,25 @@ def plot_particle_size_spectra_tg_list(
             
             R_min = 1E-2
             Rs_max = 0.3
-            # R_max = 12.0
             R_max = 120.0
             
             R_min_log = np.log10(R_min)
             Rs_max_log = np.log10(Rs_max)
             R_max_log = np.log10(R_max)
             
-            # print(log_R.shape)
-            # print(log_Rs.shape)
-            # print(multi.shape)
-            
             h1, bins1 = np.histogram( log_R, bins=no_bins,  weights=multi/V_an )
             h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,  weights=multi/V_an )
-            # h1, bins1 = np.histogram(log_R, bins=no_bins,
-            #                          range=(R_min_log,R_max_log), weights=multi/V_an)
-            # h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,
-            #                           range=(R_min_log, Rs_max_log),
-            #                           weights=multi/V_an )
             bins1 = 10 ** bins1
             bins2 = 10 ** bins2
             d_bins1 = np.diff(bins1)
             d_bins2 = np.diff(bins2)
             
-            #########################
-            
-            # # title size (pt)
-            # TTFS = 22
-            # # labelsize (pt)
-            # LFS = 20
-            # # ticksize (pt)
-            # TKFS = 18
-            
-            # figsize_x = cm2inch(10.8)
-            # figsize_y = cm2inch(10.3)
-            # figsize_y = 8
-            
-            # no_rows = 1
-            # no_cols = 1
-        
-    
-        
-    
-    #    ax = axes
-        # ax.hist(R, bins = bins1, weights = multi/d_bins1)
             ax.bar(bins1[:-1], h1, width = d_bins1, align = 'edge',
-            # ax.bar(bins1[:-1], h1/d_bins1, width = d_bins1, align = 'edge',
-            #        fill = False,
-            #        color = None,
                     alpha = 0.05,
-                   linewidth = 0,
-            #        color = (0,0,1,0.05),
-            #        edgecolor = (0,0,0,0.0),
-                   
-                  )
+                   linewidth = 0)
             ax.bar(bins2[:-1], h2, width = d_bins2, align = 'edge', 
-            # ax.bar(bins2[:-1], h2/d_bins2, width = d_bins2, align = 'edge',
-            #        fill = False,
-            #        color = None,
                     alpha = 0.1,
-                   linewidth = 0,
-            #        color = (1,0,0,0.05),
-            #        edgecolor = (1,0,0,1.0),
-                  )
+                   linewidth = 0)
             LW = 2
             ax.plot(np.repeat(bins1,2)[:],
                     np.hstack( [[0.001], np.repeat(h1,2)[:], [0.001] ] ),
@@ -1085,42 +710,27 @@ def plot_particle_size_spectra_tg_list(
                     np.hstack( [[0.001], np.repeat(h2,2)[:], [0.001] ] ),
                     linewidth = LW, label = "dry")
             
-            
             ax.tick_params(axis='both', which='major', labelsize=TKFS, length = 5)
             ax.tick_params(axis='both', which='minor', labelsize=TKFS, length = 3)
             
-#            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
             height = int((target_cell[1]+0.5)*grid_step_z)
             ax.set_xlabel(r"particle radius (mu)", fontsize = LFS)
             ax.set_ylabel(r"concentration (${\mathrm{cm}^{3}}$)", fontsize = LFS)
-            # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
-            # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
             ax.set_title( f'h = {height} m ' +
                          f"tg cell ({target_cell[0]} {target_cell[1]}) "
                             + f"no cells ({no_cells_x}, {no_cells_z})",
                             fontsize = TTFS )
             
-            # X = np.linspace(1E-2,1.0,1000)
-            # Y = np.log(X)
-            # Z = gaussian(Y, np.log(0.075), np.log(1.6))
-            
-            # ax.plot(X,Z*11,'--',c="k")
-            
-            # ax.set_xticks(bins1)
             ax.set_xscale("log")
-            # ax.set_xticks(bins1)
             ax.set_yscale("log")
             ax.set_ylim( [0.01,50] )
             ax.grid(linestyle="dashed")
             
             handles, labels = ax.get_legend_handles_labels()
-            # ax.legend(handles[::-1], labels[::-1], title='Line', loc='upper left')
             ax.legend(handles[::-1], labels[::-1], ncol = 2, prop={'size': TKFS},
                       loc='upper center', bbox_to_anchor=(0.5, 1.04), frameon = False)
     fig.tight_layout()
-#    plt.show()
     if fig_path is not None:
-#        fig.savefig(fig_path + "spectrum_" + str(height) +".pdf")
         fig.savefig(fig_path 
                     + f"spectrum_cell_list_j_from_{j_list[0]}_to_{j_list[-1]}_" 
                     + f"no_cells_{no_cells_x}_{no_cells_z}_t_{int(t)}.pdf")
@@ -1162,10 +772,6 @@ def plot_scalar_field_frames(grid, fields,
             ax = axes[i,j]
             idx_t = time_indices[i]
             idx_f = field_indices[j]
-            # print("idx_t")
-            # print(idx_t)
-            # print("idx_f")
-            # print(idx_f)
             field = fields[idx_t, idx_f]*scales[idx_f]
             field_min = field.min()
             if idx_f == 1: field_min = 0.001
@@ -1176,9 +782,6 @@ def plot_scalar_field_frames(grid, fields,
             else: 
                 cmap = "rainbow"
                 alpha = 0.7
-#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
-#                       field, no_contour_lines_, colors = 'black')
-#                ax[i,j].clabel(contours, inline=True, fontsize=8)
             CS = ax.pcolormesh(*grid.corners, field, cmap=cmap, alpha=alpha,
                                     vmin=field_min, vmax=field_max,
                                     edgecolor="face", zorder=1)
@@ -1231,15 +834,10 @@ from matplotlib.colors import hex2color, LinearSegmentedColormap
 #alpha = 0.7
 
 colors1 = plt.cm.get_cmap('gist_ncar_r', 256)
-#top = plt.cm.get_cmap('gist_rainbow_r', 256)
 colors2 = plt.cm.get_cmap('rainbow', 256)
-#top = plt.cm.get_cmap('Greys', 128)
-#bottom = plt.cm.get_cmap('Blues', 128)
 
 newcolors = np.vstack((colors1(np.linspace(0, 0.16, 24)),
                        colors2(np.linspace(0, 1, 256))))
-#newcolors = np.vstack((top(np.linspace(0, 1, 128)),
-#                       bottom(np.linspace(0, 1, 128))))
 cmap_new = mpl.colors.ListedColormap(newcolors, name='my_rainbow')
 
 ### CREATE COLORMAP LIKE ARABAS 2015
@@ -1280,11 +878,7 @@ cmap_lcpp = LinearSegmentedColormap('testCmap', segmentdata=cdict_lcpp, N=256)
 # need grid for dry air density and ?
 # fields are with time
 # m_s, w_s, xi       
-@njit()
-def update_T_p(grid_temp, cells, T_p):
-    for ID in range(len(T_p)):
-        # T_p_ = grid_temp[cells[0,ID],cells[1,ID]]
-        T_p[ID] = grid_temp[cells[0,ID],cells[1,ID]]    
+   
 # ind_ext = [i1, i2, ...]
 # 0: r_aero
 # 1: r_cloud
@@ -1297,7 +891,6 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
                                     no_ticks=[6,6], fig_path=None,
                                     TTFS = 12, LFS = 10, TKFS = 10,
                                     cbar_precision = 2):
-#    print(save_times)
     if solute_type == "AS":
         compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
@@ -1319,13 +912,6 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
     fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
                            figsize = (4.5*no_cols, 4*no_rows))
     
-#    for t_n, idx_t in enumerate(time_indices):
-#        pos_ = pos[idx_t]
-#        # DEACTIVATE LATER... -> need active ids and cells from storage...
-#        cells = np.array( [np.floor(pos_[0]/grid.steps[0]),
-#                           np.floor(pos_[1]/grid.steps[1])] ).astype(int)
-#        update_T_p(fields[idx_t, 3], cells, T_p)        
-        
     field_names = ["r_v", "r_l", "\Theta", "T", "p", "S"]
     scales = [1000, 1000, 1, 1, 0.01, 1]
     units = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
@@ -1334,8 +920,6 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
                        "n_\mathrm{aero}", "n_c", "n_r"]
     units_ext = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg"]
     scales_ext = [1000, 1000, 1000, 1E-6, 1E-6, 1E-6]
-    
-#    field_names += field_names_ext
     
     tick_ranges = grid.ranges
     for i in range(no_rows):
@@ -1387,7 +971,6 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
                 alpha = 0.8
             field_max = field.max()
             field_min = field.min()
-    #        oom_max = compute_order_of_magnitude(field_max)
             oom_max = oom = int(math.log10(field_max))
             
             my_format = False
@@ -1402,11 +985,7 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
             
             if oom_max in [1,2]: str_format = "%.1f"
             else: str_format = "%.2f"
-#            def fmt_cbar(x, pos):
-#        #        a, b = '{:.2e}'.format(x).split('e')
-#        #        a = float(a)
-#        #        b = int(b) - oom_max
-#                return r'${0:.{prec}f}$'.format(x, prec=cbar_precision) 
+
             
             if field_min/field_max < 1E-4:
 #                cmap = cmap_new
@@ -1456,11 +1035,6 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
             ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
                          int(save_times[idx_t]/60)),
                          fontsize = TTFS)
-#            ax.set_title( r"${0}$ ({1})".format(field_names[j], units[j]),
-#                         fontsize = TTFS)
-            
-#            cbar = plt.colorbar(CS, ax=ax, extend = "min",
-#                                format=mticker.FuncFormatter(fmt_cbar))
             cbar = plt.colorbar(CS, ax=ax,
                                 format=mticker.FormatStrFormatter(str_format))
             if my_format:
@@ -1468,70 +1042,16 @@ def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
                              field_max + (field_max-field_min)*0.01,
                              r'$\times\,10^{{{}}}$'.format(oom_max),
                              va='bottom', ha='left', fontsize = TKFS)
-#            cbar.ax.text(-2.3*(field_max-field_min), field_max*1.01,
-#                         r'$\times\,10^{{{}}}$'.format(oom_max),
-#                         va='bottom', ha='left', fontsize = TKFS)
-#            cbar.ax.text(0,1,
-#                         r'$\times\,10^{{{}}}$'.format(oom_max),
-#                         va='bottom', ha='left', fontsize = TKFS)
-            
-#            if oom_max == 2:
-#                ticks_cbar = np.arange( int(10*field_min)*0.1,
-#                                      (int(10*field_max)+1)*0.1,
-#                                             int(1*(field_max-field_min)) / 5)
-#            else:
-#                ticks_cbar = np.arange( int(10*field_min)*0.1,
-#                                  (int(10*field_max)+1)*0.1,
-#                                         int(10*(field_max-field_min)) / 50)
-#            print(i,j,ticks_cbar)
-#            cbar.set_ticks(np.arange( int(10*field_min)*0.1,
-#                                         (int(10*field_max)+1)*0.1),
-#                                         int(10*(field_max-field_min)) / 80 )
             cbar.ax.tick_params(labelsize=TKFS)
             
 
 
-#            field_min = field.min()
-#            if idx_f == 1: field_min = 0.001
-#            field_max = field.max()
-#            if idx_f in [2,3,4]: 
-#                cmap = "coolwarm"
-#                alpha = None
-#            else: 
-#                cmap = "rainbow"
-#                alpha = 0.7
-#                contours = ax[i,j].contour(grid_centers_x_, grid_centers_y_,
-#                       field, no_contour_lines_, colors = 'black')
-#                ax[i,j].clabel(contours, inline=True, fontsize=8)
-#            CS = ax.pcolormesh(*grid.corners, field, cmap=cmap, alpha=alpha,
-#                                    vmin=field_min, vmax=field_max,
-#                                    edgecolor="face", zorder=1)
-#            CS.cmap.set_under("white")
-#            if idx_f == 1:
-#                cbar = fig.colorbar(CS, ax=ax, extend = "min")
-#            else: cbar = fig.colorbar(CS, ax=ax)
-#            cbar.ax.tick_params(labelsize=TKFS)
-#            ax.set_title(
-#                field_names[idx_f] + ' (' + units[idx_f] + '), t = '
-#                + str(int(save_times[idx_t]//60)) + " min", fontsize = TTFS )
-#            ax.set_xticks( np.linspace( tick_ranges[0,0],
-#                                             tick_ranges[0,1],
-#                                             no_ticks[0] ) )
-#            ax.set_yticks( np.linspace( tick_ranges[1,0],
-#                                             tick_ranges[1,1],
-#                                             no_ticks[1] ) )
-#            ax.tick_params(axis='both', which='major', labelsize=TKFS)
-#            if i == no_rows-1:
-#                ax.set_xlabel(r'x (m)', fontsize = LFS)
-#            if j == 0:
-#                ax.set_ylabel(r'z (m)', fontsize = LFS)
-#            ax.grid(color='gray', linestyle='dashed', zorder = 2)
           
     fig.tight_layout()
     if fig_path is not None:
         fig.savefig(fig_path)
 
-
+#%% DATA ANALYSIS
 
 @njit()
 # V0 = volume grid cell
@@ -1605,10 +1125,6 @@ def generate_field_frame_data_avg(load_path_list,
     no_fields_orig = len(field_indices)
     no_fields_derived = len(derived_indices)
     no_fields = no_fields_orig + no_fields_derived
-    
-#    print(no_fields_orig)
-#    print(no_fields_derived)
-#    print(no_fields)
     
     fields_with_time = np.zeros( (no_times, no_fields,
                                   no_cells[0], no_cells[1]),
@@ -1717,16 +1233,6 @@ def generate_field_frame_data_avg(load_path_list,
                              cells_with_time[idx_t][:,masks_R_p[1]],
                              active_ids_with_time[idx_t][masks_R_p[1]],
                              id_list, no_cells)
-#            mom2_cloud = compute_moment_R_grid(3,
-#                                               R_p[masks_R_p[1]],
-#                                               xi_with_time[idx_t][masks_R_p[1]],
-#                                               cells_with_time[idx_t][:,[masks_R_p[1]]],
-#                                               active_ids_with_time[idx_t][masks_R_p[1]],
-#                                               id_list, no_cells)
-#            mom3_cloud = compute_moment_R_grid(3, R_p, xi_with_time[idx_t],
-#                                               cells_with_time[idx_t],
-#                                               active_ids_with_time[idx_t],
-#                                               id_list, no_cells)
 
             for cnt in range(no_fields_derived):
                 idx_f = derived_indices[cnt]
@@ -1758,30 +1264,7 @@ def generate_field_frame_data_avg(load_path_list,
                     # R_eff
                     fields_derived[cnt] = np.where(mom2_cloud == 0.0, 0.0,
                                                    mom3_cloud/mom2_cloud)
-                
-                        
             
-#            for mask_n in range(3):
-#                mask = np.logical_and(masks_R_p[mask_n],
-#                                      active_ids_with_time[idx_t])
-#                update_mixing_ratio(fields_derived[mask_n],
-#                                    m_w_with_time[idx_t],
-#                                    xi_with_time[idx_t],
-#                                    cells_with_time[idx_t],
-#                                    mass_dry_inv, 
-#                                    id_list, mask)   
-#                update_number_concentration_per_dry_mass(
-#                        fields_derived[mask_n+3],
-#                        xi_with_time[idx_t],
-#                        cells_with_time[idx_t],
-#                        mass_dry_inv, 
-#                        id_list, mask)
-#            for cnt in range(no_fields_derived):
-#                fields_with_time[idx_t,cnt+no_fields_orig] += \
-#                    fields_derived[cnt]
-                
-#            print(fields_with_time.shape)    
-#            print(fields_derived.shape)    
             fields_with_time[time_n,no_fields_orig:no_fields] += \
                 fields_derived
             fields_with_time_sq[time_n,no_fields_orig:no_fields] += \
@@ -1823,7 +1306,6 @@ def generate_moments_avg_std(load_path_list,
     
     save_times_out = np.zeros(no_times, dtype = np.int64)
     
-#    print(time_indices)
     for time_n in range(no_times):
         idx_t = time_indices[time_n]        
         save_times_out[time_n] = grid_save_times[idx_t]
@@ -1856,10 +1338,7 @@ def generate_moments_avg_std(load_path_list,
                                              cells_with_time[idx_t],
                                              active_ids_with_time[idx_t],
                                              id_list, no_cells)
-   
-#    moments_vs_time_avg = np.average(moments_vs_time_all_seeds, axis=0)
-#    moments_vs_time_std = np.std(moments_vs_time_all_seeds, axis=1, ddof=1)
-    
+
     return moments_vs_time_all_seeds, save_times_out
 
 
@@ -1930,11 +1409,8 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                 field_min = 0.0
                 field_max = 150.
             if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
-#                field_min = 0.
                 field_min = 1.2
-#                field_min = 1.5
                 field_max = 20.
-#                cmap = cmap_new
                 # Arabas 2015
                 cmap = cmap_lcpp
                 
@@ -1955,13 +1431,9 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
             else: str_format = "%.2f"
             
             if field_min/field_max < 1E-4:
-#                cmap = cmap_new
                 # Arabas 2015                
                 cmap = cmap_lcpp
 #                alpha = 0.8
-            
-            # REMOVE FIX APLHA HERE
-#            alpha = 1.0
             
             CS = ax.pcolormesh(*grid.corners, field*oom_factor,
                                cmap=cmap, alpha=alpha,
@@ -2006,13 +1478,9 @@ def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
                     x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
                     z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
                     
-            #        dx *= no_cells_x
-            #        dz *= no_cells_z
-                    
                     rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
                                          fill=False,
                                          linewidth = LW_rect,
-        #                                 linestyle = "dashed",
                                          edgecolor='k',
                                          zorder = 99)        
                     ax.add_patch(rect)
@@ -2028,7 +1496,7 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
                                             units,
                                             scales,
                                             solute_type,
-                                            simulation_mode, # for time in label
+                                            simulation_mode, # for time label
                                             fig_path=None,
                                             no_ticks=[6,6],
                                             alpha = 1.0,
@@ -2062,9 +1530,7 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
                 cmap = "coolwarm"
                 alpha = 1.0
             else :
-#                cmap = "rainbow"
                 cmap = cmap_lcpp
-#                alpha = 0.8
                 
             field_max = field.max()
             field_min = field.min()
@@ -2090,11 +1556,8 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
                 field_min = 0.0
                 field_max = 150.
             if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
-#                field_min = 0.
                 field_min = 1.2
-#                field_min = 1.5
                 field_max = 20.
-#                cmap = cmap_new
                 # Arabas 2015
                 cmap = cmap_lcpp
                 
@@ -2115,13 +1578,9 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
             else: str_format = "%.2f"
             
             if field_min/field_max < 1E-4:
-#                cmap = cmap_new
                 # Arabas 2015
                 cmap = cmap_lcpp
 #                alpha = 0.8
-            
-            # REMOVE FIX APLHA HERE
-#            alpha = 1.0
             
             CS = ax.pcolormesh(*grid.corners,
                                field*oom_factor,
@@ -2168,13 +1627,9 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
                          - no_neigh_x - 0.1) * dx
                     z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
                     
-            #        dx *= no_cells_x
-            #        dz *= no_cells_z
-                    
                     rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
                                          fill=False,
                                          linewidth = LW_rect,
-        #                                 linestyle = "dashed",
                                          edgecolor='k',
                                          zorder = 99)        
                     ax.add_patch(rect)
@@ -2188,7 +1643,13 @@ def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
 # target_cell_list = [ [tgc1], [tgc2], ... ]; tgc1 = [i1, j1]
 # ind_time = [it1, it2, ..] = ind. of save times belonging to tgc1, tgc2, ...
 # -> to create one cycle cf with particle trajectories
-
+# grid scalar fields have been saved in this order on hard disc
+# 0 = r_v
+# 1 = r_l
+# 2 = Theta    
+# 3 = T
+# 4 = p
+# 5 = S    
 def generate_size_spectra_R_Arabas(load_path_list,
                                    ind_time,
                                    grid_mass_dry_inv,
@@ -2198,18 +1659,9 @@ def generate_size_spectra_R_Arabas(load_path_list,
                                    no_cells_x, no_cells_z,
                                    no_bins_R_p, no_bins_R_s):                                   
 
-#    if solute_type == "AS":
-#        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
-#    elif solute_type == "NaCl":
-#        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
-    
     no_seeds = len(load_path_list)
     no_times = len(ind_time)
     no_tg_cells = len(target_cell_list[0])
-    
-#    print(no_fields_orig)
-#    print(no_fields_derived)
-#    print(no_fields)
     
     load_path = load_path_list[0]
     frame_every, no_grid_frames, dump_every = \
@@ -2217,10 +1669,6 @@ def generate_size_spectra_R_Arabas(load_path_list,
     grid_save_times = np.load(load_path+"grid_save_times.npy")
     
     save_times_out = np.zeros(no_times, dtype = np.int64)
-    
-#    i_list = target_cell_list[0]
-#    j_list = target_cell_list[1]    
-    
     
     R_p_list = []
     R_s_list = []
@@ -2231,8 +1679,6 @@ def generate_size_spectra_R_Arabas(load_path_list,
     grid_r_l_list = np.zeros( (no_times, grid_no_cells[0], grid_no_cells[1]),
                         dtype = np.float64)
     
-#    for tg_cell_n in no_tg_cells:
-    
     for tg_cell_n in range(no_tg_cells):
         R_p_list.append([])
         R_s_list.append([])
@@ -2240,11 +1686,8 @@ def generate_size_spectra_R_Arabas(load_path_list,
         save_times_out[tg_cell_n] = grid_save_times[ind_time[tg_cell_n]]
         
     for seed_n, load_path in enumerate(load_path_list):
-#        fields = load_grid_scalar_fields(load_path, grid_save_times)
         fields = load_grid_scalar_fields(load_path, grid_save_times)
-        # ?????????????????????
-        # IN WORK
-        grid_temperature_with_time = fields[:,3] #??
+        grid_temperature_with_time = fields[:,3]
         
         grid_r_l_with_time = fields[:,1]
         
@@ -2261,13 +1704,6 @@ def generate_size_spectra_R_Arabas(load_path_list,
             
             id_list = np.arange(len(xi_with_time[idx_t]))
             
-#            print("seed")
-#            print(seed_n)
-#            print("no_tg_cells, tg_cell_n")
-#            print(no_tg_cells, tg_cell_n)
-#            print("target_cell")
-#            print(target_cell)
-            
             R_p_tg, R_s_tg, xi_tg, weights_tg, no_cells_eval = \
                 sample_radii_per_m_dry(m_w_with_time[idx_t],
                                        m_s_with_time[idx_t],
@@ -2277,8 +1713,6 @@ def generate_size_spectra_R_Arabas(load_path_list,
                                        grid_temperature_with_time[idx_t],
                                        grid_mass_dry_inv,
                                        target_cell, no_cells_x, no_cells_z)
-#            print("R_p_tg")
-#            print(R_p_tg)
                 
             R_p_list[tg_cell_n].append(R_p_tg)
             R_s_list[tg_cell_n].append(R_s_tg)
@@ -2298,9 +1732,6 @@ def generate_size_spectra_R_Arabas(load_path_list,
                              dtype = np.float64 )
     
     for tg_cell_n in range(no_tg_cells):
-#        R_p_tg = np.concatenate(R_p_list[tg_cell_n])
-#        R_s_tg = np.concatenate(R_s_list[tg_cell_n])
-#        weights_tg = np.concatenate(weights_list[tg_cell_n])
             
         R_p_min = np.amin(np.concatenate(R_p_list[tg_cell_n]))
         R_p_max = np.amax(np.concatenate(R_p_list[tg_cell_n]))
@@ -2308,17 +1739,8 @@ def generate_size_spectra_R_Arabas(load_path_list,
         R_min_list.append(R_p_min)
         R_max_list.append(R_p_max)
         
-#        print("tg_cell_n, R_p_min, R_p_max")
-#        print(tg_cell_n, R_p_min, R_p_max)
-        
         R_s_min = np.amin(np.concatenate(R_s_list[tg_cell_n]))
         R_s_max = np.amax(np.concatenate(R_s_list[tg_cell_n]))
-        
-#        R_p_min = np.amin(R_p_list[tg_cell_n])
-#        R_p_max = np.amax(R_p_list[tg_cell_n])
-#        
-#        R_s_min = np.amin(R_s_list[tg_cell_n])
-#        R_s_max = np.amax(R_s_list[tg_cell_n])
         
         R_min_factor = 0.5
         R_max_factor = 2.
@@ -2344,19 +1766,11 @@ def generate_size_spectra_R_Arabas(load_path_list,
     
             h_p, b_p = np.histogram(R_p_tg, bins_R_p, weights= weights_tg)
 
-#            f_R_p = 1E-6 * h_p / bins_width_R_p / no_tg_cells
-        #            f_R_p_min = f_R_p.min()
-        #            f_R_p_max = f_R_p.max()            
-            
             # convert from 1/(kg*micrometer) to unit 1/(milligram * micro_meter)
             f_R_p_list[tg_cell_n, seed_n] =\
                 1E-6 * h_p / bins_width_R_p / no_cells_eval
         
             h_s, b_s = np.histogram(R_s_tg, bins_R_s, weights= weights_tg)
-            
-#            f_R_s = 1E-6 * h_s / bins_width_R_s / no_tg_cells
-#            f_R_s_min = f_R_s.min()
-#            f_R_s_max = f_R_s.max()
             
             # convert from 1/(kg*micrometer) to unit 1/(milligram * micro_meter)
             f_R_s_list[tg_cell_n, seed_n] =\
@@ -2388,14 +1802,6 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                trajectory = None
                                ):
     
-#    f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, save_times_out = \
-#        generate_size_spectra_R_Arabas(load_path_list,
-#                                       ind_time,
-#                                       grid_mass_dry_inv,
-#                                       solute_type,
-#                                       target_cell_list,
-#                                       no_cells_x, no_cells_z,
-#                                       no_bins_R_p, no_bins_R_s)  
     grid_steps = grid.steps
     no_seeds = len(f_R_p_list[0])
     no_times = len(save_times_out)
@@ -2453,32 +1859,24 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                 [f_R_s_min*1E-1] ] ),
                     linewidth = LW, label = "dry")            
     
-#            ax.vlines(0.5, f_R_s_min, f_R_s_max)
             ax.axvline(0.5, c ="k", linewidth=1.0)
             ax.axvline(25., c ="k", linewidth=1.0)
             ax.set_xscale("log")
             ax.set_yscale("log")
             ax.set_xlim( [2E-3, 1E2] )    
             ax.set_ylim( [8E-3, 4E3] )    
-#            ax.set_xlim( [2E-3, 3E2] )    
-#            ax.set_ylim( [1E-5, 4E3] )    
             
             ax.tick_params(axis='both', which='major', labelsize=TKFS,
                            length = 5)
             ax.tick_params(axis='both', which='minor', labelsize=TKFS,
                            length = 3)
             
-#            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
             xx = int((target_cell[0])*grid_steps[0])
             height = int((target_cell[1])*grid_steps[1])
-#            xx = int((target_cell[0]+0.5)*grid_steps[1])
-#            height = int((target_cell[1]+0.5)*grid_steps[1])
             ax.set_xlabel(r"particle radius ($\mathrm{\mu m}$)",
                           fontsize = LFS)
             ax.set_ylabel(r"distribution (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
                           fontsize = LFS)
-            # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
-            # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
             ax.set_title( f'x = {xx}, h = {height} m ' +
                          f"cell ({target_cell[0]} {target_cell[1]}) "
                             + f"Nc ({no_cells_x}, {no_cells_z}) "
@@ -2487,19 +1885,10 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
             ax.grid()
             ax.legend(loc='upper right')
 
-#            ax.annotate(f"({R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e})",
             ax.annotate(f"$R_{{min/max}}$\n{R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e}",            
                         (12.,40.))
             
-            #ax.set_ylim( [f_R_min*0.5,4E3] )
-#    fig.tight_layout()
-    
     if fig_path is not None:
-#        fig_name =\
-#            fig_path \
-#            + f"spectrum_cell_list_j_from_{j_low}_to_{j_high}_" \
-#            + f"Ntgcells_{no_tg_cells}_no_cells_{no_cells_x}_{no_cells_z}_" \
-#            + f"Nseeds_{no_seeds}.pdf"
         fig.savefig(fig_path)
 
     if figsize_spectra is not None:
@@ -2548,13 +1937,10 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                                 [f_R_s_min*1E-1] ] ),
                     linewidth = LW, label = "dry")            
     
-#            ax.vlines(0.5, f_R_s_min, f_R_s_max)
             ax.axvline(0.5, c ="k", linewidth=1.0)
             ax.axvline(25., c ="k", linewidth=1.0)
             ax.set_xscale("log")
             ax.set_yscale("log")
-#            ax.set_xlim( [2E-3, 1E2] )    
-#            ax.set_ylim( [8E-3, 4E3] )    
             ax.set_xlim( [2E-3, 3E2] )    
             ax.set_ylim( [1E-5, 4E3] )    
             
@@ -2563,17 +1949,12 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
             ax.tick_params(axis='both', which='minor', labelsize=TKFS,
                            length = 3)
             
-#            height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
             xx = int((target_cell[0])*grid_steps[0])
             height = int((target_cell[1])*grid_steps[1])
-#            xx = int((target_cell[0]+0.5)*grid_steps[1])
-#            height = int((target_cell[1]+0.5)*grid_steps[1])
             ax.set_xlabel(r"particle radius ($\mathrm{\mu m}$)",
                           fontsize = LFS)
             ax.set_ylabel(r"distribution (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
                           fontsize = LFS)
-            # ax.set_xlabel(r"particle radius ($\si{\micro m}$)", fontsize = LFS)
-            # ax.set_ylabel(r"concentration ($\si{\# / cm^{3}}$)", fontsize = LFS)
             ax.set_title( f'x = {xx}, h = {height} m ' +
                          f"cell ({target_cell[0]} {target_cell[1]}) "
                             + f"Nc ({no_cells_x}, {no_cells_z}) "
@@ -2585,15 +1966,7 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
             ax.annotate(f"$R_{{min/max}}$\n{R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e}",
                         (25.,6.))
             
-            #ax.set_ylim( [f_R_min*0.5,4E3] )
-#    fig.tight_layout()
-    
     if fig_path is not None:
-#        fig_name =\
-#            fig_path \
-#            + f"spectrum_cell_list_j_from_{j_low}_to_{j_high}_" \
-#            + f"Ntgcells_{no_tg_cells}_no_cells_{no_cells_x}_{no_cells_z}_" \
-#            + f"Nseeds_{no_seeds}.pdf"
         fig.savefig(fig_path[:-4] + "_ext.pdf")
     
     ### CALC EFFECTIVE RADIUS = MOMENT3/MOMENT2 FROM ANALYSIS OF f_R
@@ -2644,10 +2017,8 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
         grid_r_l = grid_r_l_list[0]*1E3
         no_rows = 1
         no_cols = 1  
-#        cmap = cmap_new
         # arabas 2015
         cmap = cmap_lcpp
-#        cmap = "my_rainbow"
 #        alpha = 0.7
         alpha = 1.0
         no_ticks = [6,6]
@@ -2675,22 +2046,12 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                             )
         CS.cmap.set_under("white")
         
-#        ax.axis("equal", "box")
-
         ax.set_xticks( np.linspace( tick_ranges[0,0],
                                          tick_ranges[0,1],
                                          no_ticks[0] ) )
         ax.set_yticks( np.linspace( tick_ranges[1,0],
                                          tick_ranges[1,1],
                                          no_ticks[1] ) )
-#        ax.set_xlim()
-
-#        ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
-#                     int(save_times[time_n]/60)),
-#                     fontsize = TTFS)
-#        cax = fig2.add_axes([ax.get_position().x1+0.01,
-#                            ax.get_position().y0,0.02,
-#                            ax.get_position().height])
         cbar = plt.colorbar(CS, ax=ax, fraction =.045,
                             format=mticker.FormatStrFormatter(str_format))    
         
@@ -2722,7 +2083,7 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
                   pivot = 'mid',
                   width = ARROW_WIDTH, scale = ARROW_SCALE, zorder=3 )                            
         
-        ### ad the target cells
+        ### add the target cells
         no_neigh_x = no_cells_x // 2
         no_neigh_z = no_cells_z // 2
         dx = grid_steps[0]
@@ -2734,19 +2095,13 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
             x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
             z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
             
-    #        dx *= no_cells_x
-    #        dz *= no_cells_z
-            
             rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z, fill=False,
                                  linewidth = LW_rect,
-#                                 linestyle = "dashed",
                                  edgecolor='k',
                                  zorder = 99)        
             ax.add_patch(rect)
         
-#        MS = 2
         if trajectory is not None:
-#            print("should plot here")
             ax.plot(trajectory[:,0],trajectory[:,1],"o",
                     markersize = MS, c="k")
         
@@ -2755,19 +2110,11 @@ def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
         ax.set_title(r"$r_l$ (g/kg), t = {} min".format(-120 + save_times_out[0]//60))
         ax.set_xlabel(r'x (m)', fontsize = LFS)
         ax.set_ylabel(r'z (m)', fontsize = LFS)  
-#        ax.axis("equal")
-#        ax.axis("scaled")
-#        ax.set(xlim=grid.ranges[0], ylim=grid.ranges[1])          
         ax.set_xlim((0,1500))
         ax.set_ylim((0,1500))
         ax.set_aspect('equal')
-#        ax.set_aspect('equal', 'box')
-        
-#        fig2.tight_layout(pad = 2.)
-#        plt.subplots_adjust(top=1, bottom=1)
         if fig_path_tg_cells is not None:
             fig2.savefig(fig_path_tg_cells,
-        #                    bbox_inches = 0,
                         bbox_inches = 'tight',
                         pad_inches = 0.04
                         )   

@@ -1,19 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-"material properties" are empirical formula, depending on ambient conditions
-general physical laws and derived quantities as well as conversions
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinetic framework
+(Test Case 1 ICMW 2012)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
+
+"material properties" are empirical formula, depending on ambient conditions.
+General physical laws and derived quantities as well as conversions
 might be found in other scripts, as the ideal gas law in "atmosphere.py"
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
-#import math
 import numpy as np
 from numba import njit, vectorize
 
 import constants as c
 from algebra import compute_polynom
 
-### DENSITY OF SOLUTIONS
+#%% DENSITY OF SOLUTIONS
 
 # water density in kg/m^3
 # quad. fit to data from CRC 2005
@@ -49,7 +59,6 @@ def compute_density_NaCl_solution(mass_fraction_solute_, temperature_):
 # also used in Haemeri 2000    
 # the temperature effect of water is added by multiplication    
 par_rho_AS = np.array([ 997.1, 592., -5.036E1, 1.024E1 ] )[::-1] / 997.1
-#@vectorize("float64(float64,float64)")  
 @njit()
 def compute_density_AS_solution(mass_fraction_solute_, temperature_):
     return compute_density_water(temperature_) \
@@ -67,7 +76,7 @@ def compute_density_solution(mass_fraction_solute_, temperature_, solute_type):
         return compute_density_NaCl_solution(mass_fraction_solute_,
                                              temperature_)
 
-### SOLUBILITY OF SOLUTIONS
+#%% SOLUBILITY OF SOLUTIONS
         
 # solubility of NaCl in water as mass fraction w_s_sol
 # saturation mass fraction (kg_solute/kg_solution)    
@@ -94,7 +103,7 @@ def compute_solubility(temperature_, solute_type):
         return compute_solubility_NaCl(temperature_)
 
 
-### SURFACE TENSION OF SOLUTIONS
+#%% SURFACE TENSION OF SOLUTIONS
 
 #    surface tension in N/m = J/m^2
 #    depends on T and not significantly on pressure (see Massoudi 1974)
@@ -190,10 +199,10 @@ def compute_surface_tension_solution(w_s, T_p, solute_type):
         return compute_surface_tension_AS(w_s, T_p)
     elif solute_type == "NaCl":
         return compute_surface_tension_NaCl(w_s, T_p)
-#    else: return 0.0
     
-### WATER ACTIVITY OF SOLUTIONS
-        
+#%% WATER ACTIVITY OF SOLUTIONS
+ 
+### VANT HOFF FACTOR NACL       
 # VANT HOFF FACTOR -> NOTE that we actually use a polynomal fit a_w(w_s) for
 # the water activity of NaCl, the vant Hoff factor is currently not applied
 # fitted to match data from Archer 1992
@@ -215,21 +224,16 @@ vant_Hoff_factor_NaCl_const = 2.0
 
 molar_mass_ratio_w_NaCl = c.molar_mass_water/c.molar_mass_NaCl
 
-#mf_cross_NaCl = 0.090382759623349337
 mf_cross_NaCl = 0.09038275962335
 
 # vectorized version
 @vectorize("float64(float64)") 
 def compute_vant_Hoff_factor_NaCl(mass_fraction_solute_):
-#    return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
-#    return vant_Hoff_factor_NaCl_const
     if mass_fraction_solute_ < mf_cross_NaCl: return vant_Hoff_factor_NaCl_const
     else: return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
 
 # numpy version
 def compute_vant_Hoff_factor_NaCl_np(mass_fraction_solute_):
-#    return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
-#    return vant_Hoff_factor_NaCl_const
     return np.where(mass_fraction_solute_ < mf_cross_NaCl,
                     vant_Hoff_factor_NaCl_const\
                     * np.ones_like(mass_fraction_solute_),
@@ -247,7 +251,7 @@ def compute_water_activity_NaCl_vH(m_w, m_s, w_s):
     return m_w / ( m_w + molar_mass_ratio_w_NaCl\
                    * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
 
-# WATER ACTIVITY NACL by polynomial (this one is applied)
+### WATER ACTIVITY NACL by polynomial (this one is used in simulation)
 # Formula from Tang 1997
 # note that in Tang, w_t is given in percent
 # for NaCl: fix a maximum border for w_s: w_s_max = 0.45
@@ -262,6 +266,7 @@ par_wat_act_NaCl =\
 def compute_water_activity_NaCl(w_s):
     return compute_polynom(par_wat_act_NaCl, w_s)
 
+### WATER ACTIVITY AMMON SULF by polynomial
 # Formula from Biskos 2006, he took it from Tang and Munkelwitz 1994:
 # "Water activities, densities, and refractive indices of aqueous sulfates ..."
 # data from Kim 1994 agree well
@@ -277,7 +282,7 @@ par_wat_act_AS = np.array([1.0, -2.715E-1, 3.113E-1, -2.336, 1.412])[::-1]
 def compute_water_activity_AS(w_s):
     return compute_polynom(par_wat_act_AS, w_s)
 
-### EFFLORESCENCE MASS FRACTION OF SOLUTIONS
+#%% EFFLORESCENCE MASS FRACTION OF SOLUTIONS
 
 # the supersat factor is a crude approximation
 # such that the EffRH curve fits data from Biskos better
@@ -349,16 +354,11 @@ def compute_thermal_conductivity_air(temperature_):
 # dynamic viscosity "\mu" in Pa * s
 ## Fit to Data From Kadoya 1985,
 #use linear approx of data in range 250 .. 350 K
-#def compute_viscosity_air_approx(T_):
-#    return 1.0E-6 * (18.56 + 0.0484 * (T_ - 300))
 # ISO ISA 1975: "formula based on kinetic theory..."
 # "with Sutherland's empirical coeff.
 @vectorize("float64(float64)")
 def compute_viscosity_air(T_):
     return 1.458E-6 * T_**(1.5) / (T_ + 110.4)
-#@vectorize("float64(float64)", target="parallel") 
-#def compute_viscosity_air_par(T_):
-#    return 1.458E-6 * T_**(1.5) / (T_ + 110.4)    
 
 # Diffusion coefficient of water vapor in air
 # Formula from Pruppacher 1997
@@ -367,10 +367,6 @@ def compute_viscosity_air(T_):
 def compute_diffusion_constant(ambient_temperature_ = 293.15,
                                ambient_pressure_ = 101325 ):
     return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
-#@vectorize("float64(float64, float64)", target="parallel") 
-#def compute_diffusion_constant_par(ambient_temperature_,
-#                               ambient_pressure_):
-#    return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
 
 # latent enthalpy of vaporazation of water in J/kg
 # formula by Dake 1972
@@ -386,7 +382,4 @@ def compute_heat_of_vaporization(temperature_):
 @vectorize("float64(float64)")
 def compute_saturation_pressure_vapor_liquid(temperature_):
     return 2.53E11 * np.exp( -5420.0 / temperature_ )
-#@vectorize("float64(float64)", target="parallel") 
-#def compute_saturation_pressure_vapor_liquid_par(temperature_):
-#    return 2.53E11 * np.exp( -5420.0 / temperature_ )
     

@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  1 12:33:07 2019
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinetic framework
+(Test Case 1 ICMW 2012)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
 
-@author: jdesk
+module with functions for the atmospheric environment
+including general physical laws and conversions
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
 import constants as c

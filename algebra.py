@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed May  1 14:34:40 2019
-
-@author: jdesk
+some basic algebra
 """
 
 #import numpy.sqrt
