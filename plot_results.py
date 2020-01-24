@@ -21,12 +21,13 @@ home_path = "/Users/bohrer/"
 
 #args_plot = [0,0,0,0]
 #args_plot = [1,1,1,0]
-args_plot = [1,0,0,0]
+args_plot = [0,0,0,0,1]
 
 act_plot_grid_frames_avg = args_plot[0]
 act_plot_grid_frames_avg_shift = args_plot[1]
 act_plot_spectra_avg_Arabas = args_plot[2]
 act_plot_grid_frames_INIT = args_plot[3]
+act_plot_grid_frames_avg_compare = args_plot[4]
 
 #%% GRID PARAMETERS
 
@@ -56,14 +57,38 @@ no_spcm = np.array([16, 24])
 #no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
-seed_SIP_gen = 2101
-seed_sim = 2101
+seed_SIP_gen = 2001
+seed_sim = 2001
 
 #no_seeds = 1
 #no_seeds = 10
 #no_seeds = 20
 no_seeds = 30
 #no_seeds = 50
+
+### WHEN COMPARING TWO SIMULATIONS:
+solute_type2 = "AS"
+
+# no_super_particles_cell_mode = [N1,N2] is a list with
+# N1 = no super part. per cell in mode 1 etc.
+# with init method = SingleSIP, this is only the target value.
+# the true number of particles per cell and mode will fluctuate around this
+#no_spcm = np.array([2, 2])
+#no_spcm = np.array([6, 10])
+no_spcm2 = np.array([16, 24])
+#no_spcm = np.array([20, 30])
+#no_spcm = np.array([26, 38])
+#no_spcm = np.array([52, 76])
+
+seed_SIP_gen2 = 2101
+seed_sim2 = 2101
+
+#no_seeds = 1
+#no_seeds = 10
+#no_seeds = 20
+no_seeds2 = 30
+#no_seeds = 50
+
 
 #%% SIM PARAMETERS
 
@@ -222,6 +247,91 @@ if act_plot_grid_frames_avg:
     plt.close("all")   
     
     print("plotted ensemble-averaged grid frames")
+
+#%% PLOT COMPARISON OF AVG GRID FRAMES OF TWO SIMULATIONS
+
+if act_plot_grid_frames_avg_compare:
+    from analysis import plot_scalar_field_frames_extend_avg    
+    
+    if data_generated_with_gen_plot_data:
+        data_folder2 = \
+            f"{solute_type2}" \
+            + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm2[0]}_{no_spcm2[1]}/"\
+            + f"eval_data_avg_Ns_{no_seeds2}_" \
+            + f"sg_{seed_SIP_gen2}_ss_{seed_sim2}/"
+        data_path2 = simdata_path + data_folder2
+        grid_path2 = simdata_path + data_folder2 + "grid_data/" \
+                    + f"{seed_SIP_gen2}_{seed_sim2}/"
+    else:        
+        data_folder2 = \
+            f"{solute_type2}" \
+            + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm2[0]}_{no_spcm2[1]}/"\
+            + f"{seed_SIP_gen2}/"
+        data_path2 = simdata_path + data_folder2
+        grid_path2 = simdata_path + data_folder2
+    
+    seed_SIP_gen_list2 = np.load(data_path2 + "seed_SIP_gen_list.npy" )
+    seed_sim_list2 = np.load(data_path2 + "seed_sim_list.npy")    
+    
+    
+    fields_with_time1 = np.load(data_path
+            + f"fields_vs_time_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    
+    fields_with_time2 = np.load(data_path2
+            + f"fields_vs_time_avg_Ns_{no_seeds2}_"
+            + f"sg_{seed_SIP_gen_list2[0]}_ss_{seed_sim_list2[0]}.npy"
+            )
+    
+    fields_with_time = fields_with_time2 - fields_with_time1
+    
+    save_times_out_fr = np.load(data_path
+            + f"save_times_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    field_names_out = np.load(data_path
+            + f"field_names_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    units_out = np.load(data_path
+            + f"units_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )
+    scales_out = np.load(data_path
+            + f"scales_out_avg_Ns_{no_seeds}_"
+            + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
+            )    
+
+    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
+    fig_name = \
+               f"scalar_fields_avg_DIFF_" \
+               + f"t_{save_times_out_fr[0]}_" \
+               + f"{save_times_out_fr[-1]}_Nfr_{len(save_times_out_fr)}_" \
+               + f"Nfie_{len(field_names_out)}_" \
+               + f"Ns_{no_seeds}_sg_{seed_SIP_gen_list[0]}_" \
+               + f"ss_{seed_sim_list[0]}.png"
+    if not os.path.exists(fig_path):
+            os.makedirs(fig_path)    
+    plot_scalar_field_frames_extend_avg(grid, fields_with_time,
+                                        save_times_out_fr,
+                                        field_names_out,
+                                        units_out,
+                                        scales_out,
+                                        solute_type,
+                                        simulation_mode, # for time in label
+                                        fig_path=fig_path+fig_name,
+                                        no_ticks=[6,6], 
+                                        alpha = 1.0,
+                                        TTFS = 12, LFS = 10, TKFS = 10,
+                                        cbar_precision = 2,
+                                        show_target_cells = show_target_cells,
+                                        target_cell_list = target_cell_list,
+                                        no_cells_x = no_cells_x,
+                                        no_cells_z = no_cells_z)     
+    plt.close("all")   
+    
+    print("plotted compared ensemble-averaged grid frames of two simulations")
 
 #%% PLOT AVG GRID FRAMES SHIFT IN X DIRECTION
 

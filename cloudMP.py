@@ -12,13 +12,9 @@ MAIN SIMULATION SCRIPT
 
 #%% MODULE IMPORTS
 ### BUILT IN
-#import os
 import sys
-#import math
-#import numpy as np
 
 ### CUSTOM MODULES
-#import constants as c
 from file_handling import load_grid_and_particles_full
 from integration import simulate
 from init import set_initial_sim_config

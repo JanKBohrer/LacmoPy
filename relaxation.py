@@ -19,13 +19,16 @@ def compute_relaxation_time_profile(z):
 # t_relax is the relaxation time profile(z)
 # dt is the time step
 # return: relaxation source term profile(z) for one time step dt
+# note that the same value is added to every grid cell in a certain height
+# thus, if the horizontal mean at some z is equal or very close to 
+# the horizontal mean of the initial profile (z), then there is no 
+# contribution to the source term of Theta or r_v
+# this can be the case, when we have an updraft and downdraft tunnel of equal
+# strength
 @njit()    
 def compute_relaxation_term(field, profile0, t_relax, dt):
 #    return dt * (profile0 - np.average(field, axis = 0)) / t_relax
     return dt * (profile0 - np.sum(field, axis = 0) / field.shape[0]) / t_relax
-    
-
-
 
 #%%
     
