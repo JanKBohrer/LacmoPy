@@ -29,8 +29,8 @@ genpar = \
 #'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
 #'simdata_path'      : '/Users/bohrer/sim_data_cloudMP_TEST191216/',
 #'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
-'simdata_path'          : '/Users/bohrer/sim_data_cloudMP/',
-#'simdata_path'          : '/vols/fs1/work/bohrer/sim_data_cloudMP_ab_Jan20/',
+#'simdata_path'          : '/Users/bohrer/sim_data_cloudMP/',
+'simdata_path'          : '/vols/fs1/work/bohrer/sim_data_cloudMP/',
 
 ### GRID AND INITIAL ATMOSPHERIC PROFILE
 # domain sizes (2D)
@@ -41,12 +41,12 @@ genpar = \
 
 # spatial step sizes
 # the number of grid cells is calculated from step sizes and domain sizes
-'dx'                : 100.,
-'dz'                : 100.,
+#'dx'                : 100.,
+#'dz'                : 100.,
 #'dx'                : 30.,
 #'dz'                : 30.,
-#'dx'                : 20.,
-#'dz'                : 20.,
+'dx'                : 20.,
+'dz'                : 20.,
 'dy'                : 1., # dy=1 is default in the 2D setup
 
 # initial thermodynamic environment 
@@ -59,15 +59,16 @@ genpar = \
 
 ### PARTICLES
 # solute material in the CCNs (possible is ammon. sulf. "AS" or "NaCl")
-#'solute_type'       : 'AS',
-'solute_type'       : 'NaCl',
+'solute_type'       : 'AS',
+#'solute_type'       : 'NaCl',
 
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]
 #'no_spcm'           : [4,0],
-'no_spcm'           : [2,3],
+#'no_spcm'           : [2,3],
 #'no_spcm'           : [10,14],
 #'no_spcm'           : [16,24],
+'no_spcm'           : [26,38],
 ## particle size distribution
 # distribution type (only "lognormal" available)
 'dist'              : "lognormal", 
@@ -115,7 +116,7 @@ genpar = \
 # maximal allowed iter counts in initial particle water take up to equilibrium
 # for sum(no_spcm) ~= 50, a value of iter_cnt_limit=800 should be fine
 # for smaller no_spcm, a higher number might be necessary to reach EQ
-'iter_cnt_limit'     : 4000,
+'iter_cnt_limit'     : 1000,
 
 ### LOGGING
 # if True: std out is written to file 'std_out.log' inside the save path
