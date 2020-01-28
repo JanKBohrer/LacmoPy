@@ -173,9 +173,11 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
     
     scale_x = 1E-3
     
-    annotations = ["A", "B", "C", "D", "E", "F",
-                   "G", "H", "I", "J", "K", "L",
-                   "M", "N", "O", "P", "Q", "R"]
+#    annotations = ["A", "B", "C", "D", "E", "F",
+#                   "G", "H", "I", "J", "K", "L",
+#                   "M", "N", "O", "P", "Q", "R"]
+
+    annotations = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
     
     if SIM_N == 1:
         annotations = np.array(annotations)
@@ -224,11 +226,6 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
         f_R_s_std = f_R_s_std[mask]
         bins_R_p_list = bins_R_p_list[mask]
         bins_R_s_list = bins_R_s_list[mask]
-
-#    print("len(f_R_p_list)")
-#    print(f_R_p_list.shape)
-#    print(f_R_p_avg)
-#    print(f_R_p_std)
 
 #%% SPECTRA EXTENDED
     if figsize_spectra is not None:
@@ -321,10 +318,11 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
 #                            facecolor="orange",
 #                            edgecolor="darkorange", lw=0.5,
 #                            zorder=0)
-            if SIM_N == 7:
-                AN_pos = (2.5E-3, 2E3)
-            else:
-                AN_pos = (2.5E-3, 1E3)
+            AN_pos = (2.5E-3, 2E3)
+#            if SIM_N == 7:
+#                AN_pos = (2.5E-3, 2E3)
+#            else:
+#                AN_pos = (2.5E-3, 1E3)
             ax.annotate(f"\\textbf{{{annotations[plot_n]}}}",
 #                    annotations[plot_n],
                     AN_pos
@@ -343,8 +341,9 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
 #            ax.set_xlim( [2E-3, 1E2] )    
 #            ax.set_ylim( [8E-3, 4E3] )    
             
-            if SIM_N == 7:
-                ax.set_yticks(np.logspace(-2,4,7))
+#            if SIM_N == 7:
+#                ax.set_yticks(np.logspace(-2,4,7))
+            ax.set_yticks(np.logspace(-2,4,7))
 #            else:
             
             ax.set_xticks(np.logspace(-2,2,5))
@@ -360,12 +359,14 @@ def plot_size_spectra_R_Arabas_MA(f_R_p_list, f_R_s_list,
                     minor=True
                     )
                     
-            ax.set_xlim( [2E-3, 3E2] )  
+            ax.set_xlim( [2E-3, 1E2] )  
+#            ax.set_xlim( [2E-3, 3E2] )  
             
-            if SIM_N == 7:
-                ax.set_ylim( [5E-3, 1E4] )    
-            else:
-                ax.set_ylim( [1E-5, 1E4] )    
+            ax.set_ylim( [5E-3, 1E4] )    
+#            if SIM_N == 7:
+#                ax.set_ylim( [5E-3, 1E4] )    
+#            else:
+#                ax.set_ylim( [1E-5, 1E4] )    
             
             ax.tick_params(axis='both', which='major', labelsize=TKFS,
                            length = 6, width=1)
@@ -703,6 +704,7 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                                         cbar_precision = 2,
                                         show_target_cells = False,
                                         target_cell_list = None,
+                                        show_target_cell_labels = False,
                                         no_cells_x = 0,
                                         no_cells_z = 0
                                         ):
@@ -726,9 +728,6 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
         target_cell_list = np.delete(target_cell_list, np.s_[8:10:], 1 )
         print (target_cell_list)        
     
-#    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
-#                       figsize = (4.5*no_cols, 4*no_rows),
-#                       sharex=True, sharey=True)    
     fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
                        figsize = figsize,
                        sharex=True, sharey=True)
@@ -796,10 +795,10 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
             if ax_title == "r_c":
                 field_min = 0.0
                 field_max = 1.3
-#                xticks_major = np.linspace(0,1.2,7)
+                xticks_major = np.linspace(0,1.2,7)
 #                xticks_major = np.linspace(0,1.25,6)
-                xticks_major = [0,0.5,1]
-                xticks_minor = [0.25,0.75,1.25]                
+#                xticks_major = [0,0.5,1]
+#                xticks_minor = [0.25,0.75,1.25]                
             if ax_title == "n_c":
                 field_min = 0.0
                 field_max = 150.
@@ -807,8 +806,10 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                 xticks_minor = [25,75,125]                
             if ax_title == "n_\mathrm{aero}":
                 field_min = 0.0
-                field_max = 200.
-                xticks_major = [0,50,100,150,200]
+#                field_max = 200.
+#                xticks_major = [0,50,100,150,200]
+                field_max = 150.
+                xticks_major = [0,50,100,150]
 #                xticks_minor = [25,75,125]
             if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
                 xticks_major = [1,5,10,15,20]
@@ -975,6 +976,10 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                 cbar.ax.tick_params(labelsize=TKFS)
 
             if show_target_cells:
+                annotations = ["a", "b", "c", "d", "e", "f",
+                               "g", "h", "i", "j", "k", "l",
+                               "m", "n", "o", "p", "q", "r"]                
+                textbox = []
                 ### ad the target cells
                 no_neigh_x = no_cells_x // 2
                 no_neigh_z = no_cells_z // 2
@@ -997,6 +1002,39 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                                          edgecolor='k',
                                          zorder = 99)        
                     ax.add_patch(rect)
+                    
+                    if show_target_cell_labels:
+                        
+                        no_tg_cell_cols = 2
+                        no_tg_cell_rows = 5
+                        
+                        
+                        x_ann_shift = 80E-3
+                        z_ann_shift = 30E-3
+                        # gives col number
+                        if (tg_cell_n % no_tg_cell_cols) == 2:
+                            x_ann_shift = -80E-3
+                            
+                        # gives row number
+                        if (tg_cell_n // no_tg_cell_cols) == 1:
+                            z_ann_shift = -40E-3
+                        if (tg_cell_n // no_tg_cell_cols) == 2:
+                            z_ann_shift = -20E-3
+                        if (tg_cell_n // no_tg_cell_cols) == 3:
+                            z_ann_shift = 40E-3
+                        if (tg_cell_n // no_tg_cell_cols) == 4:
+                            z_ann_shift = 30E-3
+                        
+                        ANS = 8
+                        ax.annotate(f"\\textbf{{{annotations[tg_cell_n]}}}",
+                                    (x-x_ann_shift,z-z_ann_shift),
+                        #                        xytext=(3, 1.5),
+                                    fontsize=ANS, zorder=100,
+                        #            label=r"{}".format(-120 + save_times_out[tg_cell_n]//60)
+                                    )       
+                        
+#                        textbox.append(f"\\textbf{{{annotations[tg_cell_n]}}}: "
+#                                       + f"{save_times_out[tg_cell_n]//60 - 120}")                        
 
     if no_cols == 4:
         pad_ax_h = 0.1     

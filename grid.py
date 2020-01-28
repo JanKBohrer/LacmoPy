@@ -363,7 +363,7 @@ class Grid:
         fig.tight_layout()
     
     def plot_thermodynamic_scalar_fields(self, no_ticks_ = [5,5],
-                                              t = 0, fig_path = None):
+                                              t = 0, fig_dir = None):
         fields = [self.pressure * 0.01, self.temperature,
                   self.potential_temperature, self.mass_density_air_dry,
                   self.saturation, self.saturation_pressure * 0.01,
@@ -416,8 +416,8 @@ class Grid:
                 n += 1
               
         fig.tight_layout()
-        if fig_path is not None:
-            fig.savefig(fig_path + f"scalar_fields_grid_t_{int(t)}.png")
+        if fig_dir is not None:
+            fig.savefig(fig_dir + f"scalar_fields_grid_t_{int(t)}.png")
     
     def plot_scalar_field_2D(self, field_,
                          no_ticks_ = [5,5],

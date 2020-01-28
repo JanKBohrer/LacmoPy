@@ -13,15 +13,16 @@ import matplotlib.pyplot as plt
 
 #%% STORAGE DIRECTORIES
 
-#simdata_path = "/Users/bohrer/sim_data_cloudMP/"
-simdata_path = "/Users/bohrer/sim_data_cloudMP_ab_Jan20/"
+simdata_path = "/Users/bohrer/sim_data_cloudMP/"
 home_path = "/Users/bohrer/"
 
 #%% CHOOSE OPERATIONS
 
-#args_plot = [0,0,0,0]
-#args_plot = [1,1,1,0]
-args_plot = [0,0,0,0,1]
+#args_plot = [1,0,0,0,0]
+#args_plot = [0,1,0,0,0]
+args_plot = [0,0,0,1,0]
+#args_plot = [0,1,1,1,0]
+#args_plot = [0,0,0,0,1]
 
 act_plot_grid_frames_avg = args_plot[0]
 act_plot_grid_frames_avg_shift = args_plot[1]
@@ -37,7 +38,7 @@ act_plot_grid_frames_avg_compare = args_plot[4]
 no_cells = (75, 75)
 
 # for plots, the periodic grid can be shifted horizont. by shift_cells_x cells
-shift_cells_x = 3
+shift_cells_x = 19
 #shift_cells_x = 56
 
 #%% PARTICLE PARAMETERS
@@ -52,19 +53,19 @@ solute_type = "AS"
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([2, 2])
 #no_spcm = np.array([6, 10])
-no_spcm = np.array([16, 24])
+#no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-#no_spcm = np.array([26, 38])
+no_spcm = np.array([26, 38])
 #no_spcm = np.array([52, 76])
 
-seed_SIP_gen = 2001
-seed_sim = 2001
+seed_SIP_gen = 1001
+seed_sim = 1001
 
 #no_seeds = 1
 #no_seeds = 10
 #no_seeds = 20
-no_seeds = 30
-#no_seeds = 50
+#no_seeds = 30
+no_seeds = 50
 
 ### WHEN COMPARING TWO SIMULATIONS:
 solute_type2 = "AS"
@@ -102,8 +103,8 @@ dt_col = 0.5
 
 # grid load time
 # path = simdata_path + folder_load_base
-#t_grid = 0
-t_grid = 7200
+t_grid = 0
+#t_grid = 7200
 #t_grid = 10800
 #t_grid = 14400
 
@@ -185,11 +186,11 @@ no_tg_cells = len(target_cell_list[0])
 
 #%% PLOT INIT GRID FRAMES
 if act_plot_grid_frames_INIT:
-    fig_path = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
-    fig_name = \
-               f"grid_init_frames_" \
-               + f"t_{t_grid}.png"
-    grid.plot_thermodynamic_scalar_fields(fig_path=fig_path + fig_name)
+    fig_dir = data_path + f"plots_{simulation_mode}_dt_col_{dt_col}/"
+#    fig_name = \
+#               f"grid_init_frames_" \
+#               + f"t_{t_grid}.png"
+    grid.plot_thermodynamic_scalar_fields(fig_dir = fig_dir)
     print("plotted initial grid frames at t = ", t_grid)
 
 #%% PLOT AVG GRID FRAMES

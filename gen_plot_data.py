@@ -20,8 +20,8 @@ from file_handling import load_grid_and_particles_full
 #%% STORAGE DIRECTORIES
 
 #simdata_path = "/Users/bohrer/sim_data_cloudMP/"
-simdata_path = "/Users/bohrer/sim_data_cloudMP_ab_Jan20/"
-#simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP_ab_Jan20/"
+#simdata_path = "/Users/bohrer/sim_data_cloudMP/"
+simdata_path = "/vols/fs1/work/bohrer/sim_data_cloudMP/"
 
 if len(sys.argv) > 1:
     simdata_path = sys.argv[1]
@@ -30,8 +30,8 @@ if len(sys.argv) > 1:
 
 #args_gen = [0,0,0,1]
 #args_gen = [0,1,0,0]
-args_gen = [1,1,1,0]
-#args_gen = [1,1,1,1]
+#args_gen = [1,1,1,0]
+args_gen = [1,1,1,1]
 
 act_gen_grid_frames_avg = args_gen[0]
 act_gen_spectra_avg_Arabas = args_gen[1]
@@ -62,17 +62,17 @@ if len(sys.argv) > 4:
 # with init method = SingleSIP, this is only the target value.
 # the true number of particles per cell and mode will fluctuate around this
 #no_spcm = np.array([2, 2])
-no_spcm = np.array([16, 24])
+#no_spcm = np.array([16, 24])
 #no_spcm = np.array([20, 30])
-#no_spcm = np.array([26, 38])
+no_spcm = np.array([26, 38])
 
 if len(sys.argv) > 5:
     no_spcm[0] = int(sys.argv[5])
 if len(sys.argv) > 6:
     no_spcm[1] = int(sys.argv[6])
 
-no_seeds = 20
-#no_seeds = 50
+#no_seeds = 20
+no_seeds = 50
 
 if len(sys.argv) > 7:
     no_seeds = int(sys.argv[7])
@@ -109,8 +109,8 @@ spin_up_finished = True
 # path = simdata_path + folder_load_base
 #t_grid = 0
 #t_grid = 600
-t_grid = 7200
-#t_grid = 10800
+#t_grid = 7200
+t_grid = 10800
 #t_grid = 14400
 
 #t_start = 0
@@ -151,12 +151,12 @@ dt_col = dt / no_col_per_adv
 ### GRID FRAMES
 
 # possible field indices:
-#0: r_v
-#1: r_l
-#2: Theta
-#3: T
-#4: p
-#5: S
+# 0: r_v
+# 1: r_l
+# 2: Theta
+# 3: T
+# 4: p
+# 5: S
 # possibe derived indices:
 # 0: r_aero
 # 1: r_cloud
@@ -186,9 +186,14 @@ time_ind_grid = np.arange(0,13,2)
 #j_tg = [20,40,50,60,65,70]
 
 # corresponding to Arabas 2015
-i_tg = [16,58,66]
+i_tg = [16,58]
 ##i_tg = [20,40,60]
-j_tg = [27, 37, 44, 46, 51, 72][::-1]
+j_tg = [27, 44, 46, 51, 72][::-1]
+
+# corresponding to Arabas 2015 (but extended with 3rd column and add cell j=37)
+#i_tg = [16,58,66]
+###i_tg = [20,40,60]
+#j_tg = [27, 37, 44, 46, 51, 72][::-1]
 
 # target list from ordered mesh grid
 # may also set the target list manually as [[i0, i1, ...], [j0, j1, ...]]
@@ -356,7 +361,7 @@ if act_gen_grid_frames_avg:
     print("generated average grid frames")
     print("first load path:")
     print(load_path_list[0])    
-    print("time indices:")
+    print("time indices grid frames:")
     print(time_ind_grid)    
     
 #%% GENERATE SPECTRA AVG 
@@ -611,5 +616,5 @@ if act_gen_moments_all_grid_cells:
     print("generated moments in all grid cells")    
     print("first load path:")    
     print(load_path_list[0])    
-    print("time indices:")
+    print("time indices moments:")
     print(time_ind_moments)
