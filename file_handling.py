@@ -333,7 +333,6 @@ def load_grid_and_particles_full(t, path):
     return grid, pos, cells, vel, m_w, m_s, xi, active_ids 
 
 #%% For parameter input file
-    
 def load_kernel_data(kernel_method, save_dir_Ecol_grid, E_col_const):
     if kernel_method == "Ecol_grid_R":
         radius_grid = \

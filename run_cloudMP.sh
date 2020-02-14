@@ -1,10 +1,10 @@
 #!/bin/bash
-# execute generate grid and particles n times with different seeds
+# execute cloudMP.py no_sim times with different seeds
 # the seed lists will start with the "first" values declared here
 # and increment by 2: [seed0, seed0 + 2, seed0 + 4, ...]
-first_seed_gen=4001
-first_seed_sim=4001
-no_sims=5
+first_seed_gen=1001
+first_seed_sim=1001
+no_sims=10
 
 for ((n=0; n<$no_sims; n++))
 do

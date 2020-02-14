@@ -6,11 +6,21 @@ The corresponding script is "generate_grid_and_particles.py".
 """
 
 import numpy as np
+from grid import compute_no_grid_cells_from_step_sizes
 
 #%% SET PARAMETERS FOR THE GRID AND PARTICLE GENERATION IN DICTIONARY
 
 genpar = \
 {
+### DATA PATH
+# path to the parent directory, where data of the grid and simulations shall
+# be stored. in here, the program will create subdirectories automatically.
+#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
+#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP_TEST191216/',
+#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
+#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
+'simdata_path'      : '/vols/fs1/work/bohrer/sim_data_cloudMP/',
+
 ### RANDOM NUMBER GENERATION
 # random number generator seed for inital particle generation
 # this number is overwritten, if the script is executed with an argument:
@@ -23,15 +33,6 @@ genpar = \
 # 'False' is usually fine. 'True' is usually not necessary for the given setup.
 'reseed'            : False, 
 
-### DATA PATH
-# path to the parent directory, where data of the grid and simulations shall
-# be stored. in here, the program will create subdirectories automatically.
-#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP/',
-#'simdata_path'      : '/Users/bohrer/sim_data_cloudMP_TEST191216/',
-#'simdata_path'          : '/Users/bohrer/sim_data_cloudMP_TEST200108/',
-#'simdata_path'          : '/Users/bohrer/sim_data_cloudMP/',
-'simdata_path'          : '/vols/fs1/work/bohrer/sim_data_cloudMP/',
-
 ### GRID AND INITIAL ATMOSPHERIC PROFILE
 # domain sizes (2D)
 'x_min'             : 0.,
@@ -41,10 +42,6 @@ genpar = \
 
 # spatial step sizes
 # the number of grid cells is calculated from step sizes and domain sizes
-#'dx'                : 100.,
-#'dz'                : 100.,
-#'dx'                : 30.,
-#'dz'                : 30.,
 'dx'                : 20.,
 'dz'                : 20.,
 'dy'                : 1., # dy=1 is default in the 2D setup
@@ -58,23 +55,20 @@ genpar = \
 'Theta_l'           : 289., # K
 
 ### PARTICLES
-# solute material in the CCNs (possible is ammon. sulf. "AS" or "NaCl")
+# solute material of the CCNs
+# options: "AS" (ammon. sulf.) or "NaCl"
 'solute_type'       : 'AS',
-#'solute_type'       : 'NaCl',
 
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]
-#'no_spcm'           : [4,0],
-#'no_spcm'           : [2,3],
-#'no_spcm'           : [10,14],
-#'no_spcm'           : [16,24],
-'no_spcm'           : [26,38],
+'no_spcm'           : [26, 38],
 ## particle size distribution
 # distribution type (only "lognormal" available)
 'dist'              : "lognormal", 
 # droplet number concentration: number density of particles per mode
 # array: [mode0, mode1, mode2...]
 'DNC0'              : np.array( [60.0E6, 40.0E6] ), # 1/m^3
+#'DNC0'              : np.array( [30.0E6, 20.0E6] ), # 1/m^3
 # parameters of radial (R_s) lognormal dry size distribution:
 # f_R(R_s) = \sum_k \frac{DNC_k}{\sqrt{2 \pi} \, \ln (\sigma_k) R_s}
 # \exp [ -(\frac{\ln (R_s / \mu_k)}{\sqrt{2} \, \ln (\sigma_k)} )^2 ]
@@ -110,8 +104,8 @@ genpar = \
 ### SATURATION ADJUSTMENT PARAMETERS
 'S_init_max'        : 1.04, # upper cap threshold for saturation during init.
 'dt_init'           : 0.1, # s  , time step for the sat. adjust. condensation
-# number of iterations for the root finding
-# Newton algorithm during mass condensation with the implicit method
+# number of iterations for the implicit Newton algorithm
+# during mass condensation with the implicit method
 'Newton_iterations' : 2,
 # maximal allowed iter counts in initial particle water take up to equilibrium
 # for sum(no_spcm) ~= 50, a value of iter_cnt_limit=800 should be fine
@@ -122,7 +116,4 @@ genpar = \
 # if True: std out is written to file 'std_out.log' inside the save path
 # if False: std out written to console
 'set_std_out_file'  : True
-
-# IN WORK: decide here, if additional plots of the initial grid shall be
-# generated directly after creation.
 }

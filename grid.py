@@ -154,7 +154,7 @@ class Grid:
     steps = [ sizes[0] / no_cells[0], sizes[1] / no_cells[1] ]
     
     def __init__(self,
-                 grid_ranges_, # (m), as list [ [x_min, x_max], [z_min, z_max] ] 
+                 grid_ranges_, # (m), as list [ [x_min, x_max], [z_min, z_max]] 
                  grid_steps_, # in meter as list [dx, dz]
                  dy_, # in meter
                  u_field = u_rot_field, v_field = v_rot_field,

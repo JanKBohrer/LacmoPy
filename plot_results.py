@@ -18,9 +18,9 @@ home_path = "/Users/bohrer/"
 
 #%% CHOOSE OPERATIONS
 
-#args_plot = [1,0,0,0,0]
+args_plot = [1,0,0,0,0]
 #args_plot = [0,1,0,0,0]
-args_plot = [0,0,0,1,0]
+#args_plot = [0,0,0,1,0]
 #args_plot = [0,1,1,1,0]
 #args_plot = [0,0,0,0,1]
 

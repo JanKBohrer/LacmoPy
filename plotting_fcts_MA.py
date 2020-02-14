@@ -974,67 +974,68 @@ def plot_scalar_field_frames_extend_avg_MA(grid, fields_with_time,
                                  r'$\times\,10^{{{}}}$'.format(oom_max),
                                  va='bottom', ha='left', fontsize = TKFS)
                 cbar.ax.tick_params(labelsize=TKFS)
-
-            if show_target_cells:
-                annotations = ["a", "b", "c", "d", "e", "f",
-                               "g", "h", "i", "j", "k", "l",
-                               "m", "n", "o", "p", "q", "r"]                
-                textbox = []
-                ### ad the target cells
-                no_neigh_x = no_cells_x // 2
-                no_neigh_z = no_cells_z // 2
-                dx = grid.steps[0]
-                dz = grid.steps[1]
-                
-                no_tg_cells = len(target_cell_list[0])
-                LW_rect = .5
-                for tg_cell_n in range(no_tg_cells):
-                    x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
-                    z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
+            
+            if time_n == 2:
+                if show_target_cells:
+                    annotations = ["a", "b", "c", "d", "e", "f",
+                                   "g", "h", "i", "j", "k", "l",
+                                   "m", "n", "o", "p", "q", "r"]                
+                    textbox = []
+                    ### ad the target cells
+                    no_neigh_x = no_cells_x // 2
+                    no_neigh_z = no_cells_z // 2
+                    dx = grid.steps[0]
+                    dz = grid.steps[1]
                     
-            #        dx *= no_cells_x
-            #        dz *= no_cells_z
-                    
-                    rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
-                                         fill=False,
-                                         linewidth = LW_rect,
-        #                                 linestyle = "dashed",
-                                         edgecolor='k',
-                                         zorder = 99)        
-                    ax.add_patch(rect)
-                    
-                    if show_target_cell_labels:
+                    no_tg_cells = len(target_cell_list[0])
+                    LW_rect = .5
+                    for tg_cell_n in range(no_tg_cells):
+                        x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
+                        z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
                         
-                        no_tg_cell_cols = 2
-                        no_tg_cell_rows = 5
+                #        dx *= no_cells_x
+                #        dz *= no_cells_z
                         
+                        rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
+                                             fill=False,
+                                             linewidth = LW_rect,
+            #                                 linestyle = "dashed",
+                                             edgecolor='k',
+                                             zorder = 99)        
+                        ax.add_patch(rect)
                         
-                        x_ann_shift = 80E-3
-                        z_ann_shift = 30E-3
-                        # gives col number
-                        if (tg_cell_n % no_tg_cell_cols) == 2:
-                            x_ann_shift = -80E-3
+                        if show_target_cell_labels:
                             
-                        # gives row number
-                        if (tg_cell_n // no_tg_cell_cols) == 1:
-                            z_ann_shift = -40E-3
-                        if (tg_cell_n // no_tg_cell_cols) == 2:
-                            z_ann_shift = -20E-3
-                        if (tg_cell_n // no_tg_cell_cols) == 3:
-                            z_ann_shift = 40E-3
-                        if (tg_cell_n // no_tg_cell_cols) == 4:
+                            no_tg_cell_cols = 2
+                            no_tg_cell_rows = 5
+                            
+                            
+                            x_ann_shift = 80E-3
                             z_ann_shift = 30E-3
-                        
-                        ANS = 8
-                        ax.annotate(f"\\textbf{{{annotations[tg_cell_n]}}}",
-                                    (x-x_ann_shift,z-z_ann_shift),
-                        #                        xytext=(3, 1.5),
-                                    fontsize=ANS, zorder=100,
-                        #            label=r"{}".format(-120 + save_times_out[tg_cell_n]//60)
-                                    )       
-                        
-#                        textbox.append(f"\\textbf{{{annotations[tg_cell_n]}}}: "
-#                                       + f"{save_times_out[tg_cell_n]//60 - 120}")                        
+                            # gives col number
+                            if (tg_cell_n % no_tg_cell_cols) == 2:
+                                x_ann_shift = -80E-3
+                                
+                            # gives row number
+                            if (tg_cell_n // no_tg_cell_cols) == 1:
+                                z_ann_shift = -40E-3
+                            if (tg_cell_n // no_tg_cell_cols) == 2:
+                                z_ann_shift = -20E-3
+                            if (tg_cell_n // no_tg_cell_cols) == 3:
+                                z_ann_shift = 40E-3
+                            if (tg_cell_n // no_tg_cell_cols) == 4:
+                                z_ann_shift = 30E-3
+                            
+                            ANS = 8
+                            ax.annotate(f"\\textbf{{{annotations[tg_cell_n]}}}",
+                                        (x-x_ann_shift,z-z_ann_shift),
+                            #                        xytext=(3, 1.5),
+                                        fontsize=ANS, zorder=100,
+                            #            label=r"{}".format(-120 + save_times_out[tg_cell_n]//60)
+                                        )       
+                            
+    #                        textbox.append(f"\\textbf{{{annotations[tg_cell_n]}}}: "
+    #                                       + f"{save_times_out[tg_cell_n]//60 - 120}")                        
 
     if no_cols == 4:
         pad_ax_h = 0.1     

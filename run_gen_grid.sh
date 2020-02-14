@@ -1,7 +1,8 @@
 #!/bin/bash
-# execute generate grid and particles n times with different seeds
-
-first_seed_gen=5081
+# execute generate_grid_and_particles.py no_sim times with different seeds
+# the seed list will start with the "first" value declared here
+# and increment by 2: [seed0, seed0 + 2, seed0 + 4, ...]
+first_seed_gen=1001
 no_sims=10
 
 for ((n=0; n<$no_sims; n++))

@@ -145,7 +145,7 @@ simulation_mode="with_collisions"
 figsize_scalar_fields = cm2inch(13.7,22.)
 figsize_scalar_fields_init = cm2inch(7.4,7.4)
 
-figsize_spectra = cm2inch(13.3,24.)
+figsize_spectra = cm2inch(13.3,20.)
 figsize_tg_cells = cm2inch(6.6,7)
 
 fig_dir = home_path \
