@@ -9,8 +9,6 @@ Created on Mon Apr 29 11:31:49 2019
 import os
 import numpy as np
 import math
-# import matplotlib.pyplot as plt
-import sys
 from numba import njit
 
 import constants as c
@@ -23,8 +21,6 @@ from microphysics import \
     compute_initial_mass_fraction_solute_m_s_NaCl, \
     compute_initial_mass_fraction_solute_m_s_AS, \
     compute_R_p_w_s_rho_p
-#    compute_R_p_w_s_rho_p_NaCl, \
-#    compute_R_p_w_s_rho_p_AS
 
 from integration import \
     compute_dml_and_gamma_impl_Newton_full
@@ -34,8 +30,6 @@ from materialproperties import \
     compute_thermal_conductivity_air,\
     compute_heat_of_vaporization,\
     compute_saturation_pressure_vapor_liquid,\
-    compute_surface_tension_NaCl, \
-    compute_surface_tension_AS, \
     compute_surface_tension_water
                          
 from atmosphere import compute_kappa_air_moist,\
@@ -45,12 +39,8 @@ from atmosphere import compute_kappa_air_moist,\
 from file_handling import save_grid_and_particles_full
 from file_handling import load_kernel_data
 
-#from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
-#from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal_grid
 from generate_SIP_ensemble_dst import \
     gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
-
-from grid import compute_no_grid_cells_from_step_sizes
 
 #%% FUNCTION DEFS    
 

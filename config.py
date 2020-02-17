@@ -46,9 +46,9 @@ config = \
 # "python3 LaCMo.py 4711 5711"
 # will overwrite 'seed_SIP_gen' by 4711 and 'seed_sim' by 5711
 # random number generator seed for inital particle generation
-'seed_SIP_gen'      : 1003,
+'seed_SIP_gen'      : 6001,
 # random number generator seed for particle collisions
-'seed_sim'          : 1003,
+'seed_sim'          : 6001,
 
 #%% GRID AND PARTICLE GENERATION
 
@@ -62,7 +62,7 @@ config = \
 
 # spatial step sizes [dx, dz] in meter
 # the number of grid cells is calculated from step sizes and domain sizes
-'grid_steps'        : [150., 150.],
+'grid_steps'        : [20., 20.],
 'dy'                : 1., # in meter, dy=1 is default in the 2D setup
 
 # initial thermodynamic environment 
@@ -80,7 +80,7 @@ config = \
 
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]
-'no_spcm'           : [4, 4],
+'no_spcm'           : [26, 38],
 ## particle size distribution
 # distribution type (only "lognormal" available)
 'dist'              : "lognormal", 
@@ -112,7 +112,7 @@ config = \
 # maximal allowed iter counts in initial particle water take up to equilibrium
 # for sum(no_spcm) ~= 50, a value of iter_cnt_limit=1000 should be fine
 # for smaller no_spcm, a higher number might be necessary to reach EQ
-'iter_cnt_limit'     : 4000,
+'iter_cnt_limit'     : 1000,
 
 #%% SIMULATION PARAMETERS
 
@@ -126,9 +126,9 @@ config = \
 # for a direct simulation without spin-up:
 # set t_start_spin_up = 0, t_end_spin_up = 0, t_start_sim = 0
 't_start_spin_up'        : 0, # seconds
-'t_end_spin_up'          : 600, # seconds
-'t_start_sim'            : 600, # seconds
-'t_end_sim'              : 1200, # seconds
+'t_end_spin_up'          : 7200, # seconds
+'t_start_sim'            : 7200, # seconds
+'t_end_sim'              : 10800, # seconds
 
 # advection time step (seconds),
 # this is the largest time step of the simulation
