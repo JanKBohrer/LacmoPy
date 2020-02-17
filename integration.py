@@ -926,7 +926,7 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
 # path: path to save data, the file notation is chosen internally
 
 def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
-             water_removed, no_cols, simpar, E_col_grid, data_paths):
+             water_removed, no_cols, config, E_col_grid):
     
     par_keys = [ 'solute_type', 'dt_adv', 'dt_col', 'scale_dt_cond',
                  'no_col_per_adv', 't_start', 't_end', 'no_iter_impl_mass',
@@ -943,10 +943,9 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
     trace_ids, no_kernel_bins, R_kernel_low_log, \
     bin_factor_R_log, kernel_type, kernel_method, \
     seed_sim, simulation_mode = \
-        [simpar.get(key) for key in par_keys]
+        [config.get(key) for key in par_keys]
     
-    output_path = data_paths['output']
-    init_path = data_paths['init']
+    output_path = config['paths']['output']
     
     log_file = output_path + f"log_sim_t_{int(t_start)}_{int(t_end)}.txt"
     
@@ -976,7 +975,8 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
     # need profile0 of Theta and r_v
     
     if act_relaxation:
-        scalars_path = init_path + "arr_file1_" + str(simpar['t_init']) +".npy"
+        init_path = config['paths']['init']
+        scalars_path = init_path + "arr_file1_" + str(config['t_init']) +".npy"
         scalars0 = np.load(scalars_path)
         init_profile_r_v = np.average(scalars0[3], axis = 0)
         init_profile_Theta = np.average(scalars0[7], axis = 0)

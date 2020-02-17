@@ -105,95 +105,225 @@ def compute_j_max(j_max_base, grid):
     return np.sqrt( grid.sizes[0] * grid.sizes[0]
                   + grid.sizes[1] * grid.sizes[1] ) \
            / np.sqrt(2.0 * 1500.0 * 1500.0)
-
 ####
     
 
 #%% CONFIG FILE PROCESSING
 
-def set_initial_gen_config(inpar):
-    
-    inpar["no_spcm"] = np.array(inpar["no_spcm"])
-    solute_type = inpar["solute_type"]
-    no_spcm = inpar["no_spcm"]
-    seed_SIP_gen = inpar["seed_SIP_gen"]
-    no_cells = compute_no_grid_cells_from_step_sizes(
-            ((inpar['x_min'], inpar['x_max']),
-            (inpar['z_min'], inpar['z_max'])),
-            (inpar['dx'], inpar['dz']))
-    
-    ### set the load and save paths
-    
-    grid_folder =\
-        f"{solute_type}" \
-        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
-        + f"{seed_SIP_gen}/"
-    
-    grid_path = inpar["simdata_path"] + grid_folder
-    if not os.path.exists(grid_path):
-        os.makedirs(grid_path)
-    
-    if inpar['eta_threshold'] == "weak":
-        weak_threshold = True
-    else: weak_threshold = False
-    
-    inpar['weak_threshold'] = weak_threshold
-    
-    idx_mode_nonzero = np.nonzero(no_spcm)[0]
-    inpar['idx_mode_nonzero'] = idx_mode_nonzero
-    
-    no_modes = len(idx_mode_nonzero)
+def set_config(config, config_mode):
+    config['no_spcm'] = np.array(config['no_spcm'])
+    no_spcm = config['no_spcm']
+    no_cells = config['no_cells']
+    solute_type = config['solute_type']
+    seed_SIP_gen = config['seed_SIP_gen']
+    seed_sim = config['seed_sim']
 
-#    print(no_spcm)
-#    print(no_modes)
-#    print(idx_mode_nonzero)
-
-    inpar['no_modes'] = no_modes
+    grid_folder_init =\
+        f'{solute_type}'\
+        + f'/grid_{no_cells[0]}_{no_cells[1]}_'\
+        + f'spcm_{no_spcm[0]}_{no_spcm[1]}/'\
+        + f'{seed_SIP_gen}/' 
+    grid_path_init = config['paths']['simdata'] + grid_folder_init
+        
+    ### grid and particle generation    
+    if config_mode == 'generation':
+        grid_path = grid_path_init
+        config['paths']['grid'] = grid_path
+        if not os.path.exists(grid_path):
+            os.makedirs(grid_path)            
+            
+        if config['eta_threshold'] == 'weak':
+            config['weak_threshold'] = True
+        else: config['weak_threshold'] = False
+        
+        idx_mode_nonzero = np.nonzero(no_spcm)[0]
+        config['idx_mode_nonzero'] = idx_mode_nonzero
+        
+        no_modes = len(idx_mode_nonzero)
     
-    if no_modes == 1:
-        no_spcm = no_spcm[idx_mode_nonzero][0]
-    else:    
-        no_spcm = no_spcm[idx_mode_nonzero]
-    
-    if inpar['dist'] == "lognormal":
-        sigma_R = inpar['sigma_R']
-        mu_R = inpar['mu_R']
-        r_critmin = inpar['r_critmin']
-        DNC0 = inpar['DNC0']
+        config['no_modes'] = no_modes
+        
         if no_modes == 1:
-            sigma_R = sigma_R[idx_mode_nonzero][0]
-            mu_R = mu_R[idx_mode_nonzero][0]
-    #        no_rpcm = no_rpcm[idx_mode_nonzero][0]
-            
-            inpar['r_critmin'] = r_critmin[idx_mode_nonzero][0] # mu
-            inpar['DNC0'] = DNC0[idx_mode_nonzero][0] # mu
-            
+            no_spcm = no_spcm[idx_mode_nonzero][0]
         else:    
-            sigma_R = sigma_R[idx_mode_nonzero]
-            mu_R = mu_R[idx_mode_nonzero]
-    #        no_rpcm = no_rpcm[idx_mode_nonzero]
-            r_critmin = r_critmin[idx_mode_nonzero] # mu
-            DNC0 = DNC0[idx_mode_nonzero] # mu
-    
-#        mu_R_log = np.log( mu_R )
-        sigma_R_log = np.log( sigma_R )    
-        # derive parameters of lognormal distribution of mass f_m(m)
-        # assuming mu_R in mu and density in kg/m^3
-        # mu_m in 1E-18 kg
-        mu_m_log =\
-            np.log(compute_mass_from_radius_vec(mu_R, c.mass_density_NaCl_dry))
-        sigma_m_log = 3.0 * sigma_R_log
-        dist_par = (mu_m_log, sigma_m_log)    
-    
-    inpar['dist_par'] = dist_par
-    data_paths = \
-        {
-            "simdata"   : inpar["simdata_path"],
-            "grid"      : grid_path
-        }
-    return data_paths
+            no_spcm = no_spcm[idx_mode_nonzero]
+        
+        if config['dist'] == 'lognormal':
+            sigma_R = config['sigma_R']
+            mu_R = config['mu_R']
+            r_critmin = config['r_critmin']
+            DNC0 = config['DNC0']
+            if no_modes == 1:
+                sigma_R = sigma_R[idx_mode_nonzero][0]
+                mu_R = mu_R[idx_mode_nonzero][0]
+                
+                config['r_critmin'] = r_critmin[idx_mode_nonzero][0] # mu
+                config['DNC0'] = DNC0[idx_mode_nonzero][0] # mu
+                
+            else:
+                sigma_R = sigma_R[idx_mode_nonzero]
+                mu_R = mu_R[idx_mode_nonzero]
+                r_critmin = r_critmin[idx_mode_nonzero] # mu
+                DNC0 = DNC0[idx_mode_nonzero] # mu
+        
+            sigma_R_log = np.log( sigma_R )    
+            # derive parameters of lognormal distribution of mass f_m(m)
+            # assuming mu_R in mu and density in kg/m^3
+            # mu_m in 1E-18 kg
+            mu_m_log = np.log(compute_mass_from_radius_vec(
+                                  mu_R, c.mass_density_NaCl_dry))
+            sigma_m_log = 3.0 * sigma_R_log
+            dist_par = (mu_m_log, sigma_m_log)    
+        
+        config['dist_par'] = dist_par
 
-def set_initial_sim_config(inpar):
+    elif config_mode == "spin_up":
+        config['simulation_mode'] = 'spin_up'
+        grid_path = grid_path_init
+        config['paths']['grid'] = grid_path
+        config['paths']['output'] = grid_path + "spin_up_wo_col_wo_grav/"
+        
+        config['t_start'] = config['t_start_spin_up']
+        config['t_end'] = config['t_end_spin_up']
+        config['spin_up_complete'] = False
+        config['g_set'] = 0.0
+        config['act_collisions'] = False
+        config['act_relaxation'] = False
+        
+    elif config_mode == 'simulation':
+        config['simulation_mode'] = 'simulation'
+        if config['act_collisions']:
+            if config['spin_up_complete']:
+                output_folder = 'w_spin_up_w_col/' + f'{seed_sim}/'
+            else:
+                output_folder = 'wo_spin_up_w_col/' + f'{seed_sim}/'
+        else:
+            if config['spin_up_complete']:
+                output_folder = 'w_spin_up_wo_col/'
+            else:
+                output_folder = 'wo_spin_up_wo_col/'
+        
+        if config['continued_simulation']:
+            grid_path = grid_path_init + output_folder
+        else:    
+            grid_path = grid_path_init + 'spin_up_wo_col_wo_grav/'
+        
+        config['paths']['grid'] = grid_path
+        config['paths']['output'] = grid_path_init + output_folder
+
+        config['t_start'] = config['t_start_sim']
+        config['t_end'] = config['t_end_sim']
+        config['g_set'] = c.earth_gravity
+    
+    if config_mode in ['spin_up', 'simulation']:
+        config['paths']['init'] = grid_path_init
+    
+        if not os.path.exists(config['paths']['output']):
+                os.makedirs(config['paths']['output'])    
+        
+        t_start = config['t_start']
+        if t_start > 0.:
+            water_removed = np.load(grid_path
+                                    + f"water_removed_{int(t_start)}.npy")
+        else:        
+            water_removed = np.array([0.0])
+        
+        config['scale_dt_cond'] = config['no_cond_per_adv'] // 2
+        config['dt_col'] = config['dt_adv'] / config['no_col_per_adv']
+        
+        ### load collection kernel data
+        E_col_grid, radius_grid, \
+        R_kernel_low, bin_factor_R, \
+        R_kernel_low_log, bin_factor_R_log, \
+        no_kernel_bins =\
+            load_kernel_data(config['kernel_method'],
+                             config['save_folder_Ecol_grid'] + "/" 
+                             + config['kernel_type'] + "/",
+                             config['E_col_const'])
+        
+        config['no_kernel_bins'] = no_kernel_bins
+        config['R_kernel_low_log'] = R_kernel_low_log
+        config['bin_factor_R_log'] = bin_factor_R_log    
+        no_cols = np.array((0,0))
+    
+        return E_col_grid, no_cols, water_removed
+
+#def set_initial_gen_config(config):
+#    
+#    config["no_spcm"] = np.array(config["no_spcm"])
+#    solute_type = config["solute_type"]
+#    no_spcm = inpar["no_spcm"]
+#    seed_SIP_gen = inpar["seed_SIP_gen"]
+##    no_cells = compute_no_grid_cells_from_step_sizes(
+##            ((inpar['x_min'], inpar['x_max']),
+##            (inpar['z_min'], inpar['z_max'])),
+##            (inpar['dx'], inpar['dz']))
+#    
+#    ### set the load and save paths
+#    
+#    grid_folder =\
+#        f"{solute_type}"\
+#        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+#        + f"{seed_SIP_gen}/"
+#    
+#    config['paths']['grid'] = config['paths']['simdata'] + grid_folder
+#    
+#    if not os.path.exists(config['paths']['grid']):
+#        os.makedirs(config['paths']['grid'])
+#    
+#    if inpar['eta_threshold'] == "weak":
+#        inpar['weak_threshold'] = True
+#    else: inpar['weak_threshold'] = False
+#    
+#    idx_mode_nonzero = np.nonzero(no_spcm)[0]
+#    inpar['idx_mode_nonzero'] = idx_mode_nonzero
+#    
+#    no_modes = len(idx_mode_nonzero)
+#
+#    inpar['no_modes'] = no_modes
+#    
+#    if no_modes == 1:
+#        no_spcm = no_spcm[idx_mode_nonzero][0]
+#    else:    
+#        no_spcm = no_spcm[idx_mode_nonzero]
+#    
+#    if inpar['dist'] == "lognormal":
+#        sigma_R = inpar['sigma_R']
+#        mu_R = inpar['mu_R']
+#        r_critmin = inpar['r_critmin']
+#        DNC0 = inpar['DNC0']
+#        if no_modes == 1:
+#            sigma_R = sigma_R[idx_mode_nonzero][0]
+#            mu_R = mu_R[idx_mode_nonzero][0]
+#            
+#            inpar['r_critmin'] = r_critmin[idx_mode_nonzero][0] # mu
+#            inpar['DNC0'] = DNC0[idx_mode_nonzero][0] # mu
+#            
+#        else:    
+#            sigma_R = sigma_R[idx_mode_nonzero]
+#            mu_R = mu_R[idx_mode_nonzero]
+#            r_critmin = r_critmin[idx_mode_nonzero] # mu
+#            DNC0 = DNC0[idx_mode_nonzero] # mu
+#    
+#        sigma_R_log = np.log( sigma_R )    
+#        # derive parameters of lognormal distribution of mass f_m(m)
+#        # assuming mu_R in mu and density in kg/m^3
+#        # mu_m in 1E-18 kg
+#        mu_m_log =\
+#            np.log(compute_mass_from_radius_vec(mu_R, c.mass_density_NaCl_dry))
+#        sigma_m_log = 3.0 * sigma_R_log
+#        dist_par = (mu_m_log, sigma_m_log)    
+#    
+#    inpar['dist_par'] = dist_par
+#    
+#    data_paths = \
+#        {
+#            "simdata"   : inpar["simdata_path"],
+#            "grid"      : grid_path
+#        }
+#    return data_paths
+
+def set_config__XX(inpar):
     
     simulation_mode = inpar['simulation_mode']
     
@@ -254,7 +384,6 @@ def set_initial_sim_config(inpar):
     if not os.path.exists(save_path):
         os.makedirs(save_path)
     
-    # IN WORK make it possible to continue simulation from sim state
     if simulation_mode != "spin_up":
         if inpar['continued_simulation']:
             grid_folder += save_folder
@@ -294,7 +423,6 @@ def set_initial_sim_config(inpar):
     # from experience: dt_sub <= 0.1 s,
     # then depends on dt, e.g. 1.0, 5.0 or 10.0:
     # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR 10.0/0.2 = 50
-#    scale_dt_cond = inpar["no_cond_per_adv"] // 2
     inpar['scale_dt_cond'] = inpar['no_cond_per_adv'] // 2
     inpar['dt_col'] = inpar['dt_adv'] / inpar['no_col_per_adv']
     
@@ -321,6 +449,135 @@ def set_initial_sim_config(inpar):
         }
     
     return data_paths, E_col_grid, no_cols, water_removed           
+
+#def set_initial_sim_config(inpar):
+#    
+#    simulation_mode = inpar['simulation_mode']
+#    
+#    if simulation_mode == "spin_up":
+#        inpar['t_start'] = inpar['t_start_spin_up']
+#        inpar['t_end'] = inpar['t_end_spin_up']
+#        inpar['spin_up_complete'] = False
+#        g_set = 0.0
+#    else:
+#        inpar['t_start'] = inpar['t_start_sim']
+#        inpar['t_end'] = inpar['t_end_sim']
+#        g_set = c.earth_gravity
+#
+#    inpar['g_set'] = g_set
+#        
+#    t_start = inpar['t_start']
+#    solute_type = inpar['solute_type']
+#    no_cells = inpar['no_cells']
+#    no_spcm = inpar['no_spcm']
+#    seed_SIP_gen = inpar['seed_SIP_gen']
+#    seed_sim = inpar['seed_sim']
+#    
+#    # g must be positive (9.8...) or 0.0 (for spin up)
+#    
+#    if simulation_mode == "with_collisions":
+#        inpar['act_collisions'] = True
+#    else:    
+#        inpar['act_collisions'] = False
+#    
+#    ### set the load and save paths
+#    # grid_folder is extended below
+#    grid_folder =\
+#        f"{solute_type}" \
+#        + f"/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/"\
+#        + f"{seed_SIP_gen}/"
+#    
+#    init_path = inpar['simdata_path'] + grid_folder
+#
+#    if simulation_mode == "spin_up":
+#        save_folder = "spin_up_wo_col_wo_grav/"
+#    elif simulation_mode == "wo_collision":
+#        if inpar['spin_up_complete']:
+#            save_folder = "w_spin_up_wo_col/"
+#        else:
+#            save_folder = "wo_spin_up_wo_col/"
+#    elif simulation_mode == "with_collisions":
+#        if inpar['spin_up_complete']:
+#            save_folder = "w_spin_up_w_col/"
+#        else:
+#            save_folder = "wo_spin_up_w_col/"
+#    
+#    if inpar['act_collisions']:
+#        save_folder += f"{seed_sim}/"
+#    
+#    save_path = inpar['simdata_path'] + grid_folder + save_folder
+#                
+#    #path = simdata_path + folder_save
+#    if not os.path.exists(save_path):
+#        os.makedirs(save_path)
+#    
+#    # IN WORK make it possible to continue simulation from sim state
+#    if simulation_mode != "spin_up":
+#        if inpar['continued_simulation']:
+#            grid_folder += save_folder
+#        else:    
+#            grid_folder += "spin_up_wo_col_wo_grav/"
+#    
+##    if inpar['spin_up_complete']:
+##        if inpar['continued_simulation']:
+##            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
+##            
+##        grid_folder += "spin_up_wo_col_wo_grav/"
+##        
+##        elif simulation_mode == "with_collisions":
+##            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
+##    
+##    if inpar['spin_up_complete']:
+##    #    if t_start <= 7200.:
+##        if t_start <= 7201.:
+##            grid_folder += "spin_up_wo_col_wo_grav/"
+##        elif simulation_mode == "with_collisions":
+##            grid_folder += f"w_spin_up_w_col/{seed_sim}/"
+#    
+#    # set "counters" for number of collisions and total removed water
+#    no_cols = np.array((0,0))
+#    
+#    # load water_removed or create new
+#    if t_start > 0.:
+#        water_removed = np.load(inpar['simdata_path']
+#                                + grid_folder
+#                                + f"water_removed_{int(t_start)}.npy")
+#    else:        
+#        water_removed = np.array([0.0])    
+#    
+#    # timescale "scale_dt" of subloop with timestep dt_sub = dt/(2 * scale_dt)
+#    # => scale_dt = dt/(2 dt_sub)
+#    # with implicit Newton:
+#    # from experience: dt_sub <= 0.1 s,
+#    # then depends on dt, e.g. 1.0, 5.0 or 10.0:
+#    # => scale_dt = 1.0/(0.2) = 5 OR scale_dt = 5.0/(0.2) = 25 OR 10.0/0.2 = 50
+##    scale_dt_cond = inpar["no_cond_per_adv"] // 2
+#    inpar['scale_dt_cond'] = inpar['no_cond_per_adv'] // 2
+#    inpar['dt_col'] = inpar['dt_adv'] / inpar['no_col_per_adv']
+#    
+#    ### load collision kernel data
+#    E_col_grid, radius_grid, \
+#    R_kernel_low, bin_factor_R, \
+#    R_kernel_low_log, bin_factor_R_log, \
+#    no_kernel_bins =\
+#        load_kernel_data(inpar['kernel_method'],
+#                         inpar['save_folder_Ecol_grid'] + "/" 
+#                         + inpar['kernel_type'] + "/",
+#                         inpar['E_col_const'])
+#    
+#    inpar['no_kernel_bins'] = no_kernel_bins
+#    inpar['R_kernel_low_log'] = R_kernel_low_log
+#    inpar['bin_factor_R_log'] = bin_factor_R_log
+#    
+#    data_paths = \
+#        {
+#            'simdata'   : inpar['simdata_path'],
+#            'init'      : init_path,
+#            'grid'      : inpar['simdata_path'] + grid_folder,
+#            'output'    : save_path
+#        }
+#    
+#    return data_paths, E_col_grid, no_cols, water_removed           
        
 #%% DISTRIBUTIONS
            
@@ -1382,19 +1639,27 @@ def compute_profiles_T_p_rhod_S_without_liquid(
 # particle_file = "stored_particles.txt"
 # particle_file = path + particle_file
 
-def initialize_grid_and_particles_SinSIP(genpar, save_path):
+def initialize_grid_and_particles_SinSIP(genpar):
     # VERSION WITH PARTICLE PROPERTIES IN ARRAYS, not particle class
     ##########################################################################
     ### 1. set base grid
     ##########################################################################
     
-    x_min = genpar['x_min']
-    x_max = genpar['x_max']
-    z_min = genpar['z_min']
-    z_max = genpar['z_max']
-    dx = genpar['dx']
+    # grid dimensions ("ranges")
+    # the step size of all cells is the same
+    # the grid dimensions will be adjusted such that they are
+    # AT LEAST x_max - x_min, etc... but may also be larger,
+    # if the sizes are no integer multiples of the step sizes
+    grid_ranges = genpar['grid_ranges']
+    x_min = grid_ranges[0][0]
+    x_max = grid_ranges[0][1]
+    z_min = grid_ranges[1][0]
+    z_max = grid_ranges[1][1]
+    
+    grid_steps = genpar['grid_steps']
+    dx = grid_steps[0]
+    dz = grid_steps[1]
     dy = genpar['dy']
-    dz = genpar['dz']
     
     p_0 = genpar['p_0']
     p_ref = genpar['p_ref']
@@ -1420,21 +1685,12 @@ def initialize_grid_and_particles_SinSIP(genpar, save_path):
     dt_init = genpar['dt_init']
     Newton_iterations = genpar['Newton_iterations']
     iter_cnt_limit = genpar['iter_cnt_limit']
-#    save_path = genpar['save_path']
+    save_path = genpar['paths']['grid']
+        
     if not os.path.exists(save_path):
         os.makedirs(save_path)
  
     log_file = save_path + f"log_grid.txt"
-        
-    # grid dimensions ("ranges")
-    # the step size is off all cells is the same
-    # the grid dimensions will be adjusted such that they are
-    # AT LEAST x_max - x_min, etc... but may also be larger,
-    # if the sizes are no integer multiples of the step sizes
-    grid_ranges = [ [x_min, x_max],
-    #                 [y_min, y_max], 
-                    [z_min, z_max] ]
-    grid_steps = [dx, dz]
 
     grid = Grid( grid_ranges, grid_steps, dy )
     grid.print_info()
@@ -1442,11 +1698,15 @@ def initialize_grid_and_particles_SinSIP(genpar, save_path):
     with open(log_file, "w+") as f:
         f.write("grid basic parameters:\n")
         f.write(f"grid ranges [x_min, x_max] [z_min, z_max]:\n")
-        f.write(f"{x_min} {x_max} {z_min} {z_max}\n")
+        for gr_ in grid_ranges:
+            for gr__ in gr_:
+                f.write(f"{gr__}")
+        f.write("\n")
+#        f.write(f"{x_min} {x_max} {z_min} {z_max}\n")
         f.write("number of cells: ")
         f.write(f"{grid.no_cells[0]}, {grid.no_cells[1]} \n")
         f.write("grid steps: ")
-        f.write(f"{dx}, {dy}, {dz}\n\n")
+        f.write(f"{grid_steps[0]}, {dy}, {grid_steps[1]}\n\n")
     
     ##########################################################################
     ### 2. Set initial profiles without liquid water

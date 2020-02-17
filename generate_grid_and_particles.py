@@ -26,3 +26,5 @@ if genpar['set_std_out_file']:
 
 grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids  = \
     initialize_grid_and_particles_SinSIP(genpar, data_paths['grid'])
+    
+    

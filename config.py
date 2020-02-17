@@ -8,41 +8,49 @@ The corresponding simulation script is "cloudMP.py".
 import numpy as np
 from grid import compute_no_grid_cells_from_step_sizes
 
-
-#### IN WORK: set a "mode", which is "generation", "spin_up" or "simulation"
-
 config = \
 {
+# path to parent directory for data output
 'paths' : {
-    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP/'
+#    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP/'
+    'simdata' : '/Users/bohrer/sim_data_cloudMP/'
 },
 
 'generate_grid'         : True,
+#'generate_grid'         : False,
+# spin-up: no gravity, no collisions, no relaxation
 'execute_spin_up'       : True,
+#'execute_spin_up'       : False,
 'execute_simulation'    : True,
 # set "True" when starting from a spin-up state
 # provides the opportunity to simulate directly without spin-up
 # in this case, set "execute_spin_up" and "spin_up_complete" to "False"
 'spin_up_complete'      : False,
+#'spin_up_complete'      : True,
 
 # set "False", if spin_up shall be executed
 # set "False", if the simulation starts from an existing spin-up state.
 # set "True", if a simulation is continued from a simulation state, 
 # which was stored at t_start_sim given below.
 'continued_simulation'  : False,
+#'continued_simulation'  : True,
 
 # collisions during simulation phase
 'act_collisions'        : True,
 # relaxation source term for r_v and Theta towards init. profiles
 'act_relaxation'        : True,
 
-#%% GRID AND PARTICLE GENERATION
+#%% RANDOM NUMBER GENERATION SEEDS
+
+# seeds are overwritten, if LaCMo.py is executed with arguments:
+# "python3 LaCMo.py 4711 5711"
+# will overwrite 'seed_SIP_gen' by 4711 and 'seed_sim' by 5711
 # random number generator seed for inital particle generation
-# this number is overwritten, if the script is executed with an argument:
-# In the following example,
-# the parameter 'seed_SIP_gen'would be overwritten to 4711:
-# "python3 generate_grid_and_particles.py 4711"
-'seed_SIP_gen'      : 1001,
+'seed_SIP_gen'      : 1003,
+# random number generator seed for particle collisions
+'seed_sim'          : 1003,
+
+#%% GRID AND PARTICLE GENERATION
 
 # set, if the number generator should be reseeded at every z-level:
 # 'False' is usually fine. 'True' is usually not necessary for the given setup.
@@ -51,16 +59,10 @@ config = \
 ### GRID AND INITIAL ATMOSPHERIC PROFILE
 # domain sizes (2D) [ [x_min, x_max], [z_min, z_max] ] in meter
 'grid_ranges'       : [[0., 1500.], [0., 1500.]],
-#'x_min'             : 0.,
-#'x_max'             : 1500.,
-#'z_min'             : 0.,
-#'z_max'             : 1500.,
 
 # spatial step sizes [dx, dz] in meter
 # the number of grid cells is calculated from step sizes and domain sizes
-'grid_steps'        : [20., 20.],
-#'dx'                : 20.,
-#'dz'                : 20.,
+'grid_steps'        : [150., 150.],
 'dy'                : 1., # in meter, dy=1 is default in the 2D setup
 
 # initial thermodynamic environment 
@@ -78,7 +80,7 @@ config = \
 
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]
-'no_spcm'           : [26, 38],
+'no_spcm'           : [4, 4],
 ## particle size distribution
 # distribution type (only "lognormal" available)
 'dist'              : "lognormal", 
@@ -108,13 +110,11 @@ config = \
 # during mass condensation with the implicit method
 'Newton_iterations' : 2,
 # maximal allowed iter counts in initial particle water take up to equilibrium
-# for sum(no_spcm) ~= 50, a value of iter_cnt_limit=800 should be fine
+# for sum(no_spcm) ~= 50, a value of iter_cnt_limit=1000 should be fine
 # for smaller no_spcm, a higher number might be necessary to reach EQ
-'iter_cnt_limit'     : 1000,
+'iter_cnt_limit'     : 4000,
 
 #%% SIMULATION PARAMETERS
-# random number generator seed for particle collisions
-'seed_sim'              : 1001,
 
 # SIMULATION TIME AND INTEGRATION PARAMETERS
 # time for reading the initial atmospheric profiles (used in the relax. term)
@@ -126,9 +126,9 @@ config = \
 # for a direct simulation without spin-up:
 # set t_start_spin_up = 0, t_end_spin_up = 0, t_start_sim = 0
 't_start_spin_up'        : 0, # seconds
-'t_end_spin_up'          : 7200, # seconds
-'t_start_sim'            : 7200, # seconds
-'t_end_sim'              : 10800, # seconds
+'t_end_spin_up'          : 600, # seconds
+'t_start_sim'            : 600, # seconds
+'t_end_sim'              : 1200, # seconds
 
 # advection time step (seconds),
 # this is the largest time step of the simulation
@@ -166,24 +166,15 @@ config = \
 # this folder should be in the same directory,
 # from which the program is executed
 'save_folder_Ecol_grid' : 'Ecol_grid_data',
-#'save_dir_Ecol_grid': f'Ecol_grid_data/{kernel_type}/',
 
 ### LOGGING
 # if True: std out is written to file 'std_out.log' inside the save path
 # if False: std out written to console
 'set_std_out_file'      : True
 #'set_std_out_file'     : False
-
 }
 
 ### DERIVED QUANTITIES (DO NOT SET MANUALLY)
 config['no_cells'] = compute_no_grid_cells_from_step_sizes(
                          config['grid_ranges'], config['grid_steps'])
-
-#config['no_cells'] = compute_no_grid_cells_from_step_sizes(
-#                         [ [config['x_min'],config['x_max'],
-#                           [config['x_min'],config['x_max'] ],
-#                           [config['dx'] ... dz]
-#                         )
-
 
