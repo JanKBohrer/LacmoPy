@@ -156,6 +156,7 @@ def compute_equilibrium_saturation_AS(w_s, R_p, T_p, rho_p, sigma_w):
     return mat.compute_water_activity_AS(w_s)\
            * compute_kelvin_term(R_p, T_p, rho_p, sigma_w)
 
+# from mass fraction mf
 @njit()
 def compute_equilibrium_saturation_NaCl_mf(w_s, T_p, m_s):
     rho_p = mat.compute_density_NaCl_solution(w_s, T_p)
@@ -163,6 +164,7 @@ def compute_equilibrium_saturation_NaCl_mf(w_s, T_p, m_s):
     return mat.compute_water_activity_NaCl(w_s) \
            * compute_kelvin_term_mf(w_s, T_p, m_s, rho_p, sigma_p)
 
+# from mass fraction mf
 @njit()
 def compute_equilibrium_saturation_AS_mf(w_s, T_p, m_s):
     rho_p = mat.compute_density_AS_solution(w_s, T_p)

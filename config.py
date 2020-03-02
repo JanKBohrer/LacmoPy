@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 Configuration file for the Lagrangian cloud model simulation.
-The corresponding simulation script is "cloudMP.py".
+The corresponding simulation script is "lacmo.py".
 """
 
 import numpy as np
 from grid import compute_no_grid_cells_from_step_sizes
 
-config = \
-{
+config = {
 # path to parent directory for data output
 'paths' : {
 #    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP/'
@@ -81,7 +80,7 @@ config = \
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]
 'no_spcm'           : [26, 38],
-## particle size distribution
+### particle dry size distribution
 # distribution type (only "lognormal" available)
 'dist'              : "lognormal", 
 # droplet number concentration: number density of particles per mode
@@ -134,10 +133,11 @@ config = \
 # this is the largest time step of the simulation
 # the refined time steps of condensation and collision are scaled accordingly
 'dt_adv'                : 1,
-# number of condensation steps per advection step.
+# number of condensation steps per advection step (only even integers possible)
 # a "condensation step" includes particle mass growth and particle propagation
 'no_cond_per_adv'       : 10,
 # number of particle collisions steps per advection step
+# possible values: 1, 2 OR no_cond_per_adv
 'no_col_per_adv'        : 2,
 # number of Newton iterations in the implicit mass condensation algo.
 'no_iter_impl_mass'     : 3,
@@ -150,7 +150,7 @@ config = \
 'trace_ids'             : 80,
 'dump_every'            : 10, # tracer data output every X time steps "dt_adv"
 
-### COLLISION KERNEL
+### COLLECTION KERNEL
 # Long kernel modified by Bott (1997), J Atmos Sci 55, p.2284
 #'kernel_type'           : 'Long_Bott', 
 # Hall kernel modified by Bott (1997), J Atmos Sci 55, p.2284

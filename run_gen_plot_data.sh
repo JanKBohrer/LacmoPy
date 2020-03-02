@@ -11,7 +11,7 @@
 # of the stored data shall be evaluated by setting
 # the arrays "time_ind" (for scalar fields) and
 # "time_ind_moments" (for moment analysis)
-# also, one can choose which fields are plotted,
+# additionally, one can choose which fields are plotted,
 # which volumes are analyzed for particle spectra etc.
 # the generated data can be plotted with "plot_results_MA.py".
 # In there, a configuration must be added in the parameter lists indicated
