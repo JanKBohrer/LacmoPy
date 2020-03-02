@@ -19,6 +19,8 @@ all other quantities in SI units
 import constants as c
 from numba import vectorize, njit
 
+#%% MATERIAL PROPERTIES
+
 # J/(kg K)
 def compute_specific_gas_constant_air_moist(specific_humidity_):
     return c.specific_gas_constant_air_dry * (1 + 0.608 * specific_humidity_ )
@@ -92,9 +94,6 @@ def compute_pressure_vapor( density_vapor_, temperature_ ):
                                       c.specific_gas_constant_water_vapor )
 @vectorize("float64(float64, float64)") 
 def compute_density_air_dry(temperature_, pressure_):
-    return pressure_ / ( c.specific_gas_constant_air_dry * temperature_ )
-@vectorize("float64(float64, float64)", target="parallel") 
-def compute_density_air_dry_par(temperature_, pressure_):
     return pressure_ / ( c.specific_gas_constant_air_dry * temperature_ )
 
 ### CONVERSION DRY POTENTIAL TEMPERATURE

@@ -17,6 +17,8 @@ particle radius in micro meter ("mu")
 all other quantities in SI units
 """
 
+#%% MODULE IMPORTS
+
 import numpy as np
 from numba import njit, vectorize
 
@@ -102,7 +104,6 @@ def compute_solubility(temperature_, solute_type):
     elif solute_type == "NaCl":
         return compute_solubility_NaCl(temperature_)
 
-
 #%% SURFACE TENSION OF SOLUTIONS
 
 #    surface tension in N/m = J/m^2
@@ -163,13 +164,6 @@ par_sigma_AS_Prup = 0.325
 def compute_surface_tension_AS_Prup(w_s, T_p):
     return compute_surface_tension_water(T_p) \
                * (1.0 + par_sigma_AS_Prup * w_s / (1. - w_s))
-#    return compute_surface_tension_water(T) / 0.072 \
-#               * (0.072 + 0.0234 * w_s / (1. - w_s))
-#    if w_s > 0.78:
-#        return compute_surface_tension_water(T) * 0.154954
-#    else:
-#        return compute_surface_tension_water(T) / 0.072 \
-#               * (0.072 + 0.0234 * w_s / (1. - w_s))
 
 # compute_surface_tension_water(298) = 0.0719953
 # molality in mol/kg_water           
@@ -215,41 +209,41 @@ def compute_surface_tension_solution(w_s, T_p, solute_type):
 # approx +15 % for w_s = 0.46
 # we overestimate the water activity a_w by 6 % and increasing
 # 0.308250118 = M_w/M_s
-par_vH_NaCl = np.array([ 1.55199086,  4.95679863])
-@vectorize("float64(float64)") 
-def compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_):
-    return par_vH_NaCl[0] + par_vH_NaCl[1] * mass_fraction_solute_
-
-vant_Hoff_factor_NaCl_const = 2.0
-
-molar_mass_ratio_w_NaCl = c.molar_mass_water/c.molar_mass_NaCl
-
-mf_cross_NaCl = 0.09038275962335
-
-# vectorized version
-@vectorize("float64(float64)") 
-def compute_vant_Hoff_factor_NaCl(mass_fraction_solute_):
-    if mass_fraction_solute_ < mf_cross_NaCl: return vant_Hoff_factor_NaCl_const
-    else: return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
-
-# numpy version
-def compute_vant_Hoff_factor_NaCl_np(mass_fraction_solute_):
-    return np.where(mass_fraction_solute_ < mf_cross_NaCl,
-                    vant_Hoff_factor_NaCl_const\
-                    * np.ones_like(mass_fraction_solute_),
-                    compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_))
-
-@vectorize("float64(float64)")
-def compute_dvH_dws_NaCl(w_s):
-    if w_s < mf_cross_NaCl: return 0.0
-    else: return par_vH_NaCl[1]    
+#par_vH_NaCl = np.array([ 1.55199086,  4.95679863])
+#@vectorize("float64(float64)") 
+#def compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_):
+#    return par_vH_NaCl[0] + par_vH_NaCl[1] * mass_fraction_solute_
+#
+#vant_Hoff_factor_NaCl_const = 2.0
+#
+#molar_mass_ratio_w_NaCl = c.molar_mass_water/c.molar_mass_NaCl
+#
+#mf_cross_NaCl = 0.09038275962335
+#
+## vectorized version
+#@vectorize("float64(float64)") 
+#def compute_vant_Hoff_factor_NaCl(mass_fraction_solute_):
+#    if mass_fraction_solute_ < mf_cross_NaCl: return vant_Hoff_factor_NaCl_const
+#    else: return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
+#
+## numpy version
+#def compute_vant_Hoff_factor_NaCl_np(mass_fraction_solute_):
+#    return np.where(mass_fraction_solute_ < mf_cross_NaCl,
+#                    vant_Hoff_factor_NaCl_const\
+#                    * np.ones_like(mass_fraction_solute_),
+#                    compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_))
+#
+#@vectorize("float64(float64)")
+#def compute_dvH_dws_NaCl(w_s):
+#    if w_s < mf_cross_NaCl: return 0.0
+#    else: return par_vH_NaCl[1]    
 
 # NOTE that we actually use a polynomal fit a_w(w_s) for
 # the water activity of NaCl, the vant Hoff factor is currently not applied
-@vectorize( "float64(float64, float64, float64)")
-def compute_water_activity_NaCl_vH(m_w, m_s, w_s):
-    return m_w / ( m_w + molar_mass_ratio_w_NaCl\
-                   * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
+#@vectorize( "float64(float64, float64, float64)")
+#def compute_water_activity_NaCl_vH(m_w, m_s, w_s):
+#    return m_w / ( m_w + molar_mass_ratio_w_NaCl\
+#                   * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
 
 ### WATER ACTIVITY NACL by polynomial (this one is used in simulation)
 # Formula from Tang 1997
