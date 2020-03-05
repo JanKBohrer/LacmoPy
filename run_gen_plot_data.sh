@@ -44,4 +44,4 @@ sim_type="with_collisions" # possible: "spin_up", "with_collisions", "wo_collisi
 export OMP_NUM_THREADS=8
 export NUMBA_NUM_THREADS=16
 echo $gseed $sseed
-python3 gen_plot_data.py $storage_path $no_cells_x $no_cells_z $solute_type $no_spcm0 $no_spcm1 $no_sim ${gseed} ${sseed} $sim_type $t_grid $t_start $t_end $no_col_per_adv &
+python3 generate_plot_data.py $storage_path $no_cells_x $no_cells_z $solute_type $no_spcm0 $no_spcm1 $no_sim ${gseed} ${sseed} $sim_type $t_grid $t_start $t_end $no_col_per_adv &

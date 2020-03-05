@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 TROPOS LAGRANGIAN CLOUD MODEL
-Super-Droplet method in two-dimensional kinetic framework
+Super-Droplet method in two-dimensional kinematic framework
 (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
@@ -23,6 +23,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 from matplotlib.colors import hex2color, LinearSegmentedColormap
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+#%% BASIC FUNCTIONS
 
 def cm2inch(*tupl):
     inch = 2.54
@@ -58,7 +61,7 @@ cdict_lcpp = {'red': cdict_lcpp_colors[0],
               'green': cdict_lcpp_colors[1],
               'blue': cdict_lcpp_colors[2]}
 
-cmap_lcpp = LinearSegmentedColormap('testCmap', segmentdata=cdict_lcpp, N=256)
+cmap_lcpp = LinearSegmentedColormap('myRainbow', segmentdata=cdict_lcpp, N=256)
 
 #%% rcParams DICTIONARIES
     
@@ -537,8 +540,6 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
                                         no_cells_x = 0,
                                         no_cells_z = 0
                                         ):
-    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-    
     for i,fm in enumerate(field_names):
         print(i,fm)
     print(save_times)
@@ -829,7 +830,7 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                                         no_cells_x = 0,
                                         no_cells_z = 0
                                         ):
-    from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+    
     
     for i,fm in enumerate(field_names):
         print(i,fm)
@@ -1564,7 +1565,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     ax.set_xlabel('mass (kg)')
     ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
     
-    import matplotlib.ticker as mtkr
+    
     ax = axes[2]
     ax.plot(bins_rad_center_exact, g_ln_r_num_sampled*1000.0, 'x')
     ax.plot(R_, g_ln_r_ana_)
@@ -1576,7 +1577,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
         ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-        ax.get_xaxis().set_major_formatter(mtkr.ScalarFormatter())
+        ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
         # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
         ax.yaxis.set_ticks(np.logspace(-11,0,12))
     ax.grid(which='both')
@@ -1717,7 +1718,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
         ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-        ax.get_xaxis().set_major_formatter(mtkr.ScalarFormatter())
+        ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
         ax.set_yticks(np.logspace(-11,0,12))
         ax.set_ylim((1.0E-11,5.0))
     ax.grid(which='both')
@@ -1848,7 +1849,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
         ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-        ax.get_xaxis().set_major_formatter(mtkr.ScalarFormatter())
+        ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
         ax.set_yticks(np.logspace(-11,0,12))
         ax.set_ylim((1.0E-11,5.0))
     ax.grid(which='both')

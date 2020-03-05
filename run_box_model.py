@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 TROPOS LAGRANGIAN CLOUD MODEL
-Super-Droplet method in two-dimensional kinetic framework
+Super-Droplet method in two-dimensional kinematic framework
 (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
@@ -25,26 +25,20 @@ all other quantities in SI units
 #%% IMPORTS AND DEFS
 
 import os
+import sys
 import math
 import numpy as np
     
 import constants as c
 
 from microphysics import compute_radius_from_mass_vec
-
-from collision.box_model import simulate_collisions,analyze_sim_data
-from collision.box_model import plot_for_given_kappa, plot_moments_kappa_var
-
-from collision.kernel import compute_terminal_velocity_Beard_vec
-from collision.kernel import generate_and_save_kernel_grid_Long_Bott
-from collision.kernel import generate_and_save_E_col_grid_R
-
 from analysis import analyze_ensemble_data
 
-from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_expo
-from generate_SIP_ensemble_dst import gen_mass_ensemble_weights_SinSIP_lognormal
-
-import sys
+from generate_SIP_ensemble_dst import \
+    gen_mass_ensemble_weights_SinSIP_expo, \
+    gen_mass_ensemble_weights_SinSIP_lognormal
+import collision.box_model as boxm
+import collision.kernel as ker
 
 #%% SET PARAMETERS 
 
@@ -57,7 +51,7 @@ set_log_file = True
 # args_gen[i] is either 1 or 0 (activated or not activated)
 # i = 0: generate SIP ensembles
 # i = 1: analyze SIP ensembles
-# i = 2: plot SIP ensemble data (requires analysis to be active)
+# i = 2: plot SIP ensemble data (requires analyze to be active)
 # i = 3: generate discretized collection kernel K(R_1,R_2) from raw data
 # i = 4: generate discretized collection efficiency E_c(R_1,R_2) from raw data
 args_gen = [1,1,1,0,0]
@@ -204,7 +198,8 @@ if dist == 'expo':
     DNC0 = LWC0 / m_mean # in 1/m^3
     LWC0_over_DNC0 = LWC0 / DNC0
     DNC0_over_LWC0 = DNC0 / LWC0
-    print('dist = expo', f'DNC0 = {DNC0:.3e}', 'LWC0 =', LWC0, 'm_mean = ', m_mean)
+    print('dist = expo', f'DNC0 = {DNC0:.3e}', 'LWC0 =', LWC0,
+          'm_mean = ', m_mean)
     dist_par = (DNC0, DNC0_over_LWC0)
 
 elif dist =='lognormal':
@@ -213,7 +208,8 @@ elif dist =='lognormal':
     
     # derive parameters of lognormal distribution of mass f_m(m)
     # assuming mu_R in mu and density in kg/m^3
-    mu_m_log = 3.0 * mu_R_log + np.log(1.0E-18 * c.four_pi_over_three * mass_density)
+    mu_m_log = 3.0 * mu_R_log \
+               + np.log(1.0E-18 * c.four_pi_over_three * mass_density)
     sigma_m_log = 3.0 * sigma_R_log
     print('dist = lognormal', f'DNC0 = {DNC0:.3e}',
           'mu_R =', mu_R, 'sigma_R = ', sigma_R)
@@ -234,7 +230,7 @@ f'{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 if act_gen_kernel_grid:
     if not os.path.exists(save_dir_kernel_grid):
         os.makedirs(save_dir_kernel_grid)        
-    mg_ = generate_and_save_kernel_grid_Long_Bott(
+    mg_ = ker.generate_and_save_kernel_grid_Long_Bott(
               R_low_kernel, R_high_kernel, no_bins_10_kernel,
               mass_density, save_dir_kernel_grid )[2]
     print(f'generated kernel grid,',
@@ -244,7 +240,7 @@ if act_gen_kernel_grid:
 if act_gen_Ecol_grid:
     if not os.path.exists(save_dir_Ecol_grid):
         os.makedirs(save_dir_Ecol_grid)        
-    E_col__, Rg_ = generate_and_save_E_col_grid_R(
+    E_col__, Rg_ = ker.generate_and_save_E_col_grid_R(
               R_low_kernel, R_high_kernel, no_bins_10_kernel, kernel_name,
               save_dir_Ecol_grid)
     print(f'generated Ecol grid,',
@@ -276,10 +272,13 @@ if act_gen_SIP:
                 mu_m_log = 3.0 * mu_R_log \
                            + np.log(c.four_pi_over_three * mass_density)
                 mu_m_log2 = 3.0 * mu_R_log \
-                           + np.log(1E-18 * c.four_pi_over_three * mass_density)
+                           + np.log(1E-18 * c.four_pi_over_three
+                                    * mass_density)
                 sigma_m_log = 3.0 * sigma_R_log
-                ensemble_parameters = [dV, DNC0, mu_m_log2, sigma_m_log, mass_density,
-                               r_critmin, kappa, eta, no_sims, start_seed]
+                ensemble_parameters = [dV, DNC0, mu_m_log2,
+                                       sigma_m_log, mass_density,
+                                       r_critmin, kappa, eta,
+                                       no_sims, start_seed]
 
                 masses, weights, m_low, bins = \
                     gen_mass_ensemble_weights_SinSIP_lognormal(
@@ -293,7 +292,7 @@ if act_gen_SIP:
             bins_rad = compute_radius_from_mass_vec(bins, mass_density)
             radii = compute_radius_from_mass_vec(masses, mass_density)
 
-            np.save(ensemble_dir + f'masses_seed_{seed}', 1.0E-18*masses)
+            np.save(ensemble_dir + f'masses_seed_{seed}', 1.0E-18 * masses)
             np.save(ensemble_dir + f'radii_seed_{seed}', radii)
             np.save(ensemble_dir + f'xis_seed_{seed}', xis)
             
@@ -324,8 +323,9 @@ if act_sim:
         if not os.path.exists(simdata_path + result_path_add):
             os.makedirs(simdata_path + result_path_add)
         sys.stdout = open(simdata_path + result_path_add
-                          + f'std_out_kappa_{kappa_list[0]}_{kappa_list[-1]}_dt_{int(dt)}'
-                          + '.log', 'w')
+                          + f'std_out_kappa_{kappa_list[0]}_{kappa_list[-1]}'
+                          + f'_dt_{int(dt)}.log', 'w')
+        
 #%% SIMULATION DATA LOAD
     if kernel_method == 'kernel_grid_m':
         # convert to 1E-18 kg if mass grid is given in kg...
@@ -383,8 +383,8 @@ if act_sim:
             elif kernel_name == 'Long_Bott':
                 if kernel_method == 'Ecol_grid_R':
                     mass_densities = np.ones_like(masses) * mass_density
-                    radii = compute_radius_from_mass_vec(masses, mass_densities)
-                    vel = compute_terminal_velocity_Beard_vec(radii)
+                    radii = compute_radius_from_mass_vec(masses,mass_densities)
+                    vel = ker.compute_terminal_velocity_Beard_vec(radii)
                     SIP_quantities = (xis, masses, radii, vel, mass_densities)
                     kernel_quantities = \
                     (E_col_grid, no_kernel_bins, R_kernel_low_log,
@@ -397,18 +397,19 @@ if act_sim:
             if kernel_name == 'Hall_Bott':
                 if kernel_method == 'Ecol_grid_R':
                     mass_densities = np.ones_like(masses) * mass_density
-                    radii = compute_radius_from_mass_vec(masses, mass_densities)
-                    vel = compute_terminal_velocity_Beard_vec(radii)
+                    radii = compute_radius_from_mass_vec(masses,mass_densities)
+                    vel = ker.compute_terminal_velocity_Beard_vec(radii)
                     SIP_quantities = (xis, masses, radii, vel, mass_densities)
                     kernel_quantities = \
                     (E_col_grid, no_kernel_bins, R_kernel_low_log,
                      bin_factor_R_log)  
                     
             print(f'kappa {kappa}, sim {cnt}: seed {seed} simulation start')
-            simulate_collisions(SIP_quantities,
-                                kernel_quantities, kernel_name, kernel_method,
-                                dV, dt, t_end, dt_save,
-                                no_cols, seed, save_dir)
+            boxm.simulate_collisions(SIP_quantities,
+                                     kernel_quantities, kernel_name,
+                                     kernel_method,
+                                     dV, dt, t_end, dt_save,
+                                     no_cols, seed, save_dir)
             print(f'kappa {kappa}, sim {cnt}: seed {seed} simulation finished')
 
 #%% DATA ANALYSIS
@@ -419,97 +420,36 @@ if act_analysis:
     for kappa in kappa_list:
         load_dir =\
             simdata_path + result_path_add + f'kappa_{kappa}/dt_{int(dt)}/'
-        analyze_sim_data(kappa, mass_density, dV, no_sims, start_seed, no_bins, load_dir)
+        boxm.analyze_sim_data(kappa, mass_density, dV,
+                              no_sims, start_seed, no_bins, load_dir)
 
 #%% PLOTTING
 if act_plot:
     for kappa in kappa_list:
         load_dir =\
             simdata_path + result_path_add + f'kappa_{kappa}/dt_{int(dt)}/'
-        plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
-                         kernel_name, gen_method, bin_method_sim_data, load_dir)
+        boxm.plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
+                                  kernel_name, gen_method,
+                                  bin_method_sim_data, load_dir)
 
 #%% PLOT MOMENTS VS TIME for several kappa
 # act_plot_moments_kappa_var = True
 
 TTFS, LFS, TKFS = 14,14,12
 if act_plot_moments_kappa_var:
-    ref_data_path = 'collision/ref_data/' \
-                    + f'{kernel_name}/'
+    ref_data_path = 'collision/ref_data/' + f'{kernel_name}/'
     if kernel_name == 'Long_Bott' or kernel_name == 'Hall_Bott':
         moments_ref = np.loadtxt(ref_data_path + 'Wang_2007_moments.txt')
         times_ref = np.loadtxt(ref_data_path + 'Wang_2007_times.txt')
     elif kernel_name == 'Golovin':
         moments_ref = None
         times_ref = None
-    
-#    if kernel_name == 'Long_Bott':
-#        data_Wang_2007 = [
-#                            295.4 ,
-#                            287.4 ,
-#                            278.4 ,
-#                            264.4 ,
-#                            151.7 ,
-#                            13.41 ,
-#                            1.212,
-#                            0.999989, 
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            6.739E-9 ,
-#                            7.402E-9 ,
-#                            8.720E-9 ,
-#                            3.132E-7 ,
-#                            3.498E-4 ,
-#                            1.068E-2 ,
-#                            3.199E-2 ,
-#                            6.813e-14 ,
-#                            9.305e-14 ,
-#                            5.710e-13 ,
-#                            3.967e-8 ,
-#                            1.048e-3 ,
-#                            2.542e-1 ,
-#                            1.731    
-#                            ]
-#    elif kernel_name == 'Hall_Bott':
-#        data_Wang_2007 = [
-#                            295.4 ,
-#                            287.8 ,
-#                            279.9 ,
-#                            270.2 ,
-#                            231.7 ,
-#                            124.5 ,
-#                            73.99 ,
-#                            0.999989, 
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            0.999989 ,
-#                            6.739e-9 ,
-#                            7.184e-9 ,
-#                            7.999e-9 ,
-#                            7.827e-8 ,
-#                            1.942e-5 ,
-#                            7.928e-4 ,
-#                            6.997e-3 ,
-#                            6.813e-14 ,
-#                            8.282e-14 ,
-#                            3.801e-13 ,
-#                            2.531e-9 ,
-#                            6.107e-6 ,
-#                            2.108e-3 ,
-#                            1.221e-1  ]               
         
     fig_dir = simdata_path + result_path_add
-    plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
-                           kernel_name, gen_method,
-                           dist, start_seed,
-                           moments_ref, times_ref,
-                           simdata_path,
-                           result_path_add,
-                           fig_dir, TTFS, LFS, TKFS)
+    boxm.plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
+                                kernel_name, gen_method,
+                                dist, start_seed,
+                                moments_ref, times_ref,
+                                simdata_path,
+                                result_path_add,
+                                fig_dir, TTFS, LFS, TKFS)

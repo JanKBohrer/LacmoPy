@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 TROPOS LAGRANGIAN CLOUD MODEL
-Super-Droplet method in two-dimensional kinetic framework
+Super-Droplet method in two-dimensional kinematic framework
 (Test Case 1 ICMW 2012)
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)

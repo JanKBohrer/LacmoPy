@@ -1,29 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jul 25 13:03:03 2019
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinematic framework
+(Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
 
-@author: jdesk
+COLLISION KERNELS
 
-module contains functions for modelling the collision of warm cloud droplets
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
-#import os
+#%% MODULE IMPORTS
 import numpy as np
 from numba import njit, vectorize
 import math
 
 import constants as c
+from grid import bilinear_weight
 from microphysics import compute_radius_from_mass
-
 from materialproperties import compute_viscosity_air
 from materialproperties import compute_surface_tension_water
 
-#from microphysics import compute_mass_from_radius_jit
-from grid import bilinear_weight
-
 #%% PERMUTATION
-# returns a permutation of the list of integers [0,1,2,..,N-1] by Shima method
+# returns a permutation of the list of integers [0,1,2,..,N-1]
+# method of Shima 2009
 @njit()
 def generate_permutation(N):
     permutation = np.zeros(N, dtype=np.int64)

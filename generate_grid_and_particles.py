@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: Jan Bohrer
-Script for grid and particle generation.
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinematic framework
+(Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
+
+GRID AND PARTICLE GENERATION
 Set parameters in the corresponding config file "config_grid.py".
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
 #%% MODULE IMPORTS

@@ -1,8 +1,8 @@
- #!/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 TROPOS LAGRANGIAN CLOUD MODEL
-Super-Droplet method in two-dimensional kinetic framework
+Super-Droplet method in two-dimensional kinematic framework
 (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
@@ -25,15 +25,13 @@ import numpy as np
 import constants as c
 from microphysics import compute_R_p_w_s_rho_p
 from microphysics import compute_radius_from_mass_vec
-from file_handling import load_grid_and_particles_full 
-
 from analysis import generate_field_frame_data_avg
 from analysis import generate_size_spectra_R_Arabas
 from analysis import generate_moments_avg_std
+from file_handling import load_grid_and_particles_full 
 
 #%% DATA PARENT DIRECTORY
 
-#simdata_path = '/Users/bohrer/sim_data_cloudMP/'
 #simdata_path = '/Users/bohrer/sim_data_cloudMP/'
 simdata_path = '/vols/fs1/work/bohrer/sim_data_cloudMP/'
 
@@ -258,7 +256,8 @@ if act_gen_grid_frames_avg:
         
         grid_folder_ =\
             f'{solute_type}' \
-            + f'/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/' \
+            + f'/grid_{no_cells[0]}_{no_cells[1]}_'\
+            + f'spcm_{no_spcm[0]}_{no_spcm[1]}/' \
             + f'{seed_SIP_gen_}/'
         
         if simulation_mode == 'spin_up':
@@ -347,7 +346,8 @@ if act_gen_spectra_avg_Arabas:
         
         grid_folder_ =\
             f'{solute_type}' \
-            + f'/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/' \
+            + f'/grid_{no_cells[0]}_{no_cells[1]}_' \
+            + f'spcm_{no_spcm[0]}_{no_spcm[1]}/' \
             + f'{seed_SIP_gen_}/'
         
         if simulation_mode == 'spin_up':
@@ -530,7 +530,8 @@ if act_gen_moments_all_grid_cells:
         
         grid_folder_ =\
             f'{solute_type}' \
-            + f'/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/' \
+            + f'/grid_{no_cells[0]}_{no_cells[1]}_' \
+            + f'spcm_{no_spcm[0]}_{no_spcm[1]}/' \
             + f'{seed_SIP_gen_}/'
         
         if simulation_mode == 'spin_up':

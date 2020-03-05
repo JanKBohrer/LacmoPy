@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Configuration file for the Lagrangian cloud model simulation.
+CONFIGURATION FILE for the Lagrangian cloud model simulation.
 The corresponding simulation script is "lacmo.py".
 """
 

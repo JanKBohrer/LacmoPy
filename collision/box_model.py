@@ -10,21 +10,20 @@ Created on Thu Jul 25 16:31:53 2019
 
 import math
 import numpy as np
-#from numba import njit
 import matplotlib.pyplot as plt
 
-#import kernel
-#from kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
-#                   compute_E_col_Long_Bott
-from .kernel import update_velocity_Beard
 from microphysics import compute_radius_from_mass_jit
 from microphysics import compute_radius_from_mass_vec
 
-from .AON import collision_step_Golovin
-from .AON import collision_step_Long_Bott_m
-from .AON import collision_step_Ecol_grid_R
-#from .AON import collision_step_Long_Bott_Ecol_grid_R
-from .AON import collision_step_Long_Bott_kernel_grid_m
+#from .kernel import update_velocity_Beard
+import collision.kernel as ker
+import collision.all_or_nothing as aon
+
+#from .AON import collision_step_Golovin
+#from .AON import collision_step_Long_Bott_m
+#from .AON import collision_step_Ecol_grid_R
+##from .AON import collision_step_Long_Bott_Ecol_grid_R
+#from .AON import collision_step_Long_Bott_kernel_grid_m
 
 #%% DEFINITIONS
 
@@ -34,28 +33,28 @@ def simulate_collisions(SIP_quantities,
                         dV, dt, t_end, dt_save, no_cols, seed, save_dir):
     if kernel_name == "Long_Bott":
         if kernel_method == "Ecol_grid_R":
-            collision_step = collision_step_Ecol_grid_R
+            collision_step = aon.collision_step_Ecol_grid_R
             (xis, masses, radii, vel, mass_densities) = SIP_quantities
             (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
                 kernel_quantities
         elif kernel_method == "kernel_grid_m":
-            collision_step = collision_step_Long_Bott_kernel_grid_m
+            collision_step = aon.collision_step_Long_Bott_kernel_grid_m
             (xis, masses) = SIP_quantities
             (kernel_grid, no_kernel_bins, m_kernel_low_log, bin_factor_m_log)=\
                 kernel_quantities
         elif kernel_method == "analytic":
-            collision_step = collision_step_Long_Bott_m
+            collision_step = aon.collision_step_Long_Bott_m
             (xis, masses, mass_density) = SIP_quantities
 
     if kernel_name == "Hall_Bott":
         if kernel_method == "Ecol_grid_R":
-            collision_step = collision_step_Ecol_grid_R
+            collision_step = aon.collision_step_Ecol_grid_R
             (xis, masses, radii, vel, mass_densities) = SIP_quantities
             (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
                 kernel_quantities
                 
     if kernel_name == "Golovin":
-        collision_step = collision_step_Golovin
+        collision_step = aon.collision_step_Golovin
         (xis, masses) = SIP_quantities
         
     np.random.seed(seed)
@@ -87,7 +86,7 @@ def simulate_collisions(SIP_quantities,
             collision_step(xis, masses, radii, vel, mass_densities,
                            dt_over_dV, E_col_grid, no_kernel_bins,
                            R_kernel_low_log, bin_factor_R_log, no_cols)
-            update_velocity_Beard(vel,radii)
+            ker.update_velocity_Beard(vel,radii)
     elif kernel_method == "kernel_grid_m":
         for step_n in range(no_steps):
             if step_n % dn_save == 0:

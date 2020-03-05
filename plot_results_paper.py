@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 """
 TROPOS LAGRANGIAN CLOUD MODEL
-Super-Droplet method in two-dimensional kinetic framework
+Super-Droplet method in two-dimensional kinematic framework
 (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-PLOTTING SCRIPT FOR THE GMD PUBLICATION
+PLOTTING FUNCTIONS FOR THE GMD PUBLICATION
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
@@ -22,6 +22,7 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from file_handling import load_grid_from_files
 from plotting import cm2inch, generate_rcParams_dict, pgf_dict
 from plotting import plot_scalar_field_frames_avg
 from plotting import plot_size_spectra_vs_R
@@ -144,7 +145,6 @@ data_path = simdata_path + data_folder
 grid_path = simdata_path + data_folder + "grid_data/" \
             + f"{seed_SIP_gen}_{seed_sim}/"
 
-from file_handling import load_grid_from_files
 grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",
                             grid_path + f"arr_file1_{int(t_grid)}.npy",
                             grid_path + f"arr_file2_{int(t_grid)}.npy")

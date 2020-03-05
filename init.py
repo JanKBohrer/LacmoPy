@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 TROPOS LAGRANGIAN CLOUD MODEL
-Super-Droplet method in two-dimensional kinetic framework
+Super-Droplet method in two-dimensional kinematic framework
 (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
@@ -28,16 +28,16 @@ from grid import interpolate_velocity_from_cell_bilinear
 from integration import \
     compute_dml_and_gamma_impl_Newton_full
 
-import microphysics as mp
 import materialproperties as mat
 import atmosphere as atm
+import microphysics as mp
 import distributions as dist
+from generate_SIP_ensemble_dst import \
+    gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
 
 from file_handling import save_grid_and_particles_full
 from file_handling import load_kernel_data
 
-from generate_SIP_ensemble_dst import \
-    gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
 
 #%% FUNCTION DEFS    
 # stream function

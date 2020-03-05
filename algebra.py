@@ -4,9 +4,7 @@
 some basic algebra
 """
 
-#import numpy.sqrt
 import math
-
 from numba import njit
 
 # par[0] belongs to the largest exponential x^(N-1) for par[i], i = 0, .., N 

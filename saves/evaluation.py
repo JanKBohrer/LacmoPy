@@ -21,7 +21,6 @@ from microphysics import compute_radius_from_mass_vec
 from file_handling import load_grid_and_particles_full,\
                           load_grid_scalar_fields\
                           
-
 #                     plot_particle_size_spectra
 # from integration import compute_dt_max_from_CFL
 #from grid import compute_no_grid_cells_from_step_sizes
@@ -1198,11 +1197,4 @@ if act_plot_life_cycle:
             fig_path_R_eff = fig_path_R_eff,
             trajectory = pos1_shift[ind_traj_first_t:ind_traj_last_t] )
 
-
-
     plt.close("all")
-    
-    
-    
-    
-

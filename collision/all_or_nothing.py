@@ -20,9 +20,7 @@ import math
 import numpy as np
 from numba import njit
 
-from collision.kernel import compute_kernel_Long_Bott_m, \
-                             compute_kernel_hydro, \
-                             compute_kernel_Golovin
+import collision.kernel as ker
 import microphysics as mp
 
 #%% HELP FUNCTIONS
@@ -66,7 +64,8 @@ def collision_step_Long_Bott_m_np(xis, masses, mass_density, dt_over_dV,
             m_max = masses[ind_max] # = mu_j in Unt
 
             p_crit = xi_max \
-                     * compute_kernel_Long_Bott_m(m_min, m_max, mass_density) \
+                     * ker.compute_kernel_Long_Bott_m(m_min, m_max,
+                                                      mass_density) \
                      * dt_over_dV
 
             if p_crit > 1.0:
@@ -131,7 +130,7 @@ def collision_step_Golovin_np(xis, masses, dt_over_dV,
             m_max = masses[ind_max] # = mu_j in Unt
 
             p_crit = xi_max \
-                     * compute_kernel_Golovin(m_min, m_max) \
+                     * ker.compute_kernel_Golovin(m_min, m_max) \
                      * dt_over_dV
 
             if p_crit > 1.0:
@@ -283,10 +282,10 @@ def collision_step_Ecol_grid_R_np(
             m_max = masses[ind_max] # = mu_j in Unt, not necc. the larger mass
             
             p_crit = xi_max * dt_over_dV \
-                     * compute_kernel_hydro(
-                           radii[i], radii[j],
-                           E_col_grid[ind_kernel[i], ind_kernel[j]],
-                           abs(vel[i]-vel[j]))
+                     * ker.compute_kernel_hydro(
+                               radii[i], radii[j],
+                               E_col_grid[ind_kernel[i], ind_kernel[j]],
+                               abs(vel[i]-vel[j]))
 
 
             if p_crit > 1.0:
@@ -373,7 +372,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
             
 
             p_crit = xi_max * dt_over_dV \
-                     * compute_kernel_hydro(
+                     * ker.compute_kernel_hydro(
                            radii[i], radii[j],
                            E_col_grid[ind_kernel[i], ind_kernel[j]],
                            # abs difference of 2D vectors
@@ -469,7 +468,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
             
 
             p_crit = xi_max * dt_over_dV \
-                     * compute_kernel_hydro(
+                     * ker.compute_kernel_hydro(
                            radii[i], radii[j],
                            E_col_grid[ind_kernel[i], ind_kernel[j]],
                            # abs difference of 2D vectors
@@ -577,10 +576,9 @@ def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
             m_w_max = m_w[ind_max] # = mu_j in Unt, not necc. the larger mass
             m_s_min = m_s[ind_min] # = mu_i in Unt, not necc. the smaller mass
             m_s_max = m_s[ind_max] # = mu_j in Unt, not necc. the larger mass
-            
 
             p_crit = xi_max * dt_over_dV \
-                     * compute_kernel_hydro(
+                     * ker.compute_kernel_hydro(
                            radii[i], radii[j],
                            E_col_grid,
                            # abs difference of 2D vectors
