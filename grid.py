@@ -19,16 +19,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 from numba import njit
+
 import constants as c
 import materialproperties as mat
-#from materialproperties import compute_heat_of_vaporization,\
-#                       compute_thermal_conductivity_air,\
-#                       compute_diffusion_constant,\
-#                       compute_viscosity_air,\
-#                       compute_surface_tension_water
+import atmosphere as atm
 from plotting import plot_scalar_field_2D
-
-from atmosphere import compute_specific_heat_capacity_air_moist
 
 #%% STANDARD FIELDS AND PROFILES
 
@@ -51,6 +46,13 @@ def pressure_field_exponential(x_, y_):
                            / ( T_ref * c.universal_gas_constant ) )
 
 #%% OPERATIONS ON THE GRID CELLS
+
+def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
+    no_cells = []
+    for i, range_i in enumerate(gridranges_list_):
+        no_cells.append(
+            int(np.ceil( (range_i[1] - range_i[0]) / stepsizes_list_[i] ) ) )
+    return np.array(no_cells)
 
 @njit()
 def compute_cell_and_relative_position(pos, grid_ranges, grid_steps):
@@ -137,13 +139,6 @@ def update_grid_r_l_np(m_w, xi, cells, grid_r_l, grid_mass_dry_inv, active_ids,
         grid_r_l[cells[0,ID], cells[1,ID]] += m_w[ID] * xi[ID]
     grid_r_l *= 1.0E-18 * grid_mass_dry_inv
 update_grid_r_l = njit()(update_grid_r_l_np)
-        
-def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
-    no_cells = []
-    for i, range_i in enumerate(gridranges_list_):
-        no_cells.append(
-            int(np.ceil( (range_i[1] - range_i[0]) / stepsizes_list_[i] ) ) )
-    return np.array(no_cells)
 
 #%% GRID CLASS
 
@@ -248,7 +243,7 @@ class Grid:
         return np.array( [x, y] )
     
     ### VELOCITY INTERPOLATION
-    #     "Standard field"
+    #     'Standard field'
     def analytic_velocity_field_u(self, x, y):
         omega = 0.3
         return -omega * y
@@ -269,8 +264,10 @@ class Grid:
     def set_analytic_velocity_field_and_discretize(self, u_field_, v_field_):
         self.analytic_velocity_field = [u_field_, v_field_]
         self.velocity =\
-            np.array([self.analytic_velocity_field[0](*self.surface_centers[0]),
-              self.analytic_velocity_field[1](*self.surface_centers[1])])
+            np.array(
+                    [self.analytic_velocity_field[0](*self.surface_centers[0]),
+                     self.analytic_velocity_field[1](*self.surface_centers[1])]
+                    )
     
     def interpolate_velocity_from_location_linear(self, x, y):
         n, rloc = self.compute_cell_and_relative_location(x, y)
@@ -281,7 +278,8 @@ class Grid:
         return weight_velocities_linear(i, j, rloc_x, rloc_y, *self.velocity)
 
     # adjusted for period. bound cond. in x and solid BC in z (BC=PS)
-    def interpolate_velocity_from_cell_bilinear(self, i, j, weight_x, weight_y):
+    def interpolate_velocity_from_cell_bilinear(self, i, j,
+                                                weight_x, weight_y):
         if ( j == 0 and weight_y <= 0.5):
             u, v = self.interpolate_velocity_from_cell_linear(
                             i, j, weight_x, weight_y)
@@ -314,8 +312,10 @@ class Grid:
             mat.compute_diffusion_constant(self.temperature, self.pressure)
         self.heat_of_vaporization =\
             mat.compute_heat_of_vaporization(self.temperature)
-        self.surface_tension = mat.compute_surface_tension_water(self.temperature)        
-        self.specific_heat_capacity = compute_specific_heat_capacity_air_moist(
+        self.surface_tension =\
+            mat.compute_surface_tension_water(self.temperature)        
+        self.specific_heat_capacity =\
+            atm.compute_specific_heat_capacity_air_moist(
                                           self.mixing_ratio_water_vapor)
         self.viscosity = mat.compute_viscosity_air(self.temperature)
         self.mass_density_fluid = self.mass_density_air_dry\
@@ -335,7 +335,8 @@ class Grid:
     def plot_thermodynamic_scalar_profiles_vertical_average(self):
         fields = [self.pressure, self.temperature, self.mass_density_air_dry,
                   self.saturation,
-                  self.mixing_ratio_water_vapor, self.mixing_ratio_water_liquid]
+                  self.mixing_ratio_water_vapor,
+                  self.mixing_ratio_water_liquid]
                   
         field_names = ['pressure', 'temperature',
                        'mass_density_air_dry', 'saturation', 
@@ -349,7 +350,8 @@ class Grid:
         for field in fields:
             fields_avg.append( field.mean(axis=0) )
         
-        fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize = (10,5*nrows))
+        fig, ax = plt.subplots(nrows=nrows, ncols=ncols,
+                               figsize = (10,5*nrows))
         
         n = 0
         for i in range(nrows):
@@ -382,7 +384,8 @@ class Grid:
         
         tick_ranges_ = self.ranges
         
-        fig, ax = plt.subplots(nrows=nrows, ncols=ncols, figsize = (10,4*nrows))
+        fig, ax = plt.subplots(nrows=nrows, ncols=ncols,
+                               figsize = (10,4*nrows))
         n = 0
         for i in range(nrows):
             for j in range(ncols):
@@ -393,17 +396,17 @@ class Grid:
                     field_min = field.min()
                 field_max = field.max()
                 if n in [0,1,2,3,5]:
-                    cmap = "coolwarm"
+                    cmap = 'coolwarm'
                     alpha = None
                 else:
-                    cmap = "rainbow"
+                    cmap = 'rainbow'
                     alpha = 0.7
                     
                 CS = ax[i,j].pcolorfast(*self.corners, field, cmap=cmap,
-                                        alpha=alpha, edgecolor="face",
+                                        alpha=alpha, edgecolor='face',
                                         vmin=field_min, vmax=field_max)
-                CS.cmap.set_under("white")
-                ax[i,j].set_title( field_names[n] + ' (' + unit_names[n] + ')' )
+                CS.cmap.set_under('white')
+                ax[i,j].set_title( field_names[n] + ' (' + unit_names[n] + ')')
                 ax[i,j].set_xticks( np.linspace( tick_ranges_[0,0],
                                                  tick_ranges_[0,1],
                                                  no_ticks_[0] ) )
@@ -411,13 +414,13 @@ class Grid:
                                                  tick_ranges_[1,1],
                                                  no_ticks_[1] ) )
                 if n == 7:
-                    cbar = fig.colorbar(CS, ax=ax[i,j], extend = "min")
+                    cbar = fig.colorbar(CS, ax=ax[i,j], extend = 'min')
                 else: cbar = fig.colorbar(CS, ax=ax[i,j])
                 n += 1
               
         fig.tight_layout()
         if fig_dir is not None:
-            fig.savefig(fig_dir + f"scalar_fields_grid_t_{int(t)}.png")
+            fig.savefig(fig_dir + f'scalar_fields_grid_t_{int(t)}.png')
     
     def plot_scalar_field_2D(self, field_,
                          no_ticks_ = [5,5],
@@ -532,55 +535,6 @@ class Grid:
                                                        ARROW_SCALE,
                                                        ARROW_WIDTH,
                                                        gridopt)     
-          
-#    def plot_velocity_field_old(self, no_major_xticks=10, no_major_yticks=10, 
-#                            no_arrows_u=10, no_arrows_v=10, ARROW_SCALE = 40.0):
-#
-#        # assume we have 21 cells and we want about 10 labeled x-ticks
-#        # i.e. we will label cell the left corner
-#        # of cell 0,2,4,6,8,10,12,14,16,18,20,22
-#        # for 20 cells, we will label left corn. of 0,2,4,6,8,10,12,14,16,18,20
-#
-#        if no_major_xticks < self.no_cells[0]:
-#            tick_every_x = self.no_cells[0] // no_major_xticks
-#        else:
-#            tick_every_x = 1
-#
-#        if no_major_yticks < self.no_cells[1]:
-#            tick_every_y = self.no_cells[1] // no_major_yticks
-#        else:
-#            tick_every_y = 1
-#
-#        if no_arrows_u < self.no_cells[0]:
-#            arrow_every_x = self.no_cells[0] // no_arrows_u
-#        else:
-#            arrow_every_x = 1
-#
-#        if no_arrows_v < self.no_cells[1]:
-#            arrow_every_y = self.no_cells[1] // no_arrows_v
-#        else:
-#            arrow_every_y = 1
-#
-#        fig = plt.figure(figsize=(8,8), dpi = 92)
-#        ax = plt.gca()
-#        ax.quiver(self.vel_pos_u[0][::arrow_every_y,::arrow_every_x],
-#                  self.vel_pos_u[1][::arrow_every_y,::arrow_every_x],          
-#                  self.u_n[::arrow_every_y,::arrow_every_x],
-#                  np.zeros_like(self.u_n[::arrow_every_y,::arrow_every_x]),
-#                  pivot = 'mid',
-#                  width = 0.002, scale = ARROW_SCALE, zorder = 3 )
-#        ax.quiver(self.vel_pos_v[0][::arrow_every_y,::arrow_every_x],
-#                  self.vel_pos_v[1][::arrow_every_y,::arrow_every_x],
-#                  np.zeros_like(self.v_n[::arrow_every_y,::arrow_every_x]),
-#                  self.v_n[::arrow_every_y,::arrow_every_x], pivot = 'mid',
-#                  width = 0.002, scale = ARROW_SCALE, zorder = 3 )
-#        ax.set_xticks(self.corners[0][0,::tick_every_x])
-#        ax.set_yticks(self.corners[1][::tick_every_y,0])
-#        ax.set_xticks(self.corners[0][0], minor = True)
-#        ax.set_yticks(self.corners[1][:,0], minor = True)
-#        ax.grid(which='minor', zorder=0)
-#        ax.set_xlabel('horiz. pos. [m]')
-#        ax.set_ylabel('vert. pos. [m]')
 
     # field f returns f_x, f_y
     def plot_external_field_function_list_output(self, f,
@@ -806,88 +760,3 @@ class Grid:
         ax.grid(which='minor', zorder=0)
         ax.set_xlabel('horiz. pos. [m]')
         ax.set_ylabel('vert. pos. [m]')
-
-#    def plot_field_and_trajectories_with_particle_size(self,
-#            f_x, f_y, trajectories, particle_sizes,
-#            no_major_xticks=10, no_major_yticks=10, 
-#            no_arrows_u=10, no_arrows_v=10, circle_every = 100,
-#            fig_n = 1, LW = 0.9, ARROW_SCALE = 80.0,
-#            fig_title = '', fig_name = 'trajectory.pdf'):
-#        
-#        if no_major_xticks < self.no_cells[0]:
-#            tick_every_x = self.no_cells[0] // no_major_xticks
-#        else:
-#            tick_every_x = 1
-#
-#        if no_major_yticks < self.no_cells[1]:
-#            tick_every_y = self.no_cells[1] // no_major_yticks
-#        else:
-#            tick_every_y = 1
-#
-#        if no_arrows_u < self.no_cells[0]:
-#            arrow_every_x = self.no_cells[0] // no_arrows_u
-#        else:
-#            arrow_every_x = 1
-#
-#        if no_arrows_v < self.no_cells[1]:
-#            arrow_every_y = self.no_cells[1] // no_arrows_v
-#        else:
-#            arrow_every_y = 1
-#
-#        if (self.sizes[0] == self.sizes[1]):
-#            figsize_x = 8
-#            figsize_y = 8
-#        else:
-#            size_ratio = self.sizes[1] / self.sizes[0]
-#            figsize_x = 8
-#            figsize_y = figsize_x * size_ratio
-#        fig = plt.figure(figsize=(figsize_x, figsize_y), dpi = 92)
-#        ax = plt.gca() 
-#        ax.quiver(
-#            self.corners[0][::arrow_every_y,::arrow_every_x],
-#            self.corners[1][::arrow_every_y,::arrow_every_x],
-#            f_x(self.corners[0][::arrow_every_y,::arrow_every_x],
-#                self.corners[1][::arrow_every_y,::arrow_every_x]),
-#            f_y(self.corners[0][::arrow_every_y,::arrow_every_x],
-#                self.corners[1][::arrow_every_y,::arrow_every_x]),
-#                  pivot = 'mid',
-#                  width = 0.002, scale = ARROW_SCALE )
-#        for cnt, data_x_y in enumerate(trajectories):
-##            if cnt == 0:
-##                cmap = 'Blues'
-##            elif cnt == 1:
-##                cmap = 'Oranges'
-##            elif cnt == 2:
-##                cmap = 'Greens'
-##            elif cnt == 3:
-##                cmap = 'Reds'
-##            elif cnt == 4:
-##                cmap = 'Purples'
-##            elif cnt == 5:
-##                cmap = 'YlOrBr'
-##            elif cnt == 6:
-##                cmap = 'RdPu'
-##            else:
-##                cmap = 'Greys'
-#            ax.plot(data_x_y[0], data_x_y[1], linewidth = LW, linestyle='--')
-#            ax.scatter(data_x_y[0][::circle_every], data_x_y[1][::circle_every],
-#                       linewidth = LW,
-#                       s = particle_sizes[cnt][::circle_every]**2,
-#                       marker = 'o', alpha = 0.5,
-#                       c = particle_sizes[cnt][::circle_every], cmap = 'cool')
-#            ax.scatter(data_x_y[0][::circle_every], data_x_y[1][::circle_every],
-#                       linewidth = LW,
-#                       s = particle_sizes[cnt][::circle_every]**2, marker = 'o', 
-#                       edgecolors = 'k',
-#                       facecolors = 'none' )
-#        ax.set_xticks(self.corners[0][0,::tick_every_x])
-#        ax.set_yticks(self.corners[1][::tick_every_y,0])
-#        ax.set_xticks(self.corners[0][0], minor = True)
-#        ax.set_yticks(self.corners[1][:,0], minor = True)
-#        ax.grid(which='minor')
-#        ax.set_xlabel('horiz. pos. [m]')
-#        ax.set_ylabel('vert. pos. [m]')
-#        ax.set_title(fig_title, fontsize = 9)
-#        fig.savefig(fig_name)
-    
-

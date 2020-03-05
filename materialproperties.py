@@ -223,7 +223,8 @@ def compute_surface_tension_solution(w_s, T_p, solute_type):
 ## vectorized version
 #@vectorize("float64(float64)") 
 #def compute_vant_Hoff_factor_NaCl(mass_fraction_solute_):
-#    if mass_fraction_solute_ < mf_cross_NaCl: return vant_Hoff_factor_NaCl_const
+#    if mass_fraction_solute_ < mf_cross_NaCl:
+#        return vant_Hoff_factor_NaCl_const
 #    else: return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
 #
 ## numpy version

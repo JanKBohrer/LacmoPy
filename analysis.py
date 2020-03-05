@@ -7,7 +7,7 @@ Super-Droplet method in two-dimensional kinetic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-FUNCTIONS FOR SIMULATION DATA ANALYSIS AND DATA PREPARATION FOR PLOTTING
+FUNCTIONS FOR SIMULATION DATA ANALYSIS AND DATA PROCESSING FOR PLOTTING
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
@@ -15,19 +15,21 @@ particle radius in micro meter ("mu")
 all other quantities in SI units
 """
 
+#%% MODULE IMPORTS
+
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 from numba import njit
+import timeit
 
-#%% CONVENIENCE FUNCTIONS
+import constants as c
+import microphysics as mp
+from distributions import conc_per_mass_expo_np, conc_per_mass_lognormal_np
+from file_handling import load_grid_scalar_fields, load_particle_data_all
 
-def cm2inch(*tupl):
-    inch = 2.54
-    if isinstance(tupl[0], tuple):
-        return tuple(i/inch for i in tupl[0])
-    else:
-        return tuple(i/inch for i in tupl)
+from plotting import plot_ensemble_data
+
+#%% UPDATE FUNCTIONS
 
 # in unit (kg/kg)
 @njit()
@@ -72,8 +74,6 @@ def update_T_p(grid_temp, cells, T_p):
 # because in that case, the globals are taken from module "analysis.py" and
 # not from the environment of the executed program
 def compare_functions_run_time(functions, pars, rs, ns, globals_):
-    import timeit
-    # import numpy as np
     # print (__name__)
     t = []
     for i,func in enumerate(functions):
@@ -88,68 +88,6 @@ def compare_functions_run_time(functions, pars, rs, ns, globals_):
               "worst = ", f"{max(t_)/ns[i]*1.0E6:.4}", "us;",
               "mean =", f"{np.mean(t_)/ns[i]*1.0E6:.4}",
               "+-", f"{np.std(t_, ddof = 1)/ns[i]*1.0E6:.3}", "us" )
-
-#%% PARTICLE TRACKING
-
-# traj = [ pos0, pos1, pos2, .. ]
-# where pos0 = [pos_x_0, pos_z_0] is pos at time0
-# where pos_x_0 = [x0, x1, x2, ...]
-# selection = [n1, n2, ...] --> take only these indic. from the list of traj !!!
-# title font size (pt)
-# TTFS = 10
-# # labelsize (pt)
-# LFS = 10
-# # ticksize (pt)
-# TKFS = 10        
-def plot_particle_trajectories(traj, grid, selection=None,
-                               no_ticks=[6,6], figsize=(8,8),
-                               MS=1.0, arrow_every=5,
-                               ARROW_SCALE=12,ARROW_WIDTH=0.005, 
-                               TTFS = 10, LFS=10,TKFS=10,fig_name=None,
-                               t_start=0, t_end=3600):
-    centered_u_field = ( grid.velocity[0][0:-1,0:-1]
-                         + grid.velocity[0][1:,0:-1] ) * 0.5
-    centered_w_field = ( grid.velocity[1][0:-1,0:-1]
-                         + grid.velocity[1][0:-1,1:] ) * 0.5
-    
-    pos_x = grid.centers[0][arrow_every//2::arrow_every,
-                            arrow_every//2::arrow_every]
-    pos_z = grid.centers[1][arrow_every//2::arrow_every,
-                            arrow_every//2::arrow_every]
-    
-    vel_x = centered_u_field[arrow_every//2::arrow_every,
-                             arrow_every//2::arrow_every]
-    vel_z = centered_w_field[arrow_every//2::arrow_every,
-                             arrow_every//2::arrow_every]
-    
-    tick_ranges = grid.ranges
-    fig, ax = plt.subplots(figsize=figsize)
-    if traj[0,0].size == 1:
-        ax.plot(traj[:,0], traj[:,1] ,"o", markersize = MS)
-    else:        
-        if selection == None: selection=range(len(traj[0,0]))
-        for ID in selection:
-            x = traj[:,0,ID]
-            z = traj[:,1,ID]
-            ax.plot(x,z,"o", markersize = MS)
-    ax.quiver(pos_x, pos_z, vel_x, vel_z,
-              pivot = 'mid',
-              width = ARROW_WIDTH, scale = ARROW_SCALE, zorder=99 )
-    ax.set_xticks( np.linspace( tick_ranges[0,0], tick_ranges[0,1],
-                                no_ticks[0] ) )
-    ax.set_yticks( np.linspace( tick_ranges[1,0], tick_ranges[1,1],
-                                no_ticks[1] ) )
-    ax.tick_params(axis='both', which='major', labelsize=TKFS)
-    ax.set_xlabel('horizontal position (m)', fontsize = LFS)
-    ax.set_ylabel('vertical position (m)', fontsize = LFS)
-    ax.set_title(
-    'Air velocity field and arbitrary particle trajectories\nfrom $t = $'\
-    + str(t_start) + " s to " + str(t_end) + " s",
-        fontsize = TTFS, y = 1.04)
-    ax.grid(color='gray', linestyle='dashed', zorder = 0)    
-    fig.tight_layout()
-    if fig_name is not None:
-        fig.savefig(fig_name)
 
 #%% BINNING OF SIPs:
 
@@ -280,8 +218,8 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     bin_centers = bin_centers[ind]        
     m_bin = m_bin[ind]
     
-    radii = compute_radius_from_mass_vec(bin_centers,
-                                     c.mass_density_water_liquid_NTP)
+    radii = mp.compute_radius_from_mass_vec(bin_centers,
+                                            c.mass_density_water_liquid_NTP)
     
     # find the midpoints between the masses/radii
     # midpoints = 0.5 * ( m_sort[:-1] + m_sort[1:] )
@@ -299,58 +237,6 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
     g_ln_R = m_bin * 1.0E-15 / no_sims / (bins_log[1:] - bins_log[0:-1]) / dV
     
     return g_ln_R, radii, bins, xi_bin, bin_centers
-
-
-#%% PARTICLE POSITIONS AND VELOCITIES
-
-def plot_pos_vel_pt(pos, vel, grid,
-                    figsize=(8,8), no_ticks = [6,6],
-                    MS = 1.0, ARRSCALE=2, fig_name=None):
-    fig, ax = plt.subplots(figsize=figsize)
-    ax.plot(grid.corners[0], grid.corners[1], "x", color="red", markersize=MS)
-    ax.plot(pos[0],pos[1], "o", color="k", markersize=2*MS)
-    ax.quiver(*pos, *vel, scale=ARRSCALE, pivot="mid")
-    x_min = grid.ranges[0,0]
-    x_max = grid.ranges[0,1]
-    y_min = grid.ranges[1,0]
-    y_max = grid.ranges[1,1]
-    ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
-    ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
-    ax.set_xticks(grid.corners[0][:,0], minor = True)
-    ax.set_yticks(grid.corners[1][0,:], minor = True)
-    ax.grid()
-    fig.tight_layout()
-    if fig_name is not None:
-        fig.savefig(fig_name)
-        
-# pos = [pos0, pos1, pos2, ..] where pos0[0] = [x0, x1, x2, x3, ..] etc
-def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
-                    figsize=(8,8), no_ticks = [6,6],
-                    MS = 1.0, ARRSCALE=2, fig_name=None):
-    no_rows = len(pos_data)
-    fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
-    for i,ax in enumerate(axes):
-        pos = pos_data[i]
-        vel = vel_data[i]
-        ax.plot(grid.corners[0], grid.corners[1], "x", color="red",
-                markersize=MS)
-        ax.plot(pos[0],pos[1], "o", color="k", markersize=2*MS)
-        ax.quiver(*pos, *vel, scale=ARRSCALE, pivot="mid")
-        x_min = grid.ranges[0,0]
-        x_max = grid.ranges[0,1]
-        y_min = grid.ranges[1,0]
-        y_max = grid.ranges[1,1]
-        ax.set_xticks( np.linspace(x_min, x_max, no_ticks[0]) )
-        ax.set_yticks( np.linspace(y_min, y_max, no_ticks[1]) )
-        ax.set_xticks(grid.corners[0][:,0], minor = True)
-        ax.set_yticks(grid.corners[1][0,:], minor = True)
-        ax.grid()
-        ax.set_title("t = " + str(save_times[i]) + " s")
-        ax.set_xlabel('x (m)')
-        ax.set_xlabel('z (m)')
-    fig.tight_layout()
-    if fig_name is not None:
-        fig.savefig(fig_name)
 
 #%% PARTICLE SIZE SPECTRA
         
@@ -426,10 +312,8 @@ def sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
     
     return m_w_out, m_s_out, xi_out, weights_out, T_p, no_cells_eval
 
-from microphysics import compute_radius_from_mass_vec,\
-                         compute_R_p_w_s_rho_p_NaCl,\
-                         compute_R_p_w_s_rho_p_AS
-import constants as c
+
+
 # we always assume the only quantities stored are m_s, m_w, xi
 def sample_radii(m_w, m_s, xi, cells, solute_type, id_list,
                  grid_temperature, target_cell, no_cells_x, no_cells_z):
@@ -439,12 +323,12 @@ def sample_radii(m_w, m_s, xi, cells, solute_type, id_list,
                                                   no_cells_z)
     if solute_type == "AS":
         mass_density_dry = c.mass_density_AS_dry
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
         mass_density_dry = c.mass_density_NaCl_dry
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_NaCl
     
-    R_s = compute_radius_from_mass_vec(m_s_out, mass_density_dry)
+    R_s = mp.compute_radius_from_mass_vec(m_s_out, mass_density_dry)
     R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_out, m_s_out, T_p)
     
     return R_p, R_s, xi_out        
@@ -460,12 +344,12 @@ def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
                                 target_cell, no_cells_x, no_cells_z)
     if solute_type == "AS":
         mass_density_dry = c.mass_density_AS_dry
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
         mass_density_dry = c.mass_density_NaCl_dry
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_NaCl
     
-    R_s = compute_radius_from_mass_vec(m_s_out, mass_density_dry)
+    R_s = mp.compute_radius_from_mass_vec(m_s_out, mass_density_dry)
     R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_out, m_s_out, T_p)
     
     return R_p, R_s, xi_out, weights_out, no_cells_eval        
@@ -501,546 +385,16 @@ def avg_moments_over_boxes(
                         cells_box_x = MG[0].flatten()
                         cells_box_z = MG[1].flatten()
                         
-                        moment_box = moments_vs_time_all_seeds[seed_n, time_n, mom_n,
-                                                               cells_box_x, cells_box_z]
+                        moment_box = moments_vs_time_all_seeds[seed_n, time_n,
+                                                               mom_n,
+                                                               cells_box_x,
+                                                               cells_box_z]
                         
                         moment_box = np.average(moment_box)
-                        moments_at_boxes_all_seeds[seed_n, time_n, mom_n, box_n_x, box_n_z] = \
+                        moments_at_boxes_all_seeds[seed_n, time_n, mom_n,
+                                                   box_n_x, box_n_z] = \
                             moment_box
     return moments_at_boxes_all_seeds 
-
-#%% PLOTTING
-
-def simple_plot(x_, y_arr_):
-    fig = plt.figure()
-    ax = plt.gca()
-    for y_ in y_arr_:
-        ax.plot (x_, y_)
-    ax.grid()
-
-def plot_scalar_field_2D( grid_centers_x_, grid_centers_y_, field_,
-                         tick_ranges_, no_ticks_=[5,5],
-                         no_contour_colors_ = 10, no_contour_lines_ = 5,
-                         colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
-    fig, ax = plt.subplots(figsize=(8,8))
-
-    contours = plt.contour(grid_centers_x_, grid_centers_y_,
-                           field_, no_contour_lines_, colors = 'black')
-    ax.clabel(contours, inline=True, fontsize=8)
-    CS = ax.contourf( grid_centers_x_, grid_centers_y_,
-                     field_,
-                     levels = no_contour_colors_,
-                     vmax = field_.max(),
-                     vmin = field_.min(),
-                    cmap = plt.cm.coolwarm)
-    ax.set_xticks( np.linspace( tick_ranges_[0,0], tick_ranges_[0,1],
-                                no_ticks_[0] ) )
-    ax.set_yticks( np.linspace( tick_ranges_[1,0], tick_ranges_[1,1],
-                                no_ticks_[1] ) )
-    plt.colorbar(CS, fraction=colorbar_fraction_ , pad=colorbar_pad_)
-    
-def plot_particle_size_spectra(m_w, m_s, xi, cells, grid, solute_type,
-                          target_cell, no_cells_x, no_cells_z,
-                          no_rows=1, no_cols=1, TTFS=12, LFS=10, TKFS=10,
-                          fig_path = None):
-    R, Rs, multi = sample_radii(m_w, m_s, xi, cells, grid.temperature,
-                                    target_cell, no_cells_x, no_cells_z,
-                                    solute_type)
-
-    log_R = np.log10(R)
-    log_Rs = np.log10(Rs)
-    multi = np.array(multi)
-    if no_cells_x % 2 == 0: no_cells_x += 1
-    if no_cells_z % 2 == 0: no_cells_z += 1
-    
-    V_an = no_cells_x * no_cells_z * grid.volume_cell * 1.0E6
-    
-    no_bins = 40
-    no_bins_s = 30
-    bins = np.empty(no_bins)
-    
-    R_min = 1E-2
-    Rs_max = 0.3
-    R_max = 120.0
-    
-    R_min_log = np.log10(R_min)
-    Rs_max_log = np.log10(Rs_max)
-    R_max_log = np.log10(R_max)
-    
-    h1, bins1 = np.histogram( log_R, bins=no_bins,  weights=multi/V_an )
-    h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,  weights=multi/V_an )
-    bins1 = 10 ** bins1
-    bins2 = 10 ** bins2
-    d_bins1 = np.diff(bins1)
-    d_bins2 = np.diff(bins2)
-    
-    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                             figsize = cm2inch(10.8,9.3),
-                             )
-    ax = axes
-    ax.bar(bins1[:-1], h1, width = d_bins1, align = 'edge',
-            alpha = 0.05,
-           linewidth = 0)
-    ax.bar(bins2[:-1], h2, width = d_bins2, align = 'edge', 
-            alpha = 0.1,
-           linewidth = 0)
-    LW = 2
-    ax.plot(np.repeat(bins1,2)[:],
-            np.hstack( [[0.001], np.repeat(h1,2)[:], [0.001] ] ),
-            linewidth = LW, zorder = 6, label = "wet")
-    ax.plot(np.repeat(bins2,2)[:],
-            np.hstack( [[0.001], np.repeat(h2,2)[:], [0.001] ] ),
-            linewidth = LW, label = "dry")
-    
-    
-    ax.tick_params(axis='both', which='major', labelsize=TKFS, length = 5)
-    ax.tick_params(axis='both', which='minor', labelsize=TKFS, length = 3)
-    
-    height = int(grid.compute_location(*target_cell,0.0,0.0)[1])
-    ax.set_xlabel(r"particle radius (mu)", fontsize = LFS)
-    ax.set_ylabel(r"concentration (${\mathrm{cm}^{3}}$)", fontsize = LFS)
-    ax.set_title( f'h = {height} m ' +
-                 f"tg cell ({target_cell[0]} {target_cell[1]}) "
-                    + f"no cells ({no_cells_x}, {no_cells_z})",
-                    fontsize = TTFS )
-    
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_ylim( [0.01,50] )
-    ax.grid(linestyle="dashed")
-    
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[::-1], labels[::-1], ncol = 2, prop={'size': TKFS},
-              loc='upper center', bbox_to_anchor=(0.5, 1.05), frameon = False)
-    fig.tight_layout()
-    plt.show()
-    if fig_path is not None:
-        fig.savefig(fig_path
-                    + f"spectrum_cell_{target_cell[0]}_{target_cell[1]}_"
-                    + f"no_cells_{no_cells_x}_{no_cells_z}.pdf")
-
-def plot_particle_size_spectra_tg_list(
-        t, m_w, m_s, xi, cells,
-        grid_volume_cell,
-        grid_step_z,
-        grid_temperature,
-        solute_type,
-        target_cell_list, no_cells_x, no_cells_z,
-        no_rows, no_cols,
-        TTFS=12, LFS=10, TKFS=10,
-        fig_path = None):
-    
-    i_list = target_cell_list[0]
-    j_list = target_cell_list[1]
-    
-    def cm2inch(*tupl):
-        inch = 2.54
-        if isinstance(tupl[0], tuple):
-            return tuple(i/inch for i in tupl[0])
-        else:
-            return tuple(i/inch for i in tupl)
-    
-    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                             figsize = (no_cols*5, no_rows*4) )
-    
-    plot_n = -1
-    for row_n in range(no_rows)[::-1]:
-        for col_n in range(no_cols):
-            plot_n += 1
-            target_cell = (i_list[plot_n], j_list[plot_n])
-            if no_cols == 1:
-                if no_rows == 1:
-                    ax = axes
-                else:                    
-                    ax = axes[row_n]
-            else:
-                ax = axes[row_n, col_n]
-            
-            R, Rs, multi = sample_radii(m_w, m_s, xi, cells, grid_temperature,
-                                            target_cell, no_cells_x, no_cells_z,
-                                            solute_type)
-        
-            log_R = np.log10(R)
-            log_Rs = np.log10(Rs)
-            multi = np.array(multi)
-            if no_cells_x % 2 == 0: no_cells_x += 1
-            if no_cells_z % 2 == 0: no_cells_z += 1
-            
-            V_an = no_cells_x * no_cells_z * grid_volume_cell * 1.0E6
-            
-            no_bins = 40
-            no_bins_s = 30
-            bins = np.empty(no_bins)
-            
-            R_min = 1E-2
-            Rs_max = 0.3
-            R_max = 120.0
-            
-            R_min_log = np.log10(R_min)
-            Rs_max_log = np.log10(Rs_max)
-            R_max_log = np.log10(R_max)
-            
-            h1, bins1 = np.histogram( log_R, bins=no_bins,  weights=multi/V_an )
-            h2, bins2 = np.histogram( log_Rs, bins=no_bins_s,  weights=multi/V_an )
-            bins1 = 10 ** bins1
-            bins2 = 10 ** bins2
-            d_bins1 = np.diff(bins1)
-            d_bins2 = np.diff(bins2)
-            
-            ax.bar(bins1[:-1], h1, width = d_bins1, align = 'edge',
-                    alpha = 0.05,
-                   linewidth = 0)
-            ax.bar(bins2[:-1], h2, width = d_bins2, align = 'edge', 
-                    alpha = 0.1,
-                   linewidth = 0)
-            LW = 2
-            ax.plot(np.repeat(bins1,2)[:],
-                    np.hstack( [[0.001], np.repeat(h1,2)[:], [0.001] ] ),
-                    linewidth = LW, zorder = 6, label = "wet")
-            ax.plot(np.repeat(bins2,2)[:],
-                    np.hstack( [[0.001], np.repeat(h2,2)[:], [0.001] ] ),
-                    linewidth = LW, label = "dry")
-            
-            ax.tick_params(axis='both', which='major', labelsize=TKFS, length = 5)
-            ax.tick_params(axis='both', which='minor', labelsize=TKFS, length = 3)
-            
-            height = int((target_cell[1]+0.5)*grid_step_z)
-            ax.set_xlabel(r"particle radius (mu)", fontsize = LFS)
-            ax.set_ylabel(r"concentration (${\mathrm{cm}^{3}}$)", fontsize = LFS)
-            ax.set_title( f'h = {height} m ' +
-                         f"tg cell ({target_cell[0]} {target_cell[1]}) "
-                            + f"no cells ({no_cells_x}, {no_cells_z})",
-                            fontsize = TTFS )
-            
-            ax.set_xscale("log")
-            ax.set_yscale("log")
-            ax.set_ylim( [0.01,50] )
-            ax.grid(linestyle="dashed")
-            
-            handles, labels = ax.get_legend_handles_labels()
-            ax.legend(handles[::-1], labels[::-1], ncol = 2, prop={'size': TKFS},
-                      loc='upper center', bbox_to_anchor=(0.5, 1.04), frameon = False)
-    fig.tight_layout()
-    if fig_path is not None:
-        fig.savefig(fig_path 
-                    + f"spectrum_cell_list_j_from_{j_list[0]}_to_{j_list[-1]}_" 
-                    + f"no_cells_{no_cells_x}_{no_cells_z}_t_{int(t)}.pdf")
-
-#%% PLOT GRID SCALAR FIELDS WITH TIME
-
-# fields = [fields_t0, fields_t1, ...]
-# fields_ti =
-# (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
-#  grid.potential_temperature, grid.temperature,
-#  grid.pressure, grid.saturation)
-# input:
-# field_indices = (idx1, idx2, ...)  (tuple of int)
-# time_indices = (idx1, idx2, ...)  (tuple of int)
-# title size (pt)
-# TTFS = 18
-# labelsize (pt)
-# LFS = 18
-# ticksize (pt)
-# TKFS = 18
-def plot_scalar_field_frames(grid, fields,
-                            save_times, field_indices, time_indices,
-                            no_ticks=[6,6], fig_path=None,
-                            TTFS = 12, LFS = 10, TKFS = 10,):
-    
-    no_rows = len(time_indices)
-    no_cols = len(field_indices)
-    
-    field_names = ["r_v", "r_l", "Theta", "T", "p", "S"]
-    scales = [1000, 1000, 1, 1, 0.01, 1]
-    units = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
-    
-    tick_ranges = grid.ranges
-    
-    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
-                           figsize = (4.5*no_cols, 4*no_rows))
-    for i in range(no_rows):
-        for j in range(no_cols):
-            ax = axes[i,j]
-            idx_t = time_indices[i]
-            idx_f = field_indices[j]
-            field = fields[idx_t, idx_f]*scales[idx_f]
-            field_min = field.min()
-            if idx_f == 1: field_min = 0.001
-            field_max = field.max()
-            if idx_f in [2,3,4]: 
-                cmap = "coolwarm"
-                alpha = None
-            else: 
-                cmap = "rainbow"
-                alpha = 0.7
-            CS = ax.pcolormesh(*grid.corners, field, cmap=cmap, alpha=alpha,
-                                    vmin=field_min, vmax=field_max,
-                                    edgecolor="face", zorder=1)
-            CS.cmap.set_under("white")
-            if idx_f == 1:
-                cbar = fig.colorbar(CS, ax=ax, extend = "min")
-            else: cbar = fig.colorbar(CS, ax=ax)
-            cbar.ax.tick_params(labelsize=TKFS)
-            ax.set_title(
-                field_names[idx_f] + ' (' + units[idx_f] + '), t = '
-                + str(int(save_times[idx_t]//60)) + " min", fontsize = TTFS )
-            ax.set_xticks( np.linspace( tick_ranges[0,0],
-                                             tick_ranges[0,1],
-                                             no_ticks[0] ) )
-            ax.set_yticks( np.linspace( tick_ranges[1,0],
-                                             tick_ranges[1,1],
-                                             no_ticks[1] ) )
-            ax.tick_params(axis='both', which='major', labelsize=TKFS)
-            if i == no_rows-1:
-                ax.set_xlabel(r'x (m)', fontsize = LFS)
-            if j == 0:
-                ax.set_ylabel(r'z (m)', fontsize = LFS)
-            ax.grid(color='gray', linestyle='dashed', zorder = 2)
-          
-    fig.tight_layout()
-    if fig_path is not None:
-        fig.savefig(fig_path)
-
-#%% PLOT SCALAR FIELD FRAMES WITH r_aero, r_c, r_r
-
-def compute_order_of_magnitude(x):
-    a, b = '{:.2e}'.format(x).split('e')
-    b = int(b)
-    return b  
-
-import matplotlib as mpl
-import matplotlib.ticker as mticker
-from matplotlib.colors import hex2color, LinearSegmentedColormap
-#import cmocean.cm as cmo
-#cmap = "rainbow"
-#cmap = "gist_rainbow_r"
-#cmap = "nipy_spectral"
-#cmap = "nipy_spectral_r"
-#cmap = "gist_ncar_r"
-#cmap = "cubehelix_r"
-#cmap = "viridis_r"
-#cmap = "plasma_r"
-#cmap = "magma_r"
-#cmap = cmo.rain
-#alpha = 0.7
-
-colors1 = plt.cm.get_cmap('gist_ncar_r', 256)
-colors2 = plt.cm.get_cmap('rainbow', 256)
-
-newcolors = np.vstack((colors1(np.linspace(0, 0.16, 24)),
-                       colors2(np.linspace(0, 1, 256))))
-cmap_new = mpl.colors.ListedColormap(newcolors, name='my_rainbow')
-
-### CREATE COLORMAP LIKE ARABAS 2015
-hex_colors = ['#FFFFFF', '#993399', '#00CCFF', '#66CC00',
-              '#FFFF00', '#FC8727', '#FD0000']
-rgb_colors = [hex2color(c) + tuple([1.0]) for c in hex_colors]
-no_colors = len(rgb_colors)
-
-cdict_lcpp_colors = np.zeros( (3, no_colors, 3) )
-
-for i in range(3):
-    cdict_lcpp_colors[i,:,0] = np.linspace(0.0,1.0,no_colors)
-    for j in range(no_colors):
-        cdict_lcpp_colors[i,j,1] = rgb_colors[j][i]
-        cdict_lcpp_colors[i,j,2] = rgb_colors[j][i]
-
-cdict_lcpp = {"red": cdict_lcpp_colors[0],
-              "green": cdict_lcpp_colors[1],
-              "blue": cdict_lcpp_colors[2]}
-
-cmap_lcpp = LinearSegmentedColormap('testCmap', segmentdata=cdict_lcpp, N=256)
-
-# fields = [fields_t0, fields_t1, ...]
-# fields_ti =
-# (grid.mixing_ratio_water_vapor, grid.mixing_ratio_water_liquid,
-#  grid.potential_temperature, grid.temperature,
-#  grid.pressure, grid.saturation)
-# input:
-# field_indices = (idx1, idx2, ...)  (tuple of int)
-# time_indices = (idx1, idx2, ...)  (tuple of int)
-# title size (pt)
-# TTFS = 18
-# labelsize (pt)
-# LFS = 18
-# ticksize (pt)
-# TKFS = 18
-        
-# need grid for dry air density and ?
-# fields are with time
-# m_s, w_s, xi       
-   
-# ind_ext = [i1, i2, ...]
-# 0: r_aero
-# 1: r_cloud
-# 2: r_rain        
-def plot_scalar_field_frames_extend(grid, fields, m_s, m_w, xi, cells,
-                                    active_ids,
-                                    solute_type,
-                                    save_times, field_indices, time_indices,
-                                    derived_indices,
-                                    no_ticks=[6,6], fig_path=None,
-                                    TTFS = 12, LFS = 10, TKFS = 10,
-                                    cbar_precision = 2):
-    if solute_type == "AS":
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
-    elif solute_type == "NaCl":
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
-    
-    no_rows = len(time_indices)
-    no_cols = len(field_indices) + len(derived_indices)
-    no_fields_orig_chosen = len(field_indices)
-    
-    no_fields_ext = 6
-    
-    # load particle data: stored data: m_s, m_w, xi
-    # need R_p -> need rho_p -> need w_s and T_p
-    # classify droplets per cell by R_p:
-    # aerosol: R_p < 0.5 mu
-    # cloud drops: 0.5 < R_p < 25 mu
-    # rain drops: 25 mu < R_p
-    bins_drop_class = [0.5,25.]
-    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
-                           figsize = (4.5*no_cols, 4*no_rows))
-    
-    field_names = ["r_v", "r_l", "\Theta", "T", "p", "S"]
-    scales = [1000, 1000, 1, 1, 0.01, 1]
-    units = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
-    
-    field_names_ext = ["r_\mathrm{aero}", "r_c", "r_r",
-                       "n_\mathrm{aero}", "n_c", "n_r"]
-    units_ext = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg"]
-    scales_ext = [1000, 1000, 1000, 1E-6, 1E-6, 1E-6]
-    
-    tick_ranges = grid.ranges
-    for i in range(no_rows):
-        idx_t = time_indices[i]
-        no_SIPs = len(xi[idx_t])
-        T_p = np.zeros(no_SIPs, dtype = np.float64)
-        id_list = np.arange(no_SIPs)
-        update_T_p(fields[idx_t, 3], cells[idx_t], T_p)
-        R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w[idx_t], m_s[idx_t], T_p)
-        idx_R_p = np.digitize(R_p, bins_drop_class)
-        idx_classification = np.arange(3).reshape((3,1))
-        
-        masks_R_p = idx_classification == idx_R_p
-               
-        fields_ext = np.zeros((no_fields_ext, grid.no_cells[0],
-                               grid.no_cells[1]),
-                              dtype = np.float64)
-        
-        for mask_n in range(3):
-            mask = np.logical_and(masks_R_p[mask_n], active_ids[idx_t])
-            update_mixing_ratio(fields_ext[mask_n],
-                                m_w[idx_t], xi[idx_t], cells[idx_t],
-                                grid.mass_dry_inv, 
-                                id_list, mask)   
-            update_number_concentration_per_dry_mass(fields_ext[mask_n+3],
-                                xi[idx_t], cells[idx_t],
-                                grid.mass_dry_inv, 
-                                id_list, mask)
-        
-        for j in range(no_cols):
-            ax = axes[i,j]
-            if j < no_fields_orig_chosen:
-                idx_f = field_indices[j]
-                field = fields[idx_t, idx_f]*scales[idx_f]
-                ax_title = field_names[idx_f]
-                unit = units[idx_f]
-                if idx_f in [2,3,4]:
-                    cmap = "coolwarm"
-                    alpha = 1.0
-                else:
-                    cmap = "rainbow"
-                    alpha = 0.8
-            else: 
-                idx_f = derived_indices[j-no_fields_orig_chosen]
-                field = fields_ext[idx_f]*scales_ext[idx_f]
-                ax_title = field_names_ext[idx_f]
-                unit = units_ext[idx_f]
-                cmap = "rainbow"
-                alpha = 0.8
-            field_max = field.max()
-            field_min = field.min()
-            oom_max = oom = int(math.log10(field_max))
-            
-            my_format = False
-            oom_factor = 1.0
-            
-            if oom_max > 2 or oom_max < 0:
-                my_format = True
-                oom_factor = 10**(-oom)
-                
-                field_min *= oom_factor
-                field_max *= oom_factor            
-            
-            if oom_max in [1,2]: str_format = "%.1f"
-            else: str_format = "%.2f"
-
-            
-            if field_min/field_max < 1E-4:
-#                cmap = cmap_new
-                # Arabas 2015
-                cmap = cmap_lcpp
-                alpha = 0.8
-            # REMOVE APLHA HERE
-            alpha = 1.0
-            norm_ = mpl.colors.Normalize 
-            if ax_title in ["r_r", "n_r"] and field_max > 1.:
-                norm_ = mpl.colors.LogNorm
-                field_min = 0.01
-                if ax_title == "r_r":
-                    field_max = 1.
-                elif ax_title == "n_r":
-                    field_max = 10.
-            else: norm_ = mpl.colors.Normalize   
-            
-            if ax_title == "r_c":
-                field_min = 0.0
-                field_max = 1.3
-            if ax_title == "n_c":
-                field_min = 0.0
-                field_max = 150.
-            if ax_title == "n_\mathrm{aero}":
-                field_min = 0.0
-                field_max = 150.
-                
-            
-            CS = ax.pcolormesh(*grid.corners, field*oom_factor,
-                               cmap=cmap, alpha=alpha,
-                                edgecolor="face", zorder=1,
-                                norm = norm_(vmin=field_min, vmax=field_max)
-                                )
-            CS.cmap.set_under("white")
-            
-            ax.set_xticks( np.linspace( tick_ranges[0,0],
-                                             tick_ranges[0,1],
-                                             no_ticks[0] ) )
-            ax.set_yticks( np.linspace( tick_ranges[1,0],
-                                             tick_ranges[1,1],
-                                             no_ticks[1] ) )
-            ax.tick_params(axis='both', which='major', labelsize=TKFS)
-            ax.grid(color='gray', linestyle='dashed', zorder = 2)
-            ax.set_xlabel(r'x (m)', fontsize = LFS)
-            ax.set_ylabel(r'z (m)', fontsize = LFS)
-            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
-                         int(save_times[idx_t]/60)),
-                         fontsize = TTFS)
-            cbar = plt.colorbar(CS, ax=ax,
-                                format=mticker.FormatStrFormatter(str_format))
-            if my_format:
-                cbar.ax.text(field_min - (field_max-field_min),
-                             field_max + (field_max-field_min)*0.01,
-                             r'$\times\,10^{{{}}}$'.format(oom_max),
-                             va='bottom', ha='left', fontsize = TKFS)
-            cbar.ax.tick_params(labelsize=TKFS)
-            
-
-
-          
-    fig.tight_layout()
-    if fig_path is not None:
-        fig.savefig(fig_path)
 
 #%% DATA ANALYSIS
 
@@ -1057,7 +411,7 @@ def compute_moment_R_grid(n, R_p, xi, V0,
             moment[cells[0,ID],cells[1,ID]] += xi[ID] * R_p[ID]**n
     return moment / V0
 
-from file_handling import load_grid_scalar_fields, load_particle_data_all
+
 
 # possible field indices:
 #0: r_v
@@ -1094,9 +448,9 @@ def generate_field_frame_data_avg(load_path_list,
     V0 = grid_volume_cell
     
     if solute_type == "AS":
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_NaCl
     
     bins_R_p_drop_classif = [0.5, 25.]
     
@@ -1193,14 +547,14 @@ def generate_field_frame_data_avg(load_path_list,
                                          cells_with_time[idx_t],
                                          active_ids_with_time[idx_t],
                                          id_list, no_cells)
-            mom2 = compute_moment_R_grid(2, R_p, xi_with_time[idx_t], V0,
-                                         cells_with_time[idx_t],
-                                         active_ids_with_time[idx_t],
-                                         id_list, no_cells)
-            mom3 = compute_moment_R_grid(3, R_p, xi_with_time[idx_t], V0,
-                                         cells_with_time[idx_t],
-                                         active_ids_with_time[idx_t],
-                                         id_list, no_cells)
+#            mom2 = compute_moment_R_grid(2, R_p, xi_with_time[idx_t], V0,
+#                                         cells_with_time[idx_t],
+#                                         active_ids_with_time[idx_t],
+#                                         id_list, no_cells)
+#            mom3 = compute_moment_R_grid(3, R_p, xi_with_time[idx_t], V0,
+#                                         cells_with_time[idx_t],
+#                                         active_ids_with_time[idx_t],
+#                                         id_list, no_cells)
             
             # calculate R_eff only from cloud range (as Arabas 2015)
             mom1_cloud = compute_moment_R_grid(
@@ -1271,17 +625,15 @@ def generate_field_frame_data_avg(load_path_list,
            save_times_out, field_names_out, units_out, \
            scales_out 
 
-#%%
-
 def generate_moments_avg_std(load_path_list,
                              no_moments, time_indices,
                              grid_volume_cell,
                              no_cells, solute_type):
 
     if solute_type == "AS":
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_AS
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
-        compute_R_p_w_s_rho_p = compute_R_p_w_s_rho_p_NaCl
+        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_NaCl
 
     no_seeds = len(load_path_list)
     no_times = len(time_indices)
@@ -1306,7 +658,7 @@ def generate_moments_avg_std(load_path_list,
     for seed_n, load_path in enumerate(load_path_list):
         
         fields = load_grid_scalar_fields(load_path, grid_save_times)
-        vec_data, cells_with_time, scal_data, xi_with_time, active_ids_with_time =\
+        vec_data,cells_with_time,scal_data,xi_with_time,active_ids_with_time =\
             load_particle_data_all(load_path, grid_save_times)
         m_w_with_time = scal_data[:,0]
         m_s_with_time = scal_data[:,1]
@@ -1332,302 +684,6 @@ def generate_moments_avg_std(load_path_list,
 
     return moments_vs_time_all_seeds, save_times_out
 
-
-
-#%% PLOT SCALAR FIELD FRAMES EXTENDED FIELD VARIATY
-
-def plot_scalar_field_frames_extend_avg(grid, fields_with_time,
-                                        save_times,
-                                        field_names,
-                                        units,
-                                        scales,
-                                        solute_type,
-                                        simulation_mode, # for time in label
-                                        fig_path=None,
-                                        no_ticks=[6,6],
-                                        alpha = 1.0,
-                                        TTFS = 12, LFS = 10, TKFS = 10,
-                                        cbar_precision = 2,
-                                        show_target_cells = False,
-                                        target_cell_list = None,
-                                        no_cells_x = 0,
-                                        no_cells_z = 0
-                                        ):
-    
-    tick_ranges = grid.ranges
-    
-    no_rows = len(save_times)
-    no_cols = len(field_names)
-    
-    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
-                       figsize = (4.5*no_cols, 4*no_rows))
-    
-    for time_n in range(no_rows):
-        for field_n in range(no_cols):
-            ax = axes[time_n,field_n]
-            field = fields_with_time[time_n, field_n] * scales[field_n]
-            ax_title = field_names[field_n]
-            unit = units[field_n]
-            if ax_title in ["T","p",r"\Theta"]:
-                cmap = "coolwarm"
-                alpha = 1.0
-            else :
-#                cmap = "rainbow"
-                cmap = cmap_lcpp
-#                alpha = 0.8
-                
-            field_max = field.max()
-            field_min = field.min()
-            
-            norm_ = mpl.colors.Normalize 
-            if ax_title in ["r_r", "n_r"] and field_max > 1E-2:
-                norm_ = mpl.colors.LogNorm
-                field_min = 0.01
-                cmap = cmap_lcpp                
-                if ax_title == "r_r":
-                    field_max = 1.
-                elif ax_title == "n_r":
-                    field_max = 10.
-            else: norm_ = mpl.colors.Normalize   
-            
-            if ax_title == "r_c":
-                field_min = 0.0
-                field_max = 1.3
-            if ax_title == "n_c":
-                field_min = 0.0
-                field_max = 150.
-            if ax_title == "n_\mathrm{aero}":
-                field_min = 0.0
-                field_max = 150.
-            if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
-                field_min = 1.2
-                field_max = 20.
-                # Arabas 2015
-                cmap = cmap_lcpp
-                
-                
-            oom_max = oom = int(math.log10(field_max))
-            
-            my_format = False
-            oom_factor = 1.0
-            
-            if oom_max > 2 or oom_max < 0:
-                my_format = True
-                oom_factor = 10**(-oom)
-                
-                field_min *= oom_factor
-                field_max *= oom_factor            
-            
-            if oom_max ==2: str_format = "%.1f"
-            else: str_format = "%.2f"
-            
-            if field_min/field_max < 1E-4:
-                # Arabas 2015                
-                cmap = cmap_lcpp
-#                alpha = 0.8
-            
-            CS = ax.pcolormesh(*grid.corners, field*oom_factor,
-                               cmap=cmap, alpha=alpha,
-                                edgecolor="face", zorder=1,
-                                norm = norm_(vmin=field_min, vmax=field_max)
-                                )
-            CS.cmap.set_under("white")
-            
-            ax.set_xticks( np.linspace( tick_ranges[0,0],
-                                             tick_ranges[0,1],
-                                             no_ticks[0] ) )
-            ax.set_yticks( np.linspace( tick_ranges[1,0],
-                                             tick_ranges[1,1],
-                                             no_ticks[1] ) )
-            ax.tick_params(axis='both', which='major', labelsize=TKFS)
-            ax.grid(color='gray', linestyle='dashed', zorder = 2)
-            ax.set_xlabel(r'x (m)', fontsize = LFS)
-            ax.set_ylabel(r'z (m)', fontsize = LFS)
-            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
-                         int(save_times[time_n]/60)),
-                         fontsize = TTFS)
-            cbar = plt.colorbar(CS, ax=ax,
-                                format=mticker.FormatStrFormatter(str_format))
-            # my_format dos not work with log scale here!!
-            if my_format:
-                cbar.ax.text(field_min - (field_max-field_min),
-                             field_max + (field_max-field_min)*0.01,
-                             r'$\times\,10^{{{}}}$'.format(oom_max),
-                             va='bottom', ha='left', fontsize = TKFS)
-            cbar.ax.tick_params(labelsize=TKFS)
-            
-            if show_target_cells:
-                ### ad the target cells
-                no_neigh_x = no_cells_x // 2
-                no_neigh_z = no_cells_z // 2
-                dx = grid.steps[0]
-                dz = grid.steps[1]
-                
-                no_tg_cells = len(target_cell_list[0])
-                LW_rect = 2.
-                for tg_cell_n in range(no_tg_cells):
-                    x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
-                    z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
-                    
-                    rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
-                                         fill=False,
-                                         linewidth = LW_rect,
-                                         edgecolor='k',
-                                         zorder = 99)        
-                    ax.add_patch(rect)
-
-    fig.tight_layout()
-    if fig_path is not None:
-        fig.savefig(fig_path)    
-    
-# the 2D field plots get shifted "to the left" by shift_cells_x cells
-def plot_scalar_field_frames_extend_avg_shift(grid, fields_with_time,
-                                            save_times,
-                                            field_names,
-                                            units,
-                                            scales,
-                                            solute_type,
-                                            simulation_mode, # for time label
-                                            fig_path=None,
-                                            no_ticks=[6,6],
-                                            alpha = 1.0,
-                                            TTFS = 12, LFS = 10, TKFS = 10,
-                                            cbar_precision = 2,
-                                            show_target_cells = False,
-                                            target_cell_list = None,
-                                            no_cells_x = 0,
-                                            no_cells_z = 0,
-                                            shift_cells_x = 0
-                                            ):
-    
-    tick_ranges = grid.ranges
-    
-    no_rows = len(save_times)
-    no_cols = len(field_names)
-    
-    fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
-                       figsize = (4.5*no_cols, 4*no_rows))
-    
-    for time_n in range(no_rows):
-        for field_n in range(no_cols):
-            ax = axes[time_n,field_n]
-            field = fields_with_time[time_n, field_n] * scales[field_n]
-            field = np.concatenate( (field[shift_cells_x:,:],
-                                     field[:shift_cells_x,:]),
-                                   axis = 0)
-            ax_title = field_names[field_n]
-            unit = units[field_n]
-            if ax_title in ["T","p",r"\Theta"]:
-                cmap = "coolwarm"
-                alpha = 1.0
-            else :
-                cmap = cmap_lcpp
-                
-            field_max = field.max()
-            field_min = field.min()
-            
-            norm_ = mpl.colors.Normalize 
-            if ax_title in ["r_r", "n_r"] and field_max > 1E-2:
-                norm_ = mpl.colors.LogNorm
-                field_min = 0.01
-                cmap = cmap_lcpp                
-                if ax_title == "r_r":
-                    field_max = 1.
-                elif ax_title == "n_r":
-                    field_max = 10.
-            else: norm_ = mpl.colors.Normalize   
-            
-            if ax_title == "r_c":
-                field_min = 0.0
-                field_max = 1.3
-            if ax_title == "n_c":
-                field_min = 0.0
-                field_max = 150.
-            if ax_title == "n_\mathrm{aero}":
-                field_min = 0.0
-                field_max = 150.
-            if ax_title in [r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]:
-                field_min = 1.2
-                field_max = 20.
-                # Arabas 2015
-                cmap = cmap_lcpp
-                
-                
-            oom_max = oom = int(math.log10(field_max))
-            
-            my_format = False
-            oom_factor = 1.0
-            
-            if oom_max > 2 or oom_max < 0:
-                my_format = True
-                oom_factor = 10**(-oom)
-                
-                field_min *= oom_factor
-                field_max *= oom_factor            
-            
-            if oom_max ==2: str_format = "%.1f"
-            else: str_format = "%.2f"
-            
-            if field_min/field_max < 1E-4:
-                # Arabas 2015
-                cmap = cmap_lcpp
-#                alpha = 0.8
-            
-            CS = ax.pcolormesh(*grid.corners,
-                               field*oom_factor,
-                               cmap=cmap, alpha=alpha,
-                                edgecolor="face", zorder=1,
-                                norm = norm_(vmin=field_min, vmax=field_max)
-                                )
-            CS.cmap.set_under("white")
-            
-            ax.set_xticks( np.linspace( tick_ranges[0,0],
-                                             tick_ranges[0,1],
-                                             no_ticks[0] ) )
-            ax.set_yticks( np.linspace( tick_ranges[1,0],
-                                             tick_ranges[1,1],
-                                             no_ticks[1] ) )
-            ax.tick_params(axis='both', which='major', labelsize=TKFS)
-            ax.grid(color='gray', linestyle='dashed', zorder = 2)
-            ax.set_xlabel(r'x (m)', fontsize = LFS)
-            ax.set_ylabel(r'z (m)', fontsize = LFS)
-            ax.set_title( r"${0}$ ({1}), t = {2} min".format(ax_title, unit,
-                         int(save_times[time_n]/60)),
-                         fontsize = TTFS)
-            cbar = plt.colorbar(CS, ax=ax,
-                                format=mticker.FormatStrFormatter(str_format))
-            # my_format dos not work with log scale here!!
-            if my_format:
-                cbar.ax.text(field_min - (field_max-field_min),
-                             field_max + (field_max-field_min)*0.01,
-                             r'$\times\,10^{{{}}}$'.format(oom_max),
-                             va='bottom', ha='left', fontsize = TKFS)
-            cbar.ax.tick_params(labelsize=TKFS)
-            
-            if show_target_cells:
-                ### ad the target cells
-                no_neigh_x = no_cells_x // 2
-                no_neigh_z = no_cells_z // 2
-                dx = grid.steps[0]
-                dz = grid.steps[1]
-                
-                no_tg_cells = len(target_cell_list[0])
-                LW_rect = 2.
-                for tg_cell_n in range(no_tg_cells):
-                    x = ((target_cell_list[0, tg_cell_n]-shift_cells_x) % grid.no_cells[0]
-                         - no_neigh_x - 0.1) * dx
-                    z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
-                    
-                    rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z,
-                                         fill=False,
-                                         linewidth = LW_rect,
-                                         edgecolor='k',
-                                         zorder = 99)        
-                    ax.add_patch(rect)
-
-    fig.tight_layout()
-    if fig_path is not None:
-        fig.savefig(fig_path)    
     
 # for one seed only for now...
 # load_path_list = [[load_path0]] 
@@ -1770,346 +826,778 @@ def generate_size_spectra_R_Arabas(load_path_list,
     return f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, \
            save_times_out, grid_r_l_list, R_min_list, R_max_list
 
-#%% PLOT SIZE SPECTRA AND TRACER TRAJECTORY AND EFFECTIVE RADIUS
-           
-def plot_size_spectra_R_Arabas(f_R_p_list, f_R_s_list,
-                               bins_R_p_list, bins_R_s_list,
-                               grid_r_l_list,
-                               R_min_list, R_max_list,
-                               save_times_out,
-                               solute_type,
-                               grid,                               
-                               target_cell_list,
-                               no_cells_x, no_cells_z,
-                               no_bins_R_p, no_bins_R_s,
-                               no_rows, no_cols,
-                               TTFS=12, LFS=10, TKFS=10, LW = 4.0, MS = 3.0,
-                               figsize_spectra = None,
-                               figsize_trace_traj = None,
-                               fig_path = None,
-                               show_target_cells = False,
-                               fig_path_tg_cells = None,
-                               fig_path_R_eff = None,
-                               trajectory = None
-                               ):
-    
-    grid_steps = grid.steps
-    no_seeds = len(f_R_p_list[0])
-    no_times = len(save_times_out)
-    no_tg_cells = len(target_cell_list[0])    
+#%% ANALYZE ENSEMBLE DATA
 
-    f_R_p_avg = np.average(f_R_p_list, axis=1)
-    f_R_p_std = np.std(f_R_p_list, axis=1, ddof=1)
-    f_R_s_avg = np.average(f_R_s_list, axis=1)
-    f_R_s_std = np.std(f_R_s_list, axis=1, ddof=1)
-    
-    
-    if figsize_spectra is not None:
-        figsize = figsize_spectra
-    else:        
-        figsize = (no_cols*5, no_rows*4)
-    
-    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                             figsize = figsize )
-    
-    plot_n = -1
-    for row_n in range(no_rows):
-        for col_n in range(no_cols):
-            plot_n += 1
-            if no_cols == 1:
-                if no_rows == 1:
-                    ax = axes
-                else:                    
-                    ax = axes[row_n]
-            else:
-                ax = axes[row_n, col_n]        
-            
-            target_cell = target_cell_list[:,plot_n]
-            
-            f_R_p = f_R_p_avg[plot_n]
-            f_R_s = f_R_s_avg[plot_n]
-            f_R_p_err = f_R_p_std[plot_n]
-            f_R_s_err = f_R_s_std[plot_n]
-            
-            bins_R_p = bins_R_p_list[plot_n]
-            bins_R_s = bins_R_s_list[plot_n]
-            
-            f_R_p_min = f_R_p.min()
-            f_R_p_max = f_R_p.max()
-            f_R_s_min = f_R_s.min()
-            f_R_s_max = f_R_s.max()            
-            
-            ax.plot(np.repeat(bins_R_p,2),
-                    np.hstack( [[f_R_p_min*1E-1],
-                                np.repeat(f_R_p,2),
-                                [f_R_p_min*1E-1] ] ),
-                    linewidth = LW, label = "wet")
-            ax.plot(np.repeat(bins_R_s,2),
-                    np.hstack( [[f_R_s_min*1E-1],
-                                np.repeat(f_R_s,2),
-                                [f_R_s_min*1E-1] ] ),
-                    linewidth = LW, label = "dry")            
-    
-            ax.axvline(0.5, c ="k", linewidth=1.0)
-            ax.axvline(25., c ="k", linewidth=1.0)
-            ax.set_xscale("log")
-            ax.set_yscale("log")
-            ax.set_xlim( [2E-3, 1E2] )    
-            ax.set_ylim( [8E-3, 4E3] )    
-            
-            ax.tick_params(axis='both', which='major', labelsize=TKFS,
-                           length = 5)
-            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
-                           length = 3)
-            
-            xx = int((target_cell[0])*grid_steps[0])
-            height = int((target_cell[1])*grid_steps[1])
-            ax.set_xlabel(r"particle radius ($\mathrm{\mu m}$)",
-                          fontsize = LFS)
-            ax.set_ylabel(r"distribution (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
-                          fontsize = LFS)
-            ax.set_title( f'x = {xx}, h = {height} m ' +
-                         f"cell ({target_cell[0]} {target_cell[1]}) "
-                            + f"Nc ({no_cells_x}, {no_cells_z}) "
-                            +f"t = {save_times_out[plot_n]//60} min",
-                            fontsize = TTFS )            
-            ax.grid()
-            ax.legend(loc='upper right')
+def moments_analytical_expo(n, DNC, DNC_over_LWC):
+    if n == 0:
+        return DNC
+    else:
+        LWC_over_DNC = 1.0 / DNC_over_LWC
+        return math.factorial(n) * DNC * LWC_over_DNC**n
 
-            ax.annotate(f"$R_{{min/max}}$\n{R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e}",            
-                        (12.,40.))
-            
-    if fig_path is not None:
-        fig.savefig(fig_path)
 
-    if figsize_spectra is not None:
-        figsize = figsize_spectra
-    else:        
-        figsize = (no_cols*5, no_rows*4)
+def moments_analytical_lognormal_m(n, DNC, mu_m_log, sigma_m_log):
+    if n == 0:
+        return DNC
+    else:
+        return DNC * np.exp(n * mu_m_log + 0.5 * n*n * sigma_m_log*sigma_m_log)
 
-    fig, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                             figsize = figsize )
+def moments_analytical_lognormal_R(n, DNC, mu_R_log, sigma_R_log):
+    if n == 0:
+        return DNC
+    else:
+        return DNC * np.exp(n * mu_R_log + 0.5 * n*n * sigma_R_log*sigma_R_log)
+
+# masses is a list of [masses0, masses1, ..., masses_no_sims]
+# where masses[i] = array of masses of a spec. SIP ensemble
+# use moments_an[1] for LWC0
+def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
+                                     dV, DNC0, LWC0,
+                                     no_bins, no_sims,
+                                     bin_mode, spread_mode,
+                                     shift_factor, overflow_factor,
+                                     scale_factor):
+    # g_m_num = []
+    # g_ln_r_num = []
+    if bin_mode == 1:
+            bin_factor = (m_max/m_min)**(1.0/no_bins)
+            bin_log_dist = np.log(bin_factor)
+            # bin_log_dist_half = 0.5 * bin_log_dist
+            # add dummy bins for overflow
+            # bins_mass = np.zeros(no_bins+3,dtype=np.float64)
+            bins_mass = np.zeros(no_bins+1,dtype=np.float64)
+            bins_mass[0] = m_min
+            # bins_mass[0] = m_min / bin_factor
+            for bin_n in range(1,no_bins+1):
+                bins_mass[bin_n] = bins_mass[bin_n-1] * bin_factor
+            # the factor 1.01 is for numerical stability: to be sure
+            # that m_max does not contribute to a bin larger than the
+            # last bin
+            bins_mass[-1] *= 1.0001
+            # the factor 0.99 is for numerical stability: to be sure
+            # that m_min does not contribute to a bin smaller than the
+            # 0-th bin
+            bins_mass[0] *= 0.9999
+            # m_0 = m_min / np.sqrt(bin_factor)
+            bins_mass_log = np.log(bins_mass)
+
+    bins_mass_width = np.zeros(no_bins+2,dtype=np.float64)
+    bins_mass_width[1:-1] = bins_mass[1:]-bins_mass[:-1]
+    # modify for overflow bins
+    bins_mass_width[0] = bins_mass_width[1]
+    bins_mass_width[-1] = bins_mass_width[-2]
+    dm0 = 0.5*bins_mass_width[0]
+    dmN = 0.5*bins_mass_width[-1]
+    # dm0 = 0.5*(bins_mass[0] - bins_mass[0] / bin_factor)
+    # dmN = 0.5*(bins_mass[-1] * bin_factor - bins_mass[-1])
+
+    f_m_num = np.zeros( (no_sims,no_bins+2), dtype=np.float64 )
+    g_m_num = np.zeros( (no_sims,no_bins), dtype=np.float64 )
+    h_m_num = np.zeros( (no_sims,no_bins), dtype=np.float64 )
+
+    for i,mass in enumerate(masses):
+        histo = np.zeros(no_bins+2, dtype=np.float64)
+        histo_g = np.zeros(no_bins+2, dtype=np.float64)
+        histo_h = np.zeros(no_bins+2, dtype=np.float64)
+        mass_log = np.log(mass)
+        for n,m_ in enumerate(mass):
+            xi = xis[i][n]
+            bin_n = np.nonzero(np.histogram(m_, bins=bins_mass)[0])[0][0]
+            # print(bin_n)
+
+            # smear functions depending on weight of data point in the bin
+            # on a lin base
+            if spread_mode == 0:
+                # norm_dist = (mass[n] - bins_mass[bin_n])/bins_mass_width[bin_n]
+                # NEW: start from right side
+                norm_dist = (bins_mass[bin_n+1] - mass[n]) \
+                            / bins_mass_width[bin_n]
+            # on a log base
+            elif spread_mode == 1:
+                # norm_dist = (mass_log[n] - bins_mass_log[bin_n])/bin_log_dist
+                norm_dist = (bins_mass_log[bin_n] - mass_log[n])/bin_log_dist
+            if norm_dist < 0.5:
+                s = 0.5 + norm_dist
+
+                # +1 because we have overflow bins left and right in "histo"-array
+                bin_n += 1
+                # print(n,s,"right")
+                histo[bin_n+1] += (1.0-s)*xi
+                histo_g[bin_n+1] += (1.0-s)*xi*m_
+                histo_h[bin_n+1] += (1.0-s)*xi*m_*m_
+                # if in last bin: no outflow,
+                # just EXTRAPOLATION to overflow bin!
+                if bin_n == no_bins:
+                    histo[bin_n] += xi
+                    histo_g[bin_n] += xi*m_
+                    histo_h[bin_n] += xi*m_*m_
+                else:
+                    histo[bin_n] += s*xi
+                    histo_g[bin_n] += s*xi*m_
+                    histo_h[bin_n] += s*xi*m_*m_
+            elif spread_mode == 0:
+                # now left side of bin
+                norm_dist = (mass[n] - bins_mass[bin_n]) \
+                            / bins_mass_width[bin_n-1]
+                # +1 because we have overflow bins left and right in "histo"-array
+                bin_n += 1
+                # print(n,norm_dist, "left")
+                if norm_dist < 0.5:
+                    s = 0.5 + norm_dist
+                    # print(n,s,"left")
+                    histo[bin_n-1] += (1.0-s)*xi
+                    histo_g[bin_n-1] += (1.0-s)*xi*m_
+                    histo_h[bin_n-1] += (1.0-s)*xi*m_*m_
+                    # if in first bin: no outflow,
+                    # just EXTRAPOLATION to overflow bin!
+                    if bin_n == 1:
+                        histo[bin_n] += xi
+                        histo_g[bin_n] += xi*m_
+                        histo_h[bin_n] += xi*m_*m_
+                    else:
+                        histo[bin_n] += s*xi
+                        histo_g[bin_n] += s*xi*m_
+                        histo_h[bin_n] += s*xi*m_*m_
+                else:
+                    histo[bin_n] += xi
+                    histo_g[bin_n] += xi*m_
+                    histo_h[bin_n] += xi*m_*m_
+            elif spread_mode == 1:
+                # +1 because we have overflow bins left and right in "histo"-array
+                bin_n += 1
+                s = 1.5 - norm_dist
+                histo[bin_n] += s*xi
+                histo[bin_n-1] += (1.0-s)*xi
+                histo_g[bin_n] += s*xi*m_
+                histo_g[bin_n-1] += (1.0-s)*xi*m_
+                histo_h[bin_n] += s*xi*m_*m_
+                histo_h[bin_n-1] += (1.0-s)*xi*m_*m_
+
+            # on a log base
+            # log_dist = mass_log[n] - bins_mass_log[bin_n]
+            # if log_dist < bin_log_dist_half:
+            #     s = 0.5 + log_dist/bin_log_dist
+            #     # print(n,s,"left")
+            #     histo[bin_n] += s*xi
+            #     histo[bin_n-1] += (1.0-s)*xi
+            #     histo_g[bin_n] += s*xi*m_
+            #     histo_g[bin_n-1] += (1.0-s)*xi*m_
+            # else:
+            #     s = 1.5 - log_dist/bin_log_dist
+            #     # print(n,s,"right")
+            #     histo[bin_n] += s*xi
+            #     histo[bin_n+1] += (1.0-s)*xi
+            #     histo_g[bin_n] += s*xi*m_
+            #     histo_g[bin_n+1] += (1.0-s)*xi*m_
+
+        f_m_num[i,1:-1] = histo[1:-1] / (bins_mass_width[1:-1] * dV)
+
+        # multiply the overflow-bins by factor to get an estimation of
+        # f_m at the position m_0 - dm0/2
+        # f_m at the position m_no_bins + dmN/2, where
+        # dm0 = 0.5*(bins_mass[0] - bins_mass[0] / bin_factor)
+        # dmN = 0.5*(bins_mass[-1] * bin_factor - bins_mass[-1])
+        f_m_num[i,0] = overflow_factor * histo[0] / (dm0 * dV)
+        f_m_num[i,-1] = overflow_factor * histo[-1] / (dmN * dV)
+
+        g_m_num[i] = histo_g[1:-1] / (bins_mass_width[1:-1] * dV)
+        h_m_num[i] = histo_h[1:-1] / (bins_mass_width[1:-1] * dV)
+
+
+    f_m_num_avg = np.average(f_m_num, axis=0)
+    f_m_num_std = np.std(f_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_m_num_avg = np.average(g_m_num, axis=0)
+    g_m_num_std = np.std(g_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    h_m_num_avg = np.average(h_m_num, axis=0)
+    h_m_num_std = np.std(h_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
     
-    plot_n = -1
-    for row_n in range(no_rows):
-        for col_n in range(no_cols):
-            plot_n += 1
-            if no_cols == 1:
-                if no_rows == 1:
-                    ax = axes
-                else:                    
-                    ax = axes[row_n]
-            else:
-                ax = axes[row_n, col_n]        
-            
-            target_cell = target_cell_list[:,plot_n]
-            
-            f_R_p = f_R_p_avg[plot_n]
-            f_R_s = f_R_s_avg[plot_n]
-            f_R_p_err = f_R_p_std[plot_n]
-            f_R_s_err = f_R_s_std[plot_n]
-            
-            bins_R_p = bins_R_p_list[plot_n]
-            bins_R_s = bins_R_s_list[plot_n]
-            
-            f_R_p_min = f_R_p.min()
-            f_R_p_max = f_R_p.max()
-            f_R_s_min = f_R_s.min()
-            f_R_s_max = f_R_s.max()            
-            
-            ax.plot(np.repeat(bins_R_p,2),
-                    np.hstack( [[f_R_p_min*1E-1],
-                                np.repeat(f_R_p,2),
-                                [f_R_p_min*1E-1] ] ),
-                    linewidth = LW, label = "wet")
-            ax.plot(np.repeat(bins_R_s,2),
-                    np.hstack( [[f_R_s_min*1E-1],
-                                np.repeat(f_R_s,2),
-                                [f_R_s_min*1E-1] ] ),
-                    linewidth = LW, label = "dry")            
+    # define centers on lin scale
+    bins_mass_center_lin = np.zeros(no_bins+2, dtype=np.float64)
+    bins_mass_center_lin[1:-1] = 0.5 * (bins_mass[:-1] + bins_mass[1:])
+    # add dummy bin centers for quadratic approx
+    bins_mass_center_lin[0] = bins_mass[0] - 0.5*dm0
+    bins_mass_center_lin[-1] = bins_mass[-1] + 0.5*dmN
+
+    # define centers on the logarithmic scale
+    bins_mass_center_log = bins_mass[:-1] * np.sqrt(bin_factor)
     
-            ax.axvline(0.5, c ="k", linewidth=1.0)
-            ax.axvline(25., c ="k", linewidth=1.0)
-            ax.set_xscale("log")
-            ax.set_yscale("log")
-            ax.set_xlim( [2E-3, 3E2] )    
-            ax.set_ylim( [1E-5, 4E3] )    
-            
-            ax.tick_params(axis='both', which='major', labelsize=TKFS,
-                           length = 5)
-            ax.tick_params(axis='both', which='minor', labelsize=TKFS,
-                           length = 3)
-            
-            xx = int((target_cell[0])*grid_steps[0])
-            height = int((target_cell[1])*grid_steps[1])
-            ax.set_xlabel(r"particle radius ($\mathrm{\mu m}$)",
-                          fontsize = LFS)
-            ax.set_ylabel(r"distribution (${\mathrm{mg}}^{-1}\, {\mathrm{\mu m}}^{-1}$)",
-                          fontsize = LFS)
-            ax.set_title( f'x = {xx}, h = {height} m ' +
-                         f"cell ({target_cell[0]} {target_cell[1]}) "
-                            + f"Nc ({no_cells_x}, {no_cells_z}) "
-                            +f"t = {save_times_out[plot_n]//60} min",
-                            fontsize = TTFS )            
-            ax.grid()
-            ax.legend(loc='upper right')
-            
-            ax.annotate(f"$R_{{min/max}}$\n{R_min_list[plot_n]:.2e}\n{R_max_list[plot_n]:.2e}",
-                        (25.,6.))
-            
-    if fig_path is not None:
-        fig.savefig(fig_path[:-4] + "_ext.pdf")
-    
-    ### CALC EFFECTIVE RADIUS = MOMENT3/MOMENT2 FROM ANALYSIS OF f_R
-    R_eff_list = np.zeros((no_tg_cells, 3), dtype = np.float64)
-    no_rows = 1
-    no_cols = 1      
-    fig3, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                 figsize = (no_cols*6, no_rows*5) )
-    for tg_cell_n in range(no_tg_cells):
-        bins_log = np.log(bins_R_p_list[tg_cell_n])
-        bins_width = bins_R_p_list[tg_cell_n,1:] - bins_R_p_list[tg_cell_n,:-1]
-        bins_width_log = bins_log[1:] - bins_log[:-1]
-        bins_center_log = 0.5 * (bins_log[1:] + bins_log[:-1])
-        bins_center_log_lin = np.exp(bins_center_log)
-        
-        mom0 = np.sum( f_R_p_list[tg_cell_n] * bins_width)
-        mom1 = np.sum( f_R_p_list[tg_cell_n] * bins_width
-                       * bins_center_log_lin)
-        mom2 = np.sum( f_R_p_list[tg_cell_n] * bins_width
-                       * bins_center_log_lin * bins_center_log_lin)
-        mom3 = np.sum( f_R_p_list[tg_cell_n] * bins_width
-                       * bins_center_log_lin**3)
-#        R_eff0 = mom1/mom0
-#        R_eff1 = mom2/mom1
-#        R_eff2 = mom3/mom2
-        
-        R_eff_list[tg_cell_n,0] = mom1/mom0
-        R_eff_list[tg_cell_n,1] = mom2/mom1
-        R_eff_list[tg_cell_n,2] = mom3/mom2
-    
-    for mom_n in range(3):        
-        axes.plot( np.arange(1,no_tg_cells+1), R_eff_list[:,mom_n], "o",
-                  label = f"mom {mom_n}")
-        if mom_n == 2:
-            for tg_cell_n in range(no_tg_cells):
-                axes.annotate(f"({target_cell_list[0,tg_cell_n]} "
-                              + f" {target_cell_list[1,tg_cell_n]})",
-                              (tg_cell_n+1, 3. + R_eff_list[tg_cell_n,mom_n]),
-                              fontsize=8)
-    axes.legend()        
-    if fig_path is not None:
-        fig3.savefig(fig_path_R_eff)            
-    
-    ########################################## PLOT TARGET CELLS IN EXTRA PLOT
-    ########################################## PLOT TARGET CELLS IN EXTRA PLOT
-    
-    if show_target_cells:
-        grid_r_l = grid_r_l_list[0]*1E3
-        no_rows = 1
-        no_cols = 1  
-        # arabas 2015
-        cmap = cmap_lcpp
-#        alpha = 0.7
-        alpha = 1.0
-        no_ticks = [6,6]
-        str_format = "%.2f"
-        
-        tick_ranges = grid.ranges
-        
-        if figsize_trace_traj is not None:
-            figsize = figsize_trace_traj
+    # define the center of mass for each bin and set it as the "bin center"
+    bins_mass_center_COM = g_m_num_avg / f_m_num_avg[1:-1]
+
+    # def as 2nd moment/1st moment
+    bins_mass_center_h_g = h_m_num_avg / g_m_num_avg
+
+    ### LINEAR APPROX OF f_m
+    # to get an idea of the shape
+    # for bin n take f[n-1], f[n], f[n+1]
+    # make linear approx from n-1 to n and from n to n+1
+    # to get idea of shape of function
+    # lin fct: f = a0 + a1*m
+    # a1 = (f[n+1]-f[n])/(m[n+1] - m[n])
+    # a0 = f[n] - a1*m[n]
+    # bins_mass_centers_lin_fit = np.zeros(no_bins, dtype = np.float64)
+    lin_par0 = np.zeros(no_bins+1, dtype = np.float64)
+    lin_par1 = np.zeros(no_bins+1, dtype = np.float64)
+
+    lin_par1 = (f_m_num_avg[1:] - f_m_num_avg[:-1]) \
+               / (bins_mass_center_lin[1:] - bins_mass_center_lin[:-1])
+    lin_par0 = f_m_num_avg[:-1] - lin_par1 * bins_mass_center_lin[:-1]
+
+    f_bin_border = lin_par0 + lin_par1 * bins_mass
+    # f_bin_border_delta_left = np.zeros(no_bins+1, dtype = np.float64)
+    # f_bin_border_delta_left = np.abs(f_m_num_avg[1:-1]-f_bin_border[:-1])
+    # f_bin_border_delta_right = np.abs(f_bin_border[1:] - f_m_num_avg[1:-1])
+
+    ### FIRST CORRECTION:
+    # by my method of spreading over several bins the bins with higher f_avg
+    # "loose" counts to bins with smaller f_avg
+    # by a loss/gain analysis, one can estimate the lost counts
+    # using the linear approximation of f_m(m) calc. above
+
+    # delta of counts (estimated)
+    delta_N = np.zeros(no_bins, dtype=np.float64)
+
+    delta_N[1:-1] = 0.25 * bins_mass_width[1:-3] \
+                    * ( f_m_num_avg[1:-3] - f_bin_border[1:-2] ) \
+                    + 0.25 * bins_mass_width[2:-2] \
+                      * ( -f_m_num_avg[2:-2] + f_bin_border[2:-1] ) \
+                    + 0.083333333 \
+                      * ( lin_par1[1:-2] * bins_mass_width[1:-3]**2
+                          - lin_par1[2:-1] * bins_mass_width[2:-2]**2)
+    # first bin: only exchange with the bin to the right
+    delta_N[0] = 0.25 * bins_mass_width[1] \
+                 * ( -f_m_num_avg[1] + f_bin_border[1] ) \
+                 - 0.083333333 \
+                   * ( lin_par1[1] * bins_mass_width[1]**2 )
+    # last bin: only exchange with the bin to the left
+    # bin_n = no_bins-1
+    delta_N[no_bins-1] = 0.25 * bins_mass_width[no_bins-1] \
+                         * (f_m_num_avg[no_bins-1] - f_bin_border[no_bins-1]) \
+                         + 0.083333333 \
+                           * ( lin_par1[no_bins-1]
+                               * bins_mass_width[no_bins-1]**2 )
+    scale = delta_N / (f_m_num_avg[1:-1] * bins_mass_width[1:-1])
+    scale = np.where(scale < -0.9,
+                     -0.9,
+                     scale)
+    scale *= scale_factor
+    print("scale")
+    print(scale)
+    f_m_num_avg[1:-1] = f_m_num_avg[1:-1] / (1.0 + scale)
+    f_m_num_avg[0] = f_m_num_avg[0] / (1.0 + scale[0])
+    f_m_num_avg[-1] = f_m_num_avg[-1] / (1.0 + scale[-1])
+
+    ## REPEAT LIN APPROX AFTER FIRST CORRECTION
+    lin_par0 = np.zeros(no_bins+1, dtype = np.float64)
+    lin_par1 = np.zeros(no_bins+1, dtype = np.float64)
+
+    lin_par1 = (f_m_num_avg[1:] - f_m_num_avg[:-1]) \
+                / (bins_mass_center_lin[1:] - bins_mass_center_lin[:-1])
+    lin_par0 = f_m_num_avg[:-1] - lin_par1 * bins_mass_center_lin[:-1]
+
+    f_bin_border = lin_par0 + lin_par1 * bins_mass
+
+    ### SECOND CORRECTION:
+    # try to estimate the position of m in the bin where f(m) = f_avg (of bin)
+    # bin avg based on the linear approximations
+    # NOTE that this is just to get an idea of the function FORM
+    # f_bin_border_delta_left = np.zeros(no_bins+1, dtype = np.float64)
+    f_bin_border_delta_left = np.abs(f_m_num_avg[1:-1]-f_bin_border[:-1])
+    f_bin_border_delta_right = np.abs(f_bin_border[1:] - f_m_num_avg[1:-1])
+
+    bins_mass_centers_lin_fit = np.zeros(no_bins, dtype = np.float64)
+
+    f_avg2 = 0.25 * (f_bin_border[:-1] + f_bin_border[1:]) \
+             + 0.5 * f_m_num_avg[1:-1]
+
+    for bin_n in range(no_bins):
+        if f_bin_border_delta_left[bin_n] >= f_bin_border_delta_right[bin_n]:
+            m_c = (f_avg2[bin_n] - lin_par0[bin_n]) / lin_par1[bin_n]
         else:
-            figsize = (no_cols*9, no_rows*8)            
-        
-        fig2, axes = plt.subplots(nrows = no_rows, ncols = no_cols,
-                         figsize = figsize )
-        ax = axes
-        
-        field_min = 0.0
-        field_max = grid_r_l.max()
-        CS = ax.pcolormesh(*grid.corners, grid_r_l,
-                           cmap=cmap, alpha=alpha,
-                            edgecolor="face", zorder=1,
-                            vmin=field_min, vmax=field_max,
-                            antialiased=True, linewidth=0.0
-#                            norm = norm_(vmin=field_min, vmax=field_max)
-                            )
-        CS.cmap.set_under("white")
-        
-        ax.set_xticks( np.linspace( tick_ranges[0,0],
-                                         tick_ranges[0,1],
-                                         no_ticks[0] ) )
-        ax.set_yticks( np.linspace( tick_ranges[1,0],
-                                         tick_ranges[1,1],
-                                         no_ticks[1] ) )
-        cbar = plt.colorbar(CS, ax=ax, fraction =.045,
-                            format=mticker.FormatStrFormatter(str_format))    
-        
-        ### add vel. field
-        ARROW_WIDTH= 0.004
-        ARROW_SCALE = 20.0
-        no_arrows_u=16
-        no_arrows_v=16
-        if no_arrows_u < grid.no_cells[0]:
-            arrow_every_x = grid.no_cells[0] // (no_arrows_u - 1)
-        else:
-            arrow_every_x = 1
+            m_c = (f_avg2[bin_n] - lin_par0[bin_n+1]) / lin_par1[bin_n+1]
 
-        if no_arrows_v < grid.no_cells[1]:
-            arrow_every_y = grid.no_cells[1] // (no_arrows_v - 1)
-        else:
-            arrow_every_y = 1
-        centered_u_field = ( grid.velocity[0][0:-1,0:-1]\
-                             + grid.velocity[0][1:,0:-1] ) * 0.5
-        centered_w_field = ( grid.velocity[1][0:-1,0:-1]\
-                             + grid.velocity[1][0:-1,1:] ) * 0.5
-        ax.quiver(
-            grid.centers[0][arrow_every_y//2::arrow_every_y,
-                        arrow_every_x//2::arrow_every_x],
-            grid.centers[1][arrow_every_y//2::arrow_every_y,
-                        arrow_every_x//2::arrow_every_x],
-            centered_u_field[::arrow_every_y,::arrow_every_x],
-            centered_w_field[::arrow_every_y,::arrow_every_x],
-                  pivot = 'mid',
-                  width = ARROW_WIDTH, scale = ARROW_SCALE, zorder=3 )                            
+        # if f_bin_border_abs[bin_n] >= f_bin_border_abs[bin_n+1]:
+        #     # take left side of current bin
+        #     m_c = 0.5 * ( (bins_mass[bin_n] + 0.25*bins_mass_width[bin_n]) \
+        #           + lin_par1[bin_n+1]/lin_par1[bin_n] \
+        #             * (bins_mass[bin_n+1] - 0.25*bins_mass_width[bin_n]) \
+        #           + (lin_par0[bin_n+1] - lin_par0[bin_n]))
+        # else:
+        #     m_c = 0.5 * ( lin_par1[bin_n]/lin_par1[bin_n+1] \
+        #                   * (bins_mass[bin_n] + 0.25*bins_mass_width[bin_n]) \
+        #                   + (bins_mass[bin_n+1] - 0.25*bins_mass_width[bin_n])\
+        #                   + (lin_par0[bin_n] - lin_par0[bin_n+1]) )
+        # add additional shift because of two effects:
+        # 1) adding xi-"mass" to bins with smaller f_avg
+        # 2) wrong setting of "center" if f_avg[n] > f_avg[n+1]
+
+        m_c = shift_factor * m_c \
+              + bins_mass_center_lin[bin_n+1] * (1.0 - shift_factor)
+
+        if m_c < bins_mass[bin_n]:
+            m_c = bins_mass[bin_n]
+        elif m_c > bins_mass[bin_n+1]:
+            m_c = bins_mass[bin_n+1]
+
+        bins_mass_centers_lin_fit[bin_n] = m_c
+        # shift more to center: -> is covered by shift_factor=0.5
+        # bins_mass_centers_lin_fit[bin_n] = \
+        #     0.5 * (m_c + bins_mass_center_lin[bin_n+1])
+
+
+    ### bin mass center quad approx: -->>> BIG ISSUES: no monoton. interpol.
+    # possible for three given points with quadr. fct.
+    # for every bin:
+    # assume that the coordinate pairs are right with
+    # (m_center_lin, f_avg)
+    # approximate the function f_m(m) locally with a parabola to get
+    # an estimate of the form of the function
+    # assume this parabola in the bin and calculate bin_center_exact
+
+
+    D_10 = bins_mass_center_lin[1:-1] - bins_mass_center_lin[0:-2]
+    D_20 = bins_mass_center_lin[2:] - bins_mass_center_lin[0:-2]
+    D_21 = bins_mass_center_lin[2:] - bins_mass_center_lin[1:-1]
+
+    CD_10 = (bins_mass_center_lin[1:-1] + bins_mass_center_lin[0:-2])*D_10
+    CD_20 = (bins_mass_center_lin[2:] + bins_mass_center_lin[0:-2])*D_20
+    CD_21 = (bins_mass_center_lin[2:] + bins_mass_center_lin[1:-1])*D_21
+
+    a2 = f_m_num_avg[2:]/(D_21*D_20) - f_m_num_avg[1:-1]/(D_21*D_10) \
+         + f_m_num_avg[:-2]/(D_10*D_20)
+    a1_a2 = (-f_m_num_avg[0:-2]*CD_21 + f_m_num_avg[1:-1]*CD_20
+             - f_m_num_avg[2:]*CD_10  ) \
+            / (f_m_num_avg[0:-2]*D_21 - f_m_num_avg[1:-1]*D_20
+               + f_m_num_avg[2:]*D_10  )
+    a1 = a2 * a1_a2
+    a0 = f_m_num_avg[1:-1] - a1*bins_mass_center_lin[1:-1] \
+         - a2*bins_mass_center_lin[1:-1]**2
+
+    bins_mass_sq = bins_mass*bins_mass
+
+    bins_mass_centers_qfit =\
+        -0.5*a1_a2 \
+        + np.sqrt( 0.25*(a1_a2)**2
+                   + 0.5*a1_a2 * (bins_mass[:-1] + bins_mass[1:])
+                   + 0.33333333 * (bins_mass_sq[:-1]
+                                   + bins_mass[:-1]*bins_mass[1:]
+                                   + bins_mass_sq[1:]) )
+
+    bins_mass_center_lin2 = bins_mass_center_lin[1:-1]
+
+    bins_mass_width = bins_mass_width[1:-1]
+    
+    # set the bin "mass centers" at the right spot for exponential dist
+    # such that f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
+    # use moments_an[1] for LWC0 if not given (e.g. for lognormal distr.)
+    m_avg = LWC0 / DNC0
+    bins_mass_center_exact = bins_mass[:-1]\
+                             + m_avg * np.log(bins_mass_width\
+          / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
+
+    bins_mass_centers = np.array((bins_mass_center_lin2,
+                                  bins_mass_center_log,
+                                  bins_mass_center_COM,
+                                  bins_mass_center_exact,
+                                  bins_mass_centers_lin_fit,
+                                  bins_mass_centers_qfit,
+                                  bins_mass_center_h_g))
+
+    return f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std,\
+           h_m_num_avg, h_m_num_std, \
+           bins_mass, bins_mass_width, \
+           bins_mass_centers, bins_mass_center_lin, \
+           np.array((lin_par0,lin_par1)), np.array((a0,a1,a2))
+# generate_myHisto_SIP_ensemble = njit()(generate_myHisto_SIP_ensemble_np)
+
+def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
+                          no_bins, bin_mode,
+                          spread_mode, shift_factor, overflow_factor,
+                          scale_factor, act_plot_ensembles):
+    if dist == "expo":
+        conc_per_mass_np = conc_per_mass_expo_np
+        dV, DNC0, DNC0_over_LWC0, r_critmin, kappa, eta,no_sims00,start_seed =\
+            tuple(np.load(ensemble_dir + "ensemble_parameters.npy"))
+        LWC0_over_DNC0 = 1.0 / DNC0_over_LWC0
+        dist_par = (DNC0, DNC0_over_LWC0)
+        moments_analytical = moments_analytical_expo
+    elif dist =="lognormal":
+        conc_per_mass_np = conc_per_mass_lognormal_np
+        dV, DNC0, mu_m_log, sigma_m_log, mass_density, r_critmin, \
+        kappa, eta, no_sims00, start_seed = \
+            tuple(np.load(ensemble_dir + "ensemble_parameters.npy"))
+        dist_par = (DNC0, mu_m_log, sigma_m_log)
+        moments_analytical = moments_analytical_lognormal_m
+
+    start_seed = int(start_seed)
+    no_sims00 = int(no_sims00)
+    seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
+    
+    ### ANALYSIS START
+    masses = []
+    xis = []
+    radii = []
+    
+    moments_sampled = []
+    for i,seed in enumerate(seed_list):
+        masses.append(np.load(ensemble_dir + f"masses_seed_{seed}.npy"))
+        xis.append(np.load(ensemble_dir + f"xis_seed_{seed}.npy"))
+        radii.append(np.load(ensemble_dir + f"radii_seed_{seed}.npy"))
+    
+        moments = np.zeros(4,dtype=np.float64)
+        moments[0] = xis[i].sum() / dV
+        for n in range(1,4):
+            moments[n] = np.sum(xis[i]*masses[i]**n) / dV
+        moments_sampled.append(moments)
+    
+    masses_sampled = np.concatenate(masses)
+    radii_sampled = np.concatenate(radii)
+    xis_sampled = np.concatenate(xis)
+    
+    # moments analysis
+    moments_sampled = np.transpose(moments_sampled)
+    moments_an = np.zeros(4,dtype=np.float64)
+    for n in range(4):
+        moments_an[n] = moments_analytical(n, *dist_par)
         
-        ### add the target cells
-        no_neigh_x = no_cells_x // 2
-        no_neigh_z = no_cells_z // 2
-        dx = grid_steps[0]
-        dz = grid_steps[1]
+    print(f"######## kappa {kappa} ########")    
+    print("moments_an: ", moments_an)    
+    for n in range(4):
+        print(n, (np.average(moments_sampled[n])-moments_an[n])/moments_an[n] )
+    
+    moments_sampled_avg_norm = np.average(moments_sampled, axis=1) / moments_an
+    moments_sampled_std_norm = np.std(moments_sampled, axis=1) \
+                               / np.sqrt(no_sims) / moments_an
+    
+    m_min = masses_sampled.min()
+    m_max = masses_sampled.max()
+    
+    R_min = radii_sampled.min()
+    R_max = radii_sampled.max()
+    
+    bins_mass = np.load(ensemble_dir + "bins_mass.npy")
+    bins_rad = np.load(ensemble_dir + "bins_rad.npy")
+    bin_factor = 10**(1.0/kappa)
+    
+    ### build log bins "intuitively" = "auto"
+    if bin_mode == 1:
+        bin_factor_auto = (m_max/m_min)**(1.0/no_bins)
+        # bin_log_dist = np.log(bin_factor)
+        # bin_log_dist_half = 0.5 * bin_log_dist
+        # add dummy bins for overflow
+        # bins_mass = np.zeros(no_bins+3,dtype=np.float64)
+        bins_mass_auto = np.zeros(no_bins+1,dtype=np.float64)
+        bins_mass_auto[0] = m_min
+        # bins_mass[0] = m_min / bin_factor
+        for bin_n in range(1,no_bins+1):
+            bins_mass_auto[bin_n] = bins_mass_auto[bin_n-1] * bin_factor_auto
+        # the factor 1.01 is for numerical stability: to be sure
+        # that m_max does not contribute to a bin larger than the
+        # last bin
+        bins_mass_auto[-1] *= 1.0001
+        # the factor 0.99 is for numerical stability: to be sure
+        # that m_min does not contribute to a bin smaller than the
+        # 0-th bin
+        bins_mass_auto[0] *= 0.9999
+        # m_0 = m_min / np.sqrt(bin_factor)
+        # bins_mass_log = np.log(bins_mass)
+
+        bins_rad_auto = mp.compute_radius_from_mass_vec(bins_mass_auto*1.0E18,
+                                                        mass_density)
+
+    ###################################################
+    ### histogram generation for given bins
+    f_m_counts = np.histogram(masses_sampled,bins_mass)[0]
+    f_m_ind = np.nonzero(f_m_counts)[0]
+    f_m_ind = np.arange(f_m_ind[0],f_m_ind[-1]+1)
+    
+    no_SIPs_avg = f_m_counts.sum()/no_sims
+
+    bins_mass_ind = np.append(f_m_ind, f_m_ind[-1]+1)
+    
+    bins_mass = bins_mass[bins_mass_ind]
+    
+    bins_rad = bins_rad[bins_mass_ind]
+    bins_rad_log = np.log(bins_rad)
+    bins_mass_width = (bins_mass[1:]-bins_mass[:-1])
+    bins_rad_width = (bins_rad[1:]-bins_rad[:-1])
+    bins_rad_width_log = (bins_rad_log[1:]-bins_rad_log[:-1])
+    
+    ### approximate the functions f_m, f_lnR = 3*m*f_m, g_lnR=3*m^2*f_m
+    # estimate f_m(m) by binning:
+    # DNC_i = f_m(m_i) * dm_i = droplet number conc in bin i with size dm_i
+    f_m_num_sampled = np.histogram(masses_sampled,bins_mass,
+                                   weights=xis_sampled)[0]
+    g_m_num_sampled = np.histogram(masses_sampled,bins_mass,
+                                   weights=xis_sampled*masses_sampled)[0]
+    
+    f_m_num_sampled = f_m_num_sampled / (bins_mass_width * dV * no_sims)
+    g_m_num_sampled = g_m_num_sampled / (bins_mass_width * dV * no_sims)
+    
+    # build g_ln_r = 3*m*g_m DIRECTLY from data
+    g_ln_r_num_sampled = np.histogram(radii_sampled,
+                                      bins_rad,
+                                      weights=xis_sampled*masses_sampled)[0]
+    g_ln_r_num_sampled = g_ln_r_num_sampled \
+                         / (bins_rad_width_log * dV * no_sims)
+    # g_ln_r_num_derived = 3 * bins_mass_center * g_m_num * 1000.0
+    
+    # define centers on lin scale
+    bins_mass_center_lin = 0.5 * (bins_mass[:-1] + bins_mass[1:])
+    bins_rad_center_lin = 0.5 * (bins_rad[:-1] + bins_rad[1:])
+    
+    # define centers on the logarithmic scale
+    bins_mass_center_log = bins_mass[:-1] * np.sqrt(bin_factor)
+    bins_rad_center_log = bins_rad[:-1] * np.sqrt(bin_factor)
+    # bins_mass_center_log = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
+    # bins_rad_center_log = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
+    
+    # define the center of mass for each bin and set it as the "bin center"
+    bins_mass_center_COM = g_m_num_sampled/f_m_num_sampled
+    bins_rad_center_COM =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_COM*1.0E18,
+                                        mass_density)
+    
+    # set the bin "mass centers" at the right spot such that
+    # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
+    if dist == "expo":
+        m_avg = LWC0_over_DNC0
+    elif dist == "lognormal":
+        m_avg = moments_an[1] / dist_par[0]
         
-        LW_rect = 0.8
+    bins_mass_center_exact = bins_mass[:-1] \
+                             + m_avg * np.log(bins_mass_width\
+          / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
+    bins_rad_center_exact =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_exact*1.0E18,
+                                        mass_density)
+    
+    bins_mass_centers = np.array((bins_mass_center_lin,
+                                  bins_mass_center_log,
+                                  bins_mass_center_COM,
+                                  bins_mass_center_exact))
+    bins_rad_centers = np.array((bins_rad_center_lin,
+                                  bins_rad_center_log,
+                                  bins_rad_center_COM,
+                                  bins_rad_center_exact))
+
+    ###################################################
+    ### histogram generation for auto bins
+    f_m_counts_auto = np.histogram(masses_sampled,bins_mass_auto)[0]
+    f_m_ind_auto = np.nonzero(f_m_counts_auto)[0]
+    f_m_ind_auto = np.arange(f_m_ind_auto[0],f_m_ind_auto[-1]+1)
+    
+#    no_SIPs_avg_auto = f_m_counts_auto.sum()/no_sims
+
+    bins_mass_ind_auto = np.append(f_m_ind_auto, f_m_ind_auto[-1]+1)
+    
+    bins_mass_auto = bins_mass_auto[bins_mass_ind_auto]
+    
+    bins_rad_auto = bins_rad_auto[bins_mass_ind_auto]
+    bins_rad_log_auto = np.log(bins_rad_auto)
+    bins_mass_width_auto = (bins_mass_auto[1:]-bins_mass_auto[:-1])
+#    bins_rad_width_auto = (bins_rad_auto[1:]-bins_rad_auto[:-1])
+    bins_rad_width_log_auto = (bins_rad_log_auto[1:]-bins_rad_log_auto[:-1])
+    
+    ### approximate the functions f_m, f_lnR = 3*m*f_m, g_lnR=3*m^2*f_m
+    # estimate f_m(m) by binning:
+    # DNC_i = f_m(m_i) * dm_i = droplet number conc in bin i with size dm_i
+    f_m_num_sampled_auto = np.histogram(masses_sampled,bins_mass_auto,
+                                   weights=xis_sampled)[0]
+    g_m_num_sampled_auto = np.histogram(masses_sampled,bins_mass_auto,
+                                   weights=xis_sampled*masses_sampled)[0]
+    
+    f_m_num_sampled_auto = f_m_num_sampled_auto / (bins_mass_width_auto * dV * no_sims)
+    g_m_num_sampled_auto = g_m_num_sampled_auto / (bins_mass_width_auto * dV * no_sims)
+    
+    # build g_ln_r = 3*m*g_m DIRECTLY from data
+    g_ln_r_num_sampled_auto = np.histogram(radii_sampled,
+                                      bins_rad_auto,
+                                      weights=xis_sampled*masses_sampled)[0]
+    g_ln_r_num_sampled_auto = g_ln_r_num_sampled_auto \
+                         / (bins_rad_width_log_auto * dV * no_sims)
+    # g_ln_r_num_derived = 3 * bins_mass_center * g_m_num * 1000.0
+    
+    # define centers on lin scale
+    bins_mass_center_lin_auto = 0.5 * (bins_mass_auto[:-1] + bins_mass_auto[1:])
+    bins_rad_center_lin_auto = 0.5 * (bins_rad_auto[:-1] + bins_rad_auto[1:])
+    
+    # define centers on the logarithmic scale
+    bins_mass_center_log_auto = bins_mass_auto[:-1] * np.sqrt(bin_factor)
+    bins_rad_center_log_auto = bins_rad_auto[:-1] * np.sqrt(bin_factor)
+    # bins_mass_center_log = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
+    # bins_rad_center_log = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
+    
+    # define the center of mass for each bin and set it as the "bin center"
+    bins_mass_center_COM_auto = g_m_num_sampled_auto/f_m_num_sampled_auto
+    bins_rad_center_COM_auto =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_COM_auto*1.0E18,
+                                        mass_density)
+    
+    # set the bin "mass centers" at the right spot such that
+    # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
+    if dist == "expo":
+        m_avg = LWC0_over_DNC0
+    elif dist == "lognormal":
+        m_avg = moments_an[1] / dist_par[0]
         
-        for tg_cell_n in range(no_tg_cells):
-            x = (target_cell_list[0, tg_cell_n] - no_neigh_x - 0.1) * dx
-            z = (target_cell_list[1, tg_cell_n] - no_neigh_z - 0.1) * dz
-            
-            rect = plt.Rectangle((x, z), dx*no_cells_x,dz*no_cells_z, fill=False,
-                                 linewidth = LW_rect,
-                                 edgecolor='k',
-                                 zorder = 99)        
-            ax.add_patch(rect)
+    bins_mass_center_exact_auto = bins_mass_auto[:-1] \
+                             + m_avg * np.log(bins_mass_width_auto\
+          / (m_avg * (1-np.exp(-bins_mass_width_auto/m_avg))))
+    bins_rad_center_exact_auto =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_exact_auto*1.0E18,
+                                        mass_density)
+    
+    bins_mass_centers_auto = np.array((bins_mass_center_lin_auto,
+                                  bins_mass_center_log_auto,
+                                  bins_mass_center_COM_auto,
+                                  bins_mass_center_exact_auto))
+    bins_rad_centers_auto = np.array((bins_rad_center_lin_auto,
+                                  bins_rad_center_log_auto,
+                                  bins_rad_center_COM_auto,
+                                  bins_rad_center_exact_auto))
+
+    ###################################################
+
+
+
+    ###################################################
+    ### STATISTICAL ANALYSIS OVER no_sim runs given bins
+    # get f(m_i) curve for each "run" with same bins for all ensembles
+    f_m_num = []
+    g_m_num = []
+    g_ln_r_num = []
+    
+    for i,mass in enumerate(masses):
+        f_m_num.append(np.histogram(mass,bins_mass,weights=xis[i])[0] \
+                   / (bins_mass_width * dV))
+        g_m_num.append(np.histogram(mass,bins_mass,
+                                       weights=xis[i]*mass)[0] \
+                   / (bins_mass_width * dV))
+    
+        # build g_ln_r = 3*m*g_m DIRECTLY from data
+        g_ln_r_num.append(np.histogram(radii[i],
+                                          bins_rad,
+                                          weights=xis[i]*mass)[0] \
+                     / (bins_rad_width_log * dV))
+    
+    f_m_num = np.array(f_m_num)
+    g_m_num = np.array(g_m_num)
+    g_ln_r_num = np.array(g_ln_r_num)
+    
+    f_m_num_avg = np.average(f_m_num, axis=0)
+    f_m_num_std = np.std(f_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_m_num_avg = np.average(g_m_num, axis=0)
+    g_m_num_std = np.std(g_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_ln_r_num_avg = np.average(g_ln_r_num, axis=0)
+    g_ln_r_num_std = np.std(g_ln_r_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    
+    ###################################################
+    ### STATISTICAL ANALYSIS OVER no_sim runs AUTO BINS
+    # get f(m_i) curve for each "run" with same bins for all ensembles
+    f_m_num_auto = []
+    g_m_num_auto = []
+    g_ln_r_num_auto = []
+    
+    for i,mass in enumerate(masses):
+        f_m_num_auto.append(np.histogram(mass,bins_mass_auto,weights=xis[i])[0] \
+                   / (bins_mass_width_auto * dV))
+        g_m_num_auto.append(np.histogram(mass,bins_mass_auto,
+                                       weights=xis[i]*mass)[0] \
+                   / (bins_mass_width_auto * dV))
+    
+        # build g_ln_r = 3*m*g_m DIRECTLY from data
+        g_ln_r_num_auto.append(np.histogram(radii[i],
+                                          bins_rad_auto,
+                                          weights=xis[i]*mass)[0] \
+                     / (bins_rad_width_log_auto * dV))
+    
+    f_m_num_auto = np.array(f_m_num_auto)
+    g_m_num_auto = np.array(g_m_num_auto)
+    g_ln_r_num_auto = np.array(g_ln_r_num_auto)
+    
+    f_m_num_avg_auto = np.average(f_m_num_auto, axis=0)
+    f_m_num_std_auto = np.std(f_m_num_auto, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_m_num_avg_auto = np.average(g_m_num_auto, axis=0)
+    g_m_num_std_auto = np.std(g_m_num_auto, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_ln_r_num_avg_auto = np.average(g_ln_r_num_auto, axis=0)
+    g_ln_r_num_std_auto = np.std(g_ln_r_num_auto, axis=0, ddof=1) / np.sqrt(no_sims)
+
+##############################################################################
+    
+    ### generate f_m, g_m and mass centers with my hist bin method
+    LWC0 = moments_an[1]
+    f_m_num_avg_my_ext, f_m_num_std_my_ext, g_m_num_avg_my, g_m_num_std_my, \
+    h_m_num_avg_my, h_m_num_std_my, \
+    bins_mass_my, bins_mass_width_my, \
+    bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa = \
+        generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
+                                         dV, DNC0, LWC0,
+                                         no_bins, no_sims,
+                                         bin_mode, spread_mode,
+                                         shift_factor, overflow_factor,
+                                         scale_factor)
         
-        if trajectory is not None:
-            ax.plot(trajectory[:,0],trajectory[:,1],"o",
-                    markersize = MS, c="k")
+    f_m_num_avg_my = f_m_num_avg_my_ext[1:-1]
+    f_m_num_std_my = f_m_num_std_my_ext[1:-1]
+    
+##############################################################################
+
+    # analytical reference data    
+    m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+    R_ = mp.compute_radius_from_mass_vec(m_*1.0E18, mass_density)
+    f_m_ana_ = conc_per_mass_np(m_, *dist_par)
+    g_m_ana_ = m_ * f_m_ana_
+    g_ln_r_ana_ = 3 * m_ * g_m_ana_ * 1000.0    
+
+    if act_plot_ensembles:
+        plot_ensemble_data(kappa, mass_density, eta, r_critmin,
+            dist, dist_par, no_sims, no_bins,
+            bins_mass, bins_rad, bins_rad_log, 
+            bins_mass_width, bins_rad_width, bins_rad_width_log, 
+            bins_mass_centers, bins_rad_centers,
+            bins_mass_centers_auto, bins_rad_centers_auto,
+            masses, xis, radii, f_m_counts, f_m_ind,
+            f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled, 
+            m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, 
+            f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, 
+            g_ln_r_num_avg, g_ln_r_num_std, 
+            f_m_num_avg_auto, f_m_num_std_auto, g_m_num_avg_auto, g_m_num_std_auto, 
+            g_ln_r_num_avg_auto, g_ln_r_num_std_auto, 
+            m_min, m_max, R_min, R_max, no_SIPs_avg, 
+            moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,
+            moments_an, lin_par,
+            f_m_num_avg_my_ext,
+            f_m_num_avg_my, f_m_num_std_my, g_m_num_avg_my, g_m_num_std_my, 
+            h_m_num_avg_my, h_m_num_std_my, 
+            bins_mass_my, bins_mass_width_my, 
+            bins_mass_centers_my, bins_mass_center_lin_my,
+            ensemble_dir)
         
-        ax.tick_params(axis='both', which='major', labelsize=TKFS)
-        ax.grid(color='gray', linestyle='dashed', zorder = 2)
-        ax.set_title(r"$r_l$ (g/kg), t = {} min".format(-120 + save_times_out[0]//60))
-        ax.set_xlabel(r'x (m)', fontsize = LFS)
-        ax.set_ylabel(r'z (m)', fontsize = LFS)  
-        ax.set_xlim((0,1500))
-        ax.set_ylim((0,1500))
-        ax.set_aspect('equal')
-        if fig_path_tg_cells is not None:
-            fig2.savefig(fig_path_tg_cells,
-                        bbox_inches = 'tight',
-                        pad_inches = 0.04
-                        )   
-        
-        
-        
-        
+### LEAVE THIS: MAY NEED TO RETURN FOR OTHER APPLICATIONS
+#    return masses, xis, radii, \
+#           m_min, m_max, R_min, R_max, no_SIPs_avg, \
+#           m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
+#           bins_mass, bins_rad, bins_rad_log, \
+#           bins_mass_width, bins_rad_width, bins_rad_width_log, \
+#           bins_mass_centers, bins_rad_centers, \
+#           f_m_counts, f_m_ind,\
+#           f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled,\
+#           f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, \
+#           g_ln_r_num_avg, g_ln_r_num_std, \
+#           bins_mass_auto, bins_rad_auto, bins_rad_log_auto, \
+#           bins_mass_width_auto, bins_rad_width_auto, bins_rad_width_log_auto, \
+#           bins_mass_centers_auto, bins_rad_centers_auto, \
+#           f_m_counts_auto, f_m_ind_auto,\
+#           f_m_num_sampled_auto, g_m_num_sampled_auto, g_ln_r_num_sampled_auto,\
+#           f_m_num_avg_auto, f_m_num_std_auto, g_m_num_avg_auto, g_m_num_std_auto, \
+#           g_ln_r_num_avg_auto, g_ln_r_num_std_auto, \
+#           moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
+#           moments_an, \
+#           f_m_num_avg_my_ext, \
+#           f_m_num_avg_my, f_m_num_std_my, \
+#           g_m_num_avg_my, g_m_num_std_my, \
+#           h_m_num_avg_my, h_m_num_std_my, \
+#           bins_mass_my, bins_mass_width_my, \
+#           bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa
+

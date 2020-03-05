@@ -325,9 +325,6 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
                 w_s_init = w_s_act        
     return w_s_init
 
-
-
-
 #%% CONDENSATION MASS RATE (= "gamma")
     
 # Size corrections Fukuta (both in mu!)
@@ -553,7 +550,7 @@ compute_mass_rate_and_derivative_AS =\
 #                                                   mass_solute_,
 #                                                   mass_density_particle_,
 #                                                   surface_tension_):
-#    return   compute_water_activity_NaCl_vH_mf(mass_fraction_solute_, vant_Hoff_) \
+#    return compute_water_activity_NaCl_vH_mf(mass_fraction_solute_,vant_Hoff_)\
 #           * compute_kelvin_term_mf(mass_fraction_solute_,
 #                                    temperature_,
 #                                    mass_solute_,
@@ -585,17 +582,18 @@ compute_mass_rate_and_derivative_AS =\
 #                                             temperature_),
 #               mat.compute_surface_tension_water(temperature_))
 #
-#def compute_equilibrium_saturation_minus_S_amb_NaCl_vH_mf(mass_fraction_solute_,
-#                                           temperature_,
-#                                           mass_solute_, ambient_saturation_):
-#    return -ambient_saturation_ + compute_equilibrium_saturation_NaCl_from_vH_mf(
-#               mass_fraction_solute_,
-#               temperature_,
-#               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
-#               mass_solute_,
-#               mat.compute_density_NaCl_solution(mass_fraction_solute_,
+#def compute_equilibrium_saturation_minus_S_amb_NaCl_vH_mf(
+#        mass_fraction_solute_, temperature_,
+#        mass_solute_, ambient_saturation_):
+#    return -ambient_saturation_\
+#           + compute_equilibrium_saturation_NaCl_from_vH_mf(
+#                 mass_fraction_solute_,
+#                 temperature_,
+#                 mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
+#                 mass_solute_,
+#                 mat.compute_density_NaCl_solution(mass_fraction_solute_,
 #                                                 temperature_),
-#               mat.compute_surface_tension_water(temperature_))
+#                 mat.compute_surface_tension_water(temperature_))
 ## input:
 ## m_s
 ## S_amb
@@ -675,7 +673,7 @@ compute_mass_rate_and_derivative_AS =\
 #    S_eq = compute_equilibrium_saturation_NaCl_vH (m_w, m_s, w_s, R_p,
 #                                          T_p, rho_p, sigma_w)
 #    return 4.0E6 * np.pi * R_p * R_p * (S_amb - S_eq)\
-#           / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K, D_v)
+#           / compute_gamma_denom(R_p, S_eq, T_amb, p_amb, e_s_amb, L_v, K,D_v)
 
 #def compute_mass_rate_derivative_NaCl_vH_np(
 #        m_w, m_s, w_s, R_p, T_p, rho_p, T_amb, p_amb, S_amb, e_s_amb,
@@ -689,7 +687,8 @@ compute_mass_rate_and_derivative_AS =\
 #       
 #    m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
 #    drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
-#                       * (par_sol_dens_NaCl[1] + 2.0 * par_sol_dens_NaCl[3] * w_s\
+#                       * (par_sol_dens_NaCl[1]
+#                          + 2.0 * par_sol_dens_NaCl[3] * w_s\
 #                          + par_sol_dens_NaCl[4] * T_p )
 #
 #    dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
@@ -739,7 +738,8 @@ compute_mass_rate_and_derivative_AS =\
 #    m_p_inv_SI = 1.0E18 / (m_w + m_s) # in 1/kg
 #    # dont use piecewise for now to avoid discontinuity in density...
 #    drho_dm_over_rho = -w_s * m_p_inv_SI / rho_p\
-#                       * (par_sol_dens_NaCl[1] + 2.0 * par_sol_dens_NaCl[3] * w_s\
+#                       * (par_sol_dens_NaCl[1]
+#                          + 2.0 * par_sol_dens_NaCl[3] * w_s\
 #                          + par_sol_dens_NaCl[4] * T_p )
 #
 #    dR_p_dm_over_R_p = c.one_third * ( m_p_inv_SI - drho_dm_over_rho)
@@ -759,7 +759,7 @@ compute_mass_rate_and_derivative_AS =\
 #                - (1 - mat.molar_mass_ratio_w_NaCl * dvH_dws * w_s * w_s)\
 #                  * h1_inv * 1.0E18)
 #    
-#    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb )
+#    c1 = L_v * L_v / (c.specific_gas_constant_water_vapor * K * T_amb * T_amb)
 #    c2 = c.specific_gas_constant_water_vapor * T_amb / (D_v * e_s_amb)
 #    # in SI : m^2 s / kg
 #    f3 = 1.0 / ( (l_alpha_plus_R_p) * S_eq * c1 + (l_beta_plus_R_p) * c2 ) 

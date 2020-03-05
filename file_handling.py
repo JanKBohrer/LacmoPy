@@ -7,14 +7,15 @@ Super-Droplet method in two-dimensional kinetic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-module for file handling, storage and loading of data to/from hard disc
+module for file handling, writing and reading of data to/from hard disc
 """
 
 #%% MODULE IMPORTS
 import pickle
 import numpy as np
-from grid import Grid
 from datetime import datetime
+
+from grid import Grid
 
 #%% GENERAL WRITE FUNCTIONS
 def save_object(obj, filename):
@@ -22,8 +23,8 @@ def save_object(obj, filename):
         pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
 
 def save_sim_paras_to_file(sim_paras, sim_par_names, t, path):
-    sim_para_file = path + "sim_paras_t_" + str(int(t)) + ".txt"
-    with open(sim_para_file, "w") as f:
+    sim_para_file = path + 'sim_paras_t_' + str(int(t)) + '.txt'
+    with open(sim_para_file, 'w') as f:
         f.write( sim_par_names + '\n' )
         for item in sim_paras:
             if type(item) is list or type(item) is np.ndarray:
@@ -44,24 +45,24 @@ def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
     np.save(active_ids_filename, active_ids)
 
 def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):
-    filename_pt_vec = path + "particle_vector_data_" + str(int(t)) + ".npy"
-    filename_pt_scal = path + "particle_scalar_data_" + str(int(t)) + ".npy"
-    filename_pt_xi = path + "particle_xi_data_" + str(int(t)) + ".npy"
-    filename_grid = path + "grid_T_rv_" + str(int(t)) + ".npy"
+    filename_pt_vec = path + 'particle_vector_data_' + str(int(t)) + '.npy'
+    filename_pt_scal = path + 'particle_scalar_data_' + str(int(t)) + '.npy'
+    filename_pt_xi = path + 'particle_xi_data_' + str(int(t)) + '.npy'
+    filename_grid = path + 'grid_T_rv_' + str(int(t)) + '.npy'
     np.save(filename_pt_vec, (pos, vel) )
     np.save(filename_pt_scal, (m_w, m_s) )
     np.save(filename_pt_xi, xi )
     np.save(filename_grid, (T_grid, rv_grid) )
-    print("particle data saved at t =", t)
+    print('particle data saved at t =', t)
 
 def load_particle_data(path, save_times):
     vec_data = []
     scal_data = []
     xi_data = []
     for t in save_times:
-        filename_pt_vec = path + "particle_vector_data_" + str(int(t)) + ".npy"
-        filename_pt_scal = path + "particle_scalar_data_" + str(int(t)) + ".npy"
-        filename_pt_xi = path + "particle_xi_data_" + str(int(t)) + ".npy"
+        filename_pt_vec = path + 'particle_vector_data_' + str(int(t)) + '.npy'
+        filename_pt_scal = path + 'particle_scalar_data_' + str(int(t)) +'.npy'
+        filename_pt_xi = path + 'particle_xi_data_' + str(int(t)) + '.npy'
         vec = np.load(filename_pt_vec)
         scal = np.load(filename_pt_scal)
         xi = np.load(filename_pt_xi)
@@ -74,19 +75,19 @@ def load_particle_data(path, save_times):
     return vec_data, scal_data, xi_data
     
 def dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, path):
-    filename_pt_vec = path + "particle_vector_data_all_" + str(int(t)) + ".npy"
-    filename_pt_cells = path + "particle_cells_data_all_" + str(int(t)) + ".npy"
-    filename_pt_scal = path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
-    filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
+    filename_pt_vec = path + 'particle_vector_data_all_' + str(int(t)) + '.npy'
+    filename_pt_cells = path + 'particle_cells_data_all_' + str(int(t)) +'.npy'
+    filename_pt_scal = path + 'particle_scalar_data_all_' + str(int(t)) +'.npy'
+    filename_pt_xi = path + 'particle_xi_data_all_' + str(int(t)) + '.npy'
     filename_pt_act_ids = path + \
-        "particle_active_ids_data_all_" + str(int(t)) + ".npy"
+        'particle_active_ids_data_all_' + str(int(t)) + '.npy'
     np.save(filename_pt_vec, (pos, vel) )
     np.save(filename_pt_cells, cells)
     np.save(filename_pt_scal, (m_w, m_s) )
     np.save(filename_pt_xi, xi )
     np.save(filename_pt_act_ids, active_ids )
     
-    print("all particle data saved at t =", t)
+    print('all particle data saved at t =', t)
 
 def load_particle_data_all(path, save_times):
     vec_data = []
@@ -96,14 +97,14 @@ def load_particle_data_all(path, save_times):
     active_ids_data = []
     for t in save_times:
         filename_pt_vec =\
-            path + "particle_vector_data_all_" + str(int(t)) + ".npy"
+            path + 'particle_vector_data_all_' + str(int(t)) + '.npy'
         filename_pt_cells =\
-            path + "particle_cells_data_all_" + str(int(t)) + ".npy"                    
+            path + 'particle_cells_data_all_' + str(int(t)) + '.npy'                    
         filename_pt_scal =\
-            path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
-        filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
+            path + 'particle_scalar_data_all_' + str(int(t)) + '.npy'
+        filename_pt_xi = path + 'particle_xi_data_all_' + str(int(t)) + '.npy'
         filename_pt_act_ids = path + \
-            "particle_active_ids_data_all_" + str(int(t)) + ".npy"        
+            'particle_active_ids_data_all_' + str(int(t)) + '.npy'        
         vec = np.load(filename_pt_vec)
         cells = np.load(filename_pt_cells)
         scal = np.load(filename_pt_scal)
@@ -128,18 +129,18 @@ def dump_particle_tracer_data_block(time_block,
                                     traced_water,
                                     path):
     t = int(time_block[0])
-    filename_pt_vec = path + "particle_vector_data_" + str(t) + ".npy"
-    filename_pt_scal = path + "particle_scalar_data_" + str(t) + ".npy"
-    filename_pt_xi = path + "particle_xi_data_" + str(t) + ".npy"
-    filename_water_rem = path + "water_removed_" + str(t) + ".npy"
-    filename_time_block = path + "particle_time_block_" + str(t) + ".npy"
+    filename_pt_vec = path + 'particle_vector_data_' + str(t) + '.npy'
+    filename_pt_scal = path + 'particle_scalar_data_' + str(t) + '.npy'
+    filename_pt_xi = path + 'particle_xi_data_' + str(t) + '.npy'
+    filename_water_rem = path + 'water_removed_' + str(t) + '.npy'
+    filename_time_block = path + 'particle_time_block_' + str(t) + '.npy'
     np.save(filename_pt_vec, traced_vectors )
     np.save(filename_pt_scal, traced_scalars )
     np.save(filename_pt_xi, traced_xi )
     np.save(filename_water_rem, traced_water )
     np.save(filename_time_block, time_block )
-    print("particle data block saved at times = ", time_block)
-    print("water removed:", traced_water)
+    print('particle data block saved at times = ', time_block)
+    print('water removed:', traced_water)
     
 def load_particle_data_from_blocks(path, grid_save_times,
                                    pt_dumps_per_grid_frame):
@@ -147,9 +148,9 @@ def load_particle_data_from_blocks(path, grid_save_times,
     scal_data = []
     xi_data = []
     for t in grid_save_times:
-        filename_pt_vec = path + "particle_vector_data_" + str(int(t)) + ".npy"
-        filename_pt_scal = path + "particle_scalar_data_" + str(int(t)) + ".npy"
-        filename_pt_xi = path + "particle_xi_data_" + str(int(t)) + ".npy"
+        filename_pt_vec = path + 'particle_vector_data_' + str(int(t)) + '.npy'
+        filename_pt_scal = path + 'particle_scalar_data_' + str(int(t)) +'.npy'
+        filename_pt_xi = path + 'particle_xi_data_' + str(int(t)) + '.npy'
         vec = np.load(filename_pt_vec)
         scal = np.load(filename_pt_scal)
         xi = np.load(filename_pt_xi)
@@ -162,47 +163,25 @@ def load_particle_data_from_blocks(path, grid_save_times,
             vec_data.append(vec)
             scal_data.append(scal)
             xi_data.append(xi)
-        else: print("vec.shape is not as expected")
+        else: print('vec.shape is not as expected')
     
     vec_data = np.array(vec_data)
     scal_data = np.array(scal_data)
     xi_data = np.array(xi_data)
     return vec_data, scal_data, xi_data
 
-#def load_particle_data_all_old(path, save_times):
-#    vec_data = []
-#    scal_data = []
-#    xi_data = []
-#    for t in save_times:
-#        filename_pt_vec =\
-#            path + "particle_vector_data_all_" + str(int(t)) + ".npy"
-#        filename_pt_scal =\
-#            path + "particle_scalar_data_all_" + str(int(t)) + ".npy"
-#        filename_pt_xi = path + "particle_xi_data_all_" + str(int(t)) + ".npy"
-#        vec = np.load(filename_pt_vec)
-#        scal = np.load(filename_pt_scal)
-#        xi = np.load(filename_pt_xi)
-#        
-#        vec_data.append(vec)
-#        scal_data.append(scal)
-#        xi_data.append(xi)
-#        
-#    vec_data = np.array(vec_data)
-#    scal_data = np.array(scal_data)
-#    xi_data = np.array(xi_data)
-#    return vec_data, scal_data, xi_data 
-
 #%% SAVE AND LOAD GRID DATA (ATMOSPHERIC VARIABLES)
 
 def save_grid_basics_to_textfile(grid_, t_, filename):
-    with open(filename, "w") as f:
+    with open(filename, 'w') as f:
         f.write(f'\
 {grid_.ranges[0][0]} {grid_.ranges[0][1]} \
 {grid_.ranges[1][0]} {grid_.ranges[1][1]} \
 {grid_.steps[0]} {grid_.steps[1]} {grid_.step_y} {t_}')
         
 def save_grid_arrays_to_npy_file(grid, filename1, filename2):
-    arr1 = np.array([grid.pressure, grid.temperature, grid.mass_density_air_dry,
+    arr1 = np.array([grid.pressure, grid.temperature,
+                     grid.mass_density_air_dry,
                      grid.mixing_ratio_water_vapor,
                      grid.mixing_ratio_water_liquid,
                      grid.saturation_pressure, grid.saturation,
@@ -221,7 +200,7 @@ def save_grid_arrays_to_npy_file(grid, filename1, filename2):
 # 4 = p
 # 5 = S
 def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
-    filename = path + "grid_scalar_fields_t_" + str(int(t)) + ".npy"
+    filename = path + 'grid_scalar_fields_t_' + str(int(t)) + '.npy'
     np.save(filename,
             (grid_scalar_fields[4],
              grid_scalar_fields[5],
@@ -229,13 +208,13 @@ def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
              grid_scalar_fields[0],
              grid_scalar_fields[1],
              grid_scalar_fields[6]) )
-    print("grid fields saved at t =", t,
-          ", sim time:", datetime.now()-start_time)
+    print('grid fields saved at t =', t,
+          ', sim time:', datetime.now()-start_time)
 
 def load_grid_scalar_fields(path, save_times):
     fields = []
     for t_ in save_times:
-        filename = path + "grid_scalar_fields_t_" + str(int(t_)) + ".npy"
+        filename = path + 'grid_scalar_fields_t_' + str(int(t_)) + '.npy'
         fields_ = np.load(filename)
         fields.append(fields_)
     fields = np.array(fields)
@@ -283,19 +262,19 @@ def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
             m_w[ID] * xi[ID]
     grid.mixing_ratio_water_liquid *= 1.0E-18 * grid.mass_dry_inv
 
-    grid_file_list = ["grid_basics_" + str(int(t)) + ".txt",
-                      "arr_file1_" + str(int(t)) + ".npy",
-                      "arr_file2_" + str(int(t)) + ".npy"]
+    grid_file_list = ['grid_basics_' + str(int(t)) + '.txt',
+                      'arr_file1_' + str(int(t)) + '.npy',
+                      'arr_file2_' + str(int(t)) + '.npy']
     grid_file_list = [path + s for s in grid_file_list  ]
-    vector_filename = "particle_vectors_" + str(int(t)) + ".npy"
+    vector_filename = 'particle_vectors_' + str(int(t)) + '.npy'
     vector_filename = path + vector_filename
-    cells_filename = "particle_cells_" + str(int(t)) + ".npy"
+    cells_filename = 'particle_cells_' + str(int(t)) + '.npy'
     cells_filename = path + cells_filename
-    scalar_filename = "particle_scalars_" + str(int(t)) + ".npy"
+    scalar_filename = 'particle_scalars_' + str(int(t)) + '.npy'
     scalar_filename = path + scalar_filename    
-    xi_filename = "multiplicity_" + str(int(t)) + ".npy"
+    xi_filename = 'multiplicity_' + str(int(t)) + '.npy'
     xi_filename = path + xi_filename    
-    active_ids_file = "active_ids_" + str(int(t)) + ".npy"
+    active_ids_file = 'active_ids_' + str(int(t)) + '.npy'
     active_ids_file = path + active_ids_file
     save_grid_to_files(grid, t, *grid_file_list)
     
@@ -306,19 +285,19 @@ def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                             active_ids_file)
     
 def load_grid_and_particles_full(t, path):
-    grid_file_list = ["grid_basics_" + str(int(t)) + ".txt",
-                      "arr_file1_" + str(int(t)) + ".npy",
-                      "arr_file2_" + str(int(t)) + ".npy"]
+    grid_file_list = ['grid_basics_' + str(int(t)) + '.txt',
+                      'arr_file1_' + str(int(t)) + '.npy',
+                      'arr_file2_' + str(int(t)) + '.npy']
     grid_file_list = [path + s for s in grid_file_list  ]
-    vector_filename = "particle_vectors_" + str(int(t)) + ".npy"
+    vector_filename = 'particle_vectors_' + str(int(t)) + '.npy'
     vector_filename = path + vector_filename
-    scalar_filename = "particle_scalars_" + str(int(t)) + ".npy"
+    scalar_filename = 'particle_scalars_' + str(int(t)) + '.npy'
     scalar_filename = path + scalar_filename
-    cells_filename = "particle_cells_" + str(int(t)) + ".npy"
+    cells_filename = 'particle_cells_' + str(int(t)) + '.npy'
     cells_filename = path + cells_filename  
-    xi_filename = "multiplicity_" + str(int(t)) + ".npy"
+    xi_filename = 'multiplicity_' + str(int(t)) + '.npy'
     xi_filename = path + xi_filename    
-    active_ids_file = "active_ids_" + str(int(t)) + ".npy"
+    active_ids_file = 'active_ids_' + str(int(t)) + '.npy'
     active_ids_file = path + active_ids_file
     grid = load_grid_from_files(*grid_file_list)
     vectors = np.load(vector_filename)
@@ -334,17 +313,17 @@ def load_grid_and_particles_full(t, path):
 
 #%% For parameter input file
 def load_kernel_data(kernel_method, save_dir_Ecol_grid, E_col_const):
-    if kernel_method == "Ecol_grid_R":
+    if kernel_method == 'Ecol_grid_R':
         radius_grid = \
-            np.load(save_dir_Ecol_grid + "radius_grid_out.npy")
+            np.load(save_dir_Ecol_grid + 'radius_grid_out.npy')
         E_col_grid = \
-            np.load(save_dir_Ecol_grid + "E_col_grid.npy" )        
+            np.load(save_dir_Ecol_grid + 'E_col_grid.npy' )        
         R_kernel_low = radius_grid[0]
         bin_factor_R = radius_grid[1] / radius_grid[0]
         R_kernel_low_log = np.log(R_kernel_low)
         bin_factor_R_log = np.log(bin_factor_R)
         no_kernel_bins = len(radius_grid)
-    elif kernel_method == "Ecol_const":
+    elif kernel_method == 'Ecol_const':
         E_col_grid = E_col_const
         radius_grid = None
         R_kernel_low = None

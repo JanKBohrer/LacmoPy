@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jul 25 16:25:13 2019
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinetic framework
+(Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
 
-@author: jdesk
+all-or-nothing collision algorithm
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
-#%% IMPORTS
+#%% MODULE IMPORTS
 import math
 import numpy as np
 from numba import njit
-#import kernel
-from collision.kernel import compute_kernel_Long_Bott_m, compute_kernel_hydro, \
-                   compute_E_col_Long_Bott, compute_kernel_Golovin
-from microphysics import compute_radius_from_mass
-from microphysics import compute_radius_from_mass_vec
-from microphysics import compute_R_p_w_s_rho_p_AS
-from microphysics import compute_R_p_w_s_rho_p_NaCl
+
+from collision.kernel import compute_kernel_Long_Bott_m, \
+                             compute_kernel_hydro, \
+                             compute_kernel_Golovin
+import microphysics as mp
 
 #%% HELP FUNCTIONS
 # x is e.g. mass or radius
@@ -46,7 +53,6 @@ def collision_step_Long_Bott_m_np(xis, masses, mass_density, dt_over_dV,
     # print(rnd[0])
     cnt = 0
     for i in range(0,no_SIPs-1):
-#        ind_kernel_i = ind_kernel[i]
         for j in range(i+1, no_SIPs):
             if xis[i] <= xis[j]:
                 ind_min = i
@@ -162,8 +168,6 @@ def collision_step_Golovin_np(xis, masses, dt_over_dV,
             cnt += 1
 collision_step_Golovin = njit()(collision_step_Golovin_np)
 
-
-
 # x is an array of masses or radii
 @njit()
 def create_kernel_index_array(x, no_SIPs, x_kernel_low_log,
@@ -174,8 +178,6 @@ def create_kernel_index_array(x, no_SIPs, x_kernel_low_log,
             compute_kernel_index(x[i], x_kernel_low_log,
                                  bin_factor_x_log, no_kernel_bins)
     return ind_kernel
-
-
 
 # given the kernel grid for masses
 def collision_step_Long_Bott_kernel_grid_m_np(
@@ -293,7 +295,7 @@ def collision_step_Ecol_grid_R_np(
                 masses[ind_min] = (xi_min*m_min + xi_col*m_max) / xi_min
                 # mass changed: update radius
                 radii[ind_min] =\
-                    compute_radius_from_mass(masses[ind_min],
+                    mp.compute_radius_from_mass(masses[ind_min],
                                                  mass_densities[ind_min])
                 xis[ind_max] -= xi_col
                 # rad of ind_min changed -> update kernel index:
@@ -313,7 +315,7 @@ def collision_step_Ecol_grid_R_np(
                                       / xi_ges
                     masses[ind_max] = masses[ind_min]
                     radii[ind_min] =\
-                        compute_radius_from_mass(masses[ind_min],
+                        mp.compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     radii[ind_max] = radii[ind_min]
                     xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -327,7 +329,7 @@ def collision_step_Ecol_grid_R_np(
                 else:
                     masses[ind_min] += m_max
                     radii[ind_min] =\
-                        compute_radius_from_mass(masses[ind_min],
+                        mp.compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     xis[ind_max] -= xi_min
                     # rad of ind_min changed -> update kernel index:
@@ -337,96 +339,6 @@ def collision_step_Ecol_grid_R_np(
             cnt += 1
 collision_step_Ecol_grid_R = \
     njit()(collision_step_Ecol_grid_R_np)
-
-### ORKING VERSION -> SHOULD WORK FOR ANY GIVEN E_coll_grid!!
-## given E_col grid for radii
-## given velocities "vel"
-## updates masses AND radii
-## assume mass densities constant (but varying for diff SIPs) during coll step
-#def collision_step_Long_Bott_Ecol_grid_R_np(
-#        xis, masses, radii, vel, mass_densities,
-#        dt_over_dV, E_col_grid, no_kernel_bins,
-#        R_kernel_low_log, bin_factor_R_log, no_cols ):
-#    no_SIPs = xis.shape[0]
-#
-#    rnd = np.random.rand( (no_SIPs*(no_SIPs-1))//2 )
-#    
-#    ind_kernel = create_kernel_index_array(
-#                     radii, no_SIPs,
-#                     R_kernel_low_log, bin_factor_R_log, no_kernel_bins)
-#    
-#    # check each i-j combination for a possible collection event
-#    cnt = 0
-#    for i in range(0, no_SIPs-1):
-#        for j in range(i+1, no_SIPs):
-#            if xis[i] <= xis[j]:
-#                ind_min = i
-#                ind_max = j
-#            else:
-#                ind_min = j
-#                ind_max = i
-#            xi_min = xis[ind_min] # = nu_i in Unt
-#            xi_max = xis[ind_max] # = nu_j in Unt
-#            m_min = masses[ind_min] # = mu_i in Unt, not necc. the smaller mass
-#            m_max = masses[ind_max] # = mu_j in Unt, not necc. the larger mass
-#            
-#            p_crit = xi_max * dt_over_dV \
-#                     * compute_kernel_hydro(
-#                           radii[i], radii[j],
-#                           E_col_grid[ind_kernel[i], ind_kernel[j]],
-#                           abs(vel[i]-vel[j]))
-#
-#
-#            if p_crit > 1.0:
-#                # multiple collection
-#                xi_col = p_crit * xi_min
-#                masses[ind_min] = (xi_min*m_min + xi_col*m_max) / xi_min
-#                # mass changed: update radius
-#                radii[ind_min] =\
-#                    compute_radius_from_mass(masses[ind_min],
-#                                                 mass_densities[ind_min])
-#                xis[ind_max] -= xi_col
-#                # rad of ind_min changed -> update kernel index:
-#                ind_kernel[ind_min] = \
-#                    compute_kernel_index(radii[ind_min], R_kernel_low_log,
-#                                         bin_factor_R_log, no_kernel_bins)
-#                no_cols[1] += 1
-#            elif p_crit > rnd[cnt]:
-#                no_cols[0] += 1
-#                xi_rel_dev = (xi_max-xi_min)/xi_max
-#                if xi_rel_dev < 1.0E-5:
-#                    print("xi_i approx xi_j, xi_rel_dev =",
-#                          xi_rel_dev,
-#                          " in collision")
-#                    xi_ges = xi_min + xi_max
-#                    masses[ind_min] = 2.0 * ( xi_min*m_min + xi_max*m_max ) \
-#                                      / xi_ges
-#                    masses[ind_max] = masses[ind_min]
-#                    radii[ind_min] =\
-#                        compute_radius_from_mass(masses[ind_min],
-#                                                     mass_densities[ind_min])
-#                    radii[ind_max] = radii[ind_min]
-#                    xis[ind_max] = 0.5 * 0.7 * xi_ges
-#                    xis[ind_min] = 0.5 * xi_ges - xis[ind_max]
-#                    # radius of ind_min AND ind_max changed to same radii
-#                    # -> update kernel ind:
-#                    ind_kernel[ind_min] = \
-#                        compute_kernel_index(radii[ind_min], R_kernel_low_log,
-#                                             bin_factor_R_log, no_kernel_bins)
-#                    ind_kernel[ind_max] = ind_kernel[ind_min]
-#                else:
-#                    masses[ind_min] += m_max
-#                    radii[ind_min] =\
-#                        compute_radius_from_mass(masses[ind_min],
-#                                                     mass_densities[ind_min])
-#                    xis[ind_max] -= xi_min
-#                    # rad of ind_min changed -> update kernel index:
-#                    ind_kernel[ind_min] = \
-#                        compute_kernel_index(radii[ind_min], R_kernel_low_log,
-#                                             bin_factor_R_log, no_kernel_bins)
-#            cnt += 1
-#collision_step_Long_Bott_Ecol_grid_R = \
-#    njit()(collision_step_Long_Bott_Ecol_grid_R_np)
 
 # given E_col grid for radii
 # given velocities "vel"
@@ -476,7 +388,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
                 
                 # mass changed: update radius
                 radii[ind_min] =\
-                    compute_radius_from_mass(masses[ind_min],
+                    mp.compute_radius_from_mass(masses[ind_min],
                                                  mass_densities[ind_min])
                 xis[ind_max] -= xi_col
                 # rad of ind_min changed -> update kernel index:
@@ -496,7 +408,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
                                       / xi_ges
                     masses[ind_max] = masses[ind_min]
                     radii[ind_min] =\
-                        compute_radius_from_mass(masses[ind_min],
+                        mp.compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     radii[ind_max] = radii[ind_min]
                     xis[ind_max] = 0.5 * 0.7 * xi_ges
@@ -510,7 +422,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_np(
                 else:
                     masses[ind_min] += m_max
                     radii[ind_min] =\
-                        compute_radius_from_mass(masses[ind_min],
+                        mp.compute_radius_from_mass(masses[ind_min],
                                                      mass_densities[ind_min])
                     xis[ind_max] -= xi_min
                     # rad of ind_min changed -> update kernel index:
@@ -572,7 +484,7 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
                 # mass changed: update radius
                 # IMPORTANT: need to but (m_w + m_s) in paranthesis for jit
                 radii[ind_min] =\
-                    compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
+                    mp.compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                  mass_densities[ind_min])
 #                radii[ind_min] =\
 #                    compute_radius_from_mass(m_w[ind_min] + m_s[ind_min],
@@ -598,8 +510,9 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
                     m_w[ind_max] = m_w[ind_min]
                     m_s[ind_max] = m_s[ind_min]
                     radii[ind_min] =\
-                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
-                                                     mass_densities[ind_min])
+                        mp.compute_radius_from_mass(
+                                (m_w[ind_min] + m_s[ind_min]),
+                                 mass_densities[ind_min])
 #                    radii[ind_min] =\
 #                        compute_radius_from_mass(m_w[ind_min]+m_s[ind_min],
 #                                                     mass_densities[ind_min])
@@ -616,8 +529,9 @@ def collision_step_Long_Bott_Ecol_grid_R_2D_multicomp_np(
                     m_w[ind_min] += m_w_max
                     m_s[ind_min] += m_s_max
                     radii[ind_min] =\
-                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
-                                                     mass_densities[ind_min])
+                        mp.compute_radius_from_mass(
+                                (m_w[ind_min] + m_s[ind_min]),
+                                mass_densities[ind_min])
 #                    radii[ind_min] =\
 #                        compute_radius_from_mass(m_w[ind_min]+m_w[ind_min],
 #                                                     mass_densities[ind_min])
@@ -681,7 +595,7 @@ def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
                 # mass changed: update radius
                 # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
                 radii[ind_min] =\
-                    compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
+                    mp.compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
                                                  mass_densities[ind_min])
 #                radii[ind_min] =\
 #                    compute_radius_from_mass(m_w[ind_min] + m_s[ind_min],
@@ -708,8 +622,9 @@ def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
                     m_s[ind_max] = m_s[ind_min]
                     # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
                     radii[ind_min] =\
-                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
-                                                     mass_densities[ind_min])
+                        mp.compute_radius_from_mass(
+                                (m_w[ind_min] + m_s[ind_min]),
+                                mass_densities[ind_min])
 #                    radii[ind_min] =\
 #                        compute_radius_from_mass(m_w[ind_min]+m_s[ind_min],
 #                                                     mass_densities[ind_min])
@@ -727,8 +642,9 @@ def collision_step_Long_Bott_Ecol_const_2D_multicomp_np(
                     m_s[ind_min] += m_s_max
                     # IMPORTANT: need to put (m_w + m_s) in paranthesis for jit
                     radii[ind_min] =\
-                        compute_radius_from_mass((m_w[ind_min] + m_s[ind_min]),
-                                                     mass_densities[ind_min])
+                        mp.compute_radius_from_mass(
+                                (m_w[ind_min] + m_s[ind_min]),
+                                mass_densities[ind_min])
 #                    radii[ind_min] =\
 #                        compute_radius_from_mass(m_w[ind_min]+m_w[ind_min],
 #                                                     mass_densities[ind_min])
@@ -862,8 +778,7 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_np(
             masses = m_w[mask_ij]
 #            mass_densities = np.ones_like(masses) * mass_density
             rho_p = mass_densities[mask_ij]
-            radii = compute_radius_from_mass_vec(masses,
-                                                 rho_p)
+            radii = mp.compute_radius_from_mass_vec(masses, rho_p)
             vels = vel[:,mask_ij]
             
             
@@ -997,10 +912,10 @@ def collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
             
             if solute_type == "AS":
                 R_p_cell, w_s_cell, rho_p_cell =\
-                    compute_R_p_w_s_rho_p_AS(m_w_cell, m_s_cell, T_p_cell)
+                    mp.compute_R_p_w_s_rho_p_AS(m_w_cell, m_s_cell, T_p_cell)
             elif solute_type == "NaCl":
                 R_p_cell, w_s_cell, rho_p_cell =\
-                    compute_R_p_w_s_rho_p_NaCl(m_w_cell, m_s_cell, T_p_cell)
+                    mp.compute_R_p_w_s_rho_p_NaCl(m_w_cell, m_s_cell, T_p_cell)
             
 #            radii = compute_radius_from_mass_vec(m_w_cell+m_s_cell,
 #                                                 mass_densities[mask_ij])

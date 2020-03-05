@@ -68,10 +68,9 @@ def compute_potential_temperature_dry( temperature_, pressure_,
     return temperature_ * ( pressure_reference_ / pressure_ )\
                         **( kappa_air_dry )
 
-def compute_temperature_from_potential_temperature_moist(potential_temperature_, 
-                                                         pressure_, 
-                                                         pressure_reference_, 
-                                                         mixing_ratio_vapor_ ):
+def compute_temperature_from_potential_temperature_moist(
+        potential_temperature_, pressure_, 
+        pressure_reference_, mixing_ratio_vapor_ ):
     return potential_temperature_ * \
            ( pressure_ / pressure_reference_ )\
            **( compute_kappa_air_moist(mixing_ratio_vapor_) )
@@ -82,17 +81,17 @@ def compute_temperature_from_potential_temperature_dry( potential_temperature_,
     return potential_temperature_ * \
             ( pressure_ / pressure_reference_ )**( kappa_air_dry )
 
-@vectorize("float64(float64, float64, float64)") 
+@vectorize('float64(float64, float64, float64)') 
 def compute_pressure_ideal_gas( mass_density_, temperature_, 
                                 specific_gas_constant_ ):
     return mass_density_ * temperature_ * specific_gas_constant_ 
 
-@vectorize("float64(float64, float64)") 
+@vectorize('float64(float64, float64)') 
 def compute_pressure_vapor( density_vapor_, temperature_ ):
     return compute_pressure_ideal_gas( density_vapor_,
                                       temperature_,
                                       c.specific_gas_constant_water_vapor )
-@vectorize("float64(float64, float64)") 
+@vectorize('float64(float64, float64)') 
 def compute_density_air_dry(temperature_, pressure_):
     return pressure_ / ( c.specific_gas_constant_air_dry * temperature_ )
 
@@ -109,7 +108,7 @@ def compute_p_dry_over_p_ref(grid_mass_density_air_dry,
              * c.specific_gas_constant_air_dry * p_ref_inv )**kappa_factor
 
 # Theta/T from Theta and rho_dry 
-# NOTE THAT "kappa factor 2" is negative
+# NOTE THAT 'kappa factor 2' is negative
 # grid.p_ref_inv needs to be right (default is p_ref = 1.0E5)
 @njit()
 def compute_Theta_over_T(grid_mass_density_air_dry, grid_potential_temperature,

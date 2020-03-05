@@ -20,10 +20,11 @@ all other quantities in SI units
 import sys
 
 ### CUSTOM MODULES
-from file_handling import load_grid_and_particles_full
-from integration import simulate
 from init import set_config
 from init import initialize_grid_and_particles_SinSIP
+from integration import simulate
+from file_handling import load_grid_and_particles_full
+
 from config import config
 
 # overwrite generation seed and simulation seed, if given by arguments
@@ -40,7 +41,7 @@ if config['generate_grid']:
     # set stdout file, if requested
     set_config(config, config_mode)
     if config['set_std_out_file']:
-        sys.stdout = open( config['paths']['grid'] + "std_out.log", 'a')
+        sys.stdout = open( config['paths']['grid'] + 'std_out.log', 'a')
     
     grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids =\
         initialize_grid_and_particles_SinSIP(config)
@@ -56,9 +57,9 @@ if config['execute_spin_up']:
     
     # set stdout file, if requested
     if config['set_std_out_file']:
-        sys.stdout = open( config['paths']['output'] + "std_out.log", 'a')
+        sys.stdout = open( config['paths']['output'] + 'std_out.log', 'a')
     if len(sys.argv) > 1:
-        print("seed_SIP_gen set via argument =", config['seed_SIP_gen'])        
+        print('seed_SIP_gen set via argument =', config['seed_SIP_gen'])        
     
     grid, pos, cells, vel, m_w, m_s, xi, active_ids = \
         load_grid_and_particles_full(config['t_start'],
@@ -80,11 +81,11 @@ if config['execute_simulation']:
     
     # set stdout file, if requested
     if config['set_std_out_file']:
-        sys.stdout = open( config['paths']['output'] + "std_out.log", 'a')
+        sys.stdout = open( config['paths']['output'] + 'std_out.log', 'a')
     if len(sys.argv) > 1:
-        print("seed_SIP_gen set via argument =", config['seed_SIP_gen'])
+        print('seed_SIP_gen set via argument =', config['seed_SIP_gen'])
     if len(sys.argv) > 2:
-        print("seed_sim set via argument=", config['seed_sim'])
+        print('seed_sim set via argument=', config['seed_sim'])
         
     grid, pos, cells, vel, m_w, m_s, xi, active_ids = \
         load_grid_and_particles_full(config['t_start'],
