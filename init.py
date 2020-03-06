@@ -32,7 +32,7 @@ import materialproperties as mat
 import atmosphere as atm
 import microphysics as mp
 import distributions as dist
-from generate_SIP_ensemble_dst import \
+from generation_SIP_ensemble import \
     gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
 
 from file_handling import save_grid_and_particles_full

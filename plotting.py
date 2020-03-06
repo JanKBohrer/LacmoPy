@@ -25,6 +25,10 @@ import matplotlib.ticker as mticker
 from matplotlib.colors import hex2color, LinearSegmentedColormap
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
+from microphysics import compute_radius_from_mass_vec
+from distributions import conc_per_mass_expo_np
+from distributions import conc_per_mass_lognormal_np
+
 #%% BASIC FUNCTIONS
 
 def cm2inch(*tupl):

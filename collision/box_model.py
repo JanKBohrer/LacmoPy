@@ -12,7 +12,7 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from microphysics import compute_radius_from_mass_jit
+from microphysics import compute_radius_from_mass
 from microphysics import compute_radius_from_mass_vec
 
 #from .kernel import update_velocity_Beard
@@ -195,8 +195,8 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims, start_seed, no_bins, load
         m_max = masses_sampled.max()
         
         # convert to microns
-        R_min = compute_radius_from_mass_jit(1E18*m_min, mass_density)
-        R_max = compute_radius_from_mass_jit(1E18*m_max, mass_density)
+        R_min = compute_radius_from_mass(1E18*m_min, mass_density)
+        R_max = compute_radius_from_mass(1E18*m_max, mass_density)
 
         xi_min = xis_sampled.min()
         xi_max = xis_sampled.max()

@@ -40,8 +40,6 @@ from generation_SIP_ensemble import \
 import collision.box_model as boxm
 import collision.kernel as ker
 
-from file_handling import load_kernel_data
-
 #%% SET PARAMETERS 
 
 simdata_path = '/Users/bohrer/sim_data_box_mod_test/'
@@ -54,12 +52,10 @@ set_log_file = True
 # i = 0: generate SIP ensembles
 # i = 1: analyze SIP ensembles
 # i = 2: plot SIP ensemble data (requires analyze to be active)
-# i = 3: generate discretized collection efficiency E_c(R_1,R_2) from raw data
-# i = 3: generate discretized collection kernel K(m_1,m_2) from raw data
-#args_gen = [1,1,1,0,0]
-#args_gen = [0,0,0,0,0]
-#args_gen = [0,0,0,1,0]
-args_gen = [0,0,0,0,1]
+# i = 3: generate discretized collection kernel K(R_1,R_2) from raw data
+# i = 4: generate discretized collection efficiency E_c(R_1,R_2) from raw data
+args_gen = [1,1,1,0,0]
+args_gen = [0,0,0,0,0]
 
 # SET options for simulation
 # args_sim[i] is either 1 or 0 (activated or not activated)
@@ -67,7 +63,7 @@ args_gen = [0,0,0,0,1]
 # i = 1: activate data analysis
 # i = 2: activate plotting of data (requires analysis)
 # i = 3: activate plotting of moments for several kappa (requires analysis)
-args_sim = [0,0,0,0]
+args_sim = [1,0,0,0]
 
 ###############################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
@@ -90,7 +86,7 @@ seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 kernel_name = 'Long_Bott'
 #kernel_name = 'Hall_Bott'
 
-# kernel grid
+# kernel_grid_m
 kernel_method = 'Ecol_grid_R'
 #kernel_method = 'analytic'
 
@@ -164,11 +160,10 @@ shift_factor = 0.5
 ###############################################################################
 ### SET PARAMETERS FOR KERNEL/ECOL-GRID GENERATION AND LOADING
 
-# min/max radius in micro meter
-R_low_kernel, R_high_kernel, no_bins_10_kernel = 0.6, 6E3, 200
-#R_low_kernel, R_high_kernel, no_bins_10_kernel = 1E-2, 301., 100
+#R_low_kernel, R_high_kernel, no_bins_10_kernel = 0.6, 6E3, 200
+R_low_kernel, R_high_kernel, no_bins_10_kernel = 1E-2, 301., 100
 
-save_dir_kernel_grid = simdata_path + f'{dist}/kernel_grid_data/{kernel_name}/'
+save_dir_kernel_grid = simdata_path + f'{dist}/kernel_grid_data/'
 save_dir_Ecol_grid = simdata_path + f'{dist}/Ecol_grid_data/{kernel_name}/'
 
 ###############################################################################
@@ -177,8 +172,8 @@ save_dir_Ecol_grid = simdata_path + f'{dist}/Ecol_grid_data/{kernel_name}/'
 act_gen_SIP = bool(args_gen[0])
 act_analyze_ensembles = bool(args_gen[1])
 act_plot_ensembles = bool(args_gen[2])
-act_gen_Ecol_grid = bool(args_gen[3])
-act_gen_kernel_grid = bool(args_gen[4])
+act_gen_kernel_grid = bool(args_gen[3])
+act_gen_Ecol_grid = bool(args_gen[4])
 
 act_sim = bool(args_sim[0])
 act_analysis = bool(args_sim[1])
@@ -225,17 +220,7 @@ result_path_add =\
 f'{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 /results/{kernel_name}/{kernel_method}/'
 
-#%% E_COL GRID GENERATION (DISCRETIZATION)
-if act_gen_Ecol_grid:
-    if not os.path.exists(save_dir_Ecol_grid):
-        os.makedirs(save_dir_Ecol_grid)        
-    E_col__, Rg_ = ker.generate_and_save_E_col_grid_R(
-              R_low_kernel, R_high_kernel, no_bins_10_kernel, kernel_name,
-              save_dir_Ecol_grid)
-    print(f'generated Ecol grid,',
-          f'R_low = {R_low_kernel}, R_high = {R_high_kernel}',
-          f'number of bins = {len(Rg_)}')
-
+#%% KERNEL/ECOL GRID GENERATION
 if act_gen_kernel_grid:
     if not os.path.exists(save_dir_kernel_grid):
         os.makedirs(save_dir_kernel_grid)        
@@ -245,6 +230,16 @@ if act_gen_kernel_grid:
     print(f'generated kernel grid,',
           f'R_low = {R_low_kernel}, R_high = {R_high_kernel}',
           f'number of bins = {len(mg_)}')
+
+if act_gen_Ecol_grid:
+    if not os.path.exists(save_dir_Ecol_grid):
+        os.makedirs(save_dir_Ecol_grid)        
+    E_col__, Rg_ = ker.generate_and_save_E_col_grid_R(
+              R_low_kernel, R_high_kernel, no_bins_10_kernel, kernel_name,
+              save_dir_Ecol_grid)
+    print(f'generated Ecol grid,',
+          f'R_low = {R_low_kernel}, R_high = {R_high_kernel}',
+          f'number of bins = {len(Rg_)}')
 
 #%% SIP ENSEMBLE GENERATION
 if act_gen_SIP:
@@ -343,29 +338,22 @@ if act_sim:
         no_kernel_bins = len(mass_grid)
     
     if kernel_method == 'Ecol_grid_R':
-#        if kernel_name == 'Hall_Bott':
-#            radius_grid = \
-#                np.load(save_dir_Ecol_grid + 'Hall_Bott_R_col_Unt.npy')
-#            E_col_grid = \
-#                np.load(save_dir_Ecol_grid + 'Hall_Bott_E_col_Unt.npy' )        
-#        else:
-#            radius_grid = \
-#                np.load(save_dir_Ecol_grid + 'radius_grid_out.npy')
-#            E_col_grid = \
-#                np.load(save_dir_Ecol_grid + 'E_col_grid.npy' )        
-#        R_kernel_low = radius_grid[0]
-#        bin_factor_R = radius_grid[1] / radius_grid[0]
-#        R_kernel_low_log = math.log(R_kernel_low)
-#        bin_factor_R_log = math.log(bin_factor_R)
-#        no_kernel_bins = len(radius_grid)
+        if kernel_name == 'Hall_Bott':
+            radius_grid = \
+                np.load(save_dir_Ecol_grid + 'Hall_Bott_R_col_Unt.npy')
+            E_col_grid = \
+                np.load(save_dir_Ecol_grid + 'Hall_Bott_E_col_Unt.npy' )        
+        else:
+            radius_grid = \
+                np.load(save_dir_Ecol_grid + 'radius_grid_out.npy')
+            E_col_grid = \
+                np.load(save_dir_Ecol_grid + 'E_col_grid.npy' )        
+        R_kernel_low = radius_grid[0]
+        bin_factor_R = radius_grid[1] / radius_grid[0]
+        R_kernel_low_log = math.log(R_kernel_low)
+        bin_factor_R_log = math.log(bin_factor_R)
+        no_kernel_bins = len(radius_grid)
     
-        E_col_grid, radius_grid, \
-        R_kernel_low, bin_factor_R, \
-        R_kernel_low_log, bin_factor_R_log, \
-        no_kernel_bins =\
-            load_kernel_data(kernel_method,
-                             save_dir_Ecol_grid)
-        
 ### SIMULATIONS
     for kappa in kappa_list:
         no_cols = np.array((0,0))

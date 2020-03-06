@@ -272,6 +272,7 @@ def compute_E_col_Long_Bott(R_i, R_j):
                 * ( 1.0 - 3.0 / ( max(3.0, R_min) + 1.0E-2) )
     else: return 1.0    
     
+### Not in use anymore.     
 ### Kernel "Hall" used by Unterstrasser 2017, he got it from Bott bin-code
 # NOTE that there are differences in the Effi table:        
 # For R_collec <= 30 mu: major differences: Botts Effis are LARGER
@@ -283,50 +284,50 @@ def compute_E_col_Long_Bott(R_i, R_j):
 # in Hall_E_col:
 # row =  collector drop radius (radius of larger drop)
 # column = ratio of R_small/R_large "collector ratio"  
-Hall_Bott_E_col = np.load("collision/kernel_data/Hall/Hall_Bott_collision_efficiency.npy")
-Hall_Bott_R_col = np.load("collision/kernel_data/Hall/Hall_Bott_collector_radius.npy")
-Hall_Bott_R_col_ratio = np.load("collision/kernel_data/Hall/Hall_Bott_radius_ratio.npy")        
-@njit()
-def compute_E_col_Hall_Bott(R_i, R_j):
-    dR_ipol = 2.0
-    dratio = 0.05
-    # if R_i <= 0.0 or R_j <= 0.0:
-    #     return 0.0
-    if R_i < R_j:
-        R_col = R_j
-        if R_col <= 0.0:
-            return Hall_Bott_E_col[0,0]
-        else:
-            R_ratio = R_i/R_j
-        # R_ratio = R_i/R_j
-    else:
-        R_col = R_i
-        if R_col <= 0.0:
-            return Hall_Bott_E_col[0,0]
-        else:
-            R_ratio = R_j/R_i
-        # R_ratio = R_j/R_i
-    ind_ratio = min(int(R_ratio/dratio), Hall_Bott_R_col_ratio.shape[0]-1)
-    # ind_R is index of R_collection,
-    # which indicates the row of Hall_Bott_E_col 
-    ind_R = min(int(R_col/dR_ipol), Hall_Bott_R_col.shape[0]-1)
-    
-    if ind_R == Hall_Bott_R_col.shape[0]-1:
-        if ind_ratio == Hall_Bott_R_col_ratio.shape[0]-1:
-            return 4.0
-        else:
-            weight = (R_ratio - ind_ratio * dratio) / dratio
-            return linear_weight(ind_ratio, weight, Hall_Bott_E_col[ind_R])
-    elif ind_ratio == Hall_Bott_R_col_ratio.shape[0]-1:
-        weight = (R_col - ind_R * dR_ipol) / dR_ipol
-        return linear_weight(ind_R, weight, Hall_Bott_E_col[:,ind_ratio])
-    else:
-        weight_1 = (R_col - ind_R * dR_ipol) / dR_ipol
-        weight_2 = (R_ratio - ind_ratio * dratio) / dratio
-#        print(R_col, R_ratio)
-#        print(ind_R, ind_ratio, weight_1, weight_2)
-        return bilinear_weight(ind_R, ind_ratio,
-                               weight_1, weight_2, Hall_Bott_E_col)
+#Hall_Bott_E_col = np.load("collision/kernel_data/Hall/Hall_Bott_collision_efficiency.npy")
+#Hall_Bott_R_col = np.load("collision/kernel_data/Hall/Hall_Bott_collector_radius.npy")
+#Hall_Bott_R_col_ratio = np.load("collision/kernel_data/Hall/Hall_Bott_radius_ratio.npy")        
+#@njit()
+#def compute_E_col_Hall_Bott(R_i, R_j):
+#    dR_ipol = 2.0
+#    dratio = 0.05
+#    # if R_i <= 0.0 or R_j <= 0.0:
+#    #     return 0.0
+#    if R_i < R_j:
+#        R_col = R_j
+#        if R_col <= 0.0:
+#            return Hall_Bott_E_col[0,0]
+#        else:
+#            R_ratio = R_i/R_j
+#        # R_ratio = R_i/R_j
+#    else:
+#        R_col = R_i
+#        if R_col <= 0.0:
+#            return Hall_Bott_E_col[0,0]
+#        else:
+#            R_ratio = R_j/R_i
+#        # R_ratio = R_j/R_i
+#    ind_ratio = min(int(R_ratio/dratio), Hall_Bott_R_col_ratio.shape[0]-1)
+#    # ind_R is index of R_collection,
+#    # which indicates the row of Hall_Bott_E_col 
+#    ind_R = min(int(R_col/dR_ipol), Hall_Bott_R_col.shape[0]-1)
+#    
+#    if ind_R == Hall_Bott_R_col.shape[0]-1:
+#        if ind_ratio == Hall_Bott_R_col_ratio.shape[0]-1:
+#            return 4.0
+#        else:
+#            weight = (R_ratio - ind_ratio * dratio) / dratio
+#            return linear_weight(ind_ratio, weight, Hall_Bott_E_col[ind_R])
+#    elif ind_ratio == Hall_Bott_R_col_ratio.shape[0]-1:
+#        weight = (R_col - ind_R * dR_ipol) / dR_ipol
+#        return linear_weight(ind_R, weight, Hall_Bott_E_col[:,ind_ratio])
+#    else:
+#        weight_1 = (R_col - ind_R * dR_ipol) / dR_ipol
+#        weight_2 = (R_ratio - ind_ratio * dratio) / dratio
+##        print(R_col, R_ratio)
+##        print(ind_R, ind_ratio, weight_1, weight_2)
+#        return bilinear_weight(ind_R, ind_ratio,
+#                               weight_1, weight_2, Hall_Bott_E_col)
 
 #%% COLLECTION KERNELS
 ## IN:
@@ -365,6 +366,104 @@ def compute_kernel_Golovin(m_i, m_j):
     
 #%% GENERATION (DISCRETIZATION) OF KERNEL AND EFFICIENCY GRIDS
     
+@njit()
+def interpol_bilin(i,j,p,q,f):
+    return (1.-p)*(1.-q)*f[i,j] + (1.-p)*q*f[i,j+1]\
+           + p*(1.-q)*f[i+1,j] + p*q*f[i+1,j+1]
+
+# a typo was corrected for one single entry of the original E_col table of Bott
+Hall_Bott_E_col_raw_corr =\
+    np.load("collision/kernel_data/Hall/Hall_Bott_E_col_table_raw_corr.npy")
+Hall_Bott_R_col_raw =\
+    np.load("collision/kernel_data/Hall/Hall_Bott_R_col_table_raw.npy")
+Hall_Bott_R_ratio_raw =\
+    np.load("collision/kernel_data/Hall/Hall_Bott_R_ratio_table_raw.npy") 
+# R_low must be > 0 !
+def generate_E_col_grid_R_Hall_Bott_np(R_low, R_high, no_bins_10,
+                                            radius_grid_in=None):
+    
+    no_R_table = Hall_Bott_R_col_raw.shape[0]
+    no_rat_table = Hall_Bott_R_ratio_raw.shape[0]
+    
+    if radius_grid_in is None:
+        bin_factor = 10**(1.0/no_bins_10)
+        no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
+        radius_grid = np.zeros( no_bins, dtype = np.float64 )
+        
+        radius_grid[0] = R_low
+        for bin_n in range(1,no_bins):
+            radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor   
+    else:
+        radius_grid = radius_grid_in
+        no_bins = radius_grid_in.shape[0]
+    
+    Ecol_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
+    
+    # R = larger radius
+    # r = smaller radius
+    for ind_R_out, R_col in enumerate(radius_grid):
+        # get index of coll. radius lower boundary (floor)
+        if R_col <= Hall_Bott_R_col_raw[0]:
+            ind_R_table = -1
+        elif R_col > Hall_Bott_R_col_raw[-1]:
+            ind_R_table = no_R_table - 1 # = 14
+        else:
+            for ind_R_table_ in range(0,no_R_table-1):
+                # we want drops larger 300 mu to have Ecol=1
+                # thus drops with R = 300 mu (exact) go to another category
+                if (Hall_Bott_R_col_raw[ind_R_table_] < R_col) \
+                   and (R_col <= Hall_Bott_R_col_raw[ind_R_table_+1]):
+                    ind_R_table = ind_R_table_
+                    break
+        for ind_r_out in range(ind_R_out+1):
+            ratio = radius_grid[ind_r_out] / R_col
+            # get index of radius ratio lower boundary (floor)
+            # index of ratio should be at least one smaller
+            # than the max. possible index. The case ratio = 1 is also covered
+            # by the bilinear interpolation
+            if ratio >= 1.0: ind_ratio = no_rat_table-2
+            else:
+                for ind_ratio_ in range(no_rat_table-1):
+                    if (Hall_Bott_R_ratio_raw[ind_ratio_] <= ratio) \
+                       and (ratio < Hall_Bott_R_ratio_raw[ind_ratio_+1]):
+                        ind_ratio = ind_ratio_
+                        break
+            # bilinear interpolation:
+            # linear interpol in ratio, if R >= R_max
+            if ind_R_table == no_R_table - 1:
+                q = ( ratio - Hall_Bott_R_ratio_raw[ind_ratio] ) \
+                    / ( Hall_Bott_R_ratio_raw[ind_ratio+1] 
+                        - Hall_Bott_R_ratio_raw[ind_ratio] )
+                E_col = (1.-q) * Hall_Bott_E_col_raw_corr[ind_R_table,ind_ratio]\
+                        + q * Hall_Bott_E_col_raw_corr[ind_R_table,ind_ratio+1]
+                if E_col <= 1.0:
+                    Ecol_grid[ind_R_out, ind_r_out] = E_col
+                else:    
+                    Ecol_grid[ind_R_out, ind_r_out] = 1.0
+#                Ecol_grid[ind_R_out, ind_r_out] = min(E_col, 1.0)
+            elif ind_R_table == -1:
+                q = ( ratio - Hall_Bott_R_ratio_raw[ind_ratio] ) \
+                    / ( Hall_Bott_R_ratio_raw[ind_ratio+1] 
+                        - Hall_Bott_R_ratio_raw[ind_ratio] )
+                Ecol_grid[ind_R_out, ind_r_out] =\
+                        (1.-q) * Hall_Bott_E_col_raw_corr[0,ind_ratio]\
+                        + q * Hall_Bott_E_col_raw_corr[0,ind_ratio+1] 
+            else:
+                p = ( R_col - Hall_Bott_R_col_raw[ind_R_table] ) \
+                    / ( Hall_Bott_R_col_raw[ind_R_table+1] 
+                        - Hall_Bott_R_col_raw[ind_R_table] )                
+                q = ( ratio - Hall_Bott_R_ratio_raw[ind_ratio] ) \
+                    / ( Hall_Bott_R_ratio_raw[ind_ratio+1] 
+                        - Hall_Bott_R_ratio_raw[ind_ratio] )                
+                Ecol_grid[ind_R_out, ind_r_out] = \
+                    interpol_bilin(ind_R_table, ind_ratio, p, q,
+                                   Hall_Bott_E_col_raw_corr)
+            Ecol_grid[ind_r_out, ind_R_out] =\
+                Ecol_grid[ind_R_out, ind_r_out]
+    return Ecol_grid, radius_grid
+generate_E_col_grid_R_Hall_Bott = \
+    njit()(generate_E_col_grid_R_Hall_Bott_np)
+
 # R_low, R_high in mu = 1E-6 m
 # no_bins_10: number of bins per radius decade
 # mass_density in kg/m^3
@@ -409,106 +508,64 @@ def generate_kernel_grid_Long_Bott_np(R_low, R_high, no_bins_10,
             kernel_grid[i,j] = kernel_grid[j,i]
 
     c_radius_to_mass = 4.0E-18 * math.pi * mass_density / 3.0
-#    c_mass_to_radius = 1.0 / c_radius_to_mass
     mass_grid = c_radius_to_mass * radius_grid**3
 
     return kernel_grid, vel_grid, mass_grid, radius_grid
 generate_kernel_grid_Long_Bott = njit()(generate_kernel_grid_Long_Bott_np)
 
-@njit()
-def interpol_bilin(i,j,p,q,f):
-    return (1.-p)*(1.-q)*f[i,j] + (1.-p)*q*f[i,j+1]\
-           + p*(1.-q)*f[i+1,j] + p*q*f[i+1,j+1]
-
-Hall_Bott_E_col_raw_corr = np.load("collision/kernel_data/Hall/Hall_Bott_E_col_table_raw_corr.npy")
-#Hall_Bott_E_col_raw_corr = np.load("collision/kernel_data/Hall/Hall_Bott_E_col_table_raw.npy")
-Hall_Bott_R_col_raw = np.load("collision/kernel_data/Hall/Hall_Bott_R_col_table_raw.npy")
-Hall_Bott_R_ratio_raw = np.load("collision/kernel_data/Hall/Hall_Bott_R_ratio_table_raw.npy") 
-# R_low must be > 0 !
-def generate_E_col_grid_R_Hall_Bott_corr_np(R_low, R_high, no_bins_10,
-                                            radius_grid_in=None):
+### IN WORK
+# R_low, R_high in mu = 1E-6 m
+# no_bins_10: number of bins per radius decade
+# mass_density in kg/m^3
+# R_low and R_high are both included in the radius_grid range interval
+# but R_high itself might NOT be a value of the radius_grid
+# (which is def by no_bins_10 and R_low)
+def generate_kernel_grid_Hall_Bott_np(R_low, R_high, no_bins_10,
+                                      mass_density):
     
-    no_R_table = Hall_Bott_R_col_raw.shape[0]
-    no_rat_table = Hall_Bott_R_ratio_raw.shape[0]
+    bin_factor = 10**(1.0/no_bins_10)
     
-    if radius_grid_in is None:
-        bin_factor = 10**(1.0/no_bins_10)
-        no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
-        radius_grid = np.zeros( no_bins, dtype = np.float64 )
-        
-        radius_grid[0] = R_low
-        for bin_n in range(1,no_bins):
-            radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor   
-    else:
-        radius_grid = radius_grid_in
-        no_bins = radius_grid_in.shape[0]
+    no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
+    
+    radius_grid = np.zeros( no_bins, dtype = np.float64 )
+    radius_grid[0] = R_low
+    for bin_n in range(1,no_bins):
+        radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor
+    
+    # generate velocity grid first at pos. of radius_grid
+    
+    vel_grid = compute_terminal_velocity_Beard_vec(radius_grid)
+    
+#    vel_grid = np.zeros( no_bins, dtype = np.float64 )
+#    for i in range(no_bins):
+#        vel_grid[i] = compute_terminal_velocity_Beard(radius_grid[i])
     
     kernel_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
     
-    # R = larger radius
-    # r = smaller radius
-    for ind_R_out, R_col in enumerate(radius_grid):
-        # get index of coll. radius lower boundary (floor)
-        if R_col <= Hall_Bott_R_col_raw[0]:
-            ind_R_table = -1
-        elif R_col > Hall_Bott_R_col_raw[-1]:
-            ind_R_table = no_R_table - 1 # = 14
-        else:
-            for ind_R_table_ in range(0,no_R_table-1):
-                # we want drops larger 300 mu to have Ecol=1
-                # thus drops with R = 300 mu (exact) go to another category
-                if (Hall_Bott_R_col_raw[ind_R_table_] < R_col) \
-                   and (R_col <= Hall_Bott_R_col_raw[ind_R_table_+1]):
-                    ind_R_table = ind_R_table_
-                    break
-        for ind_r_out in range(ind_R_out+1):
-            ratio = radius_grid[ind_r_out] / R_col
-            # get index of radius ratio lower boundary (floor)
-            # index of ratio should be at least one smaller
-            # than the max. possible index. The case ratio = 1 is also covered
-            # by the bilinear interpolation
-            if ratio >= 1.0: ind_ratio = no_rat_table-2
-            else:
-                for ind_ratio_ in range(no_rat_table-1):
-                    if (Hall_Bott_R_ratio_raw[ind_ratio_] <= ratio) \
-                       and (ratio < Hall_Bott_R_ratio_raw[ind_ratio_+1]):
-                        ind_ratio = ind_ratio_
-                        break
-            # bilinear interpolation:
-            # linear interpol in ratio, if R >= R_max
-            if ind_R_table == no_R_table - 1:
-                q = ( ratio - Hall_Bott_R_ratio_raw[ind_ratio] ) \
-                    / ( Hall_Bott_R_ratio_raw[ind_ratio+1] 
-                        - Hall_Bott_R_ratio_raw[ind_ratio] )
-                E_col = (1.-q) * Hall_Bott_E_col_raw_corr[ind_R_table,ind_ratio]\
-                        + q * Hall_Bott_E_col_raw_corr[ind_R_table,ind_ratio+1]
-                if E_col <= 1.0:
-                    kernel_grid[ind_R_out, ind_r_out] = E_col
-                else:    
-                    kernel_grid[ind_R_out, ind_r_out] = 1.0
-#                kernel_grid[ind_R_out, ind_r_out] = min(E_col, 1.0)
-            elif ind_R_table == -1:
-                q = ( ratio - Hall_Bott_R_ratio_raw[ind_ratio] ) \
-                    / ( Hall_Bott_R_ratio_raw[ind_ratio+1] 
-                        - Hall_Bott_R_ratio_raw[ind_ratio] )
-                kernel_grid[ind_R_out, ind_r_out] =\
-                        (1.-q) * Hall_Bott_E_col_raw_corr[0,ind_ratio]\
-                        + q * Hall_Bott_E_col_raw_corr[0,ind_ratio+1] 
-            else:
-                p = ( R_col - Hall_Bott_R_col_raw[ind_R_table] ) \
-                    / ( Hall_Bott_R_col_raw[ind_R_table+1] 
-                        - Hall_Bott_R_col_raw[ind_R_table] )                
-                q = ( ratio - Hall_Bott_R_ratio_raw[ind_ratio] ) \
-                    / ( Hall_Bott_R_ratio_raw[ind_ratio+1] 
-                        - Hall_Bott_R_ratio_raw[ind_ratio] )                
-                kernel_grid[ind_R_out, ind_r_out] = \
-                    interpol_bilin(ind_R_table, ind_ratio, p, q,
-                                   Hall_Bott_E_col_raw_corr)
-            kernel_grid[ind_r_out, ind_R_out] =\
-                kernel_grid[ind_R_out, ind_r_out]
-    return kernel_grid, radius_grid
-generate_E_col_grid_R_Hall_Bott_corr = \
-    njit()(generate_E_col_grid_R_Hall_Bott_corr_np)
+    Ecol_grid, _ = generate_E_col_grid_R_Hall_Bott(R_low, R_high, no_bins_10,
+                                                   radius_grid_in=radius_grid)
+    
+    for j in range(1,no_bins):
+        R_j = radius_grid[j]
+        v_j = vel_grid[j]
+        for i in range(j):
+            R_i = radius_grid[i]
+            ### Kernel "Hall" provided by Bott (via Unterstrasser)
+            E_col = Ecol_grid[j,i]            
+            
+            kernel_grid[j,i] = 1.0E-12 * math.pi * (R_i + R_j) * (R_i + R_j) \
+                               * E_col * abs(v_j - vel_grid[i]) 
+            kernel_grid[i,j] = kernel_grid[j,i]
+
+    c_radius_to_mass = 4.0E-18 * math.pi * mass_density / 3.0
+#    c_mass_to_radius = 1.0 / c_radius_to_mass
+    mass_grid = c_radius_to_mass * radius_grid**3
+
+    return kernel_grid, vel_grid, mass_grid, radius_grid
+generate_kernel_grid_Hall_Bott = njit()(generate_kernel_grid_Long_Bott_np)
+
+### IN WORK: generate_and_save_kernel_grid_Hall_Bott
+### ----> generate_and_save_kernel_grid_Hall_Bott
 
 # R_low, R_high in mu = 1E-6 m
 # no_bins_10: number of bins per radius decade
@@ -533,7 +590,7 @@ def generate_E_col_grid_R_np(R_low, R_high, no_bins_10, kernel_name):
     
     if kernel_name == "Hall_Bott":
         E_col_grid, radius_grid = \
-            generate_E_col_grid_R_Hall_Bott_corr(R_low, R_high,
+            generate_E_col_grid_R_Hall_Bott(R_low, R_high,
                                                  no_bins_10, None)
     elif kernel_name == "Long_Bott":
         bin_factor = 10**(1.0/no_bins_10)
@@ -598,42 +655,46 @@ generate_E_col_grid_R = \
 #generate_E_col_grid_R = \
 #    njit()(generate_E_col_grid_R_np)
 
-def generate_E_col_grid_R_from_R_grid_np(radius_grid, kernel_name):
 
-#    bin_factor = 10**(1.0/no_bins_10)
-#    no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
-#    radius_grid = np.zeros( no_bins, dtype = np.float64 )
+
+#def generate_E_col_grid_R_from_R_grid_np(radius_grid, kernel_name):
+#
+##    bin_factor = 10**(1.0/no_bins_10)
+##    no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
+##    radius_grid = np.zeros( no_bins, dtype = np.float64 )
+##    
+##    radius_grid[0] = R_low
+##    for bin_n in range(1,no_bins):
+##        radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor
 #    
-#    radius_grid[0] = R_low
-#    for bin_n in range(1,no_bins):
-#        radius_grid[bin_n] = radius_grid[bin_n-1] * bin_factor
+#    # vel grid ONLY for testing...
+##    vel_grid = np.zeros( no_bins, dtype = np.float64 )
+##    for i in range(no_bins):
+##        vel_grid[i] = kernel.compute_terminal_velocity_Beard(radius_grid[i])
+#    no_bins = len(radius_grid)
+#    
+#    E_col_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
+#    
+#    if kernel_name == "Long_Bott":
+#        for j in range(0,no_bins):
+#            R_j = radius_grid[j]
+#            for i in range(j+1):
+#                E_col_grid[j,i] = compute_E_col_Long_Bott(radius_grid[i], R_j)
+#                E_col_grid[i,j] = E_col_grid[j,i]
+#    elif kernel_name == "Hall_Bott":
+#        for j in range(0,no_bins):
+#            R_j = radius_grid[j]
+#            for i in range(j+1):
+#                E_col_grid[j,i] = compute_E_col_Hall_Bott(radius_grid[i], R_j)
+#                E_col_grid[i,j] = E_col_grid[j,i]
+#    
+#    
+#    return E_col_grid, radius_grid
+##    return E_col_grid, radius_grid, vel_grid
+#generate_E_col_grid_R_from_R_grid = \
+#    njit()(generate_E_col_grid_R_from_R_grid_np)
     
-    # vel grid ONLY for testing...
-#    vel_grid = np.zeros( no_bins, dtype = np.float64 )
-#    for i in range(no_bins):
-#        vel_grid[i] = kernel.compute_terminal_velocity_Beard(radius_grid[i])
-    no_bins = len(radius_grid)
     
-    E_col_grid = np.zeros( (no_bins, no_bins), dtype = np.float64 )
-    
-    if kernel_name == "Long_Bott":
-        for j in range(0,no_bins):
-            R_j = radius_grid[j]
-            for i in range(j+1):
-                E_col_grid[j,i] = compute_E_col_Long_Bott(radius_grid[i], R_j)
-                E_col_grid[i,j] = E_col_grid[j,i]
-    elif kernel_name == "Hall_Bott":
-        for j in range(0,no_bins):
-            R_j = radius_grid[j]
-            for i in range(j+1):
-                E_col_grid[j,i] = compute_E_col_Hall_Bott(radius_grid[i], R_j)
-                E_col_grid[i,j] = E_col_grid[j,i]
-    
-    
-    return E_col_grid, radius_grid
-#    return E_col_grid, radius_grid, vel_grid
-generate_E_col_grid_R_from_R_grid = \
-    njit()(generate_E_col_grid_R_from_R_grid_np)
     
 ### OLD WORKING FOR LONG BOTT ONLY    
 #def generate_E_col_grid_Long_Bott_np(R_low, R_high, no_bins_10):

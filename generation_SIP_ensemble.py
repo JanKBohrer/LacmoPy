@@ -23,7 +23,7 @@ from numba import njit
 from microphysics import compute_mass_from_radius
 from distributions import pdf_expo, pdf_lognormal
 
-#%% 
+#%% GENERATION OF SINGLE SIP ENSEMBLES FOR CERTAIN DISTRIBUTIONS
 
 # generate SIP ensemble from pure PDFs
 # return masses and weights 
@@ -88,11 +88,12 @@ gen_mass_ensemble_weights_SinSIP_expo =\
 
 # generate SIP ensemble from pure PDFs
 # return masses and weights 
-# -> In a second step multiply weights by 
-# total number of real particles in cell "nrpc" to get multiplicities
+# -> In a second step multiply weights by total number of real particles
+# per cell and mode "no_rpcm" to get multiplicities
 # note that the multiplicities are not integers but floats
-# exponential distribution:
-# f = 1/m_avg * exp(-m/m_avg)
+# lognormal distribution for mode 'k':
+# f = \frac{DNC_k}{\sqrt{2 \pi} \, \ln (\sigma_k) m}
+# \exp [ -(\frac{\ln (m / \mu_k)}{\sqrt{2} \, \ln (\sigma_k)} )^2 ]
 def gen_mass_ensemble_weights_SinSIP_lognormal_np(
         mu_m_log, sigma_m_log,
         mass_density,
