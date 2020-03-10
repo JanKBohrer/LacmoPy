@@ -40,8 +40,6 @@ from analysis import sample_masses, sample_radii
 from analysis import sample_masses_per_m_dry , sample_radii_per_m_dry
 from analysis import plot_size_spectra_R_Arabas, generate_size_spectra_R_Arabas
 
-                          
-                          
 colors1 = plt.cm.get_cmap('gist_ncar_r', 256)
 #top = plt.cm.get_cmap('gist_rainbow_r', 256)
 colors2 = plt.cm.get_cmap('rainbow', 256)

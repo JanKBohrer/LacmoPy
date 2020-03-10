@@ -30,6 +30,14 @@ from microphysics import compute_mass_from_radius
 def pdf_expo(x, x_mean_inv):
     return x_mean_inv * np.exp(- x * x_mean_inv)
 
+def compute_moments_expo(n, DNC0, LWC0):
+    if n == 0:
+        return DNC0
+    elif n == 1:
+        return LWC0
+    else:    
+        return math.factorial(n) * DNC0 * (LWC0/DNC0)**n
+
 # log-normal prob.dens.fct. (monomodal) such that int ( f(x) dx ) = 1
 # mu_log is the ln() of the geometric mean "mu" (also "mode") of the dst
 # sigma_log is the ln() of the geometric STD "sigma" of the dst

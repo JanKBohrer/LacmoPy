@@ -372,6 +372,9 @@ def moments_expo(n, DNC0, LWC0):
 # figname is full path
 # time_idx: chosen time indices to plot referring to "save_times"
 #  
+### IN WORK:
+# move to plotting        
+################################################################################
 def plot_g_ln_R_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
                                 DNC0, m_mean,
                                 kernel_name, gen_method, bin_method, time_idx,
@@ -1776,7 +1779,6 @@ if act_sim:
             print(f"kappa {kappa}, sim {cnt}: seed {seed} simulation finished")
 
 #%% DATA ANALYSIS
-### DATA ANALYSIS
 
 if act_analysis:
     print("kappa, time_n, {xi_max/xi_min:.3e}, no_SIPS_avg, R_min, R_max")

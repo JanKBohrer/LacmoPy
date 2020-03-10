@@ -1,9 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jul 25 16:31:53 2019
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in two-dimensional kinematic framework
+(Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
 
-@author: jdesk
+COLLISION BOX MODEL METHODS
+
+for initialization, the "SingleSIP" method is applied, as proposed by
+Unterstrasser 2017, GMD 10: 1521–1548
+
+the all-or-nothing collision algorithm is motivated by 
+Shima et al. 2009, Q. J. R. Meteorol. Soc. 135: 1307–1320 and
+Unterstrasser 2017, GMD 10: 1521–1548
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
 #%% IMPORTS
@@ -15,15 +31,10 @@ import matplotlib.pyplot as plt
 from microphysics import compute_radius_from_mass
 from microphysics import compute_radius_from_mass_vec
 
-#from .kernel import update_velocity_Beard
 import collision.kernel as ker
 import collision.all_or_nothing as aon
 
-#from .AON import collision_step_Golovin
-#from .AON import collision_step_Long_Bott_m
-#from .AON import collision_step_Ecol_grid_R
-##from .AON import collision_step_Long_Bott_Ecol_grid_R
-#from .AON import collision_step_Long_Bott_kernel_grid_m
+from golovin import compute_moments_Golovin, dist_vs_time_golo_exp
 
 #%% DEFINITIONS
 
@@ -31,35 +42,22 @@ import collision.all_or_nothing as aon
 def simulate_collisions(SIP_quantities,
                         kernel_quantities, kernel_name, kernel_method,
                         dV, dt, t_end, dt_save, no_cols, seed, save_dir):
-    if kernel_name == "Long_Bott":
-        if kernel_method == "Ecol_grid_R":
-            collision_step = aon.collision_step_Ecol_grid_R
-            (xis, masses, radii, vel, mass_densities) = SIP_quantities
-            (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
-                kernel_quantities
-        elif kernel_method == "kernel_grid_m":
-            collision_step = aon.collision_step_Long_Bott_kernel_grid_m
-            (xis, masses) = SIP_quantities
-            (kernel_grid, no_kernel_bins, m_kernel_low_log, bin_factor_m_log)=\
-                kernel_quantities
-        elif kernel_method == "analytic":
-            collision_step = aon.collision_step_Long_Bott_m
-            (xis, masses, mass_density) = SIP_quantities
-
-    if kernel_name == "Hall_Bott":
-        if kernel_method == "Ecol_grid_R":
-            collision_step = aon.collision_step_Ecol_grid_R
-            (xis, masses, radii, vel, mass_densities) = SIP_quantities
-            (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
-                kernel_quantities
-                
     if kernel_name == "Golovin":
         collision_step = aon.collision_step_Golovin
         (xis, masses) = SIP_quantities
+
+    elif kernel_method == "Ecol_grid_R":
+        collision_step = aon.collision_step_Ecol_grid_R
+        (xis, masses, radii, vel, mass_densities) = SIP_quantities
+        (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) =\
+            kernel_quantities
+    elif kernel_method == "kernel_grid_m":
+        collision_step = aon.collision_step_kernel_grid_m
+        (xis, masses) = SIP_quantities
+        (kernel_grid, no_kernel_bins, m_kernel_low_log, bin_factor_m_log)=\
+            kernel_quantities
         
     np.random.seed(seed)
-    # save_path = save_dir + f"seed_{seed}/"
-    # t = 0.0
     no_SIPs = xis.shape[0]
     no_steps = int(math.ceil(t_end/dt))
     # save data at t=0, every dt_save and at the end
@@ -71,7 +69,6 @@ def simulate_collisions(SIP_quantities,
     xis_vs_time = np.zeros((no_saves,no_SIPs), dtype=np.float64)
     masses_vs_time = np.zeros((no_saves,no_SIPs), dtype=np.float64)
     save_times = np.zeros(no_saves)
-    # step_n = 0
     save_n = 0
     if kernel_method == "Ecol_grid_R":
         for step_n in range(no_steps):
@@ -108,18 +105,7 @@ def simulate_collisions(SIP_quantities,
                     save_times[save_n] = t
                     save_n += 1
                 collision_step(xis, masses, dt_over_dV, no_cols)
-        elif kernel_name == "Long_Bott":
-            for step_n in range(no_steps):
-                if step_n % dn_save == 0:
-                    t = step_n * dt
-                    xis_vs_time[save_n] = np.copy(xis)
-                    masses_vs_time[save_n] = np.copy(masses)
-                    save_times[save_n] = t
-                    save_n += 1
-                collision_step(xis, masses, mass_density, dt_over_dV, no_cols)
-    
     t = no_steps * dt
-#    t = (step_n+1) * dt
     xis_vs_time[save_n] = np.copy(xis)
     masses_vs_time[save_n] = np.copy(masses)
     save_times[save_n] = t
@@ -238,12 +224,12 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims, start_seed, no_bins, load
         bins_rad_log = np.log(bins_rad)
     
         bins_mass_width = (bins_mass[1:]-bins_mass[:-1])
-        bins_rad_width = (bins_rad[1:]-bins_rad[:-1])
+#        bins_rad_width = (bins_rad[1:]-bins_rad[:-1])
         bins_rad_width_log = (bins_rad_log[1:]-bins_rad_log[:-1])
         bins_mass_width_vs_time[time_n] = bins_mass_width
         bins_rad_width_log_vs_time[time_n] = bins_rad_width_log
     
-        f_m_counts = np.histogram(masses_sampled,bins_mass)[0]
+#        f_m_counts = np.histogram(masses_sampled,bins_mass)[0]
     
         # define centers on lin scale
         bins_mass_center_lin = 0.5 * (bins_mass[:-1] + bins_mass[1:])
@@ -323,10 +309,10 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims, start_seed, no_bins, load
         g_ln_r_num_std_vs_time[time_n] = \
             np.std(g_ln_r_num, axis=0, ddof=1) / np.sqrt(no_sims)
     # convert to microns
-    R_min_vs_time = compute_radius_from_mass_vec(1E18*m_min_vs_time,
-                                                 mass_density)
-    R_max_vs_time = compute_radius_from_mass_vec(1E18*m_max_vs_time,
-                                                 mass_density)
+#    R_min_vs_time = compute_radius_from_mass_vec(1E18*m_min_vs_time,
+#                                                 mass_density)
+#    R_max_vs_time = compute_radius_from_mass_vec(1E18*m_max_vs_time,
+#                                                 mass_density)
     
     moments_vs_time_avg = np.average(moments_vs_time, axis=2)
     moments_vs_time_std = np.std(moments_vs_time, axis=2, ddof=1) \
@@ -361,7 +347,8 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims, start_seed, no_bins, load
 
 # PLOTTING
 def plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
-                         kernel_name, gen_method, bin_method, load_dir):
+                         kernel_name, gen_method, bin_method,
+                         moments_ref, times_ref, load_dir):
     save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
     no_times = len(save_times)
     # bins_mass_centers =
@@ -373,20 +360,18 @@ def plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
     g_ln_r_num_avg_vs_time = np.load(load_dir + f"g_ln_r_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
 
     moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
-    moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")
 
     fig_name = "fm_gm_glnr_vs_t"
     fig_name += f"_kappa_{kappa}_dt_{int(dt)}_no_sims_{no_sims}_no_bins_{no_bins}.png"
     no_rows = 3
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,8*no_rows))
-    # ax.loglog(radii, xis, "x")
-    # ax.loglog(bins_mid[:51], H, "x-")
-    # ax.vlines(bins_rad, xis.min(), xis.max(), linewidth=0.5, linestyle="dashed")
+    
+    time_every = 4
     ax = axes[0]
-    for time_n in range(no_times):
-        ax.plot(bins_mass_centers[time_n][0], f_m_num_avg_vs_time[time_n])
-    # ax.plot(bins_mass_centers[0][0], f_m_num_avg_vs_time[0], "x")
-    # ax.plot(m_, f_m_ana_)
+    for time_n in range(no_times)[::time_every]:
+        ax.plot(bins_mass_centers[time_n][0], f_m_num_avg_vs_time[time_n],
+                label = f"t={save_times[time_n]:.0f}")
+        ax.legend()
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("mass (kg)")
@@ -397,10 +382,8 @@ def plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
     ax.grid()
     
     ax = axes[1]
-    for time_n in range(no_times):
+    for time_n in range(no_times)[::time_every]:
         ax.plot(bins_mass_centers[time_n][0], g_m_num_avg_vs_time[time_n])
-    # ax.plot(bins_mass_centers[0][0], g_m_num_avg_vs_time[0], "x")
-    # ax.plot(m_, g_m_ana_)
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xlabel("mass (kg)")
@@ -411,24 +394,15 @@ def plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
     ax.grid()
     
     ax = axes[2]
-    for time_n in range(no_times):
-        ax.plot(bins_rad_centers[time_n][0], g_ln_r_num_avg_vs_time[time_n]*1000.0)
-    # ax.plot(bins_rad_centers[0][0], g_ln_r_num_avg_vs_time[0]*1000.0, "x")
-    # ax.plot(R_, g_ln_r_ana_)
+    for time_n in range(no_times)[::time_every]:
+        ax.plot(bins_rad_centers[time_n][0],
+                g_ln_r_num_avg_vs_time[time_n]*1000.0)
     ax.set_yscale("log")
     ax.set_xscale("log")
     ax.set_xlabel("radius $\mathrm{(\mu m)}$")
     ax.set_ylabel(r"$g_{\ln(r)}$ $\mathrm{(g \; m^{-3})}$")
-    # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
-    # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-    # ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
-    # import matplotlib
-    # ax.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-    # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
-    # ax.yaxis.set_ticks(np.logspace(-11,0,12))
     if kernel_name == "Golovin":
         ax.set_xticks( np.logspace(0,3,4) )
-        # ax.set_yticks( np.logspace(-4,1,6) )
         ax.set_xlim([1.0,2.0E3])
         ax.set_ylim([1.0E-4,10.0])
     elif kernel_name == "Long_Bott":
@@ -438,20 +412,6 @@ def plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
     
     for ax in axes:
         ax.tick_params(which="both", bottom=True, top=True, left=True, right=True)
-    
-    # ax = axes[4]
-    # for n in range(4):
-    #     ax.plot(n*np.ones_like(moments_sampled[n]),
-    #             moments_sampled[n]/moments_an[n], "o")
-    # ax.errorbar(np.arange(4), moments_sampled_avg_norm, moments_sampled_std_norm,
-    #             fmt = "x" , c = "k", markersize = 20.0, linewidth =5.0,
-    #             capsize=10, elinewidth=5, markeredgewidth=2,
-    #             zorder=99)
-    # ax.plot(np.arange(4), np.ones_like(np.arange(4)))
-    # ax.xaxis.set_ticks([0,1,2,3])
-    # ax.set_xlabel("$k$")
-    # # ax.set_ylabel(r"($k$-th moment of $f_m$)/(analytic value)")
-    # ax.set_ylabel(r"$\lambda_k / \lambda_{k,analytic}$")
 
     fig.suptitle(
 f"dt={dt}, kappa={kappa}, eta={eta:.0e}, no_sims={no_sims}, no_bins={no_bins}\n\
@@ -460,12 +420,7 @@ gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
     plt.subplots_adjust(top=0.95)
     fig.savefig(load_dir + fig_name)
     
-    ### PLOT MOMENTS VS TIME
-    t_Unt = [0,10,20,30,35,40,50,55,60]
-    lam0_Unt = [2.97E8, 2.92E8, 2.82E8, 2.67E8, 2.1E8, 1.4E8,  1.4E7, 4.0E6, 1.2E6]
-    t_Unt2 = [0,10,20,30,40,50,60]
-    lam2_Unt = [8.0E-15, 9.0E-15, 9.5E-15, 6E-13, 2E-10, 7E-9, 2.5E-8]
-    
+    ### plot moments vs time
     fig_name = "moments_vs_time"
     fig_name += f"_kappa_{kappa}_dt_{int(dt)}_no_sims_{no_sims}_no_bins_{no_bins}.png"
     no_rows = 4
@@ -477,16 +432,21 @@ gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
         ax.grid()
         ax.set_xticks(save_times/60)
         ax.set_xlim([save_times[0]/60, save_times[-1]/60])
-        # ax.tick_params(labelbottom=True, labeltop=False, labelleft=False, labelright=False,
-        #                  bottom=True, top=False, left=False, right=False)
         ax.tick_params(which="both", bottom=True, top=True, left=True, right=True)
     if kernel_name == "Golovin":
-        axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
+        axes[0].set_yticks( [1.0E6,1.0E7,1.0E8,1.0E9] )
         axes[2].set_yticks( np.logspace(-15,-9,7) )
         axes[3].set_yticks( np.logspace(-26,-15,12) )
     
-    axes[0].plot(t_Unt,lam0_Unt, "o")
-    axes[2].plot(t_Unt2,lam2_Unt, "o")
+    axes[3].set_xlabel("time (min)")
+
+    axes[0].set_ylabel("moment 0 (DNC)")
+    axes[1].set_ylabel("moment 1 (LMC)")
+    axes[2].set_ylabel("moment 2")
+    axes[3].set_ylabel("moment 3")
+    
+    for mom_n in range(4):
+        axes[mom_n].plot(times_ref/60, moments_ref[mom_n], "o")
     fig.suptitle(
 f"dt={dt}, kappa={kappa}, eta={eta:.0e}, no_sims={no_sims}, no_bins={no_bins}\n\
 gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
@@ -495,58 +455,29 @@ gen_method={gen_method}, kernel={kernel_name}, bin_method={bin_method}")
     fig.savefig(load_dir + fig_name)
     plt.close("all")
 
-#################################################################
-### PLOT MOMENTS VS TIME for several kappa
+#%% PLOT MOMENTS VS TIME for several kappa
 
 # TTFS, LFS, TKFS: title, labels, ticks font size
-#def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
-#                           kernel_name, gen_method,
-#                           dist, start_seed, ref_data_path, sim_data_path,
-#                           result_path_add,
-#                           fig_dir, TTFS, LFS, TKFS):
-def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
+def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                            kernel_name, gen_method,
                            dist, start_seed,
                            moments_ref, times_ref,
                            sim_data_path,
                            result_path_add,
                            fig_dir, TTFS, LFS, TKFS):
-#    mom0_last_time_Unt = np.array([1.0E7,5.0E6,1.8E6,1.0E6,8.0E5,
-#                                   5.0E5,5.0E5,5.0E5,5.0E5,5.0E5])
-    
-#    t_Unt = [0,10,20,30,35,40,50,55,60]
-#    lam0_Unt = [2.97E8, 2.92E8, 2.82E8, 2.67E8, 2.1E8, 1.4E8,  1.4E7, 4.0E6, 1.2E6]
-#    t_Unt2 = [0,10,20,30,40,50,60]
-#    lam2_Unt = [8.0E-15, 9.0E-15, 9.5E-15, 6E-13, 2E-10, 7E-9, 2.5E-8]
-
-    # Wang 2007: s = 16 -> kappa = 53.151 = s * log_2(10)
-#    t_Wang = np.linspace(0,60,7)
-##    moments_vs_time_Wang = np.loadtxt(ref_data_path)
-#    moments_vs_time_Wang = np.array(ref_data_list)
-##        sim_data_path + f"col_box_mod/results/{dist}/{kernel_name}/Wang2007_results2.txt")
-#    moments_vs_time_Wang = np.reshape(moments_vs_time_Wang,(4,7)).T
-#    moments_vs_time_Wang[:,0] *= 1.0E6
-#    moments_vs_time_Wang[:,2] *= 1.0E-6
-#    moments_vs_time_Wang[:,3] *= 1.0E-12
 
     no_kappas = len(kappa_list)
     
     fig_name = f"moments_vs_time_kappa_var_{no_kappas}"
-    # fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
-#    fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.png"
     fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.pdf"
     no_rows = 4
     
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows), sharex=True)
     
-#    mom0_last_time = np.zeros(len(kappa_list),dtype=np.float64)
-    
     for kappa_n,kappa in enumerate(kappa_list):
         load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
         save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
         moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
-#        moments_vs_time_avg[:,1] *= 1.0E3
-#        mom0_last_time[kappa_n] = moments_vs_time_avg[-1,0]
         
         if kappa_n < 10: fmt = "x-"
         else: fmt = "x--"            
@@ -555,13 +486,12 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
             ax.plot(save_times/60, moments_vs_time_avg[:,i],fmt,label=f"{kappa}")
 
     for i,ax in enumerate(axes):
-        if kernel_name == "Long_Bott" or kernel_name == "Hall_Bott":
-            ax.plot(times_ref/60, moments_ref[i],
-                    "o", c = "k",fillstyle='none', markersize = 8, mew=1.0, label="Wang")
+        ax.plot(times_ref/60, moments_ref[i],
+                "o", c = "k",fillstyle='none', markersize = 8,
+                mew=1.0, label="Wang")
         if i != 1:
             ax.set_yscale("log")
         ax.grid()
-        # if i ==0: ax.legend()
         if i != 1:
             ax.legend(fontsize=TKFS)
         if i == 1:
@@ -569,8 +499,6 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                       fontsize=TKFS)
         ax.set_xticks(save_times/60)
         ax.set_xlim([save_times[0]/60, save_times[-1]/60])
-        # ax.tick_params(labelbottom=True, labeltop=False, labelleft=False, labelright=False,
-        #                  bottom=True, top=False, left=False, right=False)
         ax.tick_params(which="both", bottom=True, top=True,
                        left=True, right=True
                        )
@@ -592,34 +520,642 @@ def plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         axes[2].set_yticks( np.logspace(-15,-9,7) )
         axes[3].set_yticks( np.logspace(-26,-15,12) )
     elif kernel_name == "Long_Bott":
-        # axes[0].set_yticks([1.0E6,1.0E7,1.0E8,3.0E8,4.0E8])
         axes[0].set_yticks([1.0E6,1.0E7,1.0E8])
         axes[0].set_ylim([1.0E6,4.0E8])
-        # axes[1].yaxis.set_major_formatter(mtick.FormatStrFormatter('%.2e'))
         axes[2].set_yticks( np.logspace(-15,-7,9) )
         axes[2].set_ylim([1.0E-15,1.0E-7])
         axes[3].set_yticks( np.logspace(-26,-11,16) )
         axes[3].set_ylim([1.0E-26,1.0E-11])
-    # axes[0].plot(t_Unt,lam0_Unt, "o", c = "k")
-    # axes[2].plot(t_Unt2,lam2_Unt, "o", c = "k")
-        
-#    for mom0_last in mom0_last_time:
-#    print(mom0_last_time/mom0_last_time.min())
-#    if len(mom0_last_time) >= 3:
-#        print(mom0_last_time/mom0_last_time[-2])
-#        print(mom0_last_time_Unt/mom0_last_time_Unt.min())
-#        print()
+        if len(times_ref) > 10:
+            axes[3].set_xticks(save_times[::2]/60)
+    elif kernel_name == "Hall_Bott":
+        axes[0].set_yticks([1.0E8])
+        axes[0].set_ylim([6.0E7,4.0E8])
+        axes[2].set_yticks( np.logspace(-15,-7,9) )
+        axes[2].set_ylim([1.0E-15,1.0E-7])
+        axes[3].set_yticks( np.logspace(-26,-11,16) )
+        axes[3].set_ylim([1.0E-26,1.0E-11])
+        if len(times_ref) > 10:
+            axes[3].set_xticks(save_times[::2]/60)
     title=\
 f"Moments of the distribution for various $\kappa$ (see legend)\n\
 dt={dt:.1e}, eta={eta:.0e}, r_critmin=0.6, no_sims={no_sims}, \
 gen_method={gen_method}, kernel={kernel_name}"
-#     title=\
-# f"Moments of the distribution for various $\kappa$ (see legend)\n\
-# dt={dt}, eta={eta:.0e}, no_sims={no_sims}, \
-# gen_method={gen_method}, kernel=LONG"
     fig.suptitle(title, fontsize=TTFS, y = 0.997)
     fig.tight_layout()
-    # fig.subplots_adjust()
     plt.subplots_adjust(top=0.965)
     fig.savefig(fig_dir + fig_name)
     plt.close("all")
+
+#%% plot moments 0, 2 and 3 of the mass distribution vs time for several kappa in
+# the same plot. formatting as in the GMD publication    
+    
+### IN WORK: INSERT PLOT DICTIONARIES ETC. FROM FILE run_box_model_plots_MA.py    
+### IN WORK: INSERT PLOT DICTIONARIES ETC. FROM FILE run_box_model_plots_MA.py    
+### IN WORK: INSERT PLOT DICTIONARIES ETC. FROM FILE run_box_model_plots_MA.py    
+def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
+                                         kernel_name, gen_method,
+                                         dist, start_seed,
+                                         moments_ref, times_ref,
+                                         sim_data_path,
+                                         result_path_add,
+                                         figsize, figname, figsize2, figname2,
+                                         figsize3, figname3, figsize4, figname4,
+                                         TTFS, LFS, TKFS):
+    no_rows = 3
+    
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(figsize), sharex=True)
+    
+    for kappa_n,kappa in enumerate(kappa_list):
+        load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+        save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+        moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        if kappa_n < 10: fmt = "-"
+        else: fmt = "x--"            
+        
+        for ax_n,i in enumerate((0,2,3)):
+            if kappa*5 < 100000:
+                lab = f"{kappa*5}"
+            else:
+                lab = f"{float(kappa*5):.2}"
+            axes[ax_n].plot(save_times/60, moments_vs_time_avg[:,i],fmt,
+                            label=f"\\num{{{lab}}}",
+                            lw=1.2,
+                            ms=5,                        
+                            mew=0.8,
+                            zorder=98)
+    if kernel_name == "Golovin":
+        DNC = 296799076.3
+        LWC = 1E-3
+        bG = 1.5
+            
+    for ax_n,i in enumerate((0,2,3)):
+        ax = axes[ax_n]
+        if kernel_name == "Golovin":
+            
+            fmt = "o"
+            times_ref = np.linspace(0.,3600.,19)
+            moments_ref_i = compute_moments_Golovin(times_ref, i, DNC, LWC, bG)
+        else:
+            fmt = "o"
+            moments_ref_i = moments_ref[i]
+        ax.plot(times_ref/60, moments_ref_i,
+                fmt, c = "k",
+                fillstyle='none',
+                linewidth = 2,
+                markersize = 3, mew=0.4,
+                label="Ref",
+                zorder=99)
+        if i != 1:
+            ax.set_yscale("log")
+        if kernel_name == "Long_Bott":
+            ax.grid(which="major")
+        else:
+            ax.grid(which="both")
+        if i == 0:
+            handles, labels = ax.get_legend_handles_labels()      
+            
+            if kernel_name == "Golovin":
+                ax.legend(
+                        np.reshape(handles, (2,4)).T.flatten(),
+                        np.reshape(labels, (2,4)).T.flatten(),
+                          ncol=4, handlelength=0.8, handletextpad=0.2,
+                          columnspacing=0.5, borderpad=0.2, loc="upper right",
+                          bbox_to_anchor=(1.015, 1.04))            
+        if i == 2:
+            if kernel_name == "Long_Bott":
+                ax.legend(
+                          ncol=2, handlelength=0.8, handletextpad=0.2,
+                          columnspacing=0.5, borderpad=0.2, loc="lower left",
+                          bbox_to_anchor=(0.0, 0.6)).set_zorder(100)            
+            if kernel_name == "Hall_Bott":
+                ax.legend(
+                          ncol=2, handlelength=0.8, handletextpad=0.2,
+                          columnspacing=0.5, borderpad=0.2, loc="lower left",
+                          bbox_to_anchor=(0.0, 0.5)).set_zorder(100)            
+        ax.set_xticks(save_times[::2]/60)
+        ax.set_xlim([save_times[0]/60, save_times[-1]/60])
+        ax.tick_params(which="both", bottom=True, top=True,
+                       left=True, right=True
+                       )
+        ax.tick_params(axis='both', which='major', labelsize=TKFS,
+                       width=0.8, size=3)
+        ax.tick_params(axis='both', which='minor', labelsize=TKFS,
+                       width=0.6, size=2, labelleft=False)
+    axes[-1].set_xlabel("Time (min)",fontsize=LFS)
+    axes[0].set_ylabel(r"$\lambda_0$ = DNC $(\mathrm{m^{-3}})$ ",
+                       fontsize=LFS)
+    axes[1].set_ylabel(r"$\lambda_2$ $(\mathrm{kg^2 \, m^{-3}})$ ",
+                       fontsize=LFS)
+    axes[2].set_ylabel(r"$\lambda_3$ $(\mathrm{kg^3 \, m^{-3}})$ ",
+                       fontsize=LFS)
+    if kernel_name == "Golovin":
+        axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
+        axes[0].set_yticks([5.0E6,5.0E7,5.0E8], minor=True)
+        axes[1].set_yticks( np.logspace(-15,-9,7) )
+        axes[2].set_yticks( np.logspace(-26,-15,12)[::2] )
+        axes[2].set_yticks( np.logspace(-26,-15,12)[1::2], minor=True )
+    elif kernel_name == "Long_Bott":
+        axes[0].set_yticks([1.0E6,1.0E7,1.0E8])
+        axes[0].set_yticks(
+                np.concatenate((
+                        np.linspace(2E6,9E6,8),
+                        np.linspace(2E7,9E7,8),
+                        np.linspace(2E8,3E8,2),
+                                )),
+                minor=True)
+        axes[0].set_ylim([1.0E6,4.0E8])
+        axes[1].set_yticks( np.logspace(-15,-7,9) )
+        axes[1].set_ylim([1.0E-15,1.0E-7])
+        axes[2].set_yticks( np.logspace(-26,-11,16)[::2])
+        axes[2].set_yticks( np.logspace(-26,-11,16)[1::2],minor=True)
+        axes[2].set_ylim([1.0E-26,1.0E-11])
+    elif kernel_name == "Hall_Bott":
+        axes[0].set_yticks([7E7,8E7,9E7,1E8,2.0E8,3E8])
+
+        axes[0].set_ylim([7.0E7,4.0E8])
+        axes[0].yaxis.set_ticklabels(
+                [r'$7\times10^7$','','',r'$1\times10^8$',
+                r'$2\times 10^8$',r'$3\times10^8$','','','','',
+                r'$2\times 10^5$','','',r'$5\times10^5$','','','','',
+                ])        
+        axes[1].set_yticks( np.logspace(-15,-8,8) )
+        axes[1].set_ylim([1.0E-15,1.0E-8])
+        axes[2].set_yticks( np.logspace(-26,-12,8) )
+        axes[2].set_ylim([1.0E-26,1.0E-12])
+    
+    if kernel_name == "Hall_Bott":
+        xpos_ = -0.19
+        ypos_ = 0.86
+    elif kernel_name == "Long_Bott":
+        xpos_ = -0.14
+        ypos_ = 0.86
+    elif kernel_name == "Golovin":
+        xpos_ = -0.14
+        ypos_ = 0.86
+    fig.text(xpos_, ypos_ , r"\textbf{(c)}", fontsize=LFS)    
+    
+    fig.savefig(figname,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )      
+    
+    no_rows = len(kappa_list)
+
+### REFERENCE REL DEV PLOTS 
+    
+    fig, axes = plt.subplots(nrows=no_rows, ncols=2, figsize=(figsize2), sharex=True)    
+    
+    for kappa_n,kappa in enumerate(kappa_list):
+        load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+        save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+        
+        if kernel_name == "Golovin":
+            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+        else:
+            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")[::2,:]
+            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")[::2,:]
+        
+        for cnt_m,mom_n in enumerate((0,2,3)):
+            if kernel_name == "Golovin":
+                moments_ref_i = compute_moments_Golovin(save_times, mom_n, DNC, LWC, bG)
+                save_times0 = save_times
+            else:
+                moments_ref_i = moments_ref[mom_n][::3]
+                save_times0 = save_times[::2]
+                
+            
+            rel_dev = np.abs(moments_vs_time_avg[:,mom_n]-moments_ref_i)/moments_ref_i
+            
+            rel_err = moments_vs_time_std[:,mom_n] / moments_ref_i
+            
+            ax = axes[kappa_n,0]
+            ax.errorbar(save_times0/60, rel_dev, rel_err, label=str(mom_n))
+            ax.grid()
+
+            ax = axes[kappa_n,1]
+            ax.plot(save_times0/60, rel_err, label=str(mom_n))
+            ax.grid()
+        axes[kappa_n,1].annotate(
+                            r"$N_\mathrm{{SIP}} = {}$".format(kappa*5),
+                            (0.01,0.82),
+                            xycoords="axes fraction")                 
+        
+        ax = axes[kappa_n,0]
+        ax.set_yscale("log")
+        if kernel_name == "Golovin":
+            ax.set_yticks(np.logspace(-5,0,6))
+        else:
+            ax.set_yticks(np.logspace(-4,1,6))
+
+        ax = axes[kappa_n,1]
+        ax.set_yscale("log")
+        if kernel_name == "Golovin":
+            ax.set_yticks(np.logspace(-5,0,6))
+        else:
+            ax.set_yticks(np.logspace(-6,0,4))
+        
+    axes[0,0].legend(ncol=3)
+    axes[0,1].legend(ncol=3)
+    
+    axes[0,0].set_title("rel. dev. $(\lambda-\lambda_\mathrm{ref})/\lambda_\mathrm{ref}$")
+    axes[0,1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda_\mathrm{ref}$ ")
+    
+    
+    axes[-1,0].set_xticks(np.linspace(0,60,7))
+    axes[-1,1].set_xticks(np.linspace(0,60,7))
+    axes[-1,0].set_xlim((0,60))
+    axes[-1,1].set_xlim((0,60))
+    
+    axes[-1,0].set_xlabel("Time (min)")
+    axes[-1,1].set_xlabel("Time (min)")
+    
+    fig.savefig(figname2,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )   
+    
+### CONVERGENCE REL DEV PLOTS 
+    no_rows = 1
+    fig, axes = plt.subplots(nrows=no_rows, ncols=2,
+                             figsize=(figsize3)
+                             )    
+    
+    kappa = kappa_list[-1]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    moments_vs_time_avg_ref = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#    moments_vs_time_std_ref = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    
+    kappa = kappa_list[-2]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+        
+#        if kernel_name == "Golovin":
+#        else:
+##            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+##            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+#            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+##            print ("moments_vs_time_avg.shape")
+##            print (moments_vs_time_avg.shape)
+#        
+#        for cnt_m,mom_n in enumerate((0,2,3)):
+##            if kernel_name == "Golovin":
+##                moments_ref_i = compute_moments_Golovin(save_times, mom_n, DNC, LWC, bG)
+##                save_times0 = save_times
+##            else:
+##                moments_ref_i = moments_ref[mom_n][::3]
+###                print("moments_ref_i.shape")
+###                print(moments_ref_i.shape)
+##                save_times0 = save_times[::2]
+###                print(save_times)
+    save_times0 = save_times
+    
+    for cnt_m,mom_n in enumerate((0,2,3)):
+        moments_ref_i = moments_vs_time_avg_ref[:,mom_n]
+        rel_dev = np.abs(moments_vs_time_avg[:,mom_n]-moments_ref_i)/moments_ref_i
+        
+        rel_err = moments_vs_time_std[:,mom_n] / moments_ref_i
+        
+        ax = axes[0]
+        ax.errorbar(save_times0/60, rel_dev, rel_err, label=str(mom_n))
+        ax.grid()
+    
+        ax.set_yscale("log")
+
+        ax = axes[1]
+        ax.plot(save_times0/60, rel_err, label=str(mom_n))
+        ax.grid()
+    
+        ax.set_yscale("log")
+        
+    for ax in axes:
+        ax.legend(
+    #                        np.reshape(handles, (5,2)).T.flatten(),
+    #                        np.reshape(labels, (5,2)).T.flatten(),
+    #                    np.concatenate((handles[::2],handles[1::2]),axis=0),
+    #                      np.concatenate((labels[::2],labels[1::2]),axis=0),
+                  ncol=3, handlelength=0.8, handletextpad=0.2,
+                  columnspacing=0.5, borderpad=0.2,
+#                  loc="lower left",
+#                  bbox_to_anchor=(0.0, 0.6)
+                  ).set_zorder(100)           
+    
+    axes[0].set_title("rel. dev. $(\lambda-\lambda_\mathrm{ref})/\lambda_\mathrm{ref}$")
+    axes[1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda_\mathrm{ref}$ ")
+    axes[0].set_xticks(np.linspace(0,60,7))
+    axes[1].set_xticks(np.linspace(0,60,7))
+    axes[0].set_xlim((0,60))
+    axes[1].set_xlim((0,60))
+    
+    axes[0].set_xlabel("Time (min)")
+    axes[1].set_xlabel("Time (min)")
+
+    fig.savefig(figname3,
+#                bbox_inches = 0,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )   
+    
+### CONVERGENCE REL DEV PLOTS 2   
+    no_rows = 1
+    fig, axes = plt.subplots(nrows=no_rows, ncols=2,
+                             figsize=(figsize4)
+                             )    
+    
+    kappa = kappa_list[-1]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    moments_vs_time_avg_ref = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#    moments_vs_time_std_ref = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    
+    kappa = kappa_list[1]
+    load_dir = sim_data_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+    moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")    
+        
+    save_times0 = save_times
+    
+    for cnt_m,mom_n in enumerate((0,2,3)):
+        moments_ref_i = moments_vs_time_avg_ref[:,mom_n]
+        rel_dev = np.abs(moments_vs_time_avg[:,mom_n]-moments_ref_i)/moments_ref_i
+        
+        rel_err = moments_vs_time_std[:,mom_n] / moments_ref_i
+        
+        ax = axes[0]
+        ax.errorbar(save_times0/60, rel_dev, rel_err, label=str(mom_n))
+        ax.grid()
+    
+        ax.set_yscale("log")
+
+        ax = axes[1]
+        ax.plot(save_times0/60, rel_err, label=str(mom_n))
+        ax.grid()
+    
+        ax.set_yscale("log")
+        
+    for ax in axes:
+        ax.legend(
+    #                        np.reshape(handles, (5,2)).T.flatten(),
+    #                        np.reshape(labels, (5,2)).T.flatten(),
+    #                    np.concatenate((handles[::2],handles[1::2]),axis=0),
+    #                      np.concatenate((labels[::2],labels[1::2]),axis=0),
+                  ncol=3, handlelength=0.8, handletextpad=0.2,
+                  columnspacing=0.5, borderpad=0.2,
+#                  loc="lower left",
+#                  bbox_to_anchor=(0.0, 0.6)
+                  ).set_zorder(100)           
+    
+    axes[0].set_title("rel. dev. $(\lambda-\lambda_\mathrm{ref})/\lambda_\mathrm{ref}$")
+    axes[1].set_title("rel. error $\mathrm{SD}(\lambda)/\lambda_\mathrm{ref}$ ")
+    
+    
+    axes[0].set_xticks(np.linspace(0,60,7))
+    axes[1].set_xticks(np.linspace(0,60,7))
+    axes[0].set_xlim((0,60))
+    axes[1].set_xlim((0,60))
+    
+    axes[0].set_xlabel("Time (min)")
+    axes[1].set_xlabel("Time (min)")
+    
+    fig.savefig(figname4,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )   
+    
+    plt.close("all")        
+
+#%% Plot g_lnR vs time for a single kappa
+# or for two specific kappa one below the other
+    
+def plot_g_ln_R_for_given_kappa(kappa, kappa1, kappa2,
+                                eta, dt, no_sims, start_seed, no_bins,
+                                DNC0, m_mean,
+                                kernel_name, gen_method, bin_method, time_idx,
+                                load_dir, load_dir_k1, load_dir_k2,
+                                figsize, figname,
+                                plot_compare,
+                                figsize2, figname_compare, LFS):
+    bG = 1.5 # K = b * (m1 + m2) # b in m^3/(fg s)
+    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+#    no_times = len(save_times)
+    bins_mass_centers = np.load(load_dir + f"bins_mass_centers_{no_sims}_no_bins_{no_bins}.npy")
+    bins_rad_centers = np.load(load_dir + f"bins_rad_centers_{no_sims}_no_bins_{no_bins}.npy")
+
+    add_masses = 4
+    
+#    f_m_num_avg_vs_time = np.load(load_dir + f"f_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#    g_m_num_avg_vs_time = np.load(load_dir + f"g_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    g_ln_r_num_avg_vs_time = np.load(load_dir + f"g_ln_r_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    g_ln_r_num_std_vs_time = np.load(load_dir + f"g_ln_r_num_std_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+
+#    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#    moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+
+    no_rows = 1
+    fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
+    
+    ax = axes
+    ax.set_xscale("log", nonposx="mask")    
+    ax.set_yscale("log", nonposy="mask")    
+    for time_n in time_idx:
+        mask = g_ln_r_num_avg_vs_time[time_n]*1000.0 > 1E-6
+        ax.plot(bins_rad_centers[time_n][0][mask],
+                g_ln_r_num_avg_vs_time[time_n][mask]*1000.0,
+                label = f"{int(save_times[time_n]//60)}", zorder=50)
+        
+        above_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
+                      + g_ln_r_num_std_vs_time[time_n]*1000.0
+        above_curve = \
+            np.where(above_curve <= 1E-4, 1E-4, above_curve)
+        
+        below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
+                      - g_ln_r_num_std_vs_time[time_n]*1000.0
+        below_curve = \
+            np.where(below_curve <= 1E-4, 1E-4, below_curve)
+        
+        ax.fill_between(bins_rad_centers[time_n][0][mask],
+                        below_curve[mask],
+                        above_curve[mask],
+                        alpha=0.4, lw=1
+                        )              
+    ax.set_prop_cycle(None)
+    for j,time_n in enumerate(time_idx):
+        if kernel_name == "Golovin":
+            scale_g=1000.      
+            no_bins_ref = 2*no_bins
+            ref_masses = np.zeros(no_bins_ref + add_masses)
+            
+            bin_factor = np.sqrt(bins_mass_centers[time_n][0][-1]/bins_mass_centers[time_n][0][-2])
+            ref_masses[0] = bins_mass_centers[time_n][0][0]
+
+            for n in range(1,no_bins_ref + add_masses):
+                ref_masses[n] = ref_masses[n-1]*bin_factor
+            f_m_golo = dist_vs_time_golo_exp(ref_masses,
+                                             save_times[time_n],m_mean,DNC0,bG)
+            g_ln_r_golo = f_m_golo * 3 * ref_masses**2
+            g_ln_r_ref = g_ln_r_golo
+            ref_radii = 1E6 * (3. * ref_masses / (4. * math.pi * 1E3))**(1./3.)
+            
+        else:
+            scale_g = 1.
+            dp = f"collision/ref_data/{kernel_name}/"
+            ref_radii = np.loadtxt(dp + "Wang_2007_radius_bin_centers.txt")[j][::5]
+            g_ln_r_ref = np.loadtxt(dp + "Wang_2007_g_ln_R.txt")[j][::5]
+#        fmt="o"    
+#        print(j)
+#        print(ref_radii.shape)
+        ax.plot(ref_radii,
+                g_ln_r_ref*scale_g,
+                "o",
+                fillstyle='none',
+                linewidth = 2,
+                markersize = 3, mew=0.4)                
+    
+    ax.set_xlabel("Radius ($\si{\micro\meter}$)")
+    ax.set_ylabel(r"$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$")
+    if kernel_name == "Golovin":
+        ax.set_xticks( np.logspace(0,3,4) )
+        ax.set_xlim([1.0,2.0E3])
+        ax.set_ylim([1.0E-4,10.0])
+    elif kernel_name == "Long_Bott":
+        ax.set_xlim([1.0,5.0E3])
+        ax.set_ylim([1.0E-4,10.0])
+    elif kernel_name == "Hall_Bott":
+        ax.set_xlim([1.0,5.0E3])
+        ax.set_yticks( np.logspace(-4,2,7) )
+        ax.set_ylim([1.0E-4,10.0])        
+    ax.grid(which="major")
+    ax.legend(ncol=7, handlelength=0.8, handletextpad=0.2,
+              columnspacing=0.8, borderpad=0.2, loc="upper center")
+    ax.tick_params(which="both", bottom=True, top=True, left=True, right=True)
+
+    fig.savefig(figname,
+                bbox_inches = 'tight',
+                pad_inches = 0.065
+                )    
+    plt.close("all")    
+    
+def plot_g_ln_R_kappa_compare(kappa1, kappa2,
+                              eta, dt, no_sims, start_seed, no_bins,
+                              DNC0, m_mean,
+                              kernel_name, gen_method, bin_method, time_idx,
+                              load_dir_k1, load_dir_k2,
+                              figsize, figname_compare, LFS):
+    bG = 1.5 # K = b * (m1 + m2) # b in m^3/(fg s)
+    save_times = np.load(load_dir_k1 + f"save_times_{start_seed}.npy")
+
+    no_rows = 2
+    fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
+    
+    load_dirs = (load_dir_k1, load_dir_k2)
+    
+    for n,kappa in enumerate((kappa1,kappa2)):
+        load_dir = load_dirs[n]
+        bins_mass_centers = np.load(load_dir + f"bins_mass_centers_{no_sims}_no_bins_{no_bins}.npy")
+        bins_rad_centers = np.load(load_dir + f"bins_rad_centers_{no_sims}_no_bins_{no_bins}.npy")
+    
+        add_masses = 4
+#            f_m_num_avg_vs_time = np.load(load_dir + f"f_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#            g_m_num_avg_vs_time = np.load(load_dir + f"g_m_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        g_ln_r_num_avg_vs_time = np.load(load_dir + f"g_ln_r_num_avg_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        g_ln_r_num_std_vs_time = np.load(load_dir + f"g_ln_r_num_std_vs_time_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#            moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#            moments_vs_time_std = np.load(load_dir + f"moments_vs_time_std_no_sims_{no_sims}_no_bins_{no_bins}.npy")        
+        
+#            LW_compare = 1.0
+        ax = axes[n]
+        
+        ax.set_xscale("log", nonposx="mask")    
+        ax.set_yscale("log", nonposy="mask")                
+    
+        for time_n in time_idx:
+            mask = g_ln_r_num_avg_vs_time[time_n]*1000.0 > 1E-6
+            ax.plot(bins_rad_centers[time_n][0][mask],
+                    g_ln_r_num_avg_vs_time[time_n][mask]*1000.0,
+                    label = f"{int(save_times[time_n]//60)}", zorder=50)
+            
+            above_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
+                          + g_ln_r_num_std_vs_time[time_n]*1000.0
+            above_curve = \
+                np.where(above_curve <= 1E-4, 1E-4, above_curve)
+            
+            below_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
+                          - g_ln_r_num_std_vs_time[time_n]*1000.0
+            below_curve = \
+                np.where(below_curve <= 1E-4, 1E-4, below_curve)
+            
+            ax.fill_between(bins_rad_centers[time_n][0][mask],
+                            below_curve[mask],
+                            above_curve[mask],
+                            alpha=0.4, lw=1
+                            )                          
+        ax.set_prop_cycle(None)
+        for j,time_n in enumerate(time_idx):
+            if kernel_name == "Golovin":
+                scale_g=1000.      
+                no_bins_ref = 2*no_bins
+                ref_masses = np.zeros(no_bins_ref+add_masses)
+                
+                bin_factor = np.sqrt(bins_mass_centers[time_n][0][-1]/bins_mass_centers[time_n][0][-2])
+                ref_masses[0] = bins_mass_centers[time_n][0][0]
+    
+                for n in range(1,no_bins_ref+add_masses):
+                    ref_masses[n] = ref_masses[n-1]*bin_factor
+                f_m_golo = dist_vs_time_golo_exp(ref_masses,
+                                                 save_times[time_n],m_mean,DNC0,bG)
+                g_ln_r_golo = f_m_golo * 3 * ref_masses**2
+                g_ln_r_ref = g_ln_r_golo
+                ref_radii = 1E6 * (3. * ref_masses / (4. * math.pi * 1E3))**(1./3.)                
+            else:
+                scale_g=1.
+                dp = f"collision/ref_data/{kernel_name}/"
+                ref_radii = np.loadtxt(dp + "Wang_2007_radius_bin_centers.txt")[j][::5]
+                g_ln_r_ref = np.loadtxt(dp + "Wang_2007_g_ln_R.txt")[j][::5]
+                
+            fmt="o"    
+            ax.plot(ref_radii,
+                    g_ln_r_ref*scale_g,
+                    fmt,
+                    fillstyle='none',
+                    linewidth = 2,
+                    markersize = 2.3,
+                    mew=0.3, zorder=40)             
+        if kernel_name == "Golovin":
+            ax.set_xticks( np.logspace(0,3,4) )
+            ax.set_yticks( np.logspace(-4,0,5) )
+            ax.set_xlim([1.0,2.0E3])
+            ax.set_ylim([1.0E-4,10.0])
+        elif kernel_name == "Long_Bott":
+            ax.set_xlim([1.0,5.0E3])
+            ax.set_yticks( np.logspace(-4,2,7) )
+            ax.set_ylim([1.0E-4,10.0])
+        elif kernel_name == "Hall_Bott":
+            ax.set_xlim([1.0,5.0E3])
+            ax.set_yticks( np.logspace(-4,2,7) )
+            ax.set_ylim([1.0E-4,10.0])
+        ax.grid(which="major")
+        
+    axes[1].set_xlabel("Radius ($\si{\micro\meter}$)")
+    axes[0].set_ylabel(r"$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$")            
+    axes[1].set_ylabel(r"$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$")            
+    
+    axes[0].legend(ncol=7, handlelength=0.8, handletextpad=0.2,
+                      columnspacing=0.8, borderpad=0.15, loc="upper center",
+                      bbox_to_anchor=(0.5,1.02))
+    axes[0].tick_params(which="both", bottom=True, top=True,
+                       left=True, right=True, labelbottom=False)
+    axes[1].tick_params(which="both", bottom=True, top=True,
+                       left=True, right=True)
+    xpos_ = -0.054
+    ypos_ = 0.86
+    fig.text(xpos_, ypos_ , r"\textbf{(a)}", fontsize=LFS)    
+    fig.text(xpos_, ypos_*0.51, r"\textbf{(b)}", fontsize=LFS)    
+    fig.savefig(figname_compare,
+                bbox_inches = 'tight',
+                pad_inches = 0.05
+                )    
+    plt.close("all")        

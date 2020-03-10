@@ -29,6 +29,9 @@ from microphysics import compute_radius_from_mass_vec
 from distributions import conc_per_mass_expo_np
 from distributions import conc_per_mass_lognormal_np
 
+from golovin import dist_vs_time_golo_exp
+
+
 #%% BASIC FUNCTIONS
 
 def cm2inch(*tupl):
@@ -2202,6 +2205,8 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     fig.savefig(ensemble_dir + fig_name)
 
     plt.close('all')        
+
+
 
 
 

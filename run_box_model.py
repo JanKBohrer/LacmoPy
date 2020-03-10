@@ -7,7 +7,7 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-COLLISION BOX MODEL
+COLLISION BOX MODEL EXECUTION SCRIPT
 
 for initialization, the "SingleSIP" method is applied, as proposed by
 Unterstrasser 2017, GMD 10: 1521–1548
@@ -40,7 +40,9 @@ from generation_SIP_ensemble import \
 import collision.box_model as boxm
 import collision.kernel as ker
 
-from file_handling import load_kernel_data
+from golovin import compute_moments_Golovin
+
+from file_handling import load_kernel_data_Ecol
 
 #%% SET PARAMETERS 
 
@@ -55,19 +57,22 @@ set_log_file = True
 # i = 1: analyze SIP ensembles
 # i = 2: plot SIP ensemble data (requires analyze to be active)
 # i = 3: generate discretized collection efficiency E_c(R_1,R_2) from raw data
-# i = 3: generate discretized collection kernel K(m_1,m_2) from raw data
+# i = 4: generate discretized collection kernel K(m_1,m_2) from raw data
+args_gen = [0,0,0,0,0]
 #args_gen = [1,1,1,0,0]
-#args_gen = [0,0,0,0,0]
 #args_gen = [0,0,0,1,0]
-args_gen = [0,0,0,0,1]
+#args_gen = [0,0,0,0,1]
 
 # SET options for simulation
 # args_sim[i] is either 1 or 0 (activated or not activated)
 # i = 0: activate simulation
 # i = 1: activate data analysis
-# i = 2: activate plotting of data (requires analysis)
-# i = 3: activate plotting of moments for several kappa (requires analysis)
-args_sim = [0,0,0,0]
+# i = 2: act. plotting of data for each kappa (req. analyzed data present)
+# i = 3: act. plotting of moments for sever. kappa (req. panaly. data present)
+args_sim = [0,0,1,0]
+#args_sim = [1,0,0,0]
+#args_sim = [0,1,1,1]
+#args_sim = [1,1,1,1]
 
 ###############################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
@@ -76,10 +81,12 @@ args_sim = [0,0,0,0]
 # the number of super-particles is approximatetly 5*kappa for the chosen 
 # init. method
 kappa_list=[5]
+#kappa_list=[5,10,20,40,80]
 #kappa_list=[5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 # number of independent simulation per kappa value
-no_sims = 10
+#no_sims = 10
+no_sims = 50
 # random number seed of the first simulation. the following simulations,
 # get seeds 'start_seed'+2 , 'start_seed'+4, ...
 start_seed = 1001
@@ -91,8 +98,14 @@ kernel_name = 'Long_Bott'
 #kernel_name = 'Hall_Bott'
 
 # kernel grid
-kernel_method = 'Ecol_grid_R'
+# for Goloviin: choose 'analytic'
+# for Long_Bott or Hall_Bott:
+# choose 'Ecol_grid_R' (discretize coll. efficiency of radius E_col(R1,R2))
+# or 'kernel_grid_m' (discretize whole kernel function K(m1,m2) for masses)
+# 'kernel_grid_m' is slightly faster, 'Ecol_grid_R' uses less approximation
 #kernel_method = 'analytic'
+kernel_method = 'Ecol_grid_R'
+#kernel_method = 'kernel_grid_m'
 
 dt = 1.0 # seconds
 dt_save = 150.0 # interval for data output
@@ -225,7 +238,7 @@ result_path_add =\
 f'{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 /results/{kernel_name}/{kernel_method}/'
 
-#%% E_COL GRID GENERATION (DISCRETIZATION)
+#%% E_COL/KERNEL GRID GENERATION (DISCRETIZATION)
 if act_gen_Ecol_grid:
     if not os.path.exists(save_dir_Ecol_grid):
         os.makedirs(save_dir_Ecol_grid)        
@@ -238,10 +251,10 @@ if act_gen_Ecol_grid:
 
 if act_gen_kernel_grid:
     if not os.path.exists(save_dir_kernel_grid):
-        os.makedirs(save_dir_kernel_grid)        
-    mg_ = ker.generate_and_save_kernel_grid_Long_Bott(
+        os.makedirs(save_dir_kernel_grid)       
+    mg_ = ker.generate_and_save_kernel_grid(
               R_low_kernel, R_high_kernel, no_bins_10_kernel,
-              mass_density, save_dir_kernel_grid )[2]
+              mass_density, kernel_name, save_dir_kernel_grid )[2]
     print(f'generated kernel grid,',
           f'R_low = {R_low_kernel}, R_high = {R_high_kernel}',
           f'number of bins = {len(mg_)}')
@@ -331,7 +344,7 @@ if act_sim:
         
 #%% SIMULATION DATA LOAD
     if kernel_method == 'kernel_grid_m':
-        # convert to 1E-18 kg if mass grid is given in kg...
+        # convert to 1E-18 kg if mass grid is given in kg
         mass_grid = \
             1E18*np.load(save_dir_kernel_grid + 'mass_grid_out.npy')
         kernel_grid = \
@@ -343,27 +356,11 @@ if act_sim:
         no_kernel_bins = len(mass_grid)
     
     if kernel_method == 'Ecol_grid_R':
-#        if kernel_name == 'Hall_Bott':
-#            radius_grid = \
-#                np.load(save_dir_Ecol_grid + 'Hall_Bott_R_col_Unt.npy')
-#            E_col_grid = \
-#                np.load(save_dir_Ecol_grid + 'Hall_Bott_E_col_Unt.npy' )        
-#        else:
-#            radius_grid = \
-#                np.load(save_dir_Ecol_grid + 'radius_grid_out.npy')
-#            E_col_grid = \
-#                np.load(save_dir_Ecol_grid + 'E_col_grid.npy' )        
-#        R_kernel_low = radius_grid[0]
-#        bin_factor_R = radius_grid[1] / radius_grid[0]
-#        R_kernel_low_log = math.log(R_kernel_low)
-#        bin_factor_R_log = math.log(bin_factor_R)
-#        no_kernel_bins = len(radius_grid)
-    
         E_col_grid, radius_grid, \
         R_kernel_low, bin_factor_R, \
         R_kernel_low_log, bin_factor_R_log, \
         no_kernel_bins =\
-            load_kernel_data(kernel_method,
+            load_kernel_data_Ecol(kernel_method,
                              save_dir_Ecol_grid)
         
 ### SIMULATIONS
@@ -387,32 +384,23 @@ if act_sim:
             # for the collision algorithms
             masses = 1E18 * np.load(ensemble_dir + f'masses_seed_{seed}.npy')
             xis = np.load(ensemble_dir + f'xis_seed_{seed}.npy')                    
+            # only analytic for Golovin
             if kernel_name == 'Golovin':
                 SIP_quantities = (xis, masses)
                 kernel_quantities = None                
-            elif kernel_name == 'Long_Bott':
-                if kernel_method == 'Ecol_grid_R':
-                    mass_densities = np.ones_like(masses) * mass_density
-                    radii = compute_radius_from_mass_vec(masses,mass_densities)
-                    vel = ker.compute_terminal_velocity_Beard_vec(radii)
-                    SIP_quantities = (xis, masses, radii, vel, mass_densities)
-                    kernel_quantities = \
-                    (E_col_grid, no_kernel_bins, R_kernel_low_log,
-                     bin_factor_R_log)
-                        
-                elif kernel_method == 'analytic':
-                    SIP_quantities = (xis, masses, mass_density)
-                    kernel_quantities = None
-                    
-            if kernel_name == 'Hall_Bott':
-                if kernel_method == 'Ecol_grid_R':
-                    mass_densities = np.ones_like(masses) * mass_density
-                    radii = compute_radius_from_mass_vec(masses,mass_densities)
-                    vel = ker.compute_terminal_velocity_Beard_vec(radii)
-                    SIP_quantities = (xis, masses, radii, vel, mass_densities)
-                    kernel_quantities = \
-                    (E_col_grid, no_kernel_bins, R_kernel_low_log,
-                     bin_factor_R_log)  
+            elif kernel_method == 'Ecol_grid_R':
+                mass_densities = np.ones_like(masses) * mass_density
+                radii = compute_radius_from_mass_vec(masses,mass_densities)
+                vel = ker.compute_terminal_velocity_Beard_vec(radii)
+                SIP_quantities = (xis, masses, radii, vel, mass_densities)
+                kernel_quantities = \
+                (E_col_grid, no_kernel_bins, R_kernel_low_log,
+                 bin_factor_R_log)
+            elif kernel_method == 'kernel_grid_m':
+                SIP_quantities = (xis, masses)
+                kernel_quantities = \
+                (kernel_grid, no_kernel_bins,
+                 m_kernel_low_log, bin_factor_m_log)
                     
             print(f'kappa {kappa}, sim {cnt}: seed {seed} simulation start')
             boxm.simulate_collisions(SIP_quantities,
@@ -434,15 +422,28 @@ if act_analysis:
 
 #%% PLOTTING
 if act_plot:
+    ref_data_path = 'collision/ref_data/' + f'{kernel_name}/'
+    if kernel_name == 'Long_Bott' or kernel_name == 'Hall_Bott':
+        moments_ref = np.loadtxt(ref_data_path + 'Wang_2007_moments.txt')
+        times_ref = np.loadtxt(ref_data_path + 'Wang_2007_times.txt')
+    elif kernel_name == 'Golovin':
+        times_ref = np.loadtxt(ref_data_path + 'Wang_2007_times.txt')
+        moments_ref = np.zeros((4,len(times_ref)))
+        bG = 1.5
+        for mom_n in range(4):
+            moments_ref[mom_n] = \
+                compute_moments_Golovin(times_ref, mom_n, DNC0, LWC0, bG)
+    
     for kappa in kappa_list:
         load_dir =\
             simdata_path + result_path_add + f'kappa_{kappa}/dt_{int(dt)}/'
         boxm.plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
                                   kernel_name, gen_method,
-                                  bin_method_sim_data, load_dir)
+                                  bin_method_sim_data,
+                                  moments_ref, times_ref,
+                                  load_dir)
 
 #%% PLOT MOMENTS VS TIME for several kappa
-# act_plot_moments_kappa_var = True
 
 TTFS, LFS, TKFS = 14,14,12
 if act_plot_moments_kappa_var:
@@ -451,8 +452,12 @@ if act_plot_moments_kappa_var:
         moments_ref = np.loadtxt(ref_data_path + 'Wang_2007_moments.txt')
         times_ref = np.loadtxt(ref_data_path + 'Wang_2007_times.txt')
     elif kernel_name == 'Golovin':
-        moments_ref = None
-        times_ref = None
+        times_ref = np.loadtxt(ref_data_path + 'Wang_2007_times.txt')
+        moments_ref = np.zeros((4,len(times_ref)))
+        bG = 1.5
+        for mom_n in range(4):
+            moments_ref[mom_n] = \
+                compute_moments_Golovin(times_ref, mom_n, DNC0, LWC0, bG)
         
     fig_dir = simdata_path + result_path_add
     boxm.plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,

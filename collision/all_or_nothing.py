@@ -179,7 +179,7 @@ def create_kernel_index_array(x, no_SIPs, x_kernel_low_log,
     return ind_kernel
 
 # given the kernel grid for masses
-def collision_step_Long_Bott_kernel_grid_m_np(
+def collision_step_kernel_grid_m_np(
         xis, masses, dt_over_dV,
         kernel_grid, no_kernel_bins,
         m_kernel_low_log, bin_factor_m_log, no_cols):
@@ -247,8 +247,8 @@ def collision_step_Long_Bott_kernel_grid_m_np(
                         compute_kernel_index(masses[ind_min], m_kernel_low_log,
                                              bin_factor_m_log, no_kernel_bins)
             cnt += 1
-collision_step_Long_Bott_kernel_grid_m = \
-    njit()(collision_step_Long_Bott_kernel_grid_m_np)
+collision_step_kernel_grid_m = \
+    njit()(collision_step_kernel_grid_m_np)
 
 # given E_col grid for radii
 # given velocities "vel"

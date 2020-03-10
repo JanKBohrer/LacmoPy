@@ -36,7 +36,7 @@ from generation_SIP_ensemble import \
     gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
 
 from file_handling import save_grid_and_particles_full
-from file_handling import load_kernel_data
+from file_handling import load_kernel_data_Ecol
 
 
 #%% FUNCTION DEFS    
@@ -208,10 +208,10 @@ def set_config(config, config_mode):
         R_kernel_low, bin_factor_R, \
         R_kernel_low_log, bin_factor_R_log, \
         no_kernel_bins =\
-            load_kernel_data(config['kernel_method'],
-                             config['save_folder_Ecol_grid'] + '/' 
-                             + config['kernel_type'] + '/',
-                             config['E_col_const'])
+            load_kernel_data_Ecol(config['kernel_method'],
+                                  config['save_folder_Ecol_grid'] + '/' 
+                                  + config['kernel_type'] + '/',
+                                  config['E_col_const'])
         
         config['no_kernel_bins'] = no_kernel_bins
         config['R_kernel_low_log'] = R_kernel_low_log
