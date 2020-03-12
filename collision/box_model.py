@@ -562,6 +562,7 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
                                          figsize, figname, figsize2, figname2,
                                          figsize3, figname3, figsize4, figname4,
                                          TTFS, LFS, TKFS):
+    
     no_rows = 3
     
     fig, axes = plt.subplots(nrows=no_rows, figsize=(figsize), sharex=True)
@@ -594,7 +595,9 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
         if kernel_name == "Golovin":
             
             fmt = "o"
-            times_ref = np.linspace(0.,3600.,19)
+            # load times from 'collision/...'
+            # times_ref = np.linspace(0.,3600.,19)
+            # calc moments directly from analytic function
             moments_ref_i = compute_moments_Golovin(times_ref, i, DNC, LWC, bG)
         else:
             fmt = "o"

@@ -28,7 +28,10 @@ import os
 import sys
 import math
 import numpy as np
-    
+import matplotlib as mpl
+import matplotlib.pyplot as plt    
+
+
 import constants as c
 
 from microphysics import compute_radius_from_mass_vec
@@ -44,9 +47,20 @@ from golovin import compute_moments_Golovin
 
 from file_handling import load_kernel_data_Ecol
 
-#%% SET PARAMETERS 
+from plotting import cm2inch
+from plotting import generate_rcParams_dict
+from plotting import pgf_dict
 
-simdata_path = '/Users/bohrer/sim_data_box_mod_test/'
+
+#%% SET PARAMETERS 
+# parent directory, where simulation data and ensembles are stored
+#simdata_path = '/Users/bohrer/sim_data_box_mod_test/'
+simdata_path = '/home/jdesk/sim_data_col_box_mod/'
+
+# directory, where figures in the style of the GMD publication are stored
+# note that additional figures are created in the automatically generated
+# folder structure for all individual kappa of kappa_list
+figpath = "/home/jdesk/sim_data_col_box_mod/figures/"        
 
 set_log_file = True
 
@@ -60,7 +74,7 @@ set_log_file = True
 # i = 4: generate discretized collection kernel K(m_1,m_2) from raw data
 args_gen = [0,0,0,0,0]
 #args_gen = [1,1,1,0,0]
-#args_gen = [0,0,0,1,0]
+#args_gen = [0,0,0,1,1]
 #args_gen = [0,0,0,0,1]
 
 # SET options for simulation
@@ -68,27 +82,28 @@ args_gen = [0,0,0,0,0]
 # i = 0: activate simulation
 # i = 1: activate data analysis
 # i = 2: act. plotting of data for each kappa (req. analyzed data present)
-# i = 3: act. plotting of moments for sever. kappa (req. panaly. data present)
-args_sim = [0,0,1,0]
-#args_sim = [1,0,0,0]
-#args_sim = [0,1,1,1]
-#args_sim = [1,1,1,1]
+# i = 3: act. plotting of moments for sever. kappa (req. analy. data present)
+# i = 4: act. plotting of moments for sever. kappa as in the GMD publication
+# i = 5: act. plotting of g_ln_R vs. R for individual kappa from kappa_list
+# i = 6: act. plotting of g_ln_R vs. R for two specific kappa as in the GMD pub
+#args_sim = [1,1,1,1,0,0]
+args_sim = [0,0,0,0,1,0,0]
 
 ###############################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
-
 # simulations are started for each kappa-value in 'kappa_list'
 # the number of super-particles is approximatetly 5*kappa for the chosen 
 # init. method
-kappa_list=[5]
-#kappa_list=[5,10,20,40,80]
-#kappa_list=[5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
+#kappa_list = [5]
+kappa_list = [5,10,20,40,80]
+#kappa_list = [5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 # number of independent simulation per kappa value
 #no_sims = 10
 no_sims = 50
 # random number seed of the first simulation. the following simulations,
 # get seeds 'start_seed'+2 , 'start_seed'+4, ...
+# it is also possible to set an individual seed list
 start_seed = 1001
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
@@ -98,11 +113,11 @@ kernel_name = 'Long_Bott'
 #kernel_name = 'Hall_Bott'
 
 # kernel grid
-# for Goloviin: choose 'analytic'
+# for Golovin: choose 'analytic'
 # for Long_Bott or Hall_Bott:
 # choose 'Ecol_grid_R' (discretize coll. efficiency of radius E_col(R1,R2))
 # or 'kernel_grid_m' (discretize whole kernel function K(m1,m2) for masses)
-# 'kernel_grid_m' is slightly faster, 'Ecol_grid_R' uses less approximation
+# 'kernel_grid_m' is faster, 'Ecol_grid_R' uses less approximation
 #kernel_method = 'analytic'
 kernel_method = 'Ecol_grid_R'
 #kernel_method = 'kernel_grid_m'
@@ -111,7 +126,7 @@ dt = 1.0 # seconds
 dt_save = 150.0 # interval for data output
 t_end = 3600.0 # simulation time (seconds)
 
-# only option: 'auto_bin'
+# only avail. option: 'auto_bin'
 bin_method_sim_data = 'auto_bin'
 
 ###############################################################################
@@ -132,10 +147,10 @@ eta = 1.0E-9
 #eta_threshold = 'weak'
 eta_threshold = 'fix'
 
-dV = 1.0
+dV = 1.0 # box volume in m^3
 
 ## for EXPO dist: set r0 and LWC0 analog to Unterstrasser 2017
-# -> DNC0 is calc from that
+# -> DNC0 will be calculated from that
 if dist == 'expo':
     LWC0 = 1.0E-3 # kg/m^3
     R_mean = 9.3 # in mu
@@ -155,12 +170,15 @@ if dist == 'lognormal':
     mu_R = 0.02 # in mu
     sigma_R = 1.4 #  no unit
 
-## PARAMS FOR DATA ANALYSIS OF INITIAL SIP ENSEMBLES
+### PARAMS FOR DATA ANALYSIS OF INITIAL SIP ENSEMBLES
 # only bin_mode = 1 is available for now..
 # bin_mode = 1 for bins equal dist on log scale
 bin_mode = 1
 
-## for myHisto generation (additional parameters)
+# parameters for generation of a smoothed histogram
+# note that this histogram type is not used for the generation of the final
+# plots. the parameters here must be set, but have no influence in the 
+# default case
 spread_mode = 0 # spreading based on lin scale
 # spread_mode = 1 # spreading based on log scale
 # shift_factor = 1.0
@@ -173,6 +191,18 @@ scale_factor = 1.0
 # For shift_factor = 0.5 only half of the effect:
 # bin center_new = 0.5 (bin_center_lin_first_corr + shifted bin center)
 shift_factor = 0.5
+
+###############################################################################
+### SET PARAMETERS FOR PLOTTING
+
+# g_ln_R vs R is plotted for two different kappas, if activated above
+# Golovin    
+kappa1 = 10
+kappa2 = 200
+
+# Long and Hall
+#kappa1 = 10
+#kappa2 = 200
 
 ###############################################################################
 ### SET PARAMETERS FOR KERNEL/ECOL-GRID GENERATION AND LOADING
@@ -197,6 +227,9 @@ act_sim = bool(args_sim[0])
 act_analysis = bool(args_sim[1])
 act_plot = bool(args_sim[2])
 act_plot_moments_kappa_var = bool(args_sim[3])
+act_plot_moments_kappa_var_paper = bool(args_sim[4])
+act_plot_g_ln_R_single = bool(args_sim[5])
+act_plot_g_ln_R_compare = bool(args_sim[6])
 
 # constant converts radius in mu to mass in kg (m = 4/3 pi rho R^3)
 c_radius_to_mass = 4.0E-18 * math.pi * mass_density / 3.0
@@ -460,10 +493,67 @@ if act_plot_moments_kappa_var:
                 compute_moments_Golovin(times_ref, mom_n, DNC0, LWC0, bG)
         
     fig_dir = simdata_path + result_path_add
-    boxm.plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
-                                kernel_name, gen_method,
-                                dist, start_seed,
-                                moments_ref, times_ref,
-                                simdata_path,
-                                result_path_add,
-                                fig_dir, TTFS, LFS, TKFS)
+    boxm.plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
+                                        kernel_name, gen_method,
+                                        dist, start_seed,
+                                        moments_ref, times_ref,
+                                        simdata_path,
+                                        result_path_add,
+                                        fig_dir, TTFS, LFS, TKFS)
+
+#%% GMD PAPER PLOTS
+
+mpl.rcParams.update(plt.rcParamsDefault)
+mpl.use("pgf")
+plt.rcParams.update(pgf_dict)
+
+TTFS = 10
+LFS = 10
+TKFS = 8
+
+# LINEWIDTH, MARKERSIZE
+LW = 1.2
+MS = 2
+
+# raster resolution for e.g. .png
+DPI = 600
+
+if kernel_name == "Golovin":
+    figsize = cm2inch(6.5,9.0)
+else:
+    figsize = cm2inch(6.5,11.0)
+figsize2 = cm2inch(17.5,23.0)
+figsize3 = cm2inch(17.5,5)
+figsize4 = figsize3
+
+mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
+
+if act_plot_moments_kappa_var_paper:
+    ref_data_path = "collision/ref_data/" \
+                    + f"{kernel_name}/"
+    moments_ref = np.loadtxt(ref_data_path + "Wang_2007_moments.txt")
+    times_ref = np.loadtxt(ref_data_path + "Wang_2007_times.txt")
+    
+    figname = figpath \
+            + f"{kernel_name}_moments_vs_time_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
+    figname2 = figpath \
+            + f"{kernel_name}_moments_vs_time_rel_dev_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
+    figname3 = figpath \
+            + f"{kernel_name}_moments_vs_time_converge_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
+    figname4 = figpath \
+            + f"{kernel_name}_moments_vs_time_converge_50_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
+#    fig_dir = sim_data_path + result_path_add    
+    boxm.plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt,
+                                              no_sims, no_bins,
+                                              kernel_name, gen_method,
+                                              dist, start_seed,
+                                              moments_ref, times_ref,
+                                              simdata_path,
+                                              result_path_add,
+                                              figsize, figname,
+                                              figsize2, figname2,
+                                              figsize3, figname3,
+                                              figsize4, figname4,
+                                              TTFS, LFS, TKFS)
+
+mpl.rcParams.update(plt.rcParamsDefault)

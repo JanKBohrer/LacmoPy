@@ -1851,7 +1851,6 @@ if print_reduction:
 #        moments_vs_time_avg[:,1] *= 1.0E3
     
     ### print reduction of the init concentration with time
-    
         print()
         print("kappa = ", kappa)
         print()
@@ -1881,7 +1880,7 @@ if act_plot_moments_kappa_var:
             + f"{kernel_name}_moments_vs_time_converge_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
     figname4 = figpath \
             + f"{kernel_name}_moments_vs_time_converge_50_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
-    fig_dir = sim_data_path + result_path_add
+#    fig_dir = sim_data_path + result_path_add
 #    plot_moments_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
 #                           kernel_name, gen_method,
 #                           dist, start_seed,
