@@ -7,7 +7,7 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-microphysics module
+MICROPHYSICS: PARTICLE FORCES, CONDENSATIONAL MASS GROWTH, SATURAT. ADJUSTMENT
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
@@ -24,7 +24,7 @@ from scipy.optimize import brentq
 from numba import njit, vectorize
 
 import constants as c
-import materialproperties as mat
+import material_properties as mat
 
 par_sol_dens_NaCl = mat.par_sol_dens_NaCl
 par_rho_AS = mat.par_rho_AS
@@ -43,36 +43,36 @@ from algebra import compute_polynom
 # from radius in microns (10^-6 m)
 # and density in kg/m^3
 @vectorize("float64(float64,float64)")
-def compute_mass_from_radius_vec(radius_, density_):
-    return c.pi_times_4_over_3 * density_ * radius_ * radius_ * radius_ 
+def compute_mass_from_radius_vec(radius, density):
+    return c.pi_times_4_over_3 * density * radius * radius * radius 
 
 @njit()
-def compute_mass_from_radius(radius_, density_):
-    return c.pi_times_4_over_3 * density_ * radius_ * radius_ * radius_ 
+def compute_mass_from_radius(radius, density):
+    return c.pi_times_4_over_3 * density * radius * radius * radius 
 
 # compute radius in microns
 # mass in 10^-18 kg, density in kg/m^3, radius in micro meter
 # vectorize for mass array
 @vectorize("float64(float64,float64)")
-def compute_radius_from_mass_vec(mass_, density_):
-    return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
+def compute_radius_from_mass_vec(mass, density):
+    return   ( c.pi_times_4_over_3_inv * mass / density ) ** (c.one_third)
 
 @njit()
-def compute_radius_from_mass(mass_, density_):
-    return   ( c.pi_times_4_over_3_inv * mass_ / density_ ) ** (c.one_third)
+def compute_radius_from_mass(mass, density):
+    return   ( c.pi_times_4_over_3_inv * mass / density ) ** (c.one_third)
 
 # molality and molec. weight have to be in inverse units, e.g.
 # mol/kg and kg/mol 
 @njit()
-def compute_mass_fraction_from_molality(molality_, molecular_weight_):
-    return 1.0 / ( 1.0 + 1.0 / (molality_ * molecular_weight_) )
+def compute_mass_fraction_from_molality(molality, molecular_weight):
+    return 1.0 / ( 1.0 + 1.0 / (molality * molecular_weight) )
 
 # mass_frac in [-] (not percent!!)
 # mol weight in kg/mol
 # result in mol/kg
 @njit()
-def compute_molality_from_mass_fraction(mass_fraction_, molecular_weight_):
-    return mass_fraction_ / ( (1. - mass_fraction_) * molecular_weight_ )
+def compute_molality_from_mass_fraction(mass_fraction, molecular_weight):
+    return mass_fraction / ( (1. - mass_fraction) * molecular_weight )
 
 ### FOR CONVENIENCE: RADIUS, MASS FRACTION AND DENSITY 
         
@@ -97,12 +97,12 @@ def compute_R_p_w_s_rho_p(m_w, m_s, T_p, solute_type):
     elif solute_type == "NaCl":
         return compute_R_p_w_s_rho_p_NaCl(m_w, m_s, T_p)
 
-def compute_particle_radius_from_ws_T_ms_NaCl( mass_fraction_solute_,
-                                         temperature_, dry_mass_):
-    Vp = dry_mass_\
-        / ( mass_fraction_solute_ \
-           * mat.compute_density_NaCl_solution(mass_fraction_solute_,
-                                               temperature_) )
+def compute_particle_radius_from_ws_T_ms_NaCl(mass_fraction_solute,
+                                              temperature, dry_mass):
+    Vp = dry_mass\
+        / ( mass_fraction_solute \
+           * mat.compute_density_NaCl_solution(mass_fraction_solute,
+                                               temperature) )
     return (c.pi_times_4_over_3_inv * Vp)**(c.one_third)
 
 #%% FORCES
@@ -113,10 +113,9 @@ def compute_particle_radius_from_ws_T_ms_NaCl( mass_fraction_solute_,
 # density in kg/m^3
 # viscosity in N s/m^2
 @njit()
-def compute_particle_reynolds_number(radius_, velocity_dev_, fluid_density_,
-                                     fluid_viscosity_ ):
-    return 2.0E-6 * fluid_density_ * radius_ * velocity_dev_ / fluid_viscosity_    
-
+def compute_particle_reynolds_number(radius, velocity_dev, fluid_density,
+                                     fluid_viscosity):
+    return 2.0E-6 * fluid_density * radius * velocity_dev / fluid_viscosity    
 
 #%% EQUILIBRIUM SATURATION - KELVIN RAOULT
 
@@ -131,17 +130,18 @@ def compute_kelvin_argument(R_p, T_p, rho_p, sigma_p):
 def compute_kelvin_term(R_p, T_p, rho_p, sigma_w):
     return np.exp(compute_kelvin_argument(R_p, T_p, rho_p, sigma_w))
 
+# from mass fraction mf
 @njit()
-def compute_kelvin_term_mf(mass_fraction_solute_,
-                        temperature_,
-                        mass_solute_,
-                        mass_density_particle_,
-                        surface_tension_ ):
+def compute_kelvin_term_mf(mass_fraction_solute,
+                           temperature,
+                           mass_solute,
+                           mass_density_particle,
+                           surface_tension_ ):
     return np.exp( 2.0 * surface_tension_ * 1.0E6\
-                   * (mass_fraction_solute_ / mass_solute_)**(c.one_third)
+                   * (mass_fraction_solute / mass_solute)**(c.one_third)
                    / ( c.specific_gas_constant_water_vapor
-                       * temperature_
-                       * mass_density_particle_**(0.66666667)
+                       * temperature
+                       * mass_density_particle**(0.66666667)
                        * c.const_volume_to_radius) )
 
 @vectorize(
@@ -164,6 +164,7 @@ def compute_equilibrium_saturation_NaCl_mf(w_s, T_p, m_s):
     return mat.compute_water_activity_NaCl(w_s) \
            * compute_kelvin_term_mf(w_s, T_p, m_s, rho_p, sigma_p)
 
+# from mass fraction mf
 @njit()
 def compute_equilibrium_saturation_AS_mf(w_s, T_p, m_s):
     rho_p = mat.compute_density_AS_solution(w_s, T_p)
@@ -200,21 +201,21 @@ def compute_equilibrium_saturation_minus_S_amb_NaCl_mf(w_s, T_p, m_s, S_amb):
 # is only given for 0 < w_s < 0.45
 @vectorize( "float64(float64,float64,float64)", forceobj=True )
 def compute_initial_mass_fraction_solute_m_s_NaCl(m_s,
-                                                  ambient_saturation_,
-                                                  ambient_temperature_,
+                                                  ambient_saturation,
+                                                  ambient_temperature,
                                                   ):
     # 1.
     S_effl = compute_equilibrium_saturation_NaCl_mf(mat.w_s_max_NaCl,
-                                                  ambient_temperature_, m_s)
+                                                    ambient_temperature, m_s)
     # 2.
-    if ambient_saturation_ <= S_effl:
+    if ambient_saturation <= S_effl:
         w_s_init = mat.w_s_max_NaCl
     else:
         # 3.
         w_s_act, S_act, flag, nofc  = \
             fminbound(compute_equilibrium_saturation_negative_NaCl_mf,
                       x1=1E-8, x2=mat.w_s_max_NaCl,
-                      args=(ambient_temperature_, m_s),
+                      args=(ambient_temperature, m_s),
                       xtol = 1.0E-12, full_output=True )
         # 4.
         # increase w_s_act slightly to avoid numerical problems
@@ -224,11 +225,12 @@ def compute_initial_mass_fraction_solute_m_s_NaCl(m_s,
         # set w_s_act (i.e. the min bound for brentq() solve below )
         # to deliqu. mass fraction if fminbound does not converge
         else:
-            w_s_act = mat.compute_solubility_NaCl(ambient_temperature_)
+            w_s_act = mat.compute_solubility_NaCl(ambient_temperature)
         S_act = compute_equilibrium_saturation_NaCl_mf(w_s_act,
-                                                   ambient_temperature_, m_s)
+                                                       ambient_temperature,
+                                                       m_s)
         # 5.
-        if ambient_saturation_ > S_act:
+        if ambient_saturation > S_act:
             w_s_init = w_s_act
         else:
             # 6.
@@ -237,7 +239,7 @@ def compute_initial_mass_fraction_solute_m_s_NaCl(m_s,
                     compute_equilibrium_saturation_minus_S_amb_NaCl_mf,
                     w_s_act,
                     mat.w_s_max_NaCl,
-                    (ambient_temperature_, m_s, ambient_saturation_),
+                    (ambient_temperature, m_s, ambient_saturation),
                     xtol = 1e-15,
                     full_output=True)
             if solve_result[1].converged:
@@ -276,23 +278,21 @@ def compute_equilibrium_saturation_minus_S_amb_AS_mf(w_s, T_p, m_s, S_amb):
 # is only given for 0 < w_s < 0.78
 @vectorize( "float64(float64,float64,float64)", forceobj=True )
 def compute_initial_mass_fraction_solute_m_s_AS(m_s,
-                                                  ambient_saturation_,
-                                                  ambient_temperature_,
-                                                  ):
-                                                  # opt = 'None'
+                                                ambient_saturation,
+                                                ambient_temperature):
     # 1.
     S_effl = compute_equilibrium_saturation_AS_mf(mat.w_s_max_AS,
-                                                  ambient_temperature_, m_s)
+                                                  ambient_temperature, m_s)
     # 2.
-    # np.where(ambient_saturation_ <= S_effl, w_s_init = w_s_effl,)
-    if ambient_saturation_ <= S_effl:
+    # np.where(ambient_saturation <= S_effl, w_s_init = w_s_effl,)
+    if ambient_saturation <= S_effl:
         w_s_init = mat.w_s_max_AS
     else:
         # 3.
         w_s_act, S_act, flag, nofc  = \
             fminbound(compute_equilibrium_saturation_negative_AS_mf,
                       x1=1E-8, x2=mat.w_s_max_AS,
-                      args=(ambient_temperature_, m_s),
+                      args=(ambient_temperature, m_s),
                       xtol = 1.0E-12, full_output=True )
         # 4.
         # increase w_s_act slightly to avoid numerical problems
@@ -302,12 +302,12 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
         # set w_s_act (i.e. the min bound for brentq() solve below )
         # to deliqu. mass fraction if fminbound does not converge
         else:
-            w_s_act = mat.compute_solubility_AS(ambient_temperature_)
+            w_s_act = mat.compute_solubility_AS(ambient_temperature)
         # update S_act to S_act* < S_act (right branch of S_eq vs w_s curve)
         S_act = compute_equilibrium_saturation_AS_mf(w_s_act,
-                                                   ambient_temperature_, m_s)
+                                                     ambient_temperature, m_s)
         # 5.
-        if ambient_saturation_ > S_act:
+        if ambient_saturation > S_act:
             w_s_init = w_s_act
         else:
             # 6.
@@ -316,7 +316,7 @@ def compute_initial_mass_fraction_solute_m_s_AS(m_s,
                     compute_equilibrium_saturation_minus_S_amb_AS_mf,
                     w_s_act,
                     mat.w_s_max_AS,
-                    (ambient_temperature_, m_s, ambient_saturation_),
+                    (ambient_temperature, m_s, ambient_saturation),
                     xtol = 1e-15,
                     full_output=True)
             if solve_result[1].converged:
@@ -531,10 +531,10 @@ compute_mass_rate_and_derivative_AS =\
 #   factor (currently not in use, we use the direct polynomial form from above)
 #   this might get interesting, when considering more than one solute species
 #@njit()
-#def compute_water_activity_NaCl_vH_mf(mass_fraction_solute_, vant_Hoff_):
-#    return (1. - mass_fraction_solute_)\
+#def compute_water_activity_NaCl_vH_mf(mass_fraction_solute, vant_Hoff_):
+#    return (1. - mass_fraction_solute)\
 #         / ( 1. - ( 1. - mat.molar_mass_ratio_w_NaCl * vant_Hoff_ )
-#                 * mass_fraction_solute_ )
+#                 * mass_fraction_solute )
 #
 #@vectorize(
 #"float64(float64, float64, float64, float64, float64, float64, float64)")
@@ -544,56 +544,56 @@ compute_mass_rate_and_derivative_AS =\
 #           * compute_kelvin_term(R_p, rho_p, T_p, sigma_w)
 #
 #@njit()
-#def compute_equilibrium_saturation_NaCl_from_vH_mf(mass_fraction_solute_,
-#                                                   temperature_,
+#def compute_equilibrium_saturation_NaCl_from_vH_mf(mass_fraction_solute,
+#                                                   temperature,
 #                                                   vant_Hoff_,
-#                                                   mass_solute_,
-#                                                   mass_density_particle_,
+#                                                   mass_solute,
+#                                                   mass_density_particle,
 #                                                   surface_tension_):
-#    return compute_water_activity_NaCl_vH_mf(mass_fraction_solute_,vant_Hoff_)\
-#           * compute_kelvin_term_mf(mass_fraction_solute_,
-#                                    temperature_,
-#                                    mass_solute_,
-#                                    mass_density_particle_,
+#    return compute_water_activity_NaCl_vH_mf(mass_fraction_solute,vant_Hoff_)\
+#           * compute_kelvin_term_mf(mass_fraction_solute,
+#                                    temperature,
+#                                    mass_solute,
+#                                    mass_density_particle,
 #                                    surface_tension_)
 #           
 #@njit()
-#def compute_equilibrium_saturation_NaCl_vH_mf(mass_fraction_solute_,
-#                                              temperature_,
-#                                              mass_solute_):
+#def compute_equilibrium_saturation_NaCl_vH_mf(mass_fraction_solute,
+#                                              temperature,
+#                                              mass_solute):
 #    return compute_equilibrium_saturation_NaCl_from_vH_mf(
-#               mass_fraction_solute_,
-#               temperature_,
-#               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
-#               mass_solute_,
-#               mat.compute_density_NaCl_solution(mass_fraction_solute_,
-#                                                 temperature_),
-#               mat.compute_surface_tension_water(temperature_))
+#               mass_fraction_solute,
+#               temperature,
+#               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute ),
+#               mass_solute,
+#               mat.compute_density_NaCl_solution(mass_fraction_solute,
+#                                                 temperature),
+#               mat.compute_surface_tension_water(temperature))
 
-#def compute_equilibrium_saturation_negative_NaCl_vH_mf(mass_fraction_solute_,
-#                                           temperature_,
-#                                           mass_solute_):
+#def compute_equilibrium_saturation_negative_NaCl_vH_mf(mass_fraction_solute,
+#                                           temperature,
+#                                           mass_solute):
 #    return -compute_equilibrium_saturation_NaCl_from_vH_mf(
-#               mass_fraction_solute_,
-#               temperature_,
-#               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
-#               mass_solute_,
-#               mat.compute_density_NaCl_solution(mass_fraction_solute_,
-#                                             temperature_),
-#               mat.compute_surface_tension_water(temperature_))
+#               mass_fraction_solute,
+#               temperature,
+#               mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute ),
+#               mass_solute,
+#               mat.compute_density_NaCl_solution(mass_fraction_solute,
+#                                             temperature),
+#               mat.compute_surface_tension_water(temperature))
 #
 #def compute_equilibrium_saturation_minus_S_amb_NaCl_vH_mf(
-#        mass_fraction_solute_, temperature_,
-#        mass_solute_, ambient_saturation_):
-#    return -ambient_saturation_\
+#        mass_fraction_solute, temperature,
+#        mass_solute, ambient_saturation):
+#    return -ambient_saturation\
 #           + compute_equilibrium_saturation_NaCl_from_vH_mf(
-#                 mass_fraction_solute_,
-#                 temperature_,
-#                 mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute_ ),
-#                 mass_solute_,
-#                 mat.compute_density_NaCl_solution(mass_fraction_solute_,
-#                                                 temperature_),
-#                 mat.compute_surface_tension_water(temperature_))
+#                 mass_fraction_solute,
+#                 temperature,
+#                 mat.compute_vant_Hoff_factor_NaCl( mass_fraction_solute ),
+#                 mass_solute,
+#                 mat.compute_density_NaCl_solution(mass_fraction_solute,
+#                                                 temperature),
+#                 mat.compute_surface_tension_water(temperature))
 ## input:
 ## m_s
 ## S_amb
@@ -610,23 +610,23 @@ compute_mass_rate_and_derivative_AS =\
 ## check for convergence at every stage... if not converged
 #@vectorize( "float64(float64,float64,float64)", forceobj=True )
 #def compute_initial_mass_fraction_solute_m_s_NaCl_vH(m_s,
-#                                                  ambient_saturation_,
-#                                                  ambient_temperature_,
+#                                                  ambient_saturation,
+#                                                  ambient_temperature,
 #                                                  ):
 #    #0.
 #    w_s_effl =\
-#        mat.compute_efflorescence_mass_fraction_NaCl(ambient_temperature_)
+#        mat.compute_efflorescence_mass_fraction_NaCl(ambient_temperature)
 #    # 1.
 #    S_effl = compute_equilibrium_saturation_NaCl_mf(w_s_effl,
-#                                                    ambient_temperature_, m_s)
+#                                                    ambient_temperature, m_s)
 #    # 2.
-#    if ambient_saturation_ <= S_effl:
+#    if ambient_saturation <= S_effl:
 #        w_s_init = w_s_effl
 #    else:
 #        # 3.
 #        w_s_act, S_act, flag, nofc  = \
 #            fminbound(compute_equilibrium_saturation_negative_NaCl_vH_mf,
-#                      x1=1E-8, x2=w_s_effl, args=(ambient_temperature_, m_s),
+#                      x1=1E-8, x2=w_s_effl, args=(ambient_temperature, m_s),
 #                      xtol = 1.0E-12, full_output=True )
 #        # 4.
 #        # increase w_s_act slightly to avoid numerical problems
@@ -636,12 +636,12 @@ compute_mass_rate_and_derivative_AS =\
 #        # set w_s_act (i.e. the min bound for brentq() solve below )
 #        # to deliqu. mass fraction if fminbound does not converge
 #        else:
-#            w_s_act = mat.compute_solubility_NaCl(ambient_temperature_)
+#            w_s_act = mat.compute_solubility_NaCl(ambient_temperature)
 #        # update S_act to S_act* < S_act (right branch of S_eq vs w_s curve)
 #        S_act = compute_equilibrium_saturation_NaCl_mf(w_s_act,
-#                                                   ambient_temperature_, m_s)
+#                                                   ambient_temperature, m_s)
 #        # 5.
-#        if ambient_saturation_ > S_act:
+#        if ambient_saturation > S_act:
 #            w_s_init = w_s_act
 #        else:
 #            # 6.
@@ -650,7 +650,7 @@ compute_mass_rate_and_derivative_AS =\
 #                    compute_equilibrium_saturation_minus_S_amb_NaCl_vH_mf,
 #                    w_s_act,
 #                    w_s_effl,
-#                    (ambient_temperature_, m_s, ambient_saturation_),
+#                    (ambient_temperature, m_s, ambient_saturation),
 #                    xtol = 1e-15,
 #                    full_output=True)
 #            if solve_result[1].converged:

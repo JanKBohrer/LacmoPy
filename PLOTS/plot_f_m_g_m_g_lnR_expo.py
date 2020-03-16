@@ -106,7 +106,22 @@ def plot_f_m_g_m_g_ln_R(DNC, LWC, m, R, xlim_m, xlim_R, figsize, figname):
                 pad_inches = 0.065
                 )
 
-from generate_SIP_ensemble_dst import dst_lognormal
+#from generate_SIP_ensemble_dst import dst_lognormal
+
+from numba import njit
+
+# lognormal number concentration density per mass
+# such that int f_m(m) dm = DNC = droplet number concentration (1/m^3)
+# par[0] = mu^* = geometric mean of the log-normal dist
+# par[1] = ln(sigma^*) = lognat of geometric std dev of log-normal dist
+def dst_lognormal(x, par):
+    f = np.exp( -0.5 * ( np.log( x / par[0] ) / par[1] )**2 ) \
+        / ( x * math.sqrt(2 * math.pi) * par[1] )
+    return f
+
+def dst_expo_np(x,k):
+    return np.exp(-x*k) * k
+dst_expo = njit()(dst_expo_np)
 
 def compute_f_R_lognormal_multi_modal(x, mu_log, sigma_log, DNC):
     res = 0.

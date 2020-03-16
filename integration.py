@@ -7,7 +7,11 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-time integration algorithms module
+TIME INTEGRATION ALGORITHMS
+
+the all-or-nothing collision algorithm is motivated by 
+Shima et al. 2009, Q. J. R. Meteorol. Soc. 135: 1307–1320 and
+Unterstrasser 2017, GMD 10: 1521–1548
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
@@ -24,12 +28,12 @@ from datetime import datetime
 import constants as c
 from grid import interpolate_velocity_from_cell_bilinear, update_grid_r_l
 
-import materialproperties as mat
+import material_properties as mat
 import atmosphere as atm
 import microphysics as mp
 
 from collision.AON import \
-    collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np
+    collision_step_Ecol_grid_R_all_cells_2D_multicomp_np
 from file_handling import \
     dump_particle_data, save_grid_scalar_fields,\
     dump_particle_tracer_data_block,\
@@ -318,8 +322,8 @@ update_pos_from_vel_BC_PS =\
 # note: g_set >= 0
 def update_vel_impl_np(vel, cells, rel_pos, xi, id_list, active_ids,
                        R_p, rho_p,
-                    grid_vel, grid_viscosity, grid_mass_density_fluid, 
-                    grid_no_cells, grav, dt):
+                       grid_vel, grid_viscosity, grid_mass_density_fluid, 
+                       grid_no_cells, grav, dt):
     vel_f = interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                                                     grid_vel, grid_no_cells)
     for ID in id_list[active_ids]:
@@ -354,6 +358,7 @@ w_s_max_AS_inv = 1. / mat.w_s_max_AS
 def compute_dml_and_gamma_impl_Newton_full_np(
         dt_sub, no_iter_impl_mass, m_w, m_s, w_s, R_p, T_p, rho_p,
         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p, solute_type):
+    
     m_w_effl = m_s * (w_s_max_AS_inv - 1.0)
     
     if solute_type == "AS":
@@ -443,7 +448,7 @@ def update_m_w_and_delta_m_l_impl_Newton_np(
 update_m_w_and_delta_m_l_impl_Newton =\
     njit()(update_m_w_and_delta_m_l_impl_Newton_np)
 
-#%% new subloop STEP combined
+#%% PARTICLE PROPAGATION ONE SUBLOOP STEP
 
 # dt_sub_pos is ONLY for the particle location step x_new = x_old +v*dt_sub_loc
 # -->> give the opportunity to adjust this step, usually dt_sub_pos = dt_sub
@@ -494,7 +499,7 @@ def propagate_particles_subloop_step_np(grid_scalar_fields, grid_mat_prop,
 propagate_particles_subloop_step = \
     njit()(propagate_particles_subloop_step_np)
 
-#%% SUBLOOP COMBINED
+#%% PARTICLE PROPAGATION FOR ONE FULL SUBLOOP
     
 def integrate_subloop_n_steps_np(
             grid_scalar_fields, grid_mat_prop, grid_velocity,
@@ -510,7 +515,7 @@ def integrate_subloop_n_steps_np(
             no_iter_impl_mass, g_set, act_collisions):
     
     if act_collisions and no_col_steps == 1:
-        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+        collision_step_Ecol_grid_R_all_cells_2D_multicomp_np(
             xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
             dt_col_over_dV, E_col_grid, no_kernel_bins,
             R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
@@ -521,7 +526,7 @@ def integrate_subloop_n_steps_np(
     # for n_h = 0, ..., N_h-1
     for n_sub in range(no_cond_steps):
         if act_collisions and no_col_steps_larger_one:
-            collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+            collision_step_Ecol_grid_R_all_cells_2D_multicomp_np(
                 xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
                 dt_col_over_dV, E_col_grid, no_kernel_bins,
                 R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
@@ -551,14 +556,14 @@ def integrate_subloop_n_steps_np(
 
     # put the additional col step here, if no_col_steps > no_cond_steps
     if act_collisions and no_col_steps > no_cond_steps:
-        collision_step_Long_Bott_Ecol_grid_R_all_cells_2D_multicomp_np(
+        collision_step_Ecol_grid_R_all_cells_2D_multicomp_np(
             xi, m_w, m_s, vel, grid_scalar_fields[0], cells, grid_no_cells,
             dt_col_over_dV, E_col_grid, no_kernel_bins,
             R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)        
         
 integrate_subloop_n_steps = njit()(integrate_subloop_n_steps_np)
 
-#%% INTEGRATE ADVECTION AND CONDENSATION AND COLLISIONS (opt)
+#%% INTEGRATE ADVECTION AND CONDENSATION AND COLLISIONS (optional)
 #   for one timestep dt = dt_adv
 
 # dt = dt_adv
@@ -628,10 +633,6 @@ def integrate_adv_step_np(
                          boundary_conditions = np.array([0, 1]))\
                      * grid_scalar_fields[9]
     
-    ### CAN BE REMOVED
-#    delta_r_v_wo_relax = np.copy(delta_r_v_ad)
-#    delta_Theta_wo_relax = np.copy(delta_Theta_ad)
-    
     # c1) add relaxation source term, if activated
     if act_relaxation:
         # note that a 1D array is added to a 2D array
@@ -644,14 +645,6 @@ def integrate_adv_step_np(
                             grid_scalar_fields[2], init_profile_Theta,
                             relaxation_time_profile, dt_sub)
 
-#        ### CAN BE REMOVED
-#        delta_r_v_w_relax = np.copy(delta_r_v_ad)
-#        delta_Theta_w_relax = np.copy(delta_Theta_ad)
-    
-#    else:
-#        delta_r_v_w_relax = delta_r_v_wo_relax
-#        delta_Theta_w_relax = delta_Theta_wo_relax
-        
     # d1) added collision step to the subloop below
     # d) SUBLOOP 1 START
     # for n_h = 0, ..., N_h-1
@@ -752,16 +745,10 @@ def integrate_adv_step_np(
                                 delta_Theta_ad, delta_r_v_ad,
                                 delta_m_l, delta_Q_p,
                                 grid_volume_cell)    
-
-    ### CAN BE REMOVED
-#    return delta_r_v_wo_relax, delta_r_v_w_relax, \
-#           delta_Theta_wo_relax, delta_Theta_w_relax
     
 integrate_adv_step = njit()(integrate_adv_step_np)
 
-#%% SIMULATE INTERVAL
-
-### SIMULATE INTERVAL COMBINED (choose if collisions, relaxation, ...)
+#%% SIMULATE INTERVAL COMBINED (choose if collisions, relaxation, ... active)
 # grid_scalar_fields[0] = grid.temperature
 # grid_scalar_fields[1] = grid.pressure
 # grid_scalar_fields[2] = grid.potential_temperature
@@ -818,10 +805,6 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
 
             dump_N += 1
         
-        ### CAN BE REMOVED
-#        delta_r_v_wo_relax, delta_r_v_w_relax, \
-#        delta_Theta_wo_relax, delta_Theta_w_relax = \
-        
         integrate_adv_step_np(
             grid_scalar_fields, grid_mat_prop, grid_velocity,
             grid_mass_flux_air_dry, p_ref, p_ref_inv,
@@ -839,49 +822,9 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
             E_col_grid, no_kernel_bins,
             R_kernel_low_log, bin_factor_R_log, no_cols)
     
-    ### CAN BE REMOVED
-#    return delta_r_v_wo_relax, delta_r_v_w_relax, \
-#           delta_Theta_wo_relax, delta_Theta_w_relax
-    
-    ###### SAVE    
-#    dt_col_over_dV = dt_col / grid_volume_cell
-##    dt_col_over_dV = 0.5 * dt / grid_volume_cell
-#    dump_N = 0
-#    for cnt in range(no_adv_steps):
-#        if cnt % dump_every == 0:
-#            traced_vectors[dump_N,0] = pos[:,trace_ids]
-#            traced_vectors[dump_N,1] = vel[:,trace_ids]
-#            traced_scalars[dump_N,0] = m_w[trace_ids]
-#            traced_scalars[dump_N,1] = m_s[trace_ids]
-#            traced_scalars[dump_N,2] = T_p[trace_ids]
-#            traced_xi[dump_N] = xi[trace_ids]
-#            traced_water[dump_N] = water_removed[0]
-#            # traced_grid_fields[dump_N,0] = np.copy(grid_scalar_fields[0])
-#            # traced_grid_fields[dump_N,1] = np.copy(grid_scalar_fields[4])
-#
-#            dump_N += 1
-#            
-#        integrate_adv_step_np(
-#            grid_scalar_fields, grid_mat_prop, grid_velocity,
-#            grid_mass_flux_air_dry, p_ref, p_ref_inv,
-#            grid_no_cells, grid_ranges,
-#            grid_steps, grid_volume_cell,
-#            pos, vel, cells, rel_pos, m_w, m_s, xi, solute_type,
-#            water_removed,
-#            id_list, active_ids, T_p,
-#            delta_m_l, delta_Q_p,
-#            dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond,
-#            no_col_per_adv, act_collisions,
-#            act_relaxation, init_profile_r_v, init_profile_Theta,
-#            relaxation_time_profile,
-#            no_iter_impl_mass, g_set, 
-#            E_col_grid, no_kernel_bins,
-#            R_kernel_low_log, bin_factor_R_log, no_cols)
-
-
 #%% SIMULATE FULL
-### SIMULATE FULL WITH COLLISIONS POSSIBLE (activated by act_collisions bool)
-### AND RELAXATION POSSIBLE  (act. by act_relaxation)
+# collisions activated by act_collisions bool
+# relaxation activated by act_relaxation bool
     
 # NOTE THAT
 # not possible with numba: getitem<> from array with (tuple(int64) x 2)
@@ -909,11 +852,11 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
 # grid_mat_prop[6] = grid.mass_density_fluid
 
 ### INPUT
-# takes (grid, pos, vel, cells, m_w, m_s, xi) in a certain state
-# and integrates the EOM between t_start and t_end with advection time step dt
+# (grid, pos, vel, cells, m_w, m_s, xi) in a certain state
+# integrates the EOM between t_start and t_end with advection time step dt
 # i.e. for a number of (t_start - t_end) / dt advection time steps
 # the particle subloop timestep is defined by dt_sub = dt / (2 * scale_dt_cond)
-# no_iter_impl_mass (int) = number of iterations in the implicit mass condensation
+# no_iter_impl_mass (int) = number of iterat. in the implic. mass condensation
 # algorithm
 # g_set = gravity constant (>=0): can be either 0.0 for spin up or 9.8...
 # frame_every, dump every, trace_ids, path -> see below at OUTPUT
@@ -968,11 +911,6 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
     
     delta_Q_p = np.zeros_like(grid.temperature)
     delta_m_l = np.zeros_like(grid.temperature)
-    
-    # for relaxation source term: initial profiles and relax time profile
-    
-    # need cell centers (z)
-    # need profile0 of Theta and r_v
     
     if act_relaxation:
         init_path = config['paths']['init']
@@ -1094,10 +1032,6 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
                                m_w, m_s, xi, active_ids, output_path)
         np.save(output_path + f"no_cols_{int(t)}.npy", no_cols)
 
-        ### CAN BE REMOVED
-#        delta_r_v_wo_relax, delta_r_v_w_relax, \
-#        delta_Theta_wo_relax, delta_Theta_w_relax = \
-        
         simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                       grid_mass_flux_air_dry, p_ref, p_ref_inv,
                       grid_no_cells, grid_ranges,
@@ -1118,17 +1052,6 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
                       E_col_grid, no_kernel_bins,
                       R_kernel_low_log, bin_factor_R_log, no_cols)
         
-        ### CAN BE REMOVED
-#        tt = t + frame_every * dt
-#        np.save(output_path + f"delta_r_v_wo_relax_{int(tt)}.npy",
-#                delta_r_v_wo_relax)
-#        np.save(output_path + f"delta_r_v_w_relax_{int(tt)}.npy",
-#                delta_r_v_w_relax)
-#        np.save(output_path + f"delta_Theta_w_relax_{int(tt)}.npy",
-#                delta_Theta_w_relax)
-#        np.save(output_path + f"delta_Theta_wo_relax_{int(tt)}.npy",
-#                delta_Theta_wo_relax)
-            
         time_block =\
             np.arange(t, t + frame_every * dt, dump_every * dt).astype(int)
         dump_particle_tracer_data_block(time_block,
@@ -1144,11 +1067,13 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
                    active_ids,
                    id_list)
     save_grid_scalar_fields(t, grid_scalar_fields, output_path, start_time)        
-    dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, output_path)
+    dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi,
+                           active_ids, output_path)
     np.save(output_path + f"no_cols_{int(t)}.npy", no_cols)
     dump_particle_data(t, pos[:,trace_ids], vel[:,trace_ids],
                        m_w[trace_ids], m_s[trace_ids], xi[trace_ids],
-                       grid_scalar_fields[0], grid_scalar_fields[4], output_path)
+                       grid_scalar_fields[0], grid_scalar_fields[4],
+                       output_path)
     
     np.save(output_path + f"water_removed_{int(t)}", water_removed)
     
@@ -1171,8 +1096,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
     grid.mass_density_fluid = grid_mat_prop[6]
     
     save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
-                                     active_ids,
-                                     output_path)
+                                 active_ids, output_path)
 
     print()
     print("### simulation ended ###")

@@ -7,7 +7,7 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-module with functions for the atmospheric environment
+ATMOSPHERIC ENVIRONMENT
 including general physical laws and conversions
 
 basic units:
@@ -22,78 +22,78 @@ from numba import vectorize, njit
 #%% MATERIAL PROPERTIES
 
 # J/(kg K)
-def compute_specific_gas_constant_air_moist(specific_humidity_):
-    return c.specific_gas_constant_air_dry * (1 + 0.608 * specific_humidity_ )
+def compute_specific_gas_constant_air_moist(specific_humidity):
+    return c.specific_gas_constant_air_dry * (1 + 0.608 * specific_humidity )
 
 # J/(kg K)
 @njit()
-def compute_specific_heat_capacity_air_moist(mixing_ratio_vapor_):
+def compute_specific_heat_capacity_air_moist(mixing_ratio_vapor):
     return c.specific_heat_capacity_air_dry_NTP * \
-            ( 1 + 0.897 * mixing_ratio_vapor_ )
+            ( 1 + 0.897 * mixing_ratio_vapor )
 
 #%% ATMOSPHERIC ENVIRONMENTAL PROFILE
 kappa_air_dry = c.specific_gas_constant_air_dry\
                 / c.specific_heat_capacity_air_dry_NTP
 
-def compute_kappa_air_moist(mixing_ratio_vapor_):
-    return kappa_air_dry * ( 1 - 0.289 * mixing_ratio_vapor_ )
+def compute_kappa_air_moist(mixing_ratio_vapor):
+    return kappa_air_dry * ( 1 - 0.289 * mixing_ratio_vapor )
 
 epsilon_gc = c.specific_gas_constant_air_dry\
              / c.specific_gas_constant_water_vapor
 
 epsilon_gc_prime = 1.0 / epsilon_gc - 1
 
-def compute_beta_without_liquid(mixing_ratio_total_,
-                                liquid_potential_temperature_):
-    return c.earth_gravity * compute_kappa_air_moist(mixing_ratio_total_)\
-           * (1 + mixing_ratio_total_) \
-            / ( c.specific_gas_constant_air_dry * liquid_potential_temperature_
-                * (1 + mixing_ratio_total_/epsilon_gc) )            
+def compute_beta_without_liquid(mixing_ratio_total,
+                                liquid_potential_temperature):
+    return c.earth_gravity * compute_kappa_air_moist(mixing_ratio_total)\
+           * (1 + mixing_ratio_total) \
+            / ( c.specific_gas_constant_air_dry * liquid_potential_temperature
+                * (1 + mixing_ratio_total/epsilon_gc) )            
 
 # general formula for any Theta_l, r_tot
 # for z0 = 0 (surface)
-def compute_T_over_Theta_l_without_liquid( z_, p_0_over_p_ref_to_kappa_tot_,
-                                          beta_tot_ ):
-    return p_0_over_p_ref_to_kappa_tot_ - beta_tot_ * z_
+def compute_T_over_Theta_l_without_liquid(z, p_0_over_p_ref_to_kappa_tot,
+                                          beta_tot):
+    return p_0_over_p_ref_to_kappa_tot - beta_tot * z
 
-def compute_potential_temperature_moist( temperature_, pressure_,
-                                        pressure_reference_,
-                                        mixing_ratio_vapor_ ):
-    return temperature_ \
-            * ( pressure_reference_ / pressure_ )\
-            **( compute_kappa_air_moist(mixing_ratio_vapor_) )
+def compute_potential_temperature_moist(temperature, pressure,
+                                        pressure_reference,
+                                        mixing_ratio_vapor):
+    return temperature \
+            * ( pressure_reference / pressure )\
+            **( compute_kappa_air_moist(mixing_ratio_vapor) )
 
-def compute_potential_temperature_dry( temperature_, pressure_,
-                                      pressure_reference_ ):
-    return temperature_ * ( pressure_reference_ / pressure_ )\
+def compute_potential_temperature_dry(temperature, pressure,
+                                      pressure_reference):
+    return temperature * ( pressure_reference / pressure )\
                         **( kappa_air_dry )
 
 def compute_temperature_from_potential_temperature_moist(
-        potential_temperature_, pressure_, 
-        pressure_reference_, mixing_ratio_vapor_ ):
-    return potential_temperature_ * \
-           ( pressure_ / pressure_reference_ )\
-           **( compute_kappa_air_moist(mixing_ratio_vapor_) )
+        potential_temperature, pressure, 
+        pressure_reference, mixing_ratio_vapor):
+    return potential_temperature * \
+           ( pressure / pressure_reference )\
+           **( compute_kappa_air_moist(mixing_ratio_vapor) )
 @njit()
-def compute_temperature_from_potential_temperature_dry( potential_temperature_,
-                                                       pressure_,
-                                                       pressure_reference_ ):
-    return potential_temperature_ * \
-            ( pressure_ / pressure_reference_ )**( kappa_air_dry )
+def compute_temperature_from_potential_temperature_dry(potential_temperature,
+                                                       pressure,
+                                                       pressure_reference):
+    return potential_temperature * \
+            ( pressure / pressure_reference )**( kappa_air_dry )
 
 @vectorize('float64(float64, float64, float64)') 
-def compute_pressure_ideal_gas( mass_density_, temperature_, 
-                                specific_gas_constant_ ):
-    return mass_density_ * temperature_ * specific_gas_constant_ 
+def compute_pressure_ideal_gas( mass_density, temperature, 
+                                specific_gas_constant ):
+    return mass_density * temperature * specific_gas_constant 
 
 @vectorize('float64(float64, float64)') 
-def compute_pressure_vapor( density_vapor_, temperature_ ):
-    return compute_pressure_ideal_gas( density_vapor_,
-                                      temperature_,
+def compute_pressure_vapor( density_vapor, temperature ):
+    return compute_pressure_ideal_gas(density_vapor,
+                                      temperature,
                                       c.specific_gas_constant_water_vapor )
 @vectorize('float64(float64, float64)') 
-def compute_density_air_dry(temperature_, pressure_):
-    return pressure_ / ( c.specific_gas_constant_air_dry * temperature_ )
+def compute_density_air_dry(temperature, pressure):
+    return pressure / ( c.specific_gas_constant_air_dry * temperature )
 
 ### CONVERSION DRY POTENTIAL TEMPERATURE
 c_pv_over_c_pd = c.specific_heat_capacity_water_vapor_20C \

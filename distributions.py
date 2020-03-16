@@ -30,6 +30,10 @@ from microphysics import compute_mass_from_radius
 def pdf_expo(x, x_mean_inv):
     return x_mean_inv * np.exp(- x * x_mean_inv)
 
+# antiderivative of expo pdf
+def prob_exp(x,k):
+    return 1.0 - np.exp(-k*x)
+
 def compute_moments_expo(n, DNC0, LWC0):
     if n == 0:
         return DNC0
@@ -38,39 +42,22 @@ def compute_moments_expo(n, DNC0, LWC0):
     else:    
         return math.factorial(n) * DNC0 * (LWC0/DNC0)**n
 
-# log-normal prob.dens.fct. (monomodal) such that int ( f(x) dx ) = 1
+# log-normal prob. dens. fct. (monomodal) such that int ( f(x) dx ) = 1
 # mu_log is the ln() of the geometric mean "mu" (also "mode") of the dst
 # sigma_log is the ln() of the geometric STD "sigma" of the dst
 # it is x_mean := arithm. expect(x) = mu * exp( 0.5 * sigma_log**2)
 # and x_std = SD(x) = x_mean * sqrt( exp( sigma_log**2 ) - 1 )
 two_pi_sqrt = np.sqrt(2.0 * np.pi)
-
 @njit()
 def pdf_lognormal(x, mu_log, sigma_log):
     return np.exp( -0.5*( ( np.log( x ) - mu_log ) / sigma_log )**2 ) \
            / (x * two_pi_sqrt * sigma_log)
 
-# exponential number concentration density per mass
-# such that int f_m(m) dm = DNC = droplet number concentration (1/m^3)
-# par[0] = mu
-# par[1] = sigma
+# normal prob. dens. fct. (monomodal) such that int ( f(x) dx ) = 1
 two_pi_sqrt = math.sqrt(2.0 * math.pi)
 def dst_normal(x, par):
     return np.exp( -0.5 * ( ( x - par[0] ) / par[1] )**2 ) \
            / (two_pi_sqrt * par[1])
-
-# lognormal number concentration density per mass
-# such that int f_m(m) dm = DNC = droplet number concentration (1/m^3)
-# par[0] = mu^* = geometric mean of the log-normal dist
-# par[1] = ln(sigma^*) = lognat of geometric std dev of log-normal dist
-def dst_lognormal(x, par):
-    f = np.exp( -0.5 * ( np.log( x / par[0] ) / par[1] )**2 ) \
-        / ( x * math.sqrt(2 * math.pi) * par[1] )
-    return f
-
-def dst_expo_np(x,k):
-    return np.exp(-x*k) * k
-dst_expo = njit()(dst_expo_np)
 
 # exponential number concentration density per mass in different form
 # such that int f_m(m) dm = DNC = droplet number concentration (1/m^3)
@@ -97,6 +84,7 @@ def conc_per_mass_lognormal_np(x, DNC, mu_log, sigma_log):
            / (x * two_pi_sqrt * sigma_log)
 conc_per_mass_lognormal = njit()(conc_per_mass_lognormal_np)
 
+#%% NUMERICAL INTEGRATION
 
 def num_int_np(func, x0, x1, steps=1E5):
     dx = (x1 - x0) / steps
@@ -107,6 +95,10 @@ def num_int_np(func, x0, x1, steps=1E5):
         x += dx
     return intl
 # num_int = njit()(num_int_np)
+
+def dst_expo_np(x,k):
+    return np.exp(-x*k) * k
+dst_expo = njit()(dst_expo_np)
 
 def num_int_expo_np(x0, x1, k, steps=1E5):
     dx = (x1 - x0) / steps
@@ -145,14 +137,9 @@ def num_int_lognormal_np(x0, x1, par, steps=1E6):
     while (x < x1):
         f2 = conc_per_mass_lognormal(x + 0.5*dx, par[0],par[1],par[2])
         f3 = conc_per_mass_lognormal(x + dx, par[0],par[1],par[2])
-        # intl_bef = intl        
         intl += 0.1666666666667 * dx * (f1 + 4.0 * f2 + f3)
         x += dx
         f1 = f3
-        # cnt += 1        
-        # intl += dx * x * dst_expo(x,k)
-        # x += dx
-        # cnt += 1
     return intl
 num_int_lognormal = njit()(num_int_lognormal_np)
 
@@ -167,14 +154,9 @@ def num_int_lognormal_mean_np(x0, x1, par, steps=1E6):
              * (x + 0.5*dx)
         f3 = conc_per_mass_lognormal(x + dx, par[0],par[1],par[2]) \
              * (x + dx)
-        # intl_bef = intl        
         intl += 0.1666666666667 * dx * (f1 + 4.0 * f2 + f3)
         x += dx
         f1 = f3
-        # cnt += 1        
-        # intl += dx * x * dst_expo(x,k)
-        # x += dx
-        # cnt += 1
     return intl
 num_int_lognormal_mean = njit()(num_int_lognormal_mean_np)
 
@@ -191,14 +173,9 @@ def num_int_lognormal_mean_mass_R_np(x0, x1, par, steps=1E6):
              * 1.0E-18*compute_mass_from_radius(x+0.5*dx, par[3])
         f3 = conc_per_mass_lognormal(x + dx, par[0],par[1],par[2]) \
              * 1.0E-18*compute_mass_from_radius(x+dx, par[3])
-        # intl_bef = intl        
         intl += 0.1666666666667 * dx * (f1 + 4.0 * f2 + f3)
         x += dx
         f1 = f3
-        # cnt += 1        
-        # intl += dx * x * dst_expo(x,k)
-        # x += dx
-        # cnt += 1
     return intl
 num_int_lognormal_mean_mass_R = njit()(num_int_lognormal_mean_mass_R_np)
 
@@ -235,9 +212,6 @@ def num_int_expo_impl_right_border_np(x0, intl_value, dx, k, cnt_lim=1E7):
         cnt += 1
     return x - dx + dx * (intl_value - intl_bef)/(intl - intl_bef)
 num_int_expo_impl_right_border = njit()(num_int_expo_impl_right_border_np)
-
-def prob_exp(x,k):
-    return 1.0 - np.exp(-k*x)
 
 def compute_right_border_impl_exp(x0, intl_value, k):
     return -1.0/k * np.log( np.exp(-k * x0) - intl_value )

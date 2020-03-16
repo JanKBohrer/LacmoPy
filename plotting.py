@@ -9,6 +9,9 @@ Further contact: Oswald Knoth (knoth@tropos.de)
 
 PLOTTING FUNCTIONS FOR THE GMD PUBLICATION
 
+plotting functions for the collision box model can be found in
+"collision.box_model.py"
+
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
 particle radius in micro meter ("mu")
@@ -79,11 +82,11 @@ pdf_dict = {
 #    'pgf.texsystem': 'lualatex',
 #    'pgf.texsystem': 'pdflatex',
     'text.latex.preamble': [
-        r'usepackage[ttscale=.9]{libertine}',
-        r'usepackage[libertine]{newtxmath}',
-        r'usepackage[T1]{fontenc}',
-        r'usepackage[]{siunitx}',        
-#        r'usepackage[no-math]{fontspec}',
+        r'\usepackage[ttscale=.9]{libertine}',
+        r'\usepackage[libertine]{newtxmath}',
+        r'\usepackage[T1]{fontenc}',
+        r'\usepackage[]{siunitx}',        
+#        r'\usepackage[no-math]{fontspec}',
         ],
     'font.family': 'serif'
 }
@@ -94,27 +97,11 @@ pgf_dict = {
 #    'pgf.texsystem': 'lualatex',
     'pgf.texsystem': 'pdflatex',
     'pgf.preamble': [
-        r'usepackage[ttscale=.9]{libertine}',
-        r'usepackage[libertine]{newtxmath}',
-        r'usepackage[T1]{fontenc}',
-        r'usepackage[]{siunitx}',
-#        r'usepackage[no-math]{fontspec}',
-        ],
-    'font.family': 'serif'
-}
-
-pgf_dictX = {
-#    'backend' : 'pgf',    
-    'text.usetex': True,
-    'pgf.rcfonts': False,   # Do not set up fonts from rc parameters.
-#    'pgf.texsystem': 'lualatex',
-    'pgf.texsystem': 'pdflatex',
-    'pgf.preamble': [
-#        r'usepackage[ttscale=.9]{libertine}',
-#        r'usepackage[libertine]{newtxmath}',
-        r'usepackage[T1]{fontenc}',
-#        r'usepackage[]{siunitx}',
-##        r'usepackage[no-math]{fontspec}',
+        r'\usepackage[ttscale=.9]{libertine}',
+        r'\usepackage[libertine]{newtxmath}',
+        r'\usepackage[T1]{fontenc}',
+        r'\usepackage[]{siunitx}',
+#        r'\usepackage[no-math]{fontspec}',
         ],
     'font.family': 'serif'
 }
@@ -126,12 +113,12 @@ pgf_dict2 = {
 #    'pgf.texsystem': 'lualatex',
     'pgf.texsystem': 'pdflatex',
     'pgf.preamble': [
-        r'usepackage[ttscale=.9]{libertine}',
-        r'usepackage[libertine]{newtxmath}',
-        r'usepackage[T1]{fontenc}',
-        r'usepackage[]{siunitx}',
-        r'usepackage[]{sfmath}',
-#        r'usepackage[no-math]{fontspec}',
+        r'\usepackage[ttscale=.9]{libertine}',
+        r'\usepackage[libertine]{newtxmath}',
+        r'\usepackage[T1]{fontenc}',
+        r'\usepackage[]{siunitx}',
+        r'\usepackage[]{sfmath}',
+#        r'\usepackage[no-math]{fontspec}',
         ],
     'font.family': 'sans'
 }

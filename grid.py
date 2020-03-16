@@ -23,7 +23,7 @@ import math
 from numba import njit
 
 import constants as c
-import materialproperties as mat
+import material_properties as mat
 import atmosphere as atm
 from plotting import plot_scalar_field_2D
 
@@ -49,7 +49,7 @@ def pressure_field_exponential(x_, y_):
 
 #%% OPERATIONS ON THE GRID CELLS
 
-def compute_no_grid_cells_from_step_sizes( gridranges_list_, stepsizes_list_ ):
+def compute_no_grid_cells_from_step_sizes(gridranges_list_, stepsizes_list_):
     no_cells = []
     for i, range_i in enumerate(gridranges_list_):
         no_cells.append(
@@ -92,7 +92,7 @@ def bilinear_weight(i, j, a, b, f):
 # adjusted for period. bound. cond. in x and solid BC in z (BC = PS)
 @njit()
 def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
-        grid_vel, grid_no_cells):
+                                            grid_vel, grid_no_cells):
     no_pt = len(rel_pos[0])
     vel_ipol = np.empty( (2, no_pt), dtype = np.float64 )
     u, v = (0., 0.)
@@ -127,10 +127,10 @@ def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
     return vel_ipol
 
 @njit()
-def interpolate_velocity_from_position_bilinear(pos,
-        grid_vel, grid_no_cells, grid_ranges, grid_steps):
-    cells, rel_pos = compute_cell_and_relative_position(pos,grid_ranges,
-                                                            grid_steps)
+def interpolate_velocity_from_position_bilinear(pos, grid_vel, grid_no_cells,
+                                                grid_ranges, grid_steps):
+    cells, rel_pos = compute_cell_and_relative_position(pos, grid_ranges,
+                                                        grid_steps)
     return interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                 grid_vel, grid_no_cells)
 
@@ -145,11 +145,13 @@ update_grid_r_l = njit()(update_grid_r_l_np)
 #%% GRID CLASS
 
 class Grid:
+    # defaults:
     ranges = np.array( [ [-10.0, 10.0] , [-10.0,10.0] ] )
     no_cells = [10, 10]
     sizes = np.array( [ ranges[0,1] - ranges[0,0], ranges[1,1] - ranges[1,0] ] )
     steps = [ sizes[0] / no_cells[0], sizes[1] / no_cells[1] ]
     
+    # initialize with arguments in paranthesis of __init__
     def __init__(self,
                  grid_ranges_, # (m), as list [ [x_min, x_max], [z_min, z_max]] 
                  grid_steps_, # in meter as list [dx, dz]
@@ -367,7 +369,7 @@ class Grid:
         fig.tight_layout()
     
     def plot_thermodynamic_scalar_fields(self, no_ticks_ = [5,5],
-                                              t = 0, fig_dir = None):
+                                         t = 0, fig_dir = None):
         fields = [self.pressure * 0.01, self.temperature,
                   self.potential_temperature, self.mass_density_air_dry,
                   self.saturation, self.saturation_pressure * 0.01,

@@ -2,12 +2,19 @@
 # -*- coding: utf-8 -*-
 """
 TROPOS LAGRANGIAN CLOUD MODEL
-Super-Droplet method in two-dimensional kinematic framework
-(Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
+Super-Droplet method in a two-dimensional kinematic framework
+Test Case 1, ICMW 2012, Muhlbauer et al. 2013, ‎Bull. Am. Meteorol. Soc. 94, 25
+
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-MAIN SCRIPT
+MAIN EXECUTION SCRIPT
+
+adjust settings in "config.py"
+execute via the bash-script "run_lacmo.sh"
+"seed_SIP_gen" and "seed_sim" of "config.py" are overwritten,
+if provided as arguments of this script "lacmo.py" as in
+"python3 lacmo.py {seed_SIP_gen} {seed_sim}"
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg

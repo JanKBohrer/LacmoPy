@@ -9,6 +9,17 @@ Further contact: Oswald Knoth (knoth@tropos.de)
 
 COLLISION KERNELS
 
+"Golovin": Analytic sum-off-mass kernel by
+Golovin 1963, Izv. Geophys. Ser 5, 482
+
+"Long_Bott": Analytic kernel from Long 1974, J. Atm. Sci. 31, 1040,
+modified by Bott 1998, J. Atm. Sci. 55, 2284
+
+"Hall_Bott": Tabulated kernel from Hall 1980, J. Atm. Sci. 37, 2486,
+modified by Seeßelberg 1996, Atm. Research. 40, 33 with extensions from
+Davis 1972, J. Atm. Sci. 29, 911; Jonas 1972, Q. J. R. Meteorol. Soc. 98, 681
+and Lin 1975, J. Atm. Sci. 22, 1065 as used in Bott 1998, J. Atm. Sci. 55, 2284
+
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
 particle radius in micro meter ("mu")
@@ -23,8 +34,8 @@ import math
 import constants as c
 from grid import bilinear_weight
 from microphysics import compute_radius_from_mass
-from materialproperties import compute_viscosity_air
-from materialproperties import compute_surface_tension_water
+from material_properties import compute_viscosity_air
+from material_properties import compute_surface_tension_water
 
 #%% PERMUTATION
 # returns a permutation of the list of integers [0,1,2,..,N-1]
@@ -186,10 +197,11 @@ def linear_weight(i, weight, f):
 ### Coll. efficiency interpolated from original table of Hall 1980
 # in Hall_E_col:
 # row =  collector drop radius (radius of larger drop) in mu
-# column = ratio of R_small/R_large "collector ratio"  
-Hall_E_col = np.load("collision/kernel_data/Hall/Hall_collision_efficiency.npy")
-Hall_R_col = np.load("collision/kernel_data/Hall/Hall_collector_radius.npy")
-Hall_R_col_ratio = np.load("collision/kernel_data/Hall/Hall_radius_ratio.npy")
+# column = ratio of R_small/R_large "collector ratio"
+fp_load = "collision/kernel_data/"
+Hall_E_col = np.load(fp_load + "Hall/Hall_collision_efficiency.npy")
+Hall_R_col = np.load(fp_load + "Hall/Hall_collector_radius.npy")
+Hall_R_col_ratio = np.load(fp_load + "Hall/Hall_radius_ratio.npy")
 @njit()
 def compute_E_col_Hall(R_i, R_j):
     if R_i <= 0.0 or R_j <= 0.0:
@@ -203,7 +215,7 @@ def compute_E_col_Hall(R_i, R_j):
     if R_col > 300.0:
         return 1.0
     else:
-        # NOTE that ind_R is for index of R_collection,
+        # ind_R is for index of R_collection,
         # which indicates the row of Hall_E_col
         ind_R = int(R_col/10.0)
         ind_ratio = int(R_ratio/0.05)
@@ -239,18 +251,18 @@ def compute_E_col_Long_Bott(R_i, R_j):
     else: return 1.0    
 
 #%% COLLECTION KERNELS
-## IN:
+    
+# input:
 # R1, R2 (in mu)
 # collection effic. E_col (-)
 # absolute difference in terminal velocity (>0) in m/s
-## OUT: Hydrodynamic collection kernel in m^3/s
+# output: Hydrodynamic collection kernel in m^3/s
 @njit()
 def compute_kernel_hydro(R_1, R_2, E_col, dv):
     return math.pi * (R_1 + R_2) * (R_1 + R_2) * E_col * dv * 1.0E-12
 
-# Kernel "Long" as used in Unterstrasser 2017, which he got from Bott (1998?)
-# NOTE that Unterstrasser uses a discretized version of the kernel
-# this function does a direct computation for given (R_i, R_j)
+# Kernel "Long" as used in Bott 1998, direct computation for given radii
+# radii in microns    
 @njit()
 def compute_kernel_Long_Bott_R(R_i, R_j):
     E_col = compute_E_col_Long_Bott(R_i, R_j)
@@ -258,7 +270,7 @@ def compute_kernel_Long_Bott_R(R_i, R_j):
              - compute_terminal_velocity_Beard(R_j))
     return compute_kernel_hydro(R_i, R_j, E_col, dv)
 
-# Kernel "Long" direct compute for given masses 
+# Kernel "Long" as used in Bott 1998, direct computation for given masses 
 # masses in 1E-18 kg
 @njit()
 def compute_kernel_Long_Bott_m(m_i, m_j, mass_density):
@@ -281,7 +293,7 @@ def interpol_bilin(i,j,p,q,f):
            + p*(1.-q)*f[i+1,j] + p*q*f[i+1,j+1]
 
 def generate_E_col_grid_R_Long_Bott_np(R_low, R_high, no_bins_10,
-                                            radius_grid_in=None):
+                                       radius_grid_in=None):
     if radius_grid_in is None:
         bin_factor = 10**(1.0/no_bins_10)
         no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
@@ -316,7 +328,7 @@ Hall_Bott_R_ratio_raw =\
     np.load("collision/kernel_data/Hall/Hall_Bott_R_ratio_table_raw.npy") 
 # R_low must be > 0 !
 def generate_E_col_grid_R_Hall_Bott_np(R_low, R_high, no_bins_10,
-                                            radius_grid_in=None):
+                                       radius_grid_in=None):
     
     no_R_table = Hall_Bott_R_col_raw.shape[0]
     no_rat_table = Hall_Bott_R_ratio_raw.shape[0]
@@ -345,8 +357,7 @@ def generate_E_col_grid_R_Hall_Bott_np(R_low, R_high, no_bins_10,
             ind_R_table = no_R_table - 1 # = 14
         else:
             for ind_R_table_ in range(0,no_R_table-1):
-                # we want drops larger 300 mu to have Ecol=1
-                # thus drops with R = 300 mu (exact) go to another category
+                # drops with R = 300 mu (exact) go to another category
                 if (Hall_Bott_R_col_raw[ind_R_table_] < R_col) \
                    and (R_col <= Hall_Bott_R_col_raw[ind_R_table_+1]):
                     ind_R_table = ind_R_table_
@@ -415,8 +426,7 @@ def generate_E_col_grid_R_np(R_low, R_high, no_bins_10, kernel_name):
 generate_E_col_grid_R = \
     njit()(generate_E_col_grid_R_np)
     
-def generate_and_save_E_col_grid_R(R_low, R_high,
-                                   no_bins_10, kernel_name,
+def generate_and_save_E_col_grid_R(R_low, R_high, no_bins_10, kernel_name,
                                    save_dir):
     E_col_grid, radius_grid = \
         generate_E_col_grid_R_np(R_low, R_high, no_bins_10, kernel_name)

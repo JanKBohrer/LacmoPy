@@ -18,7 +18,6 @@ all other quantities in SI units
 """
 
 #%% MODULE IMPORTS
-
 import numpy as np
 from numba import njit, vectorize
 
@@ -30,12 +29,12 @@ from algebra import compute_polynom
 # water density in kg/m^3
 # quad. fit to data from CRC 2005
 # relative error is below 0.05 % in the range 0 .. 60°C
-par_water_dens = np.array([  1.00013502e+03, -4.68112708e-03, 2.72389977e+02])
+par_water_dens = np.array([ 1.00013502e+03, -4.68112708e-03, 2.72389977e+02 ])
 #@vectorize("float64(float64)") 
 @njit() 
-def compute_density_water(temperature_):
+def compute_density_water(temperature):
     return par_water_dens[0]\
-         + par_water_dens[1] * (temperature_ - par_water_dens[2])**2
+         + par_water_dens[1] * (temperature - par_water_dens[2])**2
 
 # NaCl solution density in kg/m^3
 # quad. fit to data from CRC 2005
@@ -43,18 +42,18 @@ def compute_density_water(temperature_):
 # relative error is below 0.1 % for range 0 .. 50 °C
 #                   below 0.17 % in range 0 .. 60 °C
 # (only high w_s lead to high error)
-par_sol_dens_NaCl = np.array([7.619443952135e+02,   1.021264281453e+03,
-                              1.828970151543e+00, 2.405352122804e+02,
-                              -1.080547892416e+00,  -3.492805028749e-03 ] )
+par_sol_dens_NaCl = np.array([ 7.619443952135e+02, 1.021264281453e+03,
+                               1.828970151543e+00, 2.405352122804e+02,
+                               -1.080547892416e+00, -3.492805028749e-03 ])
 #@vectorize("float64(float64,float64)")  
 @njit()
-def compute_density_NaCl_solution(mass_fraction_solute_, temperature_):
+def compute_density_NaCl_solution(mass_fraction_solute, temperature):
     return par_sol_dens_NaCl[0] \
-        + par_sol_dens_NaCl[1] * mass_fraction_solute_ \
-        + par_sol_dens_NaCl[2] * temperature_ \
-        + par_sol_dens_NaCl[3] * mass_fraction_solute_ * mass_fraction_solute_\
-        + par_sol_dens_NaCl[4] * mass_fraction_solute_ * temperature_ \
-        + par_sol_dens_NaCl[5] * temperature_ * temperature_
+        + par_sol_dens_NaCl[1] * mass_fraction_solute \
+        + par_sol_dens_NaCl[2] * temperature \
+        + par_sol_dens_NaCl[3] * mass_fraction_solute * mass_fraction_solute\
+        + par_sol_dens_NaCl[4] * mass_fraction_solute * temperature \
+        + par_sol_dens_NaCl[5] * temperature * temperature
 
 # NaCl solution density in kg/m^3
 # fit rho(w_s) from Tang 1997 (in Biskos 2006) for room temperature (298 K)
@@ -62,21 +61,21 @@ def compute_density_NaCl_solution(mass_fraction_solute_, temperature_):
 # the temperature effect of water is added by multiplication    
 par_rho_AS = np.array([ 997.1, 592., -5.036E1, 1.024E1 ] )[::-1] / 997.1
 @njit()
-def compute_density_AS_solution(mass_fraction_solute_, temperature_):
-    return compute_density_water(temperature_) \
-           * compute_polynom(par_rho_AS, mass_fraction_solute_)
+def compute_density_AS_solution(mass_fraction_solute, temperature):
+    return compute_density_water(temperature) \
+           * compute_polynom(par_rho_AS, mass_fraction_solute)
 #  / 997.1 is included in the parameters now
-#    return compute_density_water(temperature_) / 997.1 \
-#           * compute_polynom(par_rho_AS, mass_fraction_solute_)
+#    return compute_density_water(temperature) / 997.1 \
+#           * compute_polynom(par_rho_AS, mass_fraction_solute)
 
 @njit()
-def compute_density_solution(mass_fraction_solute_, temperature_, solute_type):
+def compute_density_solution(mass_fraction_solute, temperature, solute_type):
     if solute_type == "AS":
-        return compute_density_AS_solution(mass_fraction_solute_,
-                                             temperature_)
+        return compute_density_AS_solution(mass_fraction_solute,
+                                           temperature)
     elif solute_type == "NaCl":
-        return compute_density_NaCl_solution(mass_fraction_solute_,
-                                             temperature_)
+        return compute_density_NaCl_solution(mass_fraction_solute,
+                                             temperature)
 
 #%% SOLUBILITY OF SOLUTIONS
         
@@ -85,24 +84,24 @@ def compute_density_solution(mass_fraction_solute_, temperature_, solute_type):
 # fit to data from CRC 2005 page 8-115
 par_solub = np.array([  3.77253081e-01,  -8.68998172e-04,   1.64705858e-06])
 @vectorize("float64(float64)") 
-def compute_solubility_NaCl(temperature_):
-    return par_solub[0] + par_solub[1] * temperature_\
-         + par_solub[2] * temperature_ * temperature_
+def compute_solubility_NaCl(temperature):
+    return par_solub[0] + par_solub[1] * temperature\
+         + par_solub[2] * temperature * temperature
 
 # solubility of ammonium sulfate in water as mass fraction w_s_sol
 # saturation mass fraction (kg_solute/kg_solution)    
 # fit to data from CRC 2005 page 8-115
 par_solub_AS = np.array([0.15767235, 0.00092684])
 @vectorize("float64(float64)") 
-def compute_solubility_AS(temperature_):
-    return par_solub_AS[0] + par_solub_AS[1] * temperature_
+def compute_solubility_AS(temperature):
+    return par_solub_AS[0] + par_solub_AS[1] * temperature
 
 @njit()
-def compute_solubility(temperature_, solute_type):
+def compute_solubility(temperature, solute_type):
     if solute_type == "AS":
-        return compute_solubility_AS(temperature_)
+        return compute_solubility_AS(temperature)
     elif solute_type == "NaCl":
-        return compute_solubility_NaCl(temperature_)
+        return compute_solubility_NaCl(temperature)
 
 #%% SURFACE TENSION OF SOLUTIONS
 
@@ -113,10 +112,9 @@ def compute_solubility(temperature_, solute_type):
 #    the mass fraction of the solution (kg solute/ kg solution)
 #    which is not considered!
 @vectorize("float64(float64)") 
-def compute_surface_tension_water(temperature_):
-    tau = 1 - temperature_ / 647.096
+def compute_surface_tension_water(temperature):
+    tau = 1 - temperature / 647.096
     return 0.2358 * tau**(1.256) * (1 - 0.625 * tau)
-
 
 # compute_surface_tension_water(298) = 0.0719953
 # molality in mol/kg_water           
@@ -196,56 +194,6 @@ def compute_surface_tension_solution(w_s, T_p, solute_type):
     
 #%% WATER ACTIVITY OF SOLUTIONS
  
-### VANT HOFF FACTOR NACL       
-# VANT HOFF FACTOR -> NOTE that we actually use a polynomal fit a_w(w_s) for
-# the water activity of NaCl, the vant Hoff factor is currently not applied
-# fitted to match data from Archer 1992
-# in formula from Clegg 1997 in table Hargreaves 2010
-# rel dev (data from Archer 1972 in formula
-# from Clegg 1997 in table Hargreaves 2010) is 
-# < 0.12 % for w_s < 0.22
-# < 1 % for w_s < 0.25
-# approx +6 % for w_s = 0.37
-# approx +15 % for w_s = 0.46
-# we overestimate the water activity a_w by 6 % and increasing
-# 0.308250118 = M_w/M_s
-#par_vH_NaCl = np.array([ 1.55199086,  4.95679863])
-#@vectorize("float64(float64)") 
-#def compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_):
-#    return par_vH_NaCl[0] + par_vH_NaCl[1] * mass_fraction_solute_
-#
-#vant_Hoff_factor_NaCl_const = 2.0
-#
-#molar_mass_ratio_w_NaCl = c.molar_mass_water/c.molar_mass_NaCl
-#
-#mf_cross_NaCl = 0.09038275962335
-#
-## vectorized version
-#@vectorize("float64(float64)") 
-#def compute_vant_Hoff_factor_NaCl(mass_fraction_solute_):
-#    if mass_fraction_solute_ < mf_cross_NaCl:
-#        return vant_Hoff_factor_NaCl_const
-#    else: return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_)
-#
-## numpy version
-#def compute_vant_Hoff_factor_NaCl_np(mass_fraction_solute_):
-#    return np.where(mass_fraction_solute_ < mf_cross_NaCl,
-#                    vant_Hoff_factor_NaCl_const\
-#                    * np.ones_like(mass_fraction_solute_),
-#                    compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute_))
-#
-#@vectorize("float64(float64)")
-#def compute_dvH_dws_NaCl(w_s):
-#    if w_s < mf_cross_NaCl: return 0.0
-#    else: return par_vH_NaCl[1]    
-
-# NOTE that we actually use a polynomal fit a_w(w_s) for
-# the water activity of NaCl, the vant Hoff factor is currently not applied
-#@vectorize( "float64(float64, float64, float64)")
-#def compute_water_activity_NaCl_vH(m_w, m_s, w_s):
-#    return m_w / ( m_w + molar_mass_ratio_w_NaCl\
-#                   * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
-
 ### WATER ACTIVITY NACL by polynomial (this one is used in simulation)
 # Formula from Tang 1997
 # note that in Tang, w_t is given in percent
@@ -277,13 +225,61 @@ par_wat_act_AS = np.array([1.0, -2.715E-1, 3.113E-1, -2.336, 1.412])[::-1]
 def compute_water_activity_AS(w_s):
     return compute_polynom(par_wat_act_AS, w_s)
 
+### VANT HOFF FACTOR NACL
+# VANT HOFF FACTOR -> NOTE that we actually use a polynomal fit a_w(w_s) for
+# the water activity of NaCl, the vant Hoff factor is currently not applied
+# fitted to match data from Archer 1992
+# in formula from Clegg 1997 in table Hargreaves 2010
+# rel dev (data from Archer 1972 in formula
+# from Clegg 1997 in table Hargreaves 2010) is 
+# < 0.12 % for w_s < 0.22
+# < 1 % for w_s < 0.25
+# approx +6 % for w_s = 0.37
+# approx +15 % for w_s = 0.46
+# we overestimate the water activity a_w by 6 % and increasing
+# 0.308250118 = M_w/M_s
+#par_vH_NaCl = np.array([ 1.55199086,  4.95679863])
+#@vectorize("float64(float64)") 
+#def compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute):
+#    return par_vH_NaCl[0] + par_vH_NaCl[1] * mass_fraction_solute
+#
+#vant_Hoff_factor_NaCl_const = 2.0
+#
+#molar_mass_ratio_w_NaCl = c.molar_mass_water/c.molar_mass_NaCl
+#
+#mf_cross_NaCl = 0.09038275962335
+#
+## vectorized version
+#@vectorize("float64(float64)") 
+#def compute_vant_Hoff_factor_NaCl(mass_fraction_solute):
+#    if mass_fraction_solute < mf_cross_NaCl:
+#        return vant_Hoff_factor_NaCl_const
+#    else: return compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute)
+#
+## numpy version
+#def compute_vant_Hoff_factor_NaCl_np(mass_fraction_solute):
+#    return np.where(mass_fraction_solute < mf_cross_NaCl,
+#                    vant_Hoff_factor_NaCl_const\
+#                    * np.ones_like(mass_fraction_solute),
+#                    compute_vant_Hoff_factor_NaCl_fit(mass_fraction_solute))
+#
+#@vectorize("float64(float64)")
+#def compute_dvH_dws_NaCl(w_s):
+#    if w_s < mf_cross_NaCl: return 0.0
+#    else: return par_vH_NaCl[1]    
+
+# NOTE that we actually use a polynomal fit a_w(w_s) for
+# the water activity of NaCl, the vant Hoff factor is currently not applied
+#@vectorize( "float64(float64, float64, float64)")
+#def compute_water_activity_NaCl_vH(m_w, m_s, w_s):
+#    return m_w / ( m_w + molar_mass_ratio_w_NaCl\
+#                   * compute_vant_Hoff_factor_NaCl(w_s) * m_s )
+
 #%% EFFLORESCENCE MASS FRACTION OF SOLUTIONS
 
 # the supersat factor is a crude approximation
-# such that the EffRH curve fits data from Biskos better
-# there was no math. fitting algorithm included.
-# Just graphical shifting the curve... until value
-# for D_dry = 10 nm fits with fitted curve of Biskos
+# such that the EffRH curve fits data from Biskos 2006 better
+# i.e. the curve for D_dry = 10 nm fits with fitted curve of Biskos
 # the use here is to get an estimate and LOWER BOUNDARY
 # I.e. the water content will not drop below the border given by this value
 # to remain on the efflorescence fork
@@ -303,10 +299,10 @@ supersaturation_factor_NaCl = 1.92
 # efflorescence mass fraction at a given temperature
 # @njit("[float64[:](float64[:]),float64(float64)]")
 @njit()
-def compute_efflorescence_mass_fraction_NaCl(temperature_):
-    return supersaturation_factor_NaCl * compute_solubility_NaCl(temperature_)
+def compute_efflorescence_mass_fraction_NaCl(temperature):
+    return supersaturation_factor_NaCl * compute_solubility_NaCl(temperature)
 
-# Take super sat factor for AS such that is fits for D_s = 10 nm 
+# Take supersat factor for AS such that is fits for D_s = 10 nm 
 # other data from Haemeri 2000 and Onasch 1999 show similar results
 # Haemeri: also 8,10,20 nm, but the transition at effl point not detailed
 # Onasch: temperature dependence: NOT relevant in our range!
@@ -332,10 +328,9 @@ supersaturation_factor_AS = 2.097
 # this determines the lower border of water contained in the particle
 # the w_s = m_s / (m_s + m_w) can not get larger than w_s_effl
 # (combined with solubility, which is dependent on temperature)
-
 @njit()
-def compute_efflorescence_mass_fraction_AS(temperature_):
-    return supersaturation_factor_AS * compute_solubility_AS(temperature_)
+def compute_efflorescence_mass_fraction_AS(temperature):
+    return supersaturation_factor_AS * compute_solubility_AS(temperature)
 
 #%% ATMOSPHERIC PROPERTIES
    
@@ -343,8 +338,8 @@ def compute_efflorescence_mass_fraction_AS(temperature_):
 # empirical formula from Beard and Pruppacher 1971 (in Lohmann, p. 191)
 # K_air in W/(m K)
 @vectorize("float64(float64)")
-def compute_thermal_conductivity_air(temperature_):
-    return 4.1868E-3 * ( 5.69 + 0.017 * ( temperature_ - 273.15 ) )
+def compute_thermal_conductivity_air(temperature):
+    return 4.1868E-3 * ( 5.69 + 0.017 * ( temperature - 273.15 ) )
 
 # dynamic viscosity "\mu" in Pa * s
 ## Fit to Data From Kadoya 1985,
@@ -359,22 +354,22 @@ def compute_viscosity_air(T_):
 # Formula from Pruppacher 1997
 # m^2 / s
 @vectorize("float64(float64, float64)")
-def compute_diffusion_constant(ambient_temperature_ = 293.15,
-                               ambient_pressure_ = 101325 ):
-    return 4.01218E-5 * ambient_temperature_**1.94 / ambient_pressure_ # m^2/s
+def compute_diffusion_constant(ambient_temperature = 293.15,
+                               ambient_pressure = 101325 ):
+    return 4.01218E-5 * ambient_temperature**1.94 / ambient_pressure # m^2/s
 
 # latent enthalpy of vaporazation of water in J/kg
 # formula by Dake 1972
 # formula valid for 0 °C to 35 °C
 # At NTP: 2.452E6 # J/kg
 @vectorize("float64(float64)")
-def compute_heat_of_vaporization(temperature_):
-    return 1.0E3 * ( 2500.82 - 2.358 * (temperature_ - 273.0) ) 
+def compute_heat_of_vaporization(temperature):
+    return 1.0E3 * ( 2500.82 - 2.358 * (temperature - 273.0) ) 
 
 # saturation pressure for the vapor-liquid phase transition of water
 # Approximation by Rogers and Yau 1989 (in Lohmann 2016,  p.50)
 # returns pressure in Pa = N/m^2
 @vectorize("float64(float64)")
-def compute_saturation_pressure_vapor_liquid(temperature_):
-    return 2.53E11 * np.exp( -5420.0 / temperature_ )
+def compute_saturation_pressure_vapor_liquid(temperature):
+    return 2.53E11 * np.exp( -5420.0 / temperature )
     

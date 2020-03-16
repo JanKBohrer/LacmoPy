@@ -9,6 +9,9 @@ Further contact: Oswald Knoth (knoth@tropos.de)
 
 GENERATION OF SIP ENSEMBLES
 
+for initialization, the "SingleSIP" method is applied, as proposed by
+Unterstrasser 2017, GMD 10: 1521–1548
+
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
 particle radius in micro meter ("mu")
@@ -258,6 +261,9 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
     
 #%% CREATE ENSEMBLE MASSES AND WEIGHTS IN EACH CELL
     
+# this function is currently not in use. particles are gen. for each z-lvl
+# because of layering process with saturation adjustment.
+# this function could be used for a box model with connected grid cells.    
 # njit not possible because of lists
 def gen_mass_ensemble_weights_SinSIP_lognormal_grid(
         mu_m_log, sigma_m_log, mass_density,

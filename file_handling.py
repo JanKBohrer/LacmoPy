@@ -7,7 +7,7 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-module for file handling, writing and reading of data to/from hard disc
+FILE HANDLING, WRITING AND READING OF DATA TO/FROM HARD DISC
 """
 
 #%% MODULE IMPORTS
@@ -191,7 +191,6 @@ def save_grid_arrays_to_npy_file(grid, filename1, filename2):
     np.save(filename1, arr1)
     np.save(filename2, arr2)
 
-# @njit()
 # save fields in this order:
 # 0 = r_v
 # 1 = r_l

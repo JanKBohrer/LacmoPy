@@ -7,7 +7,9 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-PLOTTING FUNCTIONS FOR THE GMD PUBLICATION
+PLOTTING FOR THE GMD PUBLICATION
+plotting functions for the collision box model can be found in
+"collision.box_model.py"
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg

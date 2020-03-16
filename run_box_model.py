@@ -13,7 +13,7 @@ for initialization, the "SingleSIP" method is applied, as proposed by
 Unterstrasser 2017, GMD 10: 1521–1548
 
 the all-or-nothing collision algorithm is motivated by 
-Shima et al. 2009, Q. J. R. Meteorol. Soc. 135: 1307–1320 and
+Shima et al. 2009, Q. J. R. Meteorol. Soc. 135: 1307–1320 and adapted from
 Unterstrasser 2017, GMD 10: 1521–1548
 
 basic units:
@@ -23,7 +23,7 @@ all other quantities in SI units
 """
 
 #%% IMPORTS AND DEFS
-
+### BUILT IN MODULES
 import os
 import sys
 import math
@@ -31,26 +31,19 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt    
 
-
+### CUSTOM MODULES
 import constants as c
-
 from microphysics import compute_radius_from_mass_vec
 from analysis import analyze_ensemble_data
-
 from generation_SIP_ensemble import \
     gen_mass_ensemble_weights_SinSIP_expo, \
     gen_mass_ensemble_weights_SinSIP_lognormal
 import collision.box_model as boxm
 import collision.kernel as ker
-
 from golovin import compute_moments_Golovin
 
 from file_handling import load_kernel_data_Ecol
-
-from plotting import cm2inch
-from plotting import generate_rcParams_dict
-from plotting import pgf_dict
-
+from plotting import cm2inch, generate_rcParams_dict, pgf_dict
 
 #%% SET PARAMETERS 
 # parent directory, where simulation data and ensembles are stored
@@ -65,7 +58,7 @@ figpath = "/home/jdesk/sim_data_col_box_mod/figures/"
 set_log_file = True
 
 ###############################################################################
-# SET options for SIP ensemble generation AND Kernel-grid generation
+### SET options for SIP ensemble generation AND Kernel-grid generation
 # args_gen[i] is either 1 or 0 (activated or not activated)
 # i = 0: generate SIP ensembles
 # i = 1: analyze SIP ensembles
@@ -84,32 +77,34 @@ args_gen = [0,0,0,0,0]
 # i = 2: act. plotting of data for each kappa (req. analyzed data present)
 # i = 3: act. plotting of moments for sever. kappa (req. analy. data present)
 # i = 4: act. plotting of moments for sever. kappa as in the GMD publication
-# i = 5: act. plotting of g_ln_R vs. R for individual kappa from kappa_list
+# i = 5: act. plotting of g_ln_R vs. R for kappas from kappa_list individually
 # i = 6: act. plotting of g_ln_R vs. R for two specific kappa as in the GMD pub
 #args_sim = [1,1,1,1,0,0]
-args_sim = [0,0,0,0,1,0,0]
+args_sim = [0,0,0,1,1,1,1]
+#args_sim = [0,0,0,0,0,0,1]
+#args_sim = [1,1,1,1,1,1,1]
 
 ###############################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 # simulations are started for each kappa-value in 'kappa_list'
 # the number of super-particles is approximatetly 5*kappa for the chosen 
 # init. method
-#kappa_list = [5]
-kappa_list = [5,10,20,40,80]
+kappa_list = [6,12]
+#kappa_list = [5,10,20,40,80]
 #kappa_list = [5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 # number of independent simulation per kappa value
 #no_sims = 10
-no_sims = 50
+no_sims = 20
 # random number seed of the first simulation. the following simulations,
 # get seeds 'start_seed'+2 , 'start_seed'+4, ...
-# it is also possible to set an individual seed list
+# it is also possible to set an individual "seed_list"
 start_seed = 1001
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 # kernel type
-#kernel_name = 'Golovin'
-kernel_name = 'Long_Bott'
+kernel_name = 'Golovin'
+#kernel_name = 'Long_Bott'
 #kernel_name = 'Hall_Bott'
 
 # kernel grid
@@ -122,6 +117,10 @@ kernel_name = 'Long_Bott'
 kernel_method = 'Ecol_grid_R'
 #kernel_method = 'kernel_grid_m'
 
+# For Golovin kernel, only analytic is possible
+if kernel_name == 'Golovin':
+    kernel_method = 'analytic'
+
 dt = 1.0 # seconds
 dt_save = 150.0 # interval for data output
 t_end = 3600.0 # simulation time (seconds)
@@ -130,13 +129,9 @@ t_end = 3600.0 # simulation time (seconds)
 bin_method_sim_data = 'auto_bin'
 
 ###############################################################################
-### SET GENERAL PARAMETERS
-
-no_bins = 50 # number of bins for histograms
-mass_density = 1E3 # approx. for water (kg/m^3)
-
-###############################################################################
 ### SET PARAMETERS FOR SIP ENSEMBLES
+
+mass_density = 1E3 # of the particles (kg/m^3)
 
 dist = 'expo'
 #dist = 'lognormal'
@@ -149,7 +144,7 @@ eta_threshold = 'fix'
 
 dV = 1.0 # box volume in m^3
 
-## for EXPO dist: set r0 and LWC0 analog to Unterstrasser 2017
+### for EXPO dist: set r0 and LWC0 analog to Unterstrasser 2017
 # -> DNC0 will be calculated from that
 if dist == 'expo':
     LWC0 = 1.0E-3 # kg/m^3
@@ -163,7 +158,7 @@ if dist == 'lognormal':
     r_critmin = 0.001 # mu
     m_high_over_m_low = 1.0E8
     
-    # set DNC0 manually only for lognormal distr. NOT for expo
+    # set DNC0 manually only for lognormal distr., NOT for expo
     DNC0 = 60.0E6 # 1/m^3
     #DNC0 = 2.97E8 # 1/m^3
     #DNC0 = 3.0E8 # 1/m^3
@@ -171,7 +166,9 @@ if dist == 'lognormal':
     sigma_R = 1.4 #  no unit
 
 ### PARAMS FOR DATA ANALYSIS OF INITIAL SIP ENSEMBLES
-# only bin_mode = 1 is available for now..
+no_bins = 50 # number of bins for histograms
+
+# only bin_mode = 1 is available for now
 # bin_mode = 1 for bins equal dist on log scale
 bin_mode = 1
 
@@ -196,13 +193,8 @@ shift_factor = 0.5
 ### SET PARAMETERS FOR PLOTTING
 
 # g_ln_R vs R is plotted for two different kappas, if activated above
-# Golovin    
-kappa1 = 10
-kappa2 = 200
-
-# Long and Hall
-#kappa1 = 10
-#kappa2 = 200
+kappa1 = kappa_list[0]
+kappa2 = kappa_list[1]
 
 ###############################################################################
 ### SET PARAMETERS FOR KERNEL/ECOL-GRID GENERATION AND LOADING
@@ -225,10 +217,10 @@ act_gen_kernel_grid = bool(args_gen[4])
 
 act_sim = bool(args_sim[0])
 act_analysis = bool(args_sim[1])
-act_plot = bool(args_sim[2])
+act_plot_for_given_kappa = bool(args_sim[2])
 act_plot_moments_kappa_var = bool(args_sim[3])
 act_plot_moments_kappa_var_paper = bool(args_sim[4])
-act_plot_g_ln_R_single = bool(args_sim[5])
+act_plot_g_ln_R_for_given_kappa = bool(args_sim[5])
 act_plot_g_ln_R_compare = bool(args_sim[6])
 
 # constant converts radius in mu to mass in kg (m = 4/3 pi rho R^3)
@@ -270,6 +262,9 @@ f'{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}/ensembles/'
 result_path_add =\
 f'{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 /results/{kernel_name}/{kernel_method}/'
+
+if not os.path.exists(figpath):
+    os.makedirs(figpath) 
 
 #%% E_COL/KERNEL GRID GENERATION (DISCRETIZATION)
 if act_gen_Ecol_grid:
@@ -444,7 +439,6 @@ if act_sim:
             print(f'kappa {kappa}, sim {cnt}: seed {seed} simulation finished')
 
 #%% DATA ANALYSIS
-
 if act_analysis:
     print('kappa, time_n, {xi_max/xi_min:.3e}, no_SIPS_avg, R_min, R_max')
     for kappa in kappa_list:
@@ -454,7 +448,7 @@ if act_analysis:
                               no_sims, start_seed, no_bins, load_dir)
 
 #%% PLOTTING
-if act_plot:
+if act_plot_for_given_kappa:
     ref_data_path = 'collision/ref_data/' + f'{kernel_name}/'
     if kernel_name == 'Long_Bott' or kernel_name == 'Hall_Bott':
         moments_ref = np.loadtxt(ref_data_path + 'Wang_2007_moments.txt')
@@ -470,8 +464,9 @@ if act_plot:
     for kappa in kappa_list:
         load_dir =\
             simdata_path + result_path_add + f'kappa_{kappa}/dt_{int(dt)}/'
-        boxm.plot_for_given_kappa(kappa, eta, dt, no_sims, start_seed, no_bins,
-                                  kernel_name, gen_method,
+        boxm.plot_for_given_kappa(kappa, eta, eta_threshold,
+                                  dt, no_sims, start_seed, no_bins,
+                                  kernel_name, kernel_method, gen_method,
                                   bin_method_sim_data,
                                   moments_ref, times_ref,
                                   load_dir)
@@ -518,31 +513,18 @@ MS = 2
 # raster resolution for e.g. .png
 DPI = 600
 
-if kernel_name == "Golovin":
-    figsize = cm2inch(6.5,9.0)
-else:
-    figsize = cm2inch(6.5,11.0)
-figsize2 = cm2inch(17.5,23.0)
-figsize3 = cm2inch(17.5,5)
-figsize4 = figsize3
-
 mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 
 if act_plot_moments_kappa_var_paper:
+    figsize = cm2inch(7.,12.0)
     ref_data_path = "collision/ref_data/" \
                     + f"{kernel_name}/"
     moments_ref = np.loadtxt(ref_data_path + "Wang_2007_moments.txt")
     times_ref = np.loadtxt(ref_data_path + "Wang_2007_times.txt")
     
     figname = figpath \
-            + f"{kernel_name}_moments_vs_time_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
-    figname2 = figpath \
-            + f"{kernel_name}_moments_vs_time_rel_dev_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
-    figname3 = figpath \
-            + f"{kernel_name}_moments_vs_time_converge_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
-    figname4 = figpath \
-            + f"{kernel_name}_moments_vs_time_converge_50_kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
-#    fig_dir = sim_data_path + result_path_add    
+            + f"{kernel_name}_moments_vs_time_" \
+            + f"kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
     boxm.plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt,
                                               no_sims, no_bins,
                                               kernel_name, gen_method,
@@ -551,9 +533,43 @@ if act_plot_moments_kappa_var_paper:
                                               simdata_path,
                                               result_path_add,
                                               figsize, figname,
-                                              figsize2, figname2,
-                                              figsize3, figname3,
-                                              figsize4, figname4,
                                               TTFS, LFS, TKFS)
 
+if act_plot_g_ln_R_for_given_kappa:
+    figsize = cm2inch(7.,4.5)
+    time_idx = np.arange(0,25,4)
+    for kappa in kappa_list:
+        load_dir =\
+            simdata_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
+        figname = figpath + f"{kernel_name}_g_ln_R_vs_R_kappa_{kappa}.pdf"
+        boxm.plot_g_ln_R_for_given_kappa(kappa,
+                                         eta, dt, no_sims, start_seed, no_bins,
+                                         DNC0, m_mean,
+                                         kernel_name, gen_method,                                         
+                                         time_idx,
+                                         load_dir,
+                                         figsize, figname,
+                                         LFS)
+
+if act_plot_g_ln_R_compare:
+    figsize = cm2inch(7.,12.0)
+    time_idx = np.arange(0,25,4)
+        
+    figname_compare =\
+        figpath + f"{kernel_name}_g_ln_R_vs_R_kappa_comp_{kappa1}_{kappa2}.pdf"
+    load_dir_k1 =\
+        simdata_path + result_path_add + f"kappa_{kappa1}/dt_{int(dt)}/"
+    load_dir_k2 =\
+        simdata_path + result_path_add + f"kappa_{kappa2}/dt_{int(dt)}/"    
+
+    boxm.plot_g_ln_R_kappa_compare(kappa1, kappa2,
+                                   eta, dt, no_sims, start_seed, no_bins,
+                                   DNC0, m_mean,
+                                   kernel_name, gen_method, time_idx,
+                                   load_dir_k1, load_dir_k2,
+                                   figsize, figname_compare, LFS)
+
 mpl.rcParams.update(plt.rcParamsDefault)
+
+print("execution of run_box_model.py finished for "
+      + f"{kernel_name} {kernel_method}")

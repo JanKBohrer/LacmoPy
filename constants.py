@@ -31,7 +31,7 @@ import math
 ## universal gas constant
 #univ_gas = avogadro_constant * k_B # J/(K mol)
 
-#%%
+#%% CONVERSIONS
 
 ### compute mass from diameter and density
 one_third = 1.0 / 3.0
@@ -42,6 +42,8 @@ pi_times_4_over_3_inv = 0.75 / math.pi
 # volume to radius:
 # R = (3/4/pi)^0.3333 V^1/3
 volume_to_radius = (pi_times_4_over_3_inv)**(one_third)
+
+#%% DEFINED CONSTANTS 
 
 ### standard gravity
 # NIST special publication 330 2008 Ed

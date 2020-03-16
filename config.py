@@ -1,8 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CONFIGURATION FILE for the Lagrangian cloud model simulation.
-The corresponding simulation script is "lacmo.py".
+TROPOS LAGRANGIAN CLOUD MODEL
+Super-Droplet method in a two-dimensional kinematic framework
+Test Case 1, ICMW 2012, Muhlbauer et al. 2013, ‎Bull. Am. Meteorol. Soc. 94, 25
+
+Author: Jan Bohrer (bohrer@tropos.de)
+Further contact: Oswald Knoth (knoth@tropos.de)
+
+CONFIGURATION FILE
+
+the corresponding execution script is "lacmo.py"
+
+basic units:
+particle mass, water mass, solute mass in femto gram = 10^-18 kg
+particle radius in micro meter ("mu")
+all other quantities in SI units
 """
 
 import numpy as np
@@ -174,7 +187,6 @@ config = {
 #'set_std_out_file'     : False
 }
 
-### DERIVED QUANTITIES (DO NOT SET MANUALLY)
+#%% DERIVED QUANTITIES (DO NOT SET MANUALLY)
 config['no_cells'] = compute_no_grid_cells_from_step_sizes(
                          config['grid_ranges'], config['grid_steps'])
-
