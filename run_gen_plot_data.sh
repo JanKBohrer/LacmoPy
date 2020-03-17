@@ -15,7 +15,9 @@
 # which volumes are analyzed for particle spectra etc.
 # the generated data can be plotted with "plot_results_MA.py".
 # In there, a configuration must be added in the parameter lists indicated
-# and lateron chosen by setting SIM_N (see "plot_results_MA.py")
+# and later on chosen by setting SIM_N (see "plot_results_MA.py")
+# adjust the number of OMP threads for numpy
+# and threads available to numba per process
 
 # basic parameter setup in this file:
 #storage_path="/Users/bohrer/sim_data_cloudMP/" # sim data is in here

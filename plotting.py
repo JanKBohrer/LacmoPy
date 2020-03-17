@@ -32,9 +32,6 @@ from microphysics import compute_radius_from_mass_vec
 from distributions import conc_per_mass_expo_np
 from distributions import conc_per_mass_lognormal_np
 
-from golovin import dist_vs_time_golo_exp
-
-
 #%% BASIC FUNCTIONS
 
 def cm2inch(*tupl):
@@ -170,7 +167,7 @@ def plot_scalar_field_2D( grid_centers_x_, grid_centers_y_, field_,
                                 no_ticks_[1] ) )
     plt.colorbar(CS, fraction=colorbar_fraction_ , pad=colorbar_pad_)    
     
-#%% FUNCTION DEF SIZE SPECTRA
+#%% PLOT SIZE SPECTRA
 
 def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
                            bins_R_p_list, bins_R_s_list,
@@ -529,7 +526,7 @@ def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
                         pad_inches = 0.05
                         )   
             
-#%% FUNCTION DEF: PLOT SCALAR FIELDS
+#%% PLOT SCALAR FIELDS
 def plot_scalar_field_frames_avg(grid, fields_with_time,
                                         save_times,
                                         field_names,
@@ -815,7 +812,7 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
                     dpi=600
                     )   
         
-#%% FUNCTION DEF: PLOT ABSOLUTE DEVS OF TWO SCALAR FIELDS
+#%% PLOT ABSOLUTE DEVIATIONS OF TWO SCALAR FIELDS
 def plot_scalar_field_frames_abs_dev_MA(grid,
                                         fields_with_time1,
                                         fields_with_time_std1,
@@ -1385,8 +1382,7 @@ def plot_particle_trajectories(traj, grid, selection=None,
     if fig_name is not None:
         fig.savefig(fig_name)
         
-        
-#%% PARTICLE POSITIONS AND VELOCITIES
+#%% PLOT PARTICLE POSITIONS AND VELOCITIES
 
 def plot_pos_vel_pt(pos, vel, grid,
                     figsize=(8,8), no_ticks = [6,6],
@@ -1437,7 +1433,7 @@ def plot_pos_vel_pt_with_time(pos_data, vel_data, grid, save_times,
     if fig_name is not None:
         fig.savefig(fig_name)
         
-#%% ENSEMBLE DATA
+#%% PLOT ENSEMBLE DATA
         
 def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
         dist, dist_par, no_sims, no_bins,
@@ -1467,7 +1463,8 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
         conc_per_mass_np = conc_per_mass_lognormal_np
     
     sample_mode = 'given_bins'
-### 1. plot xi_avg vs r    
+    
+    ### 1. plot xi_avg vs r    
     no_rows = 1
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows))
     ax=axes
@@ -1491,15 +1488,10 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
         
     fig.savefig(ensemble_dir + fig_name)
 
-### 2. my lin approx plot
-    
+    ### 2. my lin approx plot
     m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
     R_ = compute_radius_from_mass_vec(m_*1.0E18, mass_density)
-#        R_ = compute_radius_from_mass_vec(m_*1.0E18, c.mass_density_water_liquid_NTP)
-#        f_m_ana = conc_per_mass_np(m_, DNC0, DNC0/LWC0)
     f_m_ana = conc_per_mass_np(m_, *dist_par)
-#    g_m_ana = m_ * f_m_ana
-#    g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
     
     no_rows = 1
     
@@ -1543,7 +1535,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
         
     fig.savefig(ensemble_dir + fig_name)
     
-### 3. SAMPLED DATA: fm gm glnR moments
+    ### 3. SAMPLED DATA: fm gm glnR moments
     if dist == 'expo':
         bins_mass_center_exact = bins_mass_centers[3]
         bins_rad_center_exact = bins_rad_centers[3]
@@ -1626,7 +1618,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
 
-### 4. SAMPLED DATA: DEVIATIONS OF fm
+    ### 4. sampled data: deviations of fm
     no_rows = 4
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows), sharex=True)
     
@@ -1651,12 +1643,9 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     if sample_mode == 'given_bins': fig_name += '.png'
     elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
-    
 
-
-### PLOTTING STATISTICAL ANALYSIS OVER no_sim runs
-
-### 5. ERRORBARS: fm gm g_ln_r moments GIVEN BINS
+    ### plotting statistical analysis over no_sim runs
+    ### 5. errorbars: fm gm g_ln_r moments given bins
     
     m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
     R_ = compute_radius_from_mass_vec(m_*1.0E18, mass_density)
@@ -1780,7 +1769,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
     
-### 5b. ERRORBARS: fm gm g_ln_r moments AUTO BINS
+    ### 5b. errorbars: fm gm g_ln_r moments auto bins
     sample_mode = 'auto_bins'
     if dist == 'expo':
         bins_mass_center_exact = bins_mass_centers_auto[3]
@@ -1911,7 +1900,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
 
-### 6. ERRORBARS: DEVIATIONS of fm SEPA PLOTS GIVEN BINS
+    ### 6. errorbars: deviations of fm sepa plots given bins
     sample_mode = 'given_bins'
     no_rows = 4
     fig, axes = plt.subplots(nrows=no_rows, figsize=(8,4*no_rows), sharex=True)
@@ -1948,7 +1937,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
 
-### 6b. ERRORBARS: DEVIATIONS of fm SEPA PLOTS AUTO BINS
+    ### 6b. errorbars: deviations of fm sepa plots auto bins
     sample_mode = 'auto_bins'
     no_rows = 4
     fig, axes = plt.subplots(nrows=no_rows, figsize=(8,4*no_rows), sharex=True)
@@ -1958,7 +1947,6 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     for n in range(no_rows):
         ax = axes[n]
         f_m_ana = conc_per_mass_np(bins_mass_centers_auto[n], *dist_par)
-        # ax.plot(bins_mass_centers[n], (f_m_num_sampled-f_m_ana)/f_m_ana, 'x')
         ax.errorbar(bins_mass_centers_auto[n],
                     # bins_mass_width,
                     (f_m_num_avg_auto-f_m_ana)/f_m_ana,
@@ -1973,7 +1961,6 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
         ax.set_xscale('log')
         ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ')
         ax.set_title(ax_titles[n])
-    # axes[3].set_xlabel('bin width $Delta hat{m}$ (kg)')
     axes[3].set_xlabel('mass (kg)')
     
     for ax in axes:
@@ -1985,7 +1972,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
 
-### 7. ERRORBARS: DEVIATIONS ALL IN ONE
+    ### 7. errorbars: deviations all in one
     sample_mode = 'given_bins'
     no_rows = 2
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows), sharex=True)
@@ -1998,14 +1985,8 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
         last_ind += 1
         frac = f_m_counts[last_ind] / no_sims
     
-    # exclude_ind_last = 3
-    # last_ind = len(bins_mass_width)-exclude_ind_last
-    
-    # last_ind = len(bins_mass_centers[0])-16
-    
     ax_titles = ['lin', 'log', 'COM', 'exact']
     
-    # ax = axes
     ax = axes[0]
     for n in range(3):
         # ax = axes[n]
@@ -2050,7 +2031,6 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     # ax.set_xlabel(r'mass $\tilde{m}$ (kg)')
     ax.set_xlabel(r'mass $m$ (kg)')
     ax.legend()
-    # ax.set_xscale('log')
     # ax.set_yscale('symlog')
     # TT1 = np.array([-0.08,-0.04,-0.02,-0.01])
     # TT1 = np.array([-0.08,-0.04,-0.02,-0.01,-0.005])
@@ -2072,7 +2052,7 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
 
-### 8. MYHISTO BINNING DEVIATIONS of fm SEPA PLOTS
+    ### 8. myHisto binning deviations of fm sepa plots
     no_rows = 7
     fig, axes = plt.subplots(nrows=no_rows, figsize=(8,4*no_rows), sharex=True)
     
@@ -2096,7 +2076,6 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
         ax.set_xscale('log')
         ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ')
         ax.set_title(ax_titles[n])
-    # axes[3].set_xlabel('bin width $Delta hat{m}$ (kg)')
     axes[-1].set_xlabel('mass (kg)')
     
     for ax in axes:
@@ -2107,43 +2086,18 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
                + f'{no_sims}_no_bins_{no_bins}.png'
     fig.savefig(ensemble_dir + fig_name)
 
-### 9. MYHISTO BINNING DEVIATIONS PLOT ALL IN ONE
+    ### 9. myhisto binning deviations plot all in one
     no_rows = 2
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows), sharex=True)
-    
-    # last_ind = 0
-    # # frac = 1.0
-    # frac = f_m_counts[0] / no_sims
-    # count_frac_limit = 0.1
-    # while frac > count_frac_limit:
-    #     last_ind += 1
-    #     frac = f_m_counts[last_ind] / no_sims
-    
-    # exclude_ind_last = 3
-    # last_ind = len(bins_mass_width)-exclude_ind_last
     
     last_ind = len(bins_mass_centers_my[0])
     
     ax_titles = ['lin', 'log', 'COM', 'exact']
     
-    # ax = axes
     ax = axes[0]
     for n in range(3):
         # ax = axes[n]
         f_m_ana = conc_per_mass_np(bins_mass_centers_my[n], *dist_par)
-        # ax.plot(bins_mass_centers[n], (f_m_num_sampled-f_m_ana)/f_m_ana, 'x')
-        # ax.errorbar(bins_mass_width,
-        #             100*((f_m_num_avg-f_m_ana)/f_m_ana)[0:3],
-        #             100*(f_m_num_std/f_m_ana)[0:3],
-        #             # 100*(f_m_num_avg[0:-3]-f_m_ana[0:-3])/f_m_ana[0:-3],
-        #             # 100*f_m_num_std[0:-3]/f_m_ana[0:-3],
-        #             fmt = 'x' ,
-        #             # c = 'k',
-        #             # c = 'lightblue',
-        #             markersize = 10.0,
-        #             linewidth =2.0,
-        #             capsize=3, elinewidth=2, markeredgewidth=1,
-        #             zorder=99)
         ax.errorbar(bins_mass_centers_my[n][:last_ind],
                     # bins_mass_width[:last_ind],
                     100*(f_m_num_avg_my[:last_ind]-f_m_ana[:last_ind])\
@@ -2208,8 +2162,4 @@ def plot_ensemble_data(kappa, mass_density, eta, r_critmin,
     fig.savefig(ensemble_dir + fig_name)
 
     plt.close('all')        
-
-
-
-
 

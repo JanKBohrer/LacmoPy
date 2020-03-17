@@ -34,14 +34,6 @@ def pdf_expo(x, x_mean_inv):
 def prob_exp(x,k):
     return 1.0 - np.exp(-k*x)
 
-def compute_moments_expo(n, DNC0, LWC0):
-    if n == 0:
-        return DNC0
-    elif n == 1:
-        return LWC0
-    else:    
-        return math.factorial(n) * DNC0 * (LWC0/DNC0)**n
-
 # log-normal prob. dens. fct. (monomodal) such that int ( f(x) dx ) = 1
 # mu_log is the ln() of the geometric mean "mu" (also "mode") of the dst
 # sigma_log is the ln() of the geometric STD "sigma" of the dst
@@ -83,6 +75,35 @@ def conc_per_mass_lognormal_np(x, DNC, mu_log, sigma_log):
     return DNC * np.exp( -0.5*( ( np.log( x ) - mu_log ) / sigma_log )**2 ) \
            / (x * two_pi_sqrt * sigma_log)
 conc_per_mass_lognormal = njit()(conc_per_mass_lognormal_np)
+
+#%% MOMENTS
+
+def compute_moments_expo(n, DNC0, LWC0):
+    if n == 0:
+        return DNC0
+    elif n == 1:
+        return LWC0
+    else:    
+        return math.factorial(n) * DNC0 * (LWC0/DNC0)**n
+
+def moments_analytical_expo(n, DNC, DNC_over_LWC):
+    if n == 0:
+        return DNC
+    else:
+        LWC_over_DNC = 1.0 / DNC_over_LWC
+        return math.factorial(n) * DNC * LWC_over_DNC**n
+
+def moments_analytical_lognormal_m(n, DNC, mu_m_log, sigma_m_log):
+    if n == 0:
+        return DNC
+    else:
+        return DNC * np.exp(n * mu_m_log + 0.5 * n*n * sigma_m_log*sigma_m_log)
+
+def moments_analytical_lognormal_R(n, DNC, mu_R_log, sigma_R_log):
+    if n == 0:
+        return DNC
+    else:
+        return DNC * np.exp(n * mu_R_log + 0.5 * n*n * sigma_R_log*sigma_R_log)
 
 #%% NUMERICAL INTEGRATION
 

@@ -27,12 +27,17 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-from microphysics import compute_radius_from_mass
-from microphysics import compute_radius_from_mass_vec
-
+import microphysics as mp
 import collision.kernel as ker
 import collision.all_or_nothing as aon
 
+import distributions as dst
+
+from evaluation import generate_myHisto_SIP_ensemble_np
+
+from plotting import plot_ensemble_data
+
+from distributions import conc_per_mass_expo_np, conc_per_mass_lognormal_np
 from golovin import compute_moments_Golovin, dist_vs_time_golo_exp
 
 #%% SIMULATION
@@ -111,6 +116,397 @@ def simulate_collisions(SIP_quantities,
     np.save(save_dir + f"masses_vs_time_{seed}", masses_vs_time)
     np.save(save_dir + f"save_times_{seed}", save_times)
     
+#%% ANALYSIS OF ENSEMBLE DATA
+
+# load data from .npy files, analyze, plot and save plot files
+def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
+                          no_bins, bin_mode,
+                          spread_mode, shift_factor, overflow_factor,
+                          scale_factor, act_plot_ensembles):
+    if dist == "expo":
+        conc_per_mass_np = conc_per_mass_expo_np
+        dV, DNC0, DNC0_over_LWC0, r_critmin, kappa, eta,no_sims00,start_seed =\
+            tuple(np.load(ensemble_dir + "ensemble_parameters.npy"))
+        LWC0_over_DNC0 = 1.0 / DNC0_over_LWC0
+        dist_par = (DNC0, DNC0_over_LWC0)
+        moments_analytical = dst.moments_analytical_expo
+    elif dist =="lognormal":
+        conc_per_mass_np = conc_per_mass_lognormal_np
+        dV, DNC0, mu_m_log, sigma_m_log, mass_density, r_critmin, \
+        kappa, eta, no_sims00, start_seed = \
+            tuple(np.load(ensemble_dir + "ensemble_parameters.npy"))
+        dist_par = (DNC0, mu_m_log, sigma_m_log)
+        moments_analytical = dst.moments_analytical_lognormal_m
+
+    start_seed = int(start_seed)
+    no_sims00 = int(no_sims00)
+    seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
+    
+    ### ANALYSIS START
+    masses = []
+    xis = []
+    radii = []
+    
+    moments_sampled = []
+    for i,seed in enumerate(seed_list):
+        masses.append(np.load(ensemble_dir + f"masses_seed_{seed}.npy"))
+        xis.append(np.load(ensemble_dir + f"xis_seed_{seed}.npy"))
+        radii.append(np.load(ensemble_dir + f"radii_seed_{seed}.npy"))
+    
+        moments = np.zeros(4,dtype=np.float64)
+        moments[0] = xis[i].sum() / dV
+        for n in range(1,4):
+            moments[n] = np.sum(xis[i]*masses[i]**n) / dV
+        moments_sampled.append(moments)
+    
+    masses_sampled = np.concatenate(masses)
+    radii_sampled = np.concatenate(radii)
+    xis_sampled = np.concatenate(xis)
+    
+    # moments analysis
+    moments_sampled = np.transpose(moments_sampled)
+    moments_an = np.zeros(4,dtype=np.float64)
+    for n in range(4):
+        moments_an[n] = moments_analytical(n, *dist_par)
+        
+    print(f"### kappa {kappa} ###")    
+    print("moments analytic:", moments_an)    
+    print("rel. deviation")    
+    print("moment-order    (average-analytic)/analytic:")
+    for n in range(4):
+        print(n, (np.average(moments_sampled[n])-moments_an[n])/moments_an[n] )
+    
+    moments_sampled_avg_norm = np.average(moments_sampled, axis=1) / moments_an
+    moments_sampled_std_norm = np.std(moments_sampled, axis=1) \
+                               / np.sqrt(no_sims) / moments_an
+    
+    m_min = masses_sampled.min()
+    m_max = masses_sampled.max()
+    
+    R_min = radii_sampled.min()
+    R_max = radii_sampled.max()
+    
+    bins_mass = np.load(ensemble_dir + "bins_mass.npy")
+    bins_rad = np.load(ensemble_dir + "bins_rad.npy")
+    bin_factor = 10**(1.0/kappa)
+    
+    ### build log bins "intuitively" = "auto"
+    if bin_mode == 1:
+        bin_factor_auto = (m_max/m_min)**(1.0/no_bins)
+        # bin_log_dist = np.log(bin_factor)
+        # bin_log_dist_half = 0.5 * bin_log_dist
+        # add dummy bins for overflow
+        # bins_mass = np.zeros(no_bins+3,dtype=np.float64)
+        bins_mass_auto = np.zeros(no_bins+1,dtype=np.float64)
+        bins_mass_auto[0] = m_min
+        # bins_mass[0] = m_min / bin_factor
+        for bin_n in range(1,no_bins+1):
+            bins_mass_auto[bin_n] = bins_mass_auto[bin_n-1] * bin_factor_auto
+        # the factor 1.01 is for numerical stability: to be sure
+        # that m_max does not contribute to a bin larger than the
+        # last bin
+        bins_mass_auto[-1] *= 1.0001
+        # the factor 0.99 is for numerical stability: to be sure
+        # that m_min does not contribute to a bin smaller than the
+        # 0-th bin
+        bins_mass_auto[0] *= 0.9999
+        # m_0 = m_min / np.sqrt(bin_factor)
+        # bins_mass_log = np.log(bins_mass)
+
+        bins_rad_auto = mp.compute_radius_from_mass_vec(bins_mass_auto*1.0E18,
+                                                        mass_density)
+
+    ###################################################
+    ### histogram generation for given bins
+    f_m_counts = np.histogram(masses_sampled,bins_mass)[0]
+    f_m_ind = np.nonzero(f_m_counts)[0]
+    f_m_ind = np.arange(f_m_ind[0],f_m_ind[-1]+1)
+    
+    no_SIPs_avg = f_m_counts.sum()/no_sims
+
+    bins_mass_ind = np.append(f_m_ind, f_m_ind[-1]+1)
+    
+    bins_mass = bins_mass[bins_mass_ind]
+    
+    bins_rad = bins_rad[bins_mass_ind]
+    bins_rad_log = np.log(bins_rad)
+    bins_mass_width = (bins_mass[1:]-bins_mass[:-1])
+    bins_rad_width = (bins_rad[1:]-bins_rad[:-1])
+    bins_rad_width_log = (bins_rad_log[1:]-bins_rad_log[:-1])
+    
+    ### approximate the functions f_m, f_lnR = 3*m*f_m, g_lnR=3*m^2*f_m
+    # estimate f_m(m) by binning:
+    # DNC_i = f_m(m_i) * dm_i = droplet number conc in bin i with size dm_i
+    f_m_num_sampled = np.histogram(masses_sampled,bins_mass,
+                                   weights=xis_sampled)[0]
+    g_m_num_sampled = np.histogram(masses_sampled,bins_mass,
+                                   weights=xis_sampled*masses_sampled)[0]
+    
+    f_m_num_sampled = f_m_num_sampled / (bins_mass_width * dV * no_sims)
+    g_m_num_sampled = g_m_num_sampled / (bins_mass_width * dV * no_sims)
+    
+    # build g_ln_r = 3*m*g_m DIRECTLY from data
+    g_ln_r_num_sampled = np.histogram(radii_sampled,
+                                      bins_rad,
+                                      weights=xis_sampled*masses_sampled)[0]
+    g_ln_r_num_sampled = g_ln_r_num_sampled \
+                         / (bins_rad_width_log * dV * no_sims)
+    # g_ln_r_num_derived = 3 * bins_mass_center * g_m_num * 1000.0
+    
+    # define centers on lin scale
+    bins_mass_center_lin = 0.5 * (bins_mass[:-1] + bins_mass[1:])
+    bins_rad_center_lin = 0.5 * (bins_rad[:-1] + bins_rad[1:])
+    
+    # define centers on the logarithmic scale
+    bins_mass_center_log = bins_mass[:-1] * np.sqrt(bin_factor)
+    bins_rad_center_log = bins_rad[:-1] * np.sqrt(bin_factor)
+    # bins_mass_center_log = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
+    # bins_rad_center_log = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
+    
+    # define the center of mass for each bin and set it as the "bin center"
+    bins_mass_center_COM = g_m_num_sampled/f_m_num_sampled
+    bins_rad_center_COM =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_COM*1.0E18,
+                                        mass_density)
+    
+    # set the bin "mass centers" at the right spot such that
+    # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
+    if dist == "expo":
+        m_avg = LWC0_over_DNC0
+    elif dist == "lognormal":
+        m_avg = moments_an[1] / dist_par[0]
+        
+    bins_mass_center_exact = bins_mass[:-1] \
+                             + m_avg * np.log(bins_mass_width\
+          / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
+    bins_rad_center_exact =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_exact*1.0E18,
+                                        mass_density)
+    
+    bins_mass_centers = np.array((bins_mass_center_lin,
+                                  bins_mass_center_log,
+                                  bins_mass_center_COM,
+                                  bins_mass_center_exact))
+    bins_rad_centers = np.array((bins_rad_center_lin,
+                                  bins_rad_center_log,
+                                  bins_rad_center_COM,
+                                  bins_rad_center_exact))
+
+    ###################################################
+    ### histogram generation for auto bins
+    f_m_counts_auto = np.histogram(masses_sampled,bins_mass_auto)[0]
+    f_m_ind_auto = np.nonzero(f_m_counts_auto)[0]
+    f_m_ind_auto = np.arange(f_m_ind_auto[0],f_m_ind_auto[-1]+1)
+    
+
+    bins_mass_ind_auto = np.append(f_m_ind_auto, f_m_ind_auto[-1]+1)
+    bins_mass_auto = bins_mass_auto[bins_mass_ind_auto]
+    
+    bins_rad_auto = bins_rad_auto[bins_mass_ind_auto]
+    bins_rad_log_auto = np.log(bins_rad_auto)
+    bins_mass_width_auto = (bins_mass_auto[1:]-bins_mass_auto[:-1])
+    bins_rad_width_log_auto = (bins_rad_log_auto[1:]-bins_rad_log_auto[:-1])
+    
+    ### approximate the functions f_m, f_lnR = 3*m*f_m, g_lnR=3*m^2*f_m
+    # estimate f_m(m) by binning:
+    # DNC_i = f_m(m_i) * dm_i = droplet number conc in bin i with size dm_i
+    f_m_num_sampled_auto = np.histogram(masses_sampled,bins_mass_auto,
+                                   weights=xis_sampled)[0]
+    g_m_num_sampled_auto = np.histogram(masses_sampled,bins_mass_auto,
+                                   weights=xis_sampled*masses_sampled)[0]
+    
+    f_m_num_sampled_auto = f_m_num_sampled_auto\
+                           / (bins_mass_width_auto * dV * no_sims)
+    g_m_num_sampled_auto = g_m_num_sampled_auto\
+                           / (bins_mass_width_auto * dV * no_sims)
+    
+    # build g_ln_r = 3*m*g_m DIRECTLY from data
+    g_ln_r_num_sampled_auto = np.histogram(radii_sampled,
+                                      bins_rad_auto,
+                                      weights=xis_sampled*masses_sampled)[0]
+    g_ln_r_num_sampled_auto = g_ln_r_num_sampled_auto \
+                         / (bins_rad_width_log_auto * dV * no_sims)
+    
+    # define centers on lin scale
+    bins_mass_center_lin_auto =\
+        0.5 * (bins_mass_auto[:-1] + bins_mass_auto[1:])
+    bins_rad_center_lin_auto =\
+        0.5 * (bins_rad_auto[:-1] + bins_rad_auto[1:])
+    
+    # define centers on the logarithmic scale
+    bins_mass_center_log_auto = bins_mass_auto[:-1] * np.sqrt(bin_factor)
+    bins_rad_center_log_auto = bins_rad_auto[:-1] * np.sqrt(bin_factor)
+    
+    # define the center of mass for each bin and set it as the "bin center"
+    bins_mass_center_COM_auto = g_m_num_sampled_auto/f_m_num_sampled_auto
+    bins_rad_center_COM_auto =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_COM_auto*1.0E18,
+                                        mass_density)
+    
+    # set the bin "mass centers" at the right spot such that
+    # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
+    if dist == "expo":
+        m_avg = LWC0_over_DNC0
+    elif dist == "lognormal":
+        m_avg = moments_an[1] / dist_par[0]
+        
+    bins_mass_center_exact_auto = bins_mass_auto[:-1] \
+                             + m_avg * np.log(bins_mass_width_auto\
+          / (m_avg * (1-np.exp(-bins_mass_width_auto/m_avg))))
+    bins_rad_center_exact_auto =\
+        mp.compute_radius_from_mass_vec(bins_mass_center_exact_auto*1.0E18,
+                                        mass_density)
+    
+    bins_mass_centers_auto = np.array((bins_mass_center_lin_auto,
+                                  bins_mass_center_log_auto,
+                                  bins_mass_center_COM_auto,
+                                  bins_mass_center_exact_auto))
+    bins_rad_centers_auto = np.array((bins_rad_center_lin_auto,
+                                  bins_rad_center_log_auto,
+                                  bins_rad_center_COM_auto,
+                                  bins_rad_center_exact_auto))
+
+    ###########################################################################
+    ### STATISTICAL ANALYSIS OVER no_sim runs given bins
+    # get f(m_i) curve for each "run" with same bins for all ensembles
+    f_m_num = []
+    g_m_num = []
+    g_ln_r_num = []
+    
+    for i,mass in enumerate(masses):
+        f_m_num.append(np.histogram(mass,bins_mass,weights=xis[i])[0] \
+                   / (bins_mass_width * dV))
+        g_m_num.append(np.histogram(mass,bins_mass,
+                                       weights=xis[i]*mass)[0] \
+                   / (bins_mass_width * dV))
+    
+        # build g_ln_r = 3*m*g_m DIRECTLY from data
+        g_ln_r_num.append(np.histogram(radii[i],
+                                          bins_rad,
+                                          weights=xis[i]*mass)[0] \
+                     / (bins_rad_width_log * dV))
+    
+    f_m_num = np.array(f_m_num)
+    g_m_num = np.array(g_m_num)
+    g_ln_r_num = np.array(g_ln_r_num)
+    
+    f_m_num_avg = np.average(f_m_num, axis=0)
+    f_m_num_std = np.std(f_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_m_num_avg = np.average(g_m_num, axis=0)
+    g_m_num_std = np.std(g_m_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_ln_r_num_avg = np.average(g_ln_r_num, axis=0)
+    g_ln_r_num_std = np.std(g_ln_r_num, axis=0, ddof=1) / np.sqrt(no_sims)
+    
+    ###########################################################################
+    ### STATISTICAL ANALYSIS OVER no_sim runs AUTO BINS
+    # get f(m_i) curve for each "run" with same bins for all ensembles
+    f_m_num_auto = []
+    g_m_num_auto = []
+    g_ln_r_num_auto = []
+    
+    for i,mass in enumerate(masses):
+        f_m_num_auto.append(np.histogram(mass,bins_mass_auto,weights=xis[i])[0]
+                   / (bins_mass_width_auto * dV))
+        g_m_num_auto.append(np.histogram(mass,bins_mass_auto,
+                                       weights=xis[i]*mass)[0] \
+                   / (bins_mass_width_auto * dV))
+    
+        # build g_ln_r = 3*m*g_m DIRECTLY from data
+        g_ln_r_num_auto.append(np.histogram(radii[i],
+                                          bins_rad_auto,
+                                          weights=xis[i]*mass)[0] \
+                     / (bins_rad_width_log_auto * dV))
+    
+    f_m_num_auto = np.array(f_m_num_auto)
+    g_m_num_auto = np.array(g_m_num_auto)
+    g_ln_r_num_auto = np.array(g_ln_r_num_auto)
+    
+    f_m_num_avg_auto = np.average(f_m_num_auto, axis=0)
+    f_m_num_std_auto = np.std(f_m_num_auto, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_m_num_avg_auto = np.average(g_m_num_auto, axis=0)
+    g_m_num_std_auto = np.std(g_m_num_auto, axis=0, ddof=1) / np.sqrt(no_sims)
+    g_ln_r_num_avg_auto = np.average(g_ln_r_num_auto, axis=0)
+    g_ln_r_num_std_auto =\
+        np.std(g_ln_r_num_auto, axis=0, ddof=1) / np.sqrt(no_sims)
+
+    ###########################################################################
+    ### generate f_m, g_m and mass centers with my hist bin method
+    LWC0 = moments_an[1]
+    f_m_num_avg_my_ext, f_m_num_std_my_ext, g_m_num_avg_my, g_m_num_std_my, \
+    h_m_num_avg_my, h_m_num_std_my, \
+    bins_mass_my, bins_mass_width_my, \
+    bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa = \
+        generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
+                                         dV, DNC0, LWC0,
+                                         no_bins, no_sims,
+                                         bin_mode, spread_mode,
+                                         shift_factor, overflow_factor,
+                                         scale_factor)
+        
+    f_m_num_avg_my = f_m_num_avg_my_ext[1:-1]
+    f_m_num_std_my = f_m_num_std_my_ext[1:-1]
+    
+    ###########################################################################
+    ### analytical reference data    
+    m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+    R_ = mp.compute_radius_from_mass_vec(m_*1.0E18, mass_density)
+    f_m_ana_ = conc_per_mass_np(m_, *dist_par)
+    g_m_ana_ = m_ * f_m_ana_
+    g_ln_r_ana_ = 3 * m_ * g_m_ana_ * 1000.0    
+
+    if act_plot_ensembles:
+        plot_ensemble_data(kappa, mass_density, eta, r_critmin,
+            dist, dist_par, no_sims, no_bins,
+            bins_mass, bins_rad, bins_rad_log, 
+            bins_mass_width, bins_rad_width, bins_rad_width_log, 
+            bins_mass_centers, bins_rad_centers,
+            bins_mass_centers_auto, bins_rad_centers_auto,
+            masses, xis, radii, f_m_counts, f_m_ind,
+            f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled, 
+            m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, 
+            f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, 
+            g_ln_r_num_avg, g_ln_r_num_std, 
+            f_m_num_avg_auto, f_m_num_std_auto, g_m_num_avg_auto,
+            g_m_num_std_auto, 
+            g_ln_r_num_avg_auto, g_ln_r_num_std_auto, 
+            m_min, m_max, R_min, R_max, no_SIPs_avg, 
+            moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,
+            moments_an, lin_par,
+            f_m_num_avg_my_ext,
+            f_m_num_avg_my, f_m_num_std_my, g_m_num_avg_my, g_m_num_std_my, 
+            h_m_num_avg_my, h_m_num_std_my, 
+            bins_mass_my, bins_mass_width_my, 
+            bins_mass_centers_my, bins_mass_center_lin_my,
+            ensemble_dir)
+        
+### LEAVE THIS: MAY NEED TO RETURN FOR OTHER APPLICATIONS
+#    return masses, xis, radii, \
+#           m_min, m_max, R_min, R_max, no_SIPs_avg, \
+#           m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
+#           bins_mass, bins_rad, bins_rad_log, \
+#           bins_mass_width, bins_rad_width, bins_rad_width_log, \
+#           bins_mass_centers, bins_rad_centers, \
+#           f_m_counts, f_m_ind,\
+#           f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled,\
+#           f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, \
+#           g_ln_r_num_avg, g_ln_r_num_std, \
+#           bins_mass_auto, bins_rad_auto, bins_rad_log_auto, \
+#           bins_mass_width_auto, bins_rad_width_auto, bins_rad_width_log_auto,\
+#           bins_mass_centers_auto, bins_rad_centers_auto, \
+#           f_m_counts_auto, f_m_ind_auto,\
+#           f_m_num_sampled_auto, g_m_num_sampled_auto, g_ln_r_num_sampled_auto,\
+#           f_m_num_avg_auto, f_m_num_std_auto, g_m_num_avg_auto,\
+#           g_m_num_std_auto,\
+#           g_ln_r_num_avg_auto, g_ln_r_num_std_auto, \
+#           moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
+#           moments_an, \
+#           f_m_num_avg_my_ext, \
+#           f_m_num_avg_my, f_m_num_std_my, \
+#           g_m_num_avg_my, g_m_num_std_my, \
+#           h_m_num_avg_my, h_m_num_std_my, \
+#           bins_mass_my, bins_mass_width_my, \
+#           bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa    
+    
 #%% ANALYSIS OF SIM DATA
 
 # the simulation yields masses in unit 1E-18 kg
@@ -175,8 +571,8 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
         m_max = masses_sampled.max()
         
         # convert to microns
-        R_min = compute_radius_from_mass(1E18 * m_min, mass_density)
-        R_max = compute_radius_from_mass(1E18 * m_max, mass_density)
+        R_min = mp.compute_radius_from_mass(1E18 * m_min, mass_density)
+        R_max = mp.compute_radius_from_mass(1E18 * m_max, mass_density)
 
         xi_min = xis_sampled.min()
         xi_max = xis_sampled.max()
@@ -207,7 +603,7 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
     
         bins_mass_vs_time[time_n] = bins_mass
         # convert to microns
-        bins_rad = compute_radius_from_mass_vec(1E18 * bins_mass, mass_density)
+        bins_rad = mp.compute_radius_from_mass_vec(1E18 * bins_mass, mass_density)
         bins_mass_log = np.log(bins_mass)
         bins_rad_log = np.log(bins_rad)
     
@@ -235,7 +631,7 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
               / (m_avg * (1-np.exp(-bins_mass_width/m_avg))))
         # convert to microns
         bins_rad_center_exact =\
-            compute_radius_from_mass_vec(1E18*bins_mass_center_exact,
+            mp.compute_radius_from_mass_vec(1E18*bins_mass_center_exact,
                                          mass_density)
         bins_mass_centers.append( np.array((bins_mass_center_lin,
                                   bins_mass_center_log,
@@ -253,7 +649,7 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
     
         for sim_n,mass in enumerate(masses):
             # convert to microns
-            rad = compute_radius_from_mass_vec(1E18*mass, mass_density)
+            rad = mp.compute_radius_from_mass_vec(1E18*mass, mass_density)
             f_m_num.append(np.histogram(mass, bins_mass,
                                         weights=xis[sim_n])[0] \
                            / (bins_mass_width * dV))

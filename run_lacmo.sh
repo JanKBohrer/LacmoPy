@@ -2,6 +2,8 @@
 # execute lacmo.py "no_sims" times with different seeds
 # the seed lists will start with the "first" values declared here
 # and increment by 2: [seed0, seed0 + 2, seed0 + 4, ...]
+# adjust the number of OMP threads for numpy
+# and threads available to numba per process
 first_seed_gen=1001
 first_seed_sim=1001
 no_sims=10

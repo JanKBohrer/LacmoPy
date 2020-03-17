@@ -34,7 +34,7 @@ import matplotlib.pyplot as plt
 ### CUSTOM MODULES
 import constants as c
 from microphysics import compute_radius_from_mass_vec
-from analysis import analyze_ensemble_data
+from evaluation import analyze_ensemble_data
 from generation_SIP_ensemble import \
     gen_mass_ensemble_weights_SinSIP_expo, \
     gen_mass_ensemble_weights_SinSIP_lognormal

@@ -9,6 +9,10 @@ Further contact: Oswald Knoth (knoth@tropos.de)
 
 DATA ANALYSIS AND PROCESSING FOR PLOT GENERATION
 Provides data plotable with "plot_results.py"
+suggested execution via shell-script "run_gen_plot_data.py"
+basic parameters can be set in the shell script via arguments
+additional parameters must be adjusted in this script below,
+if settings other than the defaults shall be used
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
@@ -25,9 +29,9 @@ import numpy as np
 import constants as c
 from microphysics import compute_R_p_w_s_rho_p
 from microphysics import compute_radius_from_mass_vec
-from analysis import generate_field_frame_data_avg
-from analysis import generate_size_spectra_R_Arabas
-from analysis import generate_moments_avg_std
+from evaluation import generate_field_frame_data_avg, \
+                       generate_size_spectra_R, \
+                       generate_moments_avg_std
 from file_handling import load_grid_and_particles_full 
 
 #%% DATA PARENT DIRECTORY
@@ -120,10 +124,10 @@ if len(sys.argv) > 14:
 
 dt_col = dt / no_col_per_adv
 
-#%% ANALYSIS PARAMETERS
+#%% SET ANALYSIS PARAMETERS
 
 ### GRID FRAMES
-# set indices of quantities, which shall be available
+# SET indices of quantities, which shall be available
 # possible field indices:
 # 0: r_v
 # 1: r_l
@@ -145,13 +149,13 @@ field_ind = np.array((2, 5, 0, 1))
 field_ind_deri = np.array((0, 1, 2, 3, 4, 5, 6, 7, 8))
 
 # "data frames" where stored every 'frame every' steps
-# set indices of the "data frames" to be analyzed as list/array
+# SET indices of the "data frames" to be analyzed as list/array
 #time_ind_grid = np.array((0, 2, 4, 6, 8, 10, 12))
 time_ind_grid = np.arange(0, 13, 2)
 
 ### SPECTRA
-# target cells for spectra analysis
-# corresponding to Arabas 2015
+# SET target cells for spectra analysis
+# corresponding to Arabas 2015:
 i_tg = [16, 58]
 j_tg = [27, 44, 46, 51, 72][::-1]
 
@@ -162,30 +166,32 @@ no_cols = len(i_tg)
 i_list, j_list = np.meshgrid(i_tg, j_tg, indexing = 'xy')
 target_cell_list = np.array([i_list.flatten(), j_list.flatten()])
 
-# "averaging box size" for spectra:
+# SET "averaging box size" for spectra:
 # spectra are averaged over regions of no_cells_x * no_cells_z grid cells
 # around the target cells
 # please enter uneven numbers: no_cells_x = 5 =>  [x][x][tg cell][x][x]
 no_cells_x = 3
 no_cells_z = 3
 
-# time indices for the spectra analysis
+# SET time indices for the SPECTRA ANALYSIS
+# indices correspond to stored save_times-array
 # time indices may be chosen individually for each spectrum
 # where the cell of each spectrum is given in target_cell_list (s.a.)
 #ind_time = np.array((0,2,4,6,8,10,12))
 ind_time = 6 * np.ones(len(target_cell_list[0]), dtype = np.int64)
 
-# number of bins for wet (R_p) and dry (R_s) size spectra
+# SET number of bins for wet (R_p) and dry (R_s) size spectra
 no_bins_R_p = 30
 no_bins_R_s = 30
 
-### EXTRACTION OF GRID DATA
+### SET TIMES, WHERE GRID DATA IS EXTRACTED
 grid_times = [0, 7200, 10800] # (seconds)
 duration_spin_up = 7200 # (seconds)
 
-### PARAMETERS FOR MOMENT GENERATION
+### SET PARAMETERS FOR MOMENT GENERATION
 # number of moments
 no_moments = 4
+# at these time indices (corr. to save_times), the moments are evaluated
 time_ind_moments = np.arange(0, 13, 2)
 
 #%% DERIVED AND FIX PARAMETERS
@@ -279,12 +285,12 @@ if act_gen_grid_frames_avg:
     fields_with_time, fields_with_time_std, save_times_out,\
     field_names_out, units_out, scales_out = \
         generate_field_frame_data_avg(load_path_list,
-                                        field_ind, time_ind_grid,
-                                        field_ind_deri,
-                                        grid.mass_dry_inv,
-                                        grid.volume_cell,
-                                        grid.no_cells,
-                                        solute_type)
+                                      field_ind, time_ind_grid,
+                                      field_ind_deri,
+                                      grid.mass_dry_inv,
+                                      grid.volume_cell,
+                                      grid.no_cells,
+                                      solute_type)
     ### create only plotting data output to be transfered
     output_folder = \
         f'{solute_type}' \
@@ -368,14 +374,14 @@ if act_gen_spectra_avg_Arabas:
     
     f_R_p_list, f_R_s_list, bins_R_p_list, bins_R_s_list, save_times_out,\
     grid_r_l_list, R_min_list, R_max_list = \
-        generate_size_spectra_R_Arabas(load_path_list,
-                                       ind_time,
-                                       grid.mass_dry_inv,
-                                       grid.no_cells,
-                                       solute_type,
-                                       target_cell_list,
-                                       no_cells_x, no_cells_z,
-                                       no_bins_R_p, no_bins_R_s)  
+        generate_size_spectra_R(load_path_list,
+                                ind_time,
+                                grid.mass_dry_inv,
+                                grid.no_cells,
+                                solute_type,
+                                target_cell_list,
+                                no_cells_x, no_cells_z,
+                                no_bins_R_p, no_bins_R_s)  
     
     output_folder = \
         f'{solute_type}' \
@@ -552,9 +558,9 @@ if act_gen_moments_all_grid_cells:
 
     moments_vs_time_all_seeds, save_times_out = \
         generate_moments_avg_std(load_path_list,
-                               no_moments, time_ind_moments,
-                               grid.volume_cell,
-                               no_cells, solute_type)
+                                 no_moments, time_ind_moments,
+                                 grid.volume_cell,
+                                 no_cells, solute_type)
     
     ### create plotting data to be transfered
     output_folder = \
