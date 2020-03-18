@@ -7,7 +7,7 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-FUNCTIONS FOR SIMULATION DATA ANALYSIS AND DATA PROCESSING FOR PLOTTING
+DATA ANALYSIS, PROCESSING AND PREPARATION FOR PLOTTING
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg

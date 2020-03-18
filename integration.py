@@ -32,7 +32,7 @@ import material_properties as mat
 import atmosphere as atm
 import microphysics as mp
 
-from collision.AON import \
+from collision.all_or_nothing import \
     collision_step_Ecol_grid_R_all_cells_2D_multicomp_np
 from file_handling import \
     dump_particle_data, save_grid_scalar_fields,\
@@ -469,7 +469,6 @@ def propagate_particles_subloop_step_np(grid_scalar_fields, grid_mat_prop,
     update_T_p(grid_scalar_fields[0], cells, T_p)
             
     ### 2. to 8. compute mass rate and delta_m and update m_w
-    
     R_p, w_s, rho_p = mp.compute_R_p_w_s_rho_p(m_w, m_s, T_p, solute_type)
     
     update_m_w_and_delta_m_l_impl_Newton(
@@ -487,6 +486,7 @@ def propagate_particles_subloop_step_np(grid_scalar_fields, grid_mat_prop,
                     R_p, rho_p, grid_velocity,
                     grid_mat_prop[5], grid_mat_prop[6], 
                     grid_no_cells, g_set, dt_sub)
+    
     ### 10.
     update_pos_from_vel_BC_PS(m_w, pos, vel, xi, cells,
                               water_removed, id_list,

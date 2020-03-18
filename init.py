@@ -370,7 +370,7 @@ def initialize_grid_and_particles_SinSIP(config):
         f.write(f'grid ranges [x_min, x_max] [z_min, z_max]:\n')
         for gr_ in grid_ranges:
             for gr__ in gr_:
-                f.write(f'{gr__}')
+                f.write(f'{gr__} ')
         f.write('\n')
         f.write('number of cells: ')
         f.write(f'{grid.no_cells[0]}, {grid.no_cells[1]} \n')

@@ -413,7 +413,6 @@ generate_E_col_grid_R_Hall_Bott = \
     njit()(generate_E_col_grid_R_Hall_Bott_np)
 
 def generate_E_col_grid_R_np(R_low, R_high, no_bins_10, kernel_name):
-    
     if kernel_name == "Hall_Bott":
         E_col_grid, radius_grid = \
             generate_E_col_grid_R_Hall_Bott(R_low, R_high, no_bins_10, None)

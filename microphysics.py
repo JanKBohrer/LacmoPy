@@ -142,7 +142,7 @@ def compute_kelvin_term_mf(mass_fraction_solute,
                    / ( c.specific_gas_constant_water_vapor
                        * temperature
                        * mass_density_particle**(0.66666667)
-                       * c.const_volume_to_radius) )
+                       * c.volume_to_radius) )
 
 @vectorize(
     "float64(float64, float64, float64, float64, float64)")

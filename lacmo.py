@@ -10,15 +10,15 @@ Further contact: Oswald Knoth (knoth@tropos.de)
 
 MAIN EXECUTION SCRIPT
 
-adjust settings in "config.py"
-execute via the bash-script "run_lacmo.sh"
-"seed_SIP_gen" and "seed_sim" of "config.py" are overwritten,
-if provided as arguments of this script "lacmo.py" as in
-"python3 lacmo.py {seed_SIP_gen} {seed_sim}"
+adjust settings in 'config.py'
+execute via the bash-script 'run_lacmo.sh'
+'seed_SIP_gen' and 'seed_sim' of 'config.py' are overwritten,
+if provided as arguments of this script 'lacmo.py' as in
+'python3 lacmo.py {seed_SIP_gen} {seed_sim}'
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
-particle radius in micro meter ("mu")
+particle radius in micro meter ('mu')
 all other quantities in SI units
 """
 

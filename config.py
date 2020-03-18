@@ -10,11 +10,11 @@ Further contact: Oswald Knoth (knoth@tropos.de)
 
 CONFIGURATION FILE
 
-the corresponding execution script is "lacmo.py"
+the corresponding execution script is 'lacmo.py'
 
 basic units:
 particle mass, water mass, solute mass in femto gram = 10^-18 kg
-particle radius in micro meter ("mu")
+particle radius in micro meter ('mu')
 all other quantities in SI units
 """
 
@@ -25,7 +25,8 @@ config = {
 # path to parent directory for data output
 'paths' : {
 #    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP/'
-    'simdata' : '/Users/bohrer/sim_data_cloudMP/'
+#    'simdata' : '/Users/bohrer/sim_data_cloudMP/'
+    'simdata' : '/home/jdesk/sim_data_cloudMP/'
 },
 
 'generate_grid'         : True,
@@ -34,15 +35,15 @@ config = {
 'execute_spin_up'       : True,
 #'execute_spin_up'       : False,
 'execute_simulation'    : True,
-# set "True" when starting from a spin-up state
+# set 'True' when starting from a spin-up state
 # provides the opportunity to simulate directly without spin-up
-# in this case, set "execute_spin_up" and "spin_up_complete" to "False"
+# in this case, set 'execute_spin_up' and 'spin_up_complete' to 'False'
 'spin_up_complete'      : False,
 #'spin_up_complete'      : True,
 
-# set "False", if spin_up shall be executed
-# set "False", if the simulation starts from an existing spin-up state.
-# set "True", if a simulation is continued from a simulation state, 
+# set 'False', if spin_up shall be executed
+# set 'False', if the simulation starts from an existing spin-up state.
+# set 'True', if a simulation is continued from a simulation state, 
 # which was stored at t_start_sim given below.
 'continued_simulation'  : False,
 #'continued_simulation'  : True,
@@ -55,12 +56,12 @@ config = {
 #%% RANDOM NUMBER GENERATION SEEDS
 
 # seeds are overwritten, if LaCMo.py is executed with arguments:
-# "python3 LaCMo.py 4711 5711"
+# 'python3 LaCMo.py 4711 5711'
 # will overwrite 'seed_SIP_gen' by 4711 and 'seed_sim' by 5711
 # random number generator seed for inital particle generation
-'seed_SIP_gen'      : 6001,
+'seed_SIP_gen'      : 1001,
 # random number generator seed for particle collisions
-'seed_sim'          : 6001,
+'seed_sim'          : 1001,
 
 #%% GRID AND PARTICLE GENERATION
 
@@ -74,7 +75,7 @@ config = {
 
 # spatial step sizes [dx, dz] in meter
 # the number of grid cells is calculated from step sizes and domain sizes
-'grid_steps'        : [20., 20.],
+'grid_steps'        : [150., 150.],# in meter
 'dy'                : 1., # in meter, dy=1 is default in the 2D setup
 
 # initial thermodynamic environment 
@@ -87,15 +88,15 @@ config = {
 
 ### PARTICLES
 # solute material of the CCNs
-# options: "AS" (ammon. sulf.) or "NaCl"
-'solute_type'       : 'AS',
+# options: 'AS' (ammon. sulf.) or 'NaCl'
+'solute_type'       : 'NaCl',
 
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]
-'no_spcm'           : [26, 38],
+'no_spcm'           : [3, 3],
 ### particle dry size distribution
-# distribution type (only "lognormal" available)
-'dist'              : "lognormal", 
+# distribution type (only 'lognormal' available)
+'dist'              : 'lognormal', 
 # droplet number concentration: number density of particles per mode
 # array: [mode0, mode1, mode2...]
 'DNC0'              : np.array( [60.0E6, 40.0E6] ), # 1/m^3
@@ -107,11 +108,11 @@ config = {
 # array: [mode0, mode1, mode2...]
 'mu_R'              : 0.5 * np.array( [0.04, 0.15] ),
 'sigma_R'           : np.array( [1.4, 1.6] ),
-# SingleSIP init method parameters (cf. Unterstrasser 2017, GMD (10), p.1521)
+# SingleSIP init method parameters (cf. Unterstrasser 2017, GMD 10: 1521)
 #'eta'               : 6E-10,
 'eta'               : 1E-10,
-'eta_threshold'     : "fix",
-#'eta_threshold'     : "weak",
+'eta_threshold'     : 'fix',
+#'eta_threshold'     : 'weak',
 'r_critmin'         : np.array([1., 3.]) * 1E-3, # mu, # mode 1, mode 2, ..
 'm_high_over_m_low' : 1.0E8,
 
@@ -124,7 +125,7 @@ config = {
 # maximal allowed iter counts in initial particle water take up to equilibrium
 # for sum(no_spcm) ~= 50, a value of iter_cnt_limit=1000 should be fine
 # for smaller no_spcm, a higher number might be necessary to reach EQ
-'iter_cnt_limit'     : 1000,
+'iter_cnt_limit'     : 4000,
 
 #%% SIMULATION PARAMETERS
 
@@ -138,16 +139,16 @@ config = {
 # for a direct simulation without spin-up:
 # set t_start_spin_up = 0, t_end_spin_up = 0, t_start_sim = 0
 't_start_spin_up'        : 0, # seconds
-'t_end_spin_up'          : 7200, # seconds
-'t_start_sim'            : 7200, # seconds
-'t_end_sim'              : 10800, # seconds
+'t_end_spin_up'          : 600, # seconds
+'t_start_sim'            : 600, # seconds
+'t_end_sim'              : 900, # seconds
 
 # advection time step (seconds),
 # this is the largest time step of the simulation
 # the refined time steps of condensation and collision are scaled accordingly
 'dt_adv'                : 1,
 # number of condensation steps per advection step (only even integers possible)
-# a "condensation step" includes particle mass growth and particle propagation
+# a 'condensation step' includes particle mass growth and particle propagation
 'no_cond_per_adv'       : 10,
 # number of particle collisions steps per advection step
 # possible values: 1, 2 OR no_cond_per_adv
@@ -156,12 +157,12 @@ config = {
 'no_iter_impl_mass'     : 3,
 
 ### DATA AND TRACER STORAGE
-'frame_every'           : 300, # full data output every X time steps "dt_adv"
+'frame_every'           : 300, # full data output every X time steps 'dt_adv'
 # trace_ids can either be an integer or an array of ints
 # if integer: ids are spread evenly over the whole amount of particles
 # if array: this specific list of ids is used
 'trace_ids'             : 80,
-'dump_every'            : 10, # tracer data output every X time steps "dt_adv"
+'dump_every'            : 10, # tracer data output every X time steps 'dt_adv'
 
 ### COLLECTION KERNEL
 # Long kernel modified by Bott (1997), J Atmos Sci 55, p.2284
@@ -171,7 +172,7 @@ config = {
 # constant collision kernel, set value below
 # 'kernel_type'         : 'Hydro_E_const',
 # interpolation method for the kernel,
-# only option is "Ecol_grid_R" (depending on radius)
+# only option is 'Ecol_grid_R' (depending on radius)
 'kernel_method'         : 'Ecol_grid_R',
 # this value must always be set to some float.
 # however, it is only used for kernel_type = 'Hydro_E_const'

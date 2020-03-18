@@ -22,7 +22,7 @@ particle radius in micro meter ("mu")
 all other quantities in SI units
 """
 
-#%% IMPORTS AND DEFS
+#%% MODULE IMPORTS
 ### BUILT IN MODULES
 import os
 import sys
@@ -34,7 +34,6 @@ import matplotlib.pyplot as plt
 ### CUSTOM MODULES
 import constants as c
 from microphysics import compute_radius_from_mass_vec
-from evaluation import analyze_ensemble_data
 from generation_SIP_ensemble import \
     gen_mass_ensemble_weights_SinSIP_expo, \
     gen_mass_ensemble_weights_SinSIP_lognormal
@@ -50,12 +49,8 @@ from plotting import cm2inch, generate_rcParams_dict, pgf_dict
 #simdata_path = '/Users/bohrer/sim_data_box_mod_test/'
 simdata_path = '/home/jdesk/sim_data_col_box_mod/'
 
-# directory, where figures in the style of the GMD publication are stored
-# note that additional figures are created in the automatically generated
-# folder structure for all individual kappa of kappa_list
-figpath = "/home/jdesk/sim_data_col_box_mod/figures/"        
-
 set_log_file = True
+#set_log_file = False
 
 ###############################################################################
 ### SET options for SIP ensemble generation AND Kernel-grid generation
@@ -66,7 +61,7 @@ set_log_file = True
 # i = 3: generate discretized collection efficiency E_c(R_1,R_2) from raw data
 # i = 4: generate discretized collection kernel K(m_1,m_2) from raw data
 args_gen = [0,0,0,0,0]
-#args_gen = [1,1,1,0,0]
+#args_gen = [1,1,1,1,1]
 #args_gen = [0,0,0,1,1]
 #args_gen = [0,0,0,0,1]
 
@@ -80,22 +75,23 @@ args_gen = [0,0,0,0,0]
 # i = 5: act. plotting of g_ln_R vs. R for kappas from kappa_list individually
 # i = 6: act. plotting of g_ln_R vs. R for two specific kappa as in the GMD pub
 #args_sim = [1,1,1,1,0,0]
-args_sim = [0,0,0,1,1,1,1]
+#args_sim = [0,0,0,0,0,0,0]
+#args_sim = [0,0,0,1,1,1,1]
 #args_sim = [0,0,0,0,0,0,1]
-#args_sim = [1,1,1,1,1,1,1]
+args_sim = [1,1,1,1,1,1,1]
 
 ###############################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
 # simulations are started for each kappa-value in 'kappa_list'
 # the number of super-particles is approximatetly 5*kappa for the chosen 
 # init. method
-kappa_list = [6,12]
-#kappa_list = [5,10,20,40,80]
+#kappa_list = [7,14]
+kappa_list = [5,10,20,40,80]
 #kappa_list = [5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 # number of independent simulation per kappa value
 #no_sims = 10
-no_sims = 20
+no_sims = 50
 # random number seed of the first simulation. the following simulations,
 # get seeds 'start_seed'+2 , 'start_seed'+4, ...
 # it is also possible to set an individual "seed_list"
@@ -113,8 +109,8 @@ kernel_name = 'Golovin'
 # choose 'Ecol_grid_R' (discretize coll. efficiency of radius E_col(R1,R2))
 # or 'kernel_grid_m' (discretize whole kernel function K(m1,m2) for masses)
 # 'kernel_grid_m' is faster, 'Ecol_grid_R' uses less approximation
-#kernel_method = 'analytic'
-kernel_method = 'Ecol_grid_R'
+kernel_method = 'analytic'
+#kernel_method = 'Ecol_grid_R'
 #kernel_method = 'kernel_grid_m'
 
 # For Golovin kernel, only analytic is possible
@@ -122,50 +118,55 @@ if kernel_name == 'Golovin':
     kernel_method = 'analytic'
 
 dt = 1.0 # seconds
-dt_save = 150.0 # interval for data output
+dt_save = 150.0 # interval for data output (seconds)
 t_end = 3600.0 # simulation time (seconds)
 
-# only avail. option: 'auto_bin'
+# binning of ensemble data: only avail. option: 'auto_bin'
 bin_method_sim_data = 'auto_bin'
+
+# directory, where figures in the style of the GMD publication are stored
+# note that additional figures are created in the automatically generated
+# folder structure for all individual kappa of kappa_list
+fig_path = simdata_path + f"figs/{kernel_name}/{kernel_method}/"
 
 ###############################################################################
 ### SET PARAMETERS FOR SIP ENSEMBLES
+# parameters as defined in Unterstrasser 2017 "SinSIP" method
 
 mass_density = 1E3 # of the particles (kg/m^3)
 
+# mass distribution: exponential or lognormal
 dist = 'expo'
 #dist = 'lognormal'
+# method: SinSIP from Unterstrasser 2017
 gen_method = 'SinSIP'
 
-eta = 1.0E-9
-
+eta = 1E-9
 #eta_threshold = 'weak'
 eta_threshold = 'fix'
 
 dV = 1.0 # box volume in m^3
 
 ### for EXPO dist: set r0 and LWC0 analog to Unterstrasser 2017
-# -> DNC0 will be calculated from that
+# -> DNC0 (droplet number conc.) will be calculated from that
 if dist == 'expo':
-    LWC0 = 1.0E-3 # kg/m^3
-    R_mean = 9.3 # in mu
-    r_critmin = 0.6 # mu
-    m_high_over_m_low = 1.0E6
+    LWC0 = 1E-3 # liquid water content (kg/m^3)
+    R_mean = 9.3 # mean diameter (mu)
+    r_critmin = 0.6 # (mu), def. smallest possible size/mass
+    m_high_over_m_low = 1E6 # def. possible range of masses
 
 ### for lognormal dist: set DNC0 and mu_R and sigma_R parameters of
 # lognormal distr (of the radius) -> see distr. def above
 if dist == 'lognormal':
-    r_critmin = 0.001 # mu
-    m_high_over_m_low = 1.0E8
+    r_critmin = 0.001 # (mu), def. smallest possible size/mass
+    m_high_over_m_low = 1E8 # def. possible range of masses
     
     # set DNC0 manually only for lognormal distr., NOT for expo
-    DNC0 = 60.0E6 # 1/m^3
-    #DNC0 = 2.97E8 # 1/m^3
-    #DNC0 = 3.0E8 # 1/m^3
-    mu_R = 0.02 # in mu
-    sigma_R = 1.4 #  no unit
+    DNC0 = 60.0E6 # droplet number concentration (1/m^3)
+    mu_R = 0.02 # parameter of the lognormal distr. (mu)
+    sigma_R = 1.4 # parameter of the lognormal distr. (no unit)
 
-### PARAMS FOR DATA ANALYSIS OF INITIAL SIP ENSEMBLES
+### SET PARAMETERS FOR DATA ANALYSIS OF INITIAL SIP ENSEMBLES
 no_bins = 50 # number of bins for histograms
 
 # only bin_mode = 1 is available for now
@@ -200,6 +201,7 @@ kappa2 = kappa_list[1]
 ### SET PARAMETERS FOR KERNEL/ECOL-GRID GENERATION AND LOADING
 
 # min/max radius in micro meter
+# no_bins_10 = number of bins per decade on logarithmic scale
 R_low_kernel, R_high_kernel, no_bins_10_kernel = 0.6, 6E3, 200
 #R_low_kernel, R_high_kernel, no_bins_10_kernel = 1E-2, 301., 100
 
@@ -207,7 +209,7 @@ save_dir_kernel_grid = simdata_path + f'{dist}/kernel_grid_data/{kernel_name}/'
 save_dir_Ecol_grid = simdata_path + f'{dist}/Ecol_grid_data/{kernel_name}/'
 
 ###############################################################################
-### DERIVED PARAMETERS
+#%% DERIVED PARAMETERS
 
 act_gen_SIP = bool(args_gen[0])
 act_analyze_ensembles = bool(args_gen[1])
@@ -263,11 +265,11 @@ result_path_add =\
 f'{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 /results/{kernel_name}/{kernel_method}/'
 
-if not os.path.exists(figpath):
-    os.makedirs(figpath) 
+if not os.path.exists(fig_path):
+    os.makedirs(fig_path) 
 
 #%% E_COL/KERNEL GRID GENERATION (DISCRETIZATION)
-if act_gen_Ecol_grid:
+if act_gen_Ecol_grid and kernel_name in ["Long_Bott", "Hall_Bott"]:
     if not os.path.exists(save_dir_Ecol_grid):
         os.makedirs(save_dir_Ecol_grid)        
     E_col__, Rg_ = ker.generate_and_save_E_col_grid_R(
@@ -277,7 +279,7 @@ if act_gen_Ecol_grid:
           f'R_low = {R_low_kernel}, R_high = {R_high_kernel}',
           f'number of bins = {len(Rg_)}')
 
-if act_gen_kernel_grid:
+if act_gen_kernel_grid and kernel_name in ["Long_Bott", "Hall_Bott"]:
     if not os.path.exists(save_dir_kernel_grid):
         os.makedirs(save_dir_kernel_grid)       
     mg_ = ker.generate_and_save_kernel_grid(
@@ -356,10 +358,11 @@ if act_analyze_ensembles:
         ensemble_dir =\
             simdata_path + ensemble_path_add + f'kappa_{kappa}/'
         
-        analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
-                              no_bins, bin_mode,
-                              spread_mode, shift_factor, overflow_factor,
-                              scale_factor, act_plot_ensembles)
+        boxm.analyze_ensemble_data(dist, mass_density, kappa, no_sims,
+                                   ensemble_dir,
+                                   no_bins, bin_mode,
+                                   spread_mode, shift_factor, overflow_factor,
+                                   scale_factor, act_plot_ensembles)
 
 #%% SIMULATE COLLISIONS
 if act_sim:
@@ -522,7 +525,7 @@ if act_plot_moments_kappa_var_paper:
     moments_ref = np.loadtxt(ref_data_path + "Wang_2007_moments.txt")
     times_ref = np.loadtxt(ref_data_path + "Wang_2007_times.txt")
     
-    figname = figpath \
+    figname = fig_path \
             + f"{kernel_name}_moments_vs_time_" \
             + f"kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
     boxm.plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt,
@@ -541,7 +544,7 @@ if act_plot_g_ln_R_for_given_kappa:
     for kappa in kappa_list:
         load_dir =\
             simdata_path + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
-        figname = figpath + f"{kernel_name}_g_ln_R_vs_R_kappa_{kappa}.pdf"
+        figname = fig_path + f"{kernel_name}_g_ln_R_vs_R_kappa_{kappa}.pdf"
         boxm.plot_g_ln_R_for_given_kappa(kappa,
                                          eta, dt, no_sims, start_seed, no_bins,
                                          DNC0, m_mean,
@@ -556,7 +559,7 @@ if act_plot_g_ln_R_compare:
     time_idx = np.arange(0,25,4)
         
     figname_compare =\
-        figpath + f"{kernel_name}_g_ln_R_vs_R_kappa_comp_{kappa1}_{kappa2}.pdf"
+        fig_path + f"{kernel_name}_g_ln_R_vs_R_kappa_comp_{kappa1}_{kappa2}.pdf"
     load_dir_k1 =\
         simdata_path + result_path_add + f"kappa_{kappa1}/dt_{int(dt)}/"
     load_dir_k2 =\
