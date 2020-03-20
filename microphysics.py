@@ -44,22 +44,22 @@ from algebra import compute_polynom
 # and density in kg/m^3
 @vectorize("float64(float64,float64)")
 def compute_mass_from_radius_vec(radius, density):
-    return c.pi_times_4_over_3 * density * radius * radius * radius 
+    return c.four_pi_over_three * density * radius * radius * radius 
 
 @njit()
 def compute_mass_from_radius(radius, density):
-    return c.pi_times_4_over_3 * density * radius * radius * radius 
+    return c.four_pi_over_three * density * radius * radius * radius 
 
 # compute radius in microns
 # mass in 10^-18 kg, density in kg/m^3, radius in micro meter
 # vectorize for mass array
 @vectorize("float64(float64,float64)")
 def compute_radius_from_mass_vec(mass, density):
-    return   ( c.pi_times_4_over_3_inv * mass / density ) ** (c.one_third)
+    return   ( c.four_pi_over_three_inv * mass / density ) ** (c.one_third)
 
 @njit()
 def compute_radius_from_mass(mass, density):
-    return   ( c.pi_times_4_over_3_inv * mass / density ) ** (c.one_third)
+    return   ( c.four_pi_over_three_inv * mass / density ) ** (c.one_third)
 
 # molality and molec. weight have to be in inverse units, e.g.
 # mol/kg and kg/mol 
@@ -103,7 +103,7 @@ def compute_particle_radius_from_ws_T_ms_NaCl(mass_fraction_solute,
         / ( mass_fraction_solute \
            * mat.compute_density_NaCl_solution(mass_fraction_solute,
                                                temperature) )
-    return (c.pi_times_4_over_3_inv * Vp)**(c.one_third)
+    return (c.four_pi_over_three_inv * Vp)**(c.one_third)
 
 #%% FORCES
            

@@ -460,9 +460,8 @@ def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
 def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
                                      dV, DNC0, LWC0,
                                      no_bins, no_sims,
-                                     bin_mode, spread_mode,
-                                     shift_factor, overflow_factor,
-                                     scale_factor):
+                                     bin_mode, spread_mode, scale_factor,
+                                     shift_factor, overflow_factor):
     # g_m_num = []
     # g_ln_r_num = []
     if bin_mode == 1:

@@ -56,14 +56,10 @@ set_log_file = True
 ### SET options for SIP ensemble generation AND Kernel-grid generation
 # args_gen[i] is either 1 or 0 (activated or not activated)
 # i = 0: generate SIP ensembles
-# i = 1: analyze SIP ensembles
-# i = 2: plot SIP ensemble data (requires analyze to be active)
-# i = 3: generate discretized collection efficiency E_c(R_1,R_2) from raw data
-# i = 4: generate discretized collection kernel K(m_1,m_2) from raw data
-args_gen = [0,0,0,0,0]
-#args_gen = [1,1,1,1,1]
-#args_gen = [0,0,0,1,1]
-#args_gen = [0,0,0,0,1]
+# i = 1: analyze and plot INITIAL SIP ensemble data
+# i = 2: generate discretized collection efficiency E_c(R_1,R_2) from raw data
+# i = 3: generate discretized collection kernel K(m_1,m_2) from raw data
+args_gen = [0,0,0,0]
 
 # SET options for simulation
 # args_sim[i] is either 1 or 0 (activated or not activated)
@@ -179,16 +175,18 @@ bin_mode = 1
 # default case
 spread_mode = 0 # spreading based on lin scale
 # spread_mode = 1 # spreading based on log scale
-# shift_factor = 1.0
-# the artificial bins before the first and after the last one get multiplied
-# by this factor (since they only get part of the half of the first/last bin)
-overflow_factor = 2.0
+
 # scale factor for the first correction
 scale_factor = 1.0
+
 # shift factor for the second correction.
 # For shift_factor = 0.5 only half of the effect:
 # bin center_new = 0.5 (bin_center_lin_first_corr + shifted bin center)
 shift_factor = 0.5
+
+# the artificial bins before the first and after the last one get multiplied
+# by this factor (since they only get part of the half of the first/last bin)
+overflow_factor = 2.0
 
 ###############################################################################
 ### SET PARAMETERS FOR PLOTTING
@@ -212,10 +210,10 @@ save_dir_Ecol_grid = simdata_path + f'{dist}/Ecol_grid_data/{kernel_name}/'
 #%% DERIVED PARAMETERS
 
 act_gen_SIP = bool(args_gen[0])
-act_analyze_ensembles = bool(args_gen[1])
-act_plot_ensembles = bool(args_gen[2])
-act_gen_Ecol_grid = bool(args_gen[3])
-act_gen_kernel_grid = bool(args_gen[4])
+#act_analyze_ensembles = bool(args_gen[1])
+act_analyze_and_plot_ensembles = bool(args_gen[1])
+act_gen_Ecol_grid = bool(args_gen[2])
+act_gen_kernel_grid = bool(args_gen[3])
 
 act_sim = bool(args_sim[0])
 act_analysis = bool(args_sim[1])
@@ -351,18 +349,17 @@ if act_gen_SIP:
     np.savetxt(simdata_path + ensemble_path_add + f'no_SIPs_vs_kappa.txt',
                (kappa_list,no_SIPs_avg), fmt = '%-6.5g')
 
-#%% SIP ENSEMBLE ANALYSIS AND PLOTTING
-if act_analyze_ensembles:
+#%% INITIAL SIP ENSEMBLE ANALYSIS AND PLOTTING
+if act_analyze_and_plot_ensembles:
     print("########## analysis of ensembles ##########")
     for kappa in kappa_list:
         ensemble_dir =\
             simdata_path + ensemble_path_add + f'kappa_{kappa}/'
         
-        boxm.analyze_ensemble_data(dist, mass_density, kappa, no_sims,
-                                   ensemble_dir,
-                                   no_bins, bin_mode,
-                                   spread_mode, shift_factor, overflow_factor,
-                                   scale_factor, act_plot_ensembles)
+        boxm.analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
+                                            ensemble_dir, no_bins, bin_mode,
+                                            spread_mode, shift_factor,
+                                            overflow_factor, scale_factor)
 
 #%% SIMULATE COLLISIONS
 if act_sim:
@@ -425,13 +422,13 @@ if act_sim:
                 vel = ker.compute_terminal_velocity_Beard_vec(radii)
                 SIP_quantities = (xis, masses, radii, vel, mass_densities)
                 kernel_quantities = \
-                (E_col_grid, no_kernel_bins, R_kernel_low_log,
-                 bin_factor_R_log)
+                    (E_col_grid, no_kernel_bins, R_kernel_low_log,
+                     bin_factor_R_log)
             elif kernel_method == 'kernel_grid_m':
                 SIP_quantities = (xis, masses)
                 kernel_quantities = \
-                (kernel_grid, no_kernel_bins,
-                 m_kernel_low_log, bin_factor_m_log)
+                    (kernel_grid, no_kernel_bins,
+                     m_kernel_low_log, bin_factor_m_log)
                     
             print(f'kappa {kappa}, sim {cnt}: seed {seed} simulation start')
             boxm.simulate_collisions(SIP_quantities,

@@ -1,14 +1,15 @@
-gseed=6001
-sseed=6001
+gseed=1001
+sseed=1001
 Ns=50
 nc=75
 n1=26
 n2=38
 type="AS"
 
-source_dir="bohrer@gauss5:/vols/fs1/work/bohrer/sim_data_cloudMP/"
-destination_dir="/Users/bohrer/sim_data_cloudMP/"
-home_dir="/Users/bohrer/"
+source_dir="bohrer@gauss5:/vols/fs1/work/bohrer/sim_data_cloudMP2/"
+destination_dir="/home/jdesk/sim_data_cloudMP/"
+#destination_dir="/Users/bohrer/sim_data_cloudMP/"
+#home_dir="/Users/bohrer/"
 
 mkdir -p ${destination_dir}${type}/grid_${nc}_${nc}_spcm_${n1}_${n2}
 

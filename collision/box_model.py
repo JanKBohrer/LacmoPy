@@ -26,6 +26,7 @@ all other quantities in SI units
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 
 import microphysics as mp
 import collision.kernel as ker
@@ -35,8 +36,6 @@ import distributions as dst
 
 from evaluation import generate_myHisto_SIP_ensemble_np
 
-from plotting import plot_ensemble_data
-
 from distributions import conc_per_mass_expo_np, conc_per_mass_lognormal_np
 from golovin import compute_moments_Golovin, dist_vs_time_golo_exp
 
@@ -45,6 +44,94 @@ from golovin import compute_moments_Golovin, dist_vs_time_golo_exp
 def simulate_collisions(SIP_quantities,
                         kernel_quantities, kernel_name, kernel_method,
                         dV, dt, t_end, dt_save, no_cols, seed, save_dir):
+    """Collision box model simulation for super-particles (SIPs)
+    
+    Simulates the collision process of a number of super-particles,
+    which are well mixed in a box of volume dV for a time t=0 to t=t_end. The
+    collision time step is dt.
+    Possible kernels: 'Golovin', 'Long_Bott', 'Hall_Bott', see 'kernel.py'
+    Choose, if kernels are discretized on a mass based grid K(m1,m2) OR
+    Collect. efficiencies are discretized on a radius based grid E_col(R1,R2)
+    
+    Parameters
+    ----------
+    SIP_quantities: tuple, dtype=ndarray
+        tuple (q1,q2,...) which collects the required quantities of the SIP
+        ensemble, which are EITHER
+        (xis, masses) for Golovin kernel and mass based kernel grid OR
+        (xis, masses, radii, vel, mass_densities) for radius based E_col grid
+        xis: ndarray, dtype=float
+            1D array of SIP multiplicities (real numbers, non-integer)
+        masses: ndarray, dtype=float
+            1D array of SIP masses (unit = 1E-18 kg)
+        radii: ndarray, dtype=float
+            1D array of SIP radii (unit = microns)
+        vel: ndarray, dtype=float
+            1D array of SIP velocites (unit = m/s)
+            is kept stationary for one coll. step,
+            but may vary from SIP to SIP
+        mass_densities: ndarray, dtype=float
+            mass densities of the SIPs (kg/m^3).
+            is kept stationary for one coll. step,
+            but may vary from SIP to SIP        
+    kernel_quantities: tuple
+        mixed tuple (q1,q2,...) which collects the required quantities of the
+        collection kernel, which are EITHER
+        (E_col_grid, no_kernel_bins, R_kernel_low_log, bin_factor_R_log) for
+        radius based E_col grid (case 1) OR
+        (kernel_grid, no_kernel_bins, m_kernel_low_log, bin_factor_m_log) for
+        mass based kernel_grid (case 2)
+        case 1:
+        E_col_grid: ndarray, shape=(no_kernel_bins,no_kernel_bins), type=float
+            Discretized coll. efficiency E_col(R1,R2) based on log. rad. grid   
+        no_kernel_bins: int
+            number of bins used to discretize the collection efficiencies
+        R_kernel_low_log: float
+            nat. log of the lower radius boundary of the kernel discretization
+        bin_factor_R_log: float
+            nat. log of radius bin factor => R_(n+1) = R_n * bin_factor_R_log            
+        case 2:
+        kernel_grid: ndarray, shape=(no_kernel_bins,no_kernel_bins), type=float
+            Discretized coll. kernel K(m1,m2) based on log. mass grid
+        no_kernel_bins: int
+            number of bins used to discretize the collection efficiencies
+        m_kernel_low_log: float
+            nat. log of the lower mass boundary of the kernel discretization
+        bin_factor_m_log: float
+            nat. log of0 mass bin factor => m_(n+1) = m_n * bin_factor_m_log            
+    kernel_name: str
+        choose applied collection kernel
+        one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
+        see 'kernel.py' for definitions
+    kernel_method: str
+        choose method for coll. kernel discretization.
+        one of 'analytic', 'Ecol_grid_R' or 'kernel_grid_m'.
+        'analytic' only possible for kernel_name='Golovin'.
+        'Ecol_grid_R': discretization of coll. eff. E_col(R1,R2) based
+        on a logarit. radius grid.
+        'kernel_grid_m': discretization of coll. kernel K(m1,m2) based
+        on logarit. mass grid.
+    dV: float
+        volume of the simulation box (m^3). particles are well mixed inside.
+    dt: float
+        collision time step (s)
+    t_end: float
+        runtime. simulation runs from t=0 to t=t_end (seconds)
+    dt_save: float
+        write ensemble data after time intervals of dt_save (seconds)
+    no_cols: ndarray, shape=(2,), type=int
+        counts the collisions
+        no_cols[0] = number of ordinary collisions,
+        no_cols[1] = number of multiple collision events
+    seed: int
+        random number seed. the random number generator for the stochastic
+        collisions is initialized with this seed.
+    save_dir: str
+        path to the directory, where data should be written, provide in form
+        '/path/to/directory/'
+        
+    """
+    
     if kernel_name == "Golovin":
         collision_step = aon.collision_step_Golovin
         (xis, masses) = SIP_quantities
@@ -116,25 +203,68 @@ def simulate_collisions(SIP_quantities,
     np.save(save_dir + f"masses_vs_time_{seed}", masses_vs_time)
     np.save(save_dir + f"save_times_{seed}", save_times)
     
-#%% ANALYSIS OF ENSEMBLE DATA
-
-# load data from .npy files, analyze, plot and save plot files
-def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
-                          no_bins, bin_mode,
-                          spread_mode, shift_factor, overflow_factor,
-                          scale_factor, act_plot_ensembles):
-    if dist == "expo":
+#%% ANALYSIS AND PLOTTING OF ENSEMBLE DATA
+    
+def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
+                                   ensemble_dir, no_bins, bin_mode,
+                                   spread_mode, scale_factor,
+                                   shift_factor, overflow_factor):
+    """Analyzes stored ensemble data, generates plots and saves them as files.
+    
+    Data is loaded from .npy files, which were generated previously with
+    gen_mass_ensemble_weights_SinSIP_xxx() method (xxx = expo or lognormal).
+    Several plots are generated and saved to 'ensemble_dir', including the
+    functions f_m(m), g_m(m), g_ln_R(R) and deviations of the SIP-ensemble
+    from analytic distributions, when using different binning-methods
+    Besides the 'normal' SIP-histogram, another 'smoothed' histogram is
+    generated, to achieve a binning closer to the analytic solution.
+    The smoothed histogram is just for testing purposes and has no
+    influence on the default plots.
+    see evaluation.generate_myHisto_SIP_ensemble_np()
+        
+    Parameters
+    ----------
+    dist: str
+        choose size distribution type. either 'expo' or 'lognormal'
+    mass_density: float
+        particle (droplet) mass density (kg/m^3)
+    kappa: float
+        'kappa' parameter, which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method
+    no_sims: int
+        number of independent simulation runs
+    ensemble_dir: str
+        path to the directory, where the ensemble data is stored
+        provide as '/path/to/directory/'
+    no_bins: int
+        number of bins for the binning of SIPs
+    bin_mode: int
+        method for SIP binning.
+        only avail. option: bin_mode=1 (bins equal distance on log. axis)
+    spread_mode: int
+        spreading mode of the smoothed histogram
+        choose 0 (based on lin-scale) or 1 (based on log-scale)
+    scale_factor: float
+        scaling factor for the 1st correction of the smoothed histogram        
+    shift_factor: float
+        center shift factor for the 2nd correction of the smoothed histogram
+    overflow_factor: float
+        factor for artificial bins of the smoothed histogram
+        
+    """    
+    
+    if dist == 'expo':
         conc_per_mass_np = conc_per_mass_expo_np
         dV, DNC0, DNC0_over_LWC0, r_critmin, kappa, eta,no_sims00,start_seed =\
-            tuple(np.load(ensemble_dir + "ensemble_parameters.npy"))
+            tuple(np.load(ensemble_dir + 'ensemble_parameters.npy'))
         LWC0_over_DNC0 = 1.0 / DNC0_over_LWC0
         dist_par = (DNC0, DNC0_over_LWC0)
         moments_analytical = dst.moments_analytical_expo
-    elif dist =="lognormal":
+    elif dist =='lognormal':
         conc_per_mass_np = conc_per_mass_lognormal_np
         dV, DNC0, mu_m_log, sigma_m_log, mass_density, r_critmin, \
         kappa, eta, no_sims00, start_seed = \
-            tuple(np.load(ensemble_dir + "ensemble_parameters.npy"))
+            tuple(np.load(ensemble_dir + 'ensemble_parameters.npy'))
         dist_par = (DNC0, mu_m_log, sigma_m_log)
         moments_analytical = dst.moments_analytical_lognormal_m
 
@@ -149,9 +279,9 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     
     moments_sampled = []
     for i,seed in enumerate(seed_list):
-        masses.append(np.load(ensemble_dir + f"masses_seed_{seed}.npy"))
-        xis.append(np.load(ensemble_dir + f"xis_seed_{seed}.npy"))
-        radii.append(np.load(ensemble_dir + f"radii_seed_{seed}.npy"))
+        masses.append(np.load(ensemble_dir + f'masses_seed_{seed}.npy'))
+        xis.append(np.load(ensemble_dir + f'xis_seed_{seed}.npy'))
+        radii.append(np.load(ensemble_dir + f'radii_seed_{seed}.npy'))
     
         moments = np.zeros(4,dtype=np.float64)
         moments[0] = xis[i].sum() / dV
@@ -169,10 +299,10 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     for n in range(4):
         moments_an[n] = moments_analytical(n, *dist_par)
         
-    print(f"### kappa {kappa} ###")    
-    print("moments analytic:", moments_an)    
-    print("rel. deviation")    
-    print("moment-order    (average-analytic)/analytic:")
+    print(f'### kappa {kappa} ###')    
+    print('moments analytic:', moments_an)    
+    print('rel. deviation')    
+    print('moment-order    (average-analytic)/analytic:')
     for n in range(4):
         print(n, (np.average(moments_sampled[n])-moments_an[n])/moments_an[n] )
     
@@ -183,14 +313,14 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     m_min = masses_sampled.min()
     m_max = masses_sampled.max()
     
-    R_min = radii_sampled.min()
-    R_max = radii_sampled.max()
+#    R_min = radii_sampled.min()
+#    R_max = radii_sampled.max()
     
-    bins_mass = np.load(ensemble_dir + "bins_mass.npy")
-    bins_rad = np.load(ensemble_dir + "bins_rad.npy")
+    bins_mass = np.load(ensemble_dir + 'bins_mass.npy')
+    bins_rad = np.load(ensemble_dir + 'bins_rad.npy')
     bin_factor = 10**(1.0/kappa)
     
-    ### build log bins "intuitively" = "auto"
+    ### build log bins 'intuitively' = 'auto'
     if bin_mode == 1:
         bin_factor_auto = (m_max/m_min)**(1.0/no_bins)
         # bin_log_dist = np.log(bin_factor)
@@ -222,7 +352,7 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     f_m_ind = np.nonzero(f_m_counts)[0]
     f_m_ind = np.arange(f_m_ind[0],f_m_ind[-1]+1)
     
-    no_SIPs_avg = f_m_counts.sum()/no_sims
+#    no_SIPs_avg = f_m_counts.sum()/no_sims
 
     bins_mass_ind = np.append(f_m_ind, f_m_ind[-1]+1)
     
@@ -231,7 +361,7 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     bins_rad = bins_rad[bins_mass_ind]
     bins_rad_log = np.log(bins_rad)
     bins_mass_width = (bins_mass[1:]-bins_mass[:-1])
-    bins_rad_width = (bins_rad[1:]-bins_rad[:-1])
+#    bins_rad_width = (bins_rad[1:]-bins_rad[:-1])
     bins_rad_width_log = (bins_rad_log[1:]-bins_rad_log[:-1])
     
     ### approximate the functions f_m, f_lnR = 3*m*f_m, g_lnR=3*m^2*f_m
@@ -263,17 +393,17 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     # bins_mass_center_log = bins_mass[:-1] * 10**(1.0/(2.0*kappa))
     # bins_rad_center_log = bins_rad[:-1] * 10**(1.0/(2.0*kappa))
     
-    # define the center of mass for each bin and set it as the "bin center"
+    # define the center of mass for each bin and set it as the 'bin center'
     bins_mass_center_COM = g_m_num_sampled/f_m_num_sampled
     bins_rad_center_COM =\
         mp.compute_radius_from_mass_vec(bins_mass_center_COM*1.0E18,
                                         mass_density)
     
-    # set the bin "mass centers" at the right spot such that
-    # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
-    if dist == "expo":
+    # set the bin 'mass centers' at the right spot such that
+    # f_avg_i in bin in = f(mm_i), where mm_i is the 'mass center'
+    if dist == 'expo':
         m_avg = LWC0_over_DNC0
-    elif dist == "lognormal":
+    elif dist == 'lognormal':
         m_avg = moments_an[1] / dist_par[0]
         
     bins_mass_center_exact = bins_mass[:-1] \
@@ -337,17 +467,17 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     bins_mass_center_log_auto = bins_mass_auto[:-1] * np.sqrt(bin_factor)
     bins_rad_center_log_auto = bins_rad_auto[:-1] * np.sqrt(bin_factor)
     
-    # define the center of mass for each bin and set it as the "bin center"
+    # define the center of mass for each bin and set it as the 'bin center'
     bins_mass_center_COM_auto = g_m_num_sampled_auto/f_m_num_sampled_auto
     bins_rad_center_COM_auto =\
         mp.compute_radius_from_mass_vec(bins_mass_center_COM_auto*1.0E18,
                                         mass_density)
     
-    # set the bin "mass centers" at the right spot such that
-    # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
-    if dist == "expo":
+    # set the bin 'mass centers' at the right spot such that
+    # f_avg_i in bin in = f(mm_i), where mm_i is the 'mass center'
+    if dist == 'expo':
         m_avg = LWC0_over_DNC0
-    elif dist == "lognormal":
+    elif dist == 'lognormal':
         m_avg = moments_an[1] / dist_par[0]
         
     bins_mass_center_exact_auto = bins_mass_auto[:-1] \
@@ -358,17 +488,17 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
                                         mass_density)
     
     bins_mass_centers_auto = np.array((bins_mass_center_lin_auto,
-                                  bins_mass_center_log_auto,
-                                  bins_mass_center_COM_auto,
-                                  bins_mass_center_exact_auto))
+                                       bins_mass_center_log_auto,
+                                       bins_mass_center_COM_auto,
+                                       bins_mass_center_exact_auto))
     bins_rad_centers_auto = np.array((bins_rad_center_lin_auto,
-                                  bins_rad_center_log_auto,
-                                  bins_rad_center_COM_auto,
-                                  bins_rad_center_exact_auto))
+                                      bins_rad_center_log_auto,
+                                      bins_rad_center_COM_auto,
+                                      bins_rad_center_exact_auto))
 
     ###########################################################################
     ### STATISTICAL ANALYSIS OVER no_sim runs given bins
-    # get f(m_i) curve for each "run" with same bins for all ensembles
+    # get f(m_i) curve for each 'run' with same bins for all ensembles
     f_m_num = []
     g_m_num = []
     g_ln_r_num = []
@@ -399,7 +529,7 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     
     ###########################################################################
     ### STATISTICAL ANALYSIS OVER no_sim runs AUTO BINS
-    # get f(m_i) curve for each "run" with same bins for all ensembles
+    # get f(m_i) curve for each 'run' with same bins for all ensembles
     f_m_num_auto = []
     g_m_num_auto = []
     g_ln_r_num_auto = []
@@ -439,9 +569,8 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
         generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
                                          dV, DNC0, LWC0,
                                          no_bins, no_sims,
-                                         bin_mode, spread_mode,
-                                         shift_factor, overflow_factor,
-                                         scale_factor)
+                                         bin_mode, spread_mode, scale_factor,
+                                         shift_factor, overflow_factor)
         
     f_m_num_avg_my = f_m_num_avg_my_ext[1:-1]
     f_m_num_std_my = f_m_num_std_my_ext[1:-1]
@@ -454,6 +583,743 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
     g_m_ana_ = m_ * f_m_ana_
     g_ln_r_ana_ = 3 * m_ * g_m_ana_ * 1000.0    
 
+    ###########################################################################
+    ### plotting starts here
+    # note that plotting was orig. in separate function plot_ensemble_data()
+
+    if dist == 'expo':
+        conc_per_mass_np = conc_per_mass_expo_np
+    elif dist == 'lognormal'   :     
+        conc_per_mass_np = conc_per_mass_lognormal_np
+    
+    sample_mode = 'given_bins'
+    
+    ### 1. plot xi_avg vs r    
+    no_rows = 1
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows))
+    ax=axes
+    ax.plot(bins_rad_centers[3], f_m_num_avg*bins_mass_width)
+    
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    if dist == 'expo':
+        ax.set_yticks(np.logspace(-4,8,13))
+        ax.set_ylim((1.0E-4,1.0E8))
+    ax.grid()
+    
+    ax.set_xlabel(r'radius ($mathrm{mu m}$)')
+    ax.set_ylabel(r'mean multiplicity per SIP')
+    
+    fig.tight_layout()
+    
+    fig_name = f'xi_vs_R_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+        
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### 2. my lin approx plot
+    m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+    R_ = mp.compute_radius_from_mass_vec(m_*1.0E18, mass_density)
+    f_m_ana = conc_per_mass_np(m_, *dist_par)
+    
+    no_rows = 1
+    
+    MS= 15.0
+    
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,10*no_rows))
+    ax = axes
+    ax.plot(m_, f_m_ana_)
+    ax.plot(bins_mass_center_lin_my, f_m_num_avg_my_ext, 'x', c='green',
+            markersize=MS, zorder=99)
+    ax.plot(bins_mass_centers_my[4], f_m_num_avg_my, 'x', c = 'red',
+            markersize=MS,
+            zorder=99)
+    # for n in range(len(bins_mass_centers_my[0])):
+    # lin approx
+    for n in range(len(bins_mass_center_lin_my)-1):
+        m_ = np.linspace(bins_mass_center_lin_my[n],
+                          bins_mass_center_lin_my[n+1], 100)
+        f_ = lin_par[0,n] + lin_par[1,n] * m_
+        # ax.plot(m_,f_)
+        ax.plot(m_,f_, '-.', c = 'orange')
+    # for n in range(len(bins_mass_center_lin_my)-2):
+    #     m_ = np.linspace(bins_mass_center_lin_my[n],
+    #                       bins_mass_center_lin_my[n+2], 1000)
+    #     f_ = aa[0,n] + aa[1,n] * m_ + aa[2,n] * m_*m_
+    #     ax.plot(m_,f_)
+    #     # ax.plot(m_,f_, c = 'k')
+    ax.vlines(bins_mass_my,f_m_num_avg_my_ext.min()*0.5,
+              f_m_num_avg_my_ext.max()*2,
+              linestyle='dashed', zorder=0)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('mass (kg)')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    
+    fig.tight_layout()
+    
+    fig_name = f'fm_my_lin_approx_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+        
+    fig.savefig(ensemble_dir + fig_name)
+    
+    ### 3. SAMPLED DATA: fm gm glnR moments
+    if dist == 'expo':
+        bins_mass_center_exact = bins_mass_centers[3]
+        bins_rad_center_exact = bins_rad_centers[3]
+    elif dist == 'lognormal':
+        bins_mass_center_exact = bins_mass_centers[0]
+        bins_rad_center_exact = bins_rad_centers[0]
+    
+    m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+    R_ = mp.compute_radius_from_mass_vec(m_*1.0E18, mass_density)
+    f_m_ana = conc_per_mass_np(m_, *dist_par)
+#    g_m_ana = m_ * f_m_ana
+#    g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
+    
+    no_rows = 5
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows))
+    ax = axes[0]
+    ax.plot(bins_mass_center_exact, f_m_num_sampled, 'x')
+    ax.plot(m_, f_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('mass (kg)')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    
+    ax = axes[1]
+    ax.plot(bins_mass_center_exact, g_m_num_sampled, 'x')
+    ax.plot(m_, g_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('mass (kg)')
+    ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+    
+    ax = axes[2]
+    ax.plot(bins_rad_center_exact, g_ln_r_num_sampled*1000.0, 'x')
+    ax.plot(R_, g_ln_r_ana_)
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_xlabel('radius $mathrm{(mu m)}$')
+    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
+    # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+    if dist == 'expo':
+        ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+        ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
+        # ax.get_xaxis().get_major_formatter().labelOnlyBase = False
+        ax.yaxis.set_ticks(np.logspace(-11,0,12))
+    ax.grid(which='both')
+    
+    # fm with my binning method
+    ax = axes[3]
+    ax.plot(bins_mass_centers_my[4], f_m_num_avg_my, 'x')
+    ax.plot(m_, f_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('mass (kg)')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$  [my lin fit]')
+    ax.grid()
+    
+    ax = axes[4]
+    for n in range(4):
+        ax.plot(n*np.ones_like(moments_sampled[n]),
+                moments_sampled[n]/moments_an[n], 'o')
+    ax.errorbar(np.arange(4), moments_sampled_avg_norm, moments_sampled_std_norm,
+                fmt = 'x' , c = 'k', markersize = 20.0, linewidth =5.0,
+                capsize=10, elinewidth=5, markeredgewidth=2,
+                zorder=99)
+    ax.plot(np.arange(4), np.ones_like(np.arange(4)))
+    ax.xaxis.set_ticks([0,1,2,3])
+    ax.set_xlabel('$k$')
+    # ax.set_ylabel(r'($k$-th moment of $f_m$)/(analytic value)')
+    ax.set_ylabel(r'$lambda_k / lambda_{k,analytic}$')
+    
+    for ax in axes[:2]:
+        ax.grid()
+    
+    fig.tight_layout()
+    
+    fig_name = f'fm_gm_glnR_moments_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### 4. sampled data: deviations of fm
+    no_rows = 4
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows), sharex=True)
+    
+    ax_titles = ['lin', 'log', 'COM', 'exact']
+    
+    for n in range(no_rows):
+        ax = axes[n]
+        f_m_ana = conc_per_mass_np(bins_mass_centers[n], *dist_par)
+        ax.plot(bins_mass_centers[n], (f_m_num_sampled-f_m_ana)/f_m_ana, 'x')
+        # ax.plot(bins_mass_width, (f_m_num_sampled-f_m_ana)/f_m_ana, 'x')
+        ax.set_xscale('log')
+        ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ')
+        ax.set_title(ax_titles[n])
+    # axes[3].set_xlabel('bin width $Delta hat{m}$ (kg)')
+    axes[3].set_xlabel('mass (kg)')
+    
+    for ax in axes:
+        ax.grid()
+    
+    fig.tight_layout()
+    fig_name = f'Deviations_fm_sampled_data_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### plotting statistical analysis over no_sim runs
+    ### 5. errorbars: fm gm g_ln_r moments given bins
+    
+    m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+    R_ = mp.compute_radius_from_mass_vec(m_*1.0E18, mass_density)
+    f_m_ana = conc_per_mass_np(m_, *dist_par)
+#    g_m_ana = m_ * f_m_ana
+#    g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
+    
+    no_rows = 5
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows))
+    ax = axes[0]
+    ax.errorbar(bins_mass_center_exact,
+                f_m_num_avg,
+                f_m_num_std,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(m_, f_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    if dist == 'expo':
+        ax.set_yticks(np.logspace(6,21,16))
+        ax.set_ylim((f_m_ana_[-1],1.0E21))
+    # ax.set_ylim((1.0E6,1.0E21))
+    ax.set_xlabel('mass (kg) [exact centers]')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    ax = axes[1]
+    ax.errorbar(bins_mass_center_exact,
+                # bins_mass_width,
+                g_m_num_avg,
+                g_m_num_std,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(m_, g_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    if dist == 'expo':
+        ax.set_yticks(np.logspace(-4,8,13))
+        # ax.set_ylim((1.0E-4,3.0E8))
+        ax.set_ylim((g_m_ana_[-1],3.0E8))
+        ax.set_xlabel('mass (kg) [exact centers]')
+        ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+    ax = axes[2]
+    ax.errorbar(bins_rad_center_exact,
+                # bins_mass_width,
+                g_ln_r_num_avg*1000,
+                g_ln_r_num_std*1000,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(R_, g_ln_r_ana_)
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_xlabel('radius $mathrm{(mu m)}$ [exact centers]')
+    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
+    # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+    if dist == 'expo':
+        ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+        ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
+        ax.set_yticks(np.logspace(-11,0,12))
+        ax.set_ylim((1.0E-11,5.0))
+    ax.grid(which='both')
+    
+    # my binning method
+    ax = axes[3]
+    ax.errorbar(bins_mass_centers_my[4],
+                # bins_mass_width,
+                f_m_num_avg_my,
+                f_m_num_std_my,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(m_, f_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    if dist == 'expo':
+        ax.set_yticks(np.logspace(6,21,16))
+        # ax.set_ylim((1.0E6,1.0E21))
+        ax.set_ylim((f_m_ana_[-1],1.0E21))
+    ax.set_xlabel('mass (kg) [my lin fit centers]')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$  [my lin fit]')
+    ax.grid()
+    
+    ax = axes[4]
+    for n in range(4):
+        ax.plot(n*np.ones_like(moments_sampled[n]),
+                moments_sampled[n]/moments_an[n], 'o')
+    ax.errorbar(np.arange(4), moments_sampled_avg_norm, moments_sampled_std_norm,
+                fmt = 'x' , c = 'k', markersize = 20.0, linewidth =5.0,
+                capsize=10, elinewidth=5, markeredgewidth=2,
+                zorder=99)
+    ax.plot(np.arange(4), np.ones_like(np.arange(4)))
+    ax.xaxis.set_ticks([0,1,2,3])
+    ax.set_xlabel('$k$')
+    # ax.set_ylabel(r'($k$-th moment of $f_m$)/(analytic value)')
+    ax.set_ylabel(r'$lambda_k / lambda_{k,mathrm{analytic}}$')
+    
+    for ax in axes[:2]:
+        ax.grid()
+    
+    fig.tight_layout()
+    fig_name = f'fm_gm_glnR_moments_errorbars_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+    
+    ### 5b. errorbars: fm gm g_ln_r moments auto bins
+    sample_mode = 'auto_bins'
+    if dist == 'expo':
+        bins_mass_center_exact = bins_mass_centers_auto[3]
+        bins_rad_center_exact = bins_rad_centers_auto[3]
+    elif dist == 'lognormal':
+        bins_mass_center_exact = bins_mass_centers_auto[0]
+        bins_rad_center_exact = bins_rad_centers_auto[0]
+
+    m_ = np.logspace(np.log10(bins_mass[0]), np.log10(bins_mass[-1]), 1000)
+    R_ = mp.compute_radius_from_mass_vec(m_*1.0E18, mass_density)
+    f_m_ana = conc_per_mass_np(m_, *dist_par)
+#    g_m_ana = m_ * f_m_ana
+#    g_ln_r_ana = 3 * m_ * g_m_ana * 1000.0
+    
+    no_rows = 5
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows))
+    ax = axes[0]
+    ax.errorbar(bins_mass_center_exact,
+                f_m_num_avg_auto,
+                f_m_num_std_auto,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(m_, f_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    if dist == 'expo':
+        ax.set_yticks(np.logspace(6,21,16))
+        ax.set_ylim((f_m_ana_[-1],1.0E21))
+    # ax.set_ylim((1.0E6,1.0E21))
+    ax.set_xlabel('mass (kg) [exact centers]')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    ax = axes[1]
+    ax.errorbar(bins_mass_center_exact,
+                # bins_mass_width,
+                g_m_num_avg_auto,
+                g_m_num_std_auto,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(m_, g_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    if dist == 'expo':
+        ax.set_yticks(np.logspace(-4,8,13))
+        # ax.set_ylim((1.0E-4,3.0E8))
+        ax.set_ylim((g_m_ana_[-1],3.0E8))
+        ax.set_xlabel('mass (kg) [exact centers]')
+        ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+    ax = axes[2]
+    ax.errorbar(bins_rad_center_exact,
+                # bins_mass_width,
+                g_ln_r_num_avg_auto*1000,
+                g_ln_r_num_std_auto*1000,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(R_, g_ln_r_ana_)
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_xlabel('radius $mathrm{(mu m)}$ [exact centers]')
+    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
+    # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+    if dist == 'expo':
+        ax.set_xticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
+        ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
+        ax.set_yticks(np.logspace(-11,0,12))
+        ax.set_ylim((1.0E-11,5.0))
+    ax.grid(which='both')
+    
+    # my binning method
+    ax = axes[3]
+    ax.errorbar(bins_mass_centers_my[4],
+                # bins_mass_width,
+                f_m_num_avg_my,
+                f_m_num_std_my,
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 5.0,
+                linewidth = 2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                zorder=99)
+    ax.plot(m_, f_m_ana_)
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    if dist == 'expo':
+        ax.set_yticks(np.logspace(6,21,16))
+        # ax.set_ylim((1.0E6,1.0E21))
+        ax.set_ylim((f_m_ana_[-1],1.0E21))
+    ax.set_xlabel('mass (kg) [my lin fit centers]')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$  [my lin fit]')
+    ax.grid()
+    
+    ax = axes[4]
+    for n in range(4):
+        ax.plot(n*np.ones_like(moments_sampled[n]),
+                moments_sampled[n]/moments_an[n], 'o')
+    ax.errorbar(np.arange(4), moments_sampled_avg_norm, moments_sampled_std_norm,
+                fmt = 'x' , c = 'k', markersize = 20.0, linewidth =5.0,
+                capsize=10, elinewidth=5, markeredgewidth=2,
+                zorder=99)
+    ax.plot(np.arange(4), np.ones_like(np.arange(4)))
+    ax.xaxis.set_ticks([0,1,2,3])
+    ax.set_xlabel('$k$')
+    # ax.set_ylabel(r'($k$-th moment of $f_m$)/(analytic value)')
+    ax.set_ylabel(r'$lambda_k / lambda_{k,mathrm{analytic}}$')
+    
+    for ax in axes[:2]:
+        ax.grid()
+    
+    fig.tight_layout()
+    fig_name = f'fm_gm_glnR_moments_errorbars_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### 6. errorbars: deviations of fm sepa plots given bins
+    sample_mode = 'given_bins'
+    no_rows = 4
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(8,4*no_rows), sharex=True)
+    
+    ax_titles = ['lin', 'log', 'COM', 'exact']
+    
+    for n in range(no_rows):
+        ax = axes[n]
+        f_m_ana = conc_per_mass_np(bins_mass_centers[n], *dist_par)
+        # ax.plot(bins_mass_centers[n], (f_m_num_sampled-f_m_ana)/f_m_ana, 'x')
+        ax.errorbar(bins_mass_centers[n],
+                    # bins_mass_width,
+                    (f_m_num_avg-f_m_ana)/f_m_ana,
+                    (f_m_num_std)/f_m_ana,
+                    fmt = 'x' ,
+                    c = 'k',
+                    # c = 'lightblue',
+                    markersize = 5.0,
+                    linewidth =2.0,
+                    capsize=3, elinewidth=2, markeredgewidth=1,
+                    zorder=99)
+        ax.set_xscale('log')
+        ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ')
+        ax.set_title(ax_titles[n])
+    # axes[3].set_xlabel('bin width $Delta hat{m}$ (kg)')
+    axes[3].set_xlabel('mass (kg)')
+    
+    for ax in axes:
+        ax.grid()
+    
+    fig.tight_layout()
+    fig_name = f'Deviations_fm_errorbars_sepa_plots_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### 6b. errorbars: deviations of fm sepa plots auto bins
+    sample_mode = 'auto_bins'
+    no_rows = 4
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(8,4*no_rows), sharex=True)
+    
+    ax_titles = ['lin', 'log', 'COM', 'exact']
+    
+    for n in range(no_rows):
+        ax = axes[n]
+        f_m_ana = conc_per_mass_np(bins_mass_centers_auto[n], *dist_par)
+        ax.errorbar(bins_mass_centers_auto[n],
+                    # bins_mass_width,
+                    (f_m_num_avg_auto-f_m_ana)/f_m_ana,
+                    (f_m_num_std_auto)/f_m_ana,
+                    fmt = 'x' ,
+                    c = 'k',
+                    # c = 'lightblue',
+                    markersize = 5.0,
+                    linewidth =2.0,
+                    capsize=3, elinewidth=2, markeredgewidth=1,
+                    zorder=99)
+        ax.set_xscale('log')
+        ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ')
+        ax.set_title(ax_titles[n])
+    axes[3].set_xlabel('mass (kg)')
+    
+    for ax in axes:
+        ax.grid()
+    
+    fig.tight_layout()
+    fig_name = f'Deviations_fm_errorbars_sepa_plots_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### 7. errorbars: deviations all in one
+    sample_mode = 'given_bins'
+    no_rows = 2
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows), sharex=True)
+    
+    last_ind = 0
+    # frac = 1.0
+    frac = f_m_counts[0] / no_sims
+    count_frac_limit = 0.1
+    while frac > count_frac_limit and last_ind < len(f_m_counts)-2:
+        last_ind += 1
+        frac = f_m_counts[last_ind] / no_sims
+    
+    ax_titles = ['lin', 'log', 'COM', 'exact']
+    
+    ax = axes[0]
+    for n in range(3):
+        # ax = axes[n]
+        f_m_ana = conc_per_mass_np(bins_mass_centers[n], *dist_par)
+        ax.errorbar(bins_mass_centers[n][:last_ind],
+                    100*(f_m_num_avg[:last_ind]-f_m_ana[:last_ind])\
+                    /f_m_ana[:last_ind],
+                    100*(f_m_num_std[:last_ind])/f_m_ana[:last_ind],
+                    fmt = 'x' ,
+                    # c = 'k',
+                    # c = 'lightblue',
+                    markersize = 10.0,
+                    linewidth =2.0,
+                    capsize=3, elinewidth=2, markeredgewidth=1,
+                    label=ax_titles[n],
+                    zorder=99)
+    ax.legend()
+    ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ (%)')
+    ax.set_xscale('log')
+    # ax.set_yscale('symlog')
+    # TT1 = np.array([-5,-4,-3,-2,-1,-0.5,-0.2,-0.1])
+    # TT2 = np.array([-0.6,-0.2,-0.1])
+    # TT1 = np.concatenate((np.append(TT2,0.0), -TT1) )
+    # ax.yaxis.set_ticks(TT1)
+    ax.grid()
+    
+    ax = axes[1]
+    f_m_ana = conc_per_mass_np(bins_mass_centers[3], *dist_par)
+    ax.errorbar(bins_mass_centers[3][:last_ind],
+                # bins_mass_width[:last_ind],
+                100*(f_m_num_avg[:last_ind]-f_m_ana[:last_ind])/f_m_ana[:last_ind],
+                100*(f_m_num_std[:last_ind])/f_m_ana[:last_ind],
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 10.0,
+                linewidth =2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                label=ax_titles[3],
+                zorder=99)
+    ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ (%)')
+    # ax.set_xlabel(r'mass $\tilde{m}$ (kg)')
+    ax.set_xlabel(r'mass $m$ (kg)')
+    ax.legend()
+    # ax.set_yscale('symlog')
+    # TT1 = np.array([-0.08,-0.04,-0.02,-0.01])
+    # TT1 = np.array([-0.08,-0.04,-0.02,-0.01,-0.005])
+    # TT2 = np.array([-0.6,-0.2,-0.1])
+    # TT1 = np.concatenate((np.append(TT1,0.0), -TT1) )
+    # ax.yaxis.set_ticks(100*TT1)
+    # ax.set_ylim([-10.0,10.0])
+    ax.set_xscale('log')
+    ax.grid()
+    
+    fig.suptitle(
+        f'kappa={kappa}, eta={eta}, r_critmin={r_critmin}, no_sims={no_sims}',
+        y = 0.98)
+    
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.9)
+    fig_name = f'Deviations_fm_errorbars_{sample_mode}_no_sims_{no_sims}'
+    if sample_mode == 'given_bins': fig_name += '.png'
+    elif sample_mode == 'auto_bins': fig_name += f'_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### 8. myHisto binning deviations of fm sepa plots
+    no_rows = 7
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(8,4*no_rows), sharex=True)
+    
+    ax_titles = ['lin', 'log', 'COM', 'exact', 'linfit', 'qfit', 'h_over_g']
+    
+    for n in range(no_rows):
+        ax = axes[n]
+        f_m_ana = conc_per_mass_np(bins_mass_centers_my[n], *dist_par)
+        # ax.plot(bins_mass_centers[n], (f_m_num_sampled-f_m_ana)/f_m_ana, 'x')
+        ax.errorbar(bins_mass_centers_my[n],
+                    # bins_mass_width,
+                    (f_m_num_avg_my-f_m_ana)/f_m_ana,
+                    f_m_num_std_my/f_m_ana,
+                    fmt = 'x' ,
+                    c = 'k',
+                    # c = 'lightblue',
+                    markersize = 5.0,
+                    linewidth =2.0,
+                    capsize=3, elinewidth=2, markeredgewidth=1,
+                    zorder=99)
+        ax.set_xscale('log')
+        ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ ')
+        ax.set_title(ax_titles[n])
+    axes[-1].set_xlabel('mass (kg)')
+    
+    for ax in axes:
+        ax.grid()
+    
+    fig.tight_layout()
+    fig_name = 'Deviations_fm_errorbars_myH_sepa_plots_no_sims_' \
+               + f'{no_sims}_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    ### 9. myhisto binning deviations plot all in one
+    no_rows = 2
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows), sharex=True)
+    
+    last_ind = len(bins_mass_centers_my[0])
+    
+    ax_titles = ['lin', 'log', 'COM', 'exact']
+    
+    ax = axes[0]
+    for n in range(3):
+        # ax = axes[n]
+        f_m_ana = conc_per_mass_np(bins_mass_centers_my[n], *dist_par)
+        ax.errorbar(bins_mass_centers_my[n][:last_ind],
+                    # bins_mass_width[:last_ind],
+                    100*(f_m_num_avg_my[:last_ind]-f_m_ana[:last_ind])\
+                    /f_m_ana[:last_ind],
+                    100*(f_m_num_std_my[:last_ind])/f_m_ana[:last_ind],
+                    fmt = 'x' ,
+                    # c = 'k',
+                    # c = 'lightblue',
+                    markersize = 10.0,
+                    linewidth =2.0,
+                    capsize=3, elinewidth=2, markeredgewidth=1,
+                    label=ax_titles[n],
+                    zorder=99)
+    ax.legend()
+    ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ (%)')
+    ax.set_xscale('log')
+    # ax.set_yscale('symlog')
+    # TT1 = np.array([-5,-4,-3,-2,-1,-0.5,-0.2,-0.1])
+    # TT2 = np.array([-0.6,-0.2,-0.1])
+    # TT1 = np.concatenate((np.append(TT2,0.0), -TT1) )
+    # ax.yaxis.set_ticks(TT1)
+    ax.grid()
+    
+    ax = axes[1]
+    f_m_ana = conc_per_mass_np(bins_mass_centers_my[3], *dist_par)
+    ax.errorbar(bins_mass_centers_my[3][:last_ind],
+                # bins_mass_width[:last_ind],
+                100*(f_m_num_avg_my[:last_ind]-f_m_ana[:last_ind])/f_m_ana[:last_ind],
+                100*(f_m_num_std_my[:last_ind])/f_m_ana[:last_ind],
+                fmt = 'x' ,
+                # c = 'k',
+                # c = 'lightblue',
+                markersize = 10.0,
+                linewidth =2.0,
+                capsize=3, elinewidth=2, markeredgewidth=1,
+                label=ax_titles[3],
+                zorder=99)
+    ax.set_ylabel(r'$(f_{m,num}-f_{m}(\tilde{m}))/f_{m}(\tilde{m})$ (%)')
+    # ax.set_xlabel(r'mass $\tilde{m}$ (kg)')
+    ax.set_xlabel(r'mass $m$ (kg)')
+    ax.legend()
+    # ax.set_xscale('log')
+    # ax.set_yscale('symlog')
+    # TT1 = np.array([-0.08,-0.04,-0.02,-0.01])
+    # TT1 = np.array([-0.08,-0.04,-0.02,-0.01,-0.005])
+    # TT2 = np.array([-0.6,-0.2,-0.1])
+    # TT1 = np.concatenate((np.append(TT1,0.0), -TT1) )
+    # ax.yaxis.set_ticks(100*TT1)
+    # ax.set_ylim([-10.0,10.0])
+    ax.set_xscale('log')
+    
+    ax.grid()
+    
+    fig.suptitle(
+        f'kappa={kappa}, eta={eta}, r_critmin={r_critmin}, no_sims={no_sims}',
+        y = 0.98)
+    
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.9)
+    fig_name = 'Deviations_fm_errorbars_myH_no_sims_' \
+               + f'{no_sims}_no_bins_{no_bins}.png'
+    fig.savefig(ensemble_dir + fig_name)
+
+    plt.close('all')        
+
+    ### LEAVE THIS: MAY NEED TO RETURN FOR OTHER APPLICATIONS
+    """
+    return masses, xis, radii, \
+           m_min, m_max, R_min, R_max, no_SIPs_avg, \
+           m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
+           bins_mass, bins_rad, bins_rad_log, \
+           bins_mass_width, bins_rad_width, bins_rad_width_log, \
+           bins_mass_centers, bins_rad_centers, \
+           f_m_counts, f_m_ind,\
+           f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled,\
+           f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, \
+           g_ln_r_num_avg, g_ln_r_num_std, \
+           bins_mass_auto, bins_rad_auto, bins_rad_log_auto, \
+           bins_mass_width_auto, bins_rad_width_auto, bins_rad_width_log_auto,\
+           bins_mass_centers_auto, bins_rad_centers_auto, \
+           f_m_counts_auto, f_m_ind_auto,\
+           f_m_num_sampled_auto, g_m_num_sampled_auto, g_ln_r_num_sampled_auto,\
+           f_m_num_avg_auto, f_m_num_std_auto, g_m_num_avg_auto,\
+           g_m_num_std_auto,\
+           g_ln_r_num_avg_auto, g_ln_r_num_std_auto, \
+           moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
+           moments_an, \
+           f_m_num_avg_my_ext, \
+           f_m_num_avg_my, f_m_num_std_my, \
+           g_m_num_avg_my, g_m_num_std_my, \
+           h_m_num_avg_my, h_m_num_std_my, \
+           bins_mass_my, bins_mass_width_my, \
+           bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa    
     if act_plot_ensembles:
         plot_ensemble_data(kappa, mass_density, eta, r_critmin,
             dist, dist_par, no_sims, no_bins,
@@ -478,34 +1344,7 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
             bins_mass_my, bins_mass_width_my, 
             bins_mass_centers_my, bins_mass_center_lin_my,
             ensemble_dir)
-        
-### LEAVE THIS: MAY NEED TO RETURN FOR OTHER APPLICATIONS
-#    return masses, xis, radii, \
-#           m_min, m_max, R_min, R_max, no_SIPs_avg, \
-#           m_, R_, f_m_ana_, g_m_ana_, g_ln_r_ana_, \
-#           bins_mass, bins_rad, bins_rad_log, \
-#           bins_mass_width, bins_rad_width, bins_rad_width_log, \
-#           bins_mass_centers, bins_rad_centers, \
-#           f_m_counts, f_m_ind,\
-#           f_m_num_sampled, g_m_num_sampled, g_ln_r_num_sampled,\
-#           f_m_num_avg, f_m_num_std, g_m_num_avg, g_m_num_std, \
-#           g_ln_r_num_avg, g_ln_r_num_std, \
-#           bins_mass_auto, bins_rad_auto, bins_rad_log_auto, \
-#           bins_mass_width_auto, bins_rad_width_auto, bins_rad_width_log_auto,\
-#           bins_mass_centers_auto, bins_rad_centers_auto, \
-#           f_m_counts_auto, f_m_ind_auto,\
-#           f_m_num_sampled_auto, g_m_num_sampled_auto, g_ln_r_num_sampled_auto,\
-#           f_m_num_avg_auto, f_m_num_std_auto, g_m_num_avg_auto,\
-#           g_m_num_std_auto,\
-#           g_ln_r_num_avg_auto, g_ln_r_num_std_auto, \
-#           moments_sampled, moments_sampled_avg_norm,moments_sampled_std_norm,\
-#           moments_an, \
-#           f_m_num_avg_my_ext, \
-#           f_m_num_avg_my, f_m_num_std_my, \
-#           g_m_num_avg_my, g_m_num_std_my, \
-#           h_m_num_avg_my, h_m_num_std_my, \
-#           bins_mass_my, bins_mass_width_my, \
-#           bins_mass_centers_my, bins_mass_center_lin_my, lin_par, aa    
+    """
     
 #%% ANALYSIS OF SIM DATA
 
@@ -513,7 +1352,39 @@ def analyze_ensemble_data(dist, mass_density, kappa, no_sims, ensemble_dir,
 # to compare moments etc. with other authors, masses are converted to kg
 def analyze_sim_data(kappa, mass_density, dV, no_sims,
                      start_seed, no_bins, load_dir):
-    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    """Analysis of stored box model simulation data
+    
+    Loads stored data, which was generated with simulate_collisions().
+    Analyzes the loaded data statistically and writes files with statistical
+    data to hard disc.
+
+    
+    Parameters
+    ----------
+    kappa: float
+        'kappa' parameter, which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method
+    mass_density: float
+        particle (droplet) mass density (kg/m^3)
+    dV: float
+        volume of the simulation box (m^3). particles are well mixed inside.
+    no_sims: int
+        number of independent simulation runs
+    start_seed: int
+        random number generator seed of the first independent simulation
+        of the list. simulations are identified by their seed. it is assumed
+        that all 'no_sims' simulations, which are considered in the
+        statistical analysis have seeds
+        [start_seed, start_seed+2, start_seed+4, ...]
+    no_bins: int
+        number of bins for the binning of SIPs
+    load_dir: str
+        path to the directory, where simulation data is stored
+        provide as '/path/to/directory/'
+    
+    """ 
+    
+    save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
     
     seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
     
@@ -522,8 +1393,8 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
     for seed in seed_list:
         # convert to kg
         masses_vs_time.append(1E-18 *
-                              np.load(load_dir + f"masses_vs_time_{seed}.npy"))
-        xis_vs_time.append(np.load(load_dir + f"xis_vs_time_{seed}.npy"))
+                              np.load(load_dir + f'masses_vs_time_{seed}.npy'))
+        xis_vs_time.append(np.load(load_dir + f'xis_vs_time_{seed}.npy'))
     
     masses_vs_time_T = []
     xis_vs_time_T = []
@@ -577,7 +1448,7 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
         xi_min = xis_sampled.min()
         xi_max = xis_sampled.max()
 
-        print(kappa, time_n, f"{xi_max/xi_min:.3e}",
+        print(kappa, time_n, f'{xi_max/xi_min:.3e}',
               xis_sampled.shape[0]/no_sims, R_min, R_max)
     
         m_min_vs_time[time_n] = m_min
@@ -612,7 +1483,7 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
         bins_mass_width_vs_time[time_n] = bins_mass_width
         bins_rad_width_log_vs_time[time_n] = bins_rad_width_log
         
-        # different definitions of the "bin_centers"
+        # different definitions of the 'bin_centers'
         # define centers on lin scale
         bins_mass_center_lin = 0.5 * (bins_mass[:-1] + bins_mass[1:])
         bins_rad_center_lin = 0.5 * (bins_rad[:-1] + bins_rad[1:])
@@ -623,8 +1494,8 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
         bins_rad_center_log = np.exp(0.5 *
                                      (bins_rad_log[:-1] + bins_rad_log[1:]))
     
-        # set the bin "mass centers" at the right spot such that
-        # f_avg_i in bin in = f(mm_i), where mm_i is the "mass center"
+        # set the bin 'mass centers' at the right spot such that
+        # f_avg_i in bin in = f(mm_i), where mm_i is the 'mass center'
         m_avg = masses_sampled.sum() / xis_sampled.sum()
         bins_mass_center_exact = bins_mass[:-1] \
                                  + m_avg * np.log(bins_mass_width\
@@ -642,7 +1513,7 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
                                  bins_rad_center_exact)) )
     
         ### STATISTICAL ANALYSIS OVER no_sim runs
-        # get f(m_i) curve for each "run" with same bins for all ensembles
+        # get f(m_i) curve for each 'run' with same bins for all ensembles
         f_m_num = []
         g_m_num = []
         g_ln_r_num = []
@@ -690,27 +1561,27 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
                 * np.sum( g_ln_r_num_avg_vs_time[time_n]
                                     * (bins_mass_centers[time_n][1])**(n-1) )
     
-    fn_ending = f"no_sims_{no_sims}_no_bins_{no_bins}"
+    fn_ending = f'no_sims_{no_sims}_no_bins_{no_bins}'
     
-    np.save(load_dir + f"moments_vs_time_avg_" + fn_ending + ".npy",
+    np.save(load_dir + f'moments_vs_time_avg_' + fn_ending + '.npy',
             moments_vs_time_avg)
-    np.save(load_dir + f"moments_vs_time_std_" + fn_ending + ".npy",
+    np.save(load_dir + f'moments_vs_time_std_' + fn_ending + '.npy',
             moments_vs_time_std)
-    np.save(load_dir + f"f_m_num_avg_vs_time_" + fn_ending + ".npy",
+    np.save(load_dir + f'f_m_num_avg_vs_time_' + fn_ending + '.npy',
             f_m_num_avg_vs_time)
-    np.save(load_dir + f"f_m_num_std_vs_time_" + fn_ending + ".npy",
+    np.save(load_dir + f'f_m_num_std_vs_time_' + fn_ending + '.npy',
             f_m_num_std_vs_time)
-    np.save(load_dir + f"g_m_num_avg_vs_time_" + fn_ending + ".npy",
+    np.save(load_dir + f'g_m_num_avg_vs_time_' + fn_ending + '.npy',
             g_m_num_avg_vs_time)
-    np.save(load_dir + f"g_m_num_std_vs_time_" + fn_ending + ".npy",
+    np.save(load_dir + f'g_m_num_std_vs_time_' + fn_ending + '.npy',
             g_m_num_std_vs_time)
-    np.save(load_dir + f"g_ln_r_num_avg_vs_time_" + fn_ending + ".npy",
+    np.save(load_dir + f'g_ln_r_num_avg_vs_time_' + fn_ending + '.npy',
             g_ln_r_num_avg_vs_time)
-    np.save(load_dir + f"g_ln_r_num_std_vs_time_" + fn_ending + ".npy",
+    np.save(load_dir + f'g_ln_r_num_std_vs_time_' + fn_ending + '.npy',
             g_ln_r_num_std_vs_time)
-    np.save(load_dir + f"bins_mass_centers_" + fn_ending + ".npy",
+    np.save(load_dir + f'bins_mass_centers_' + fn_ending + '.npy',
             bins_mass_centers)
-    np.save(load_dir + f"bins_rad_centers_" + fn_ending + ".npy",
+    np.save(load_dir + f'bins_rad_centers_' + fn_ending + '.npy',
             bins_rad_centers)
 
 #%% PLOT moments vs time and (f_m, g_m, g_ln_R) vs time for given kappa
@@ -719,29 +1590,29 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
                          dt, no_sims, start_seed, no_bins,
                          kernel_name, kernel_method, gen_method, bin_method,
                          moments_ref, times_ref, load_dir):
-    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
     no_times = len(save_times)
     
     bins_mass_centers = \
-        np.load(load_dir + f"bins_mass_centers_"
-                + f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
-    bins_rad_centers = np.load(load_dir + f"bins_rad_centers_" +
-                               f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        np.load(load_dir + f'bins_mass_centers_'
+                + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
+    bins_rad_centers = np.load(load_dir + f'bins_rad_centers_' +
+                               f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
 
-    f_m_num_avg_vs_time = np.load(load_dir + f"f_m_num_avg_vs_time_"
-                                  + f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
-    g_m_num_avg_vs_time = np.load(load_dir + f"g_m_num_avg_vs_time_"
-                                  + f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    f_m_num_avg_vs_time = np.load(load_dir + f'f_m_num_avg_vs_time_'
+                                  + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
+    g_m_num_avg_vs_time = np.load(load_dir + f'g_m_num_avg_vs_time_'
+                                  + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
     g_ln_r_num_avg_vs_time = \
-        np.load(load_dir + f"g_ln_r_num_avg_vs_time_"
-                + f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
+        np.load(load_dir + f'g_ln_r_num_avg_vs_time_'
+                + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
 
-    moments_vs_time_avg = np.load(load_dir + f"moments_vs_time_avg_"
-                                  + f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
+    moments_vs_time_avg = np.load(load_dir + f'moments_vs_time_avg_'
+                                  + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
 
-    fig_name = "fm_gm_glnr_vs_t"
-    fig_name += f"_kappa_{kappa}_dt_{int(dt)}_"
-    fig_name += f"no_sims_{no_sims}_no_bins_{no_bins}.png"
+    fig_name = 'fm_gm_glnr_vs_t'
+    fig_name += f'_kappa_{kappa}_dt_{int(dt)}_'
+    fig_name += f'no_sims_{no_sims}_no_bins_{no_bins}.png'
     no_rows = 3
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,8*no_rows))
     
@@ -749,13 +1620,13 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     ax = axes[0]
     for time_n in range(no_times)[::time_every]:
         ax.plot(bins_mass_centers[time_n][0], f_m_num_avg_vs_time[time_n],
-                label = f"t={save_times[time_n]:.0f}")
+                label = f't={save_times[time_n]:.0f}')
         ax.legend()
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("mass (kg)")
-    ax.set_ylabel(r"$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$")
-    if kernel_name == "Golovin":
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('mass (kg)')
+    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(-15,-5,11) )
         ax.set_yticks( np.logspace(5,21,17) )
     ax.grid()
@@ -763,11 +1634,11 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     ax = axes[1]
     for time_n in range(no_times)[::time_every]:
         ax.plot(bins_mass_centers[time_n][0], g_m_num_avg_vs_time[time_n])
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("mass (kg)")
-    ax.set_ylabel(r"$g_m$ $\mathrm{(m^{-3})}$")
-    if kernel_name == "Golovin":
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.set_xlabel('mass (kg)')
+    ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+    if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(-15,-5,11) )
         ax.set_yticks( np.logspace(-2,9,12) )
     ax.grid()
@@ -776,68 +1647,68 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     for time_n in range(no_times)[::time_every]:
         ax.plot(bins_rad_centers[time_n][0],
                 g_ln_r_num_avg_vs_time[time_n]*1000.0)
-    ax.set_yscale("log")
-    ax.set_xscale("log")
-    ax.set_xlabel("radius $\mathrm{(\mu m)}$")
-    ax.set_ylabel(r"$g_{\ln(r)}$ $\mathrm{(g \; m^{-3})}$")
-    if kernel_name == "Golovin":
+    ax.set_yscale('log')
+    ax.set_xscale('log')
+    ax.set_xlabel('radius $mathrm{(mu m)}$')
+    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(0,3,4) )
         ax.set_xlim([1.0,2.0E3])
         ax.set_ylim([1.0E-4,10.0])
-    elif kernel_name == "Long_Bott":
+    elif kernel_name == 'Long_Bott':
         ax.set_xlim([1.0,5.0E3])
         ax.set_ylim([1.0E-4,10.0])
-    ax.grid(which="major")
+    ax.grid(which='major')
     
     for ax in axes:
-        ax.tick_params(which="both", bottom=True, top=True,
+        ax.tick_params(which='both', bottom=True, top=True,
                        left=True, right=True)
 
-    fig.suptitle(f"dt={dt}, kappa={kappa}, eta={eta:.0e} ({eta_threshold}), "
-                 + f"no_sims={no_sims}, no_bins={no_bins}\n"
-                 + f"gen_method={gen_method}, kernel={kernel_name}, "
-                 + f"kernel_method={kernel_method}, bin_method={bin_method}")
+    fig.suptitle(f'dt={dt}, kappa={kappa}, eta={eta:.0e} ({eta_threshold}), '
+                 + f'no_sims={no_sims}, no_bins={no_bins}\n'
+                 + f'gen_method={gen_method}, kernel={kernel_name}, '
+                 + f'kernel_method={kernel_method}, bin_method={bin_method}')
     fig.tight_layout()
     plt.subplots_adjust(top=0.95)
     fig.savefig(load_dir + fig_name)
     
     ### plot moments vs time
-    fig_name = "moments_vs_time"
-    fig_name += f"_kappa_{kappa}_dt_{int(dt)}_"
-    fig_name += f"no_sims_{no_sims}_no_bins_{no_bins}.png"
+    fig_name = 'moments_vs_time'
+    fig_name += f'_kappa_{kappa}_dt_{int(dt)}_'
+    fig_name += f'no_sims_{no_sims}_no_bins_{no_bins}.png'
     no_rows = 4
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows))
     for i,ax in enumerate(axes):
-        ax.plot(save_times/60, moments_vs_time_avg[:,i],"x-")
+        ax.plot(save_times/60, moments_vs_time_avg[:,i],'x-')
         if i != 1:
-            ax.set_yscale("log")
+            ax.set_yscale('log')
         ax.grid()
         ax.set_xticks(save_times/60)
         ax.set_xlim([save_times[0]/60, save_times[-1]/60])
-        ax.tick_params(which="both", bottom=True, top=True,
+        ax.tick_params(which='both', bottom=True, top=True,
                        left=True, right=True)
-    if kernel_name == "Golovin":
+    if kernel_name == 'Golovin':
         axes[0].set_yticks( [1.0E6,1.0E7,1.0E8,1.0E9] )
         axes[2].set_yticks( np.logspace(-15,-9,7) )
         axes[3].set_yticks( np.logspace(-26,-15,12) )
     
-    axes[3].set_xlabel("time (min)")
+    axes[3].set_xlabel('time (min)')
 
-    axes[0].set_ylabel("moment 0 (DNC)")
-    axes[1].set_ylabel("moment 1 (LMC)")
-    axes[2].set_ylabel("moment 2")
-    axes[3].set_ylabel("moment 3")
+    axes[0].set_ylabel('moment 0 (DNC)')
+    axes[1].set_ylabel('moment 1 (LMC)')
+    axes[2].set_ylabel('moment 2')
+    axes[3].set_ylabel('moment 3')
     
     for mom_n in range(4):
-        axes[mom_n].plot(times_ref/60, moments_ref[mom_n], "o")
-    fig.suptitle(f"dt={dt}, kappa={kappa}, eta={eta:.0e} ({eta_threshold}), "
-                 + f"no_sims={no_sims}, no_bins={no_bins}\n"
-                 + f"gen_method={gen_method}, kernel={kernel_name}, "
-                 + f"kernel_method={kernel_method}, bin_method={bin_method}")        
+        axes[mom_n].plot(times_ref/60, moments_ref[mom_n], 'o')
+    fig.suptitle(f'dt={dt}, kappa={kappa}, eta={eta:.0e} ({eta_threshold}), '
+                 + f'no_sims={no_sims}, no_bins={no_bins}\n'
+                 + f'gen_method={gen_method}, kernel={kernel_name}, '
+                 + f'kernel_method={kernel_method}, bin_method={bin_method}')        
     fig.tight_layout()
     plt.subplots_adjust(top=0.95)
     fig.savefig(load_dir + fig_name)
-    plt.close("all")
+    plt.close('all')
 
 #%% PLOT MOMENTS VS TIME for several kappa
 
@@ -851,8 +1722,8 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                                    fig_dir, TTFS, LFS, TKFS):
     no_kappas = len(kappa_list)
     
-    fig_name = f"moments_vs_time_kappa_var_{no_kappas}"
-    fig_name += f"_dt_{int(dt)}_no_sims_{no_sims}.pdf"
+    fig_name = f'moments_vs_time_kappa_var_{no_kappas}'
+    fig_name += f'_dt_{int(dt)}_no_sims_{no_sims}.pdf'
     no_rows = 4
     
     fig, axes = plt.subplots(nrows=no_rows, figsize=(10,6*no_rows),
@@ -860,54 +1731,54 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
     
     for kappa_n,kappa in enumerate(kappa_list):
         load_dir = sim_data_path + result_path_add \
-                   + f"kappa_{kappa}/dt_{int(dt)}/"
-        save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+                   + f'kappa_{kappa}/dt_{int(dt)}/'
+        save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
         moments_vs_time_avg = np.load(load_dir +
-                                      f"moments_vs_time_avg_no_sims_"
-                                      + f"{no_sims}_no_bins_{no_bins}.npy")
+                                      f'moments_vs_time_avg_no_sims_'
+                                      + f'{no_sims}_no_bins_{no_bins}.npy')
         
-        if kappa_n < 10: fmt = "x-"
-        else: fmt = "x--"            
+        if kappa_n < 10: fmt = 'x-'
+        else: fmt = 'x--'            
         
         for i,ax in enumerate(axes):
             ax.plot(save_times/60, moments_vs_time_avg[:,i],
-                    fmt, label=f"{kappa}")
+                    fmt, label=f'{kappa}')
 
     for i,ax in enumerate(axes):
         ax.plot(times_ref/60, moments_ref[i],
-                "o", c = "k",fillstyle='none', markersize = 8,
-                mew=1.0, label="Wang")
+                'o', c = 'k',fillstyle='none', markersize = 8,
+                mew=1.0, label='Wang')
         if i != 1:
-            ax.set_yscale("log")
+            ax.set_yscale('log')
         ax.grid()
         if i != 1:
             ax.legend(fontsize=TKFS)
         if i == 1:
-            ax.legend(loc="lower left", bbox_to_anchor=(0.0, 0.05),
+            ax.legend(loc='lower left', bbox_to_anchor=(0.0, 0.05),
                       fontsize=TKFS)
         ax.set_xticks(save_times/60)
         ax.set_xlim([save_times[0]/60, save_times[-1]/60])
-        ax.tick_params(which="both", bottom=True, top=True,
+        ax.tick_params(which='both', bottom=True, top=True,
                        left=True, right=True
                        )
         ax.tick_params(axis='both', which='major', labelsize=TKFS,
                        width=2, size=10)
         ax.tick_params(axis='both', which='minor', labelsize=TKFS,
                        width=1, size=6)
-    axes[-1].set_xlabel("time (min)",fontsize=LFS)
-    axes[0].set_ylabel(r"$\lambda_0$ = DNC $(\mathrm{m^{-3}})$ ",
+    axes[-1].set_xlabel('time (min)',fontsize=LFS)
+    axes[0].set_ylabel(r'$lambda_0$ = DNC $(mathrm{m^{-3}})$ ',
                        fontsize=LFS)
-    axes[1].set_ylabel(r"$\lambda_1$ = LWC $(\mathrm{kg \, m^{-3}})$ ",
+    axes[1].set_ylabel(r'$lambda_1$ = LWC $(mathrm{kg , m^{-3}})$ ',
                        fontsize=LFS)
-    axes[2].set_ylabel(r"$\lambda_2$ $(\mathrm{kg^2 \, m^{-3}})$ ",
+    axes[2].set_ylabel(r'$lambda_2$ $(mathrm{kg^2 , m^{-3}})$ ',
                        fontsize=LFS)
-    axes[3].set_ylabel(r"$\lambda_3$ $(\mathrm{kg^3 \, m^{-3}})$ ",
+    axes[3].set_ylabel(r'$lambda_3$ $(mathrm{kg^3 , m^{-3}})$ ',
                        fontsize=LFS)
-    if kernel_name == "Golovin":
+    if kernel_name == 'Golovin':
         axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
         axes[2].set_yticks( np.logspace(-15,-9,7) )
         axes[3].set_yticks( np.logspace(-26,-15,12) )
-    elif kernel_name == "Long_Bott":
+    elif kernel_name == 'Long_Bott':
         axes[0].set_yticks([1.0E6,1.0E7,1.0E8])
         axes[0].set_ylim([1.0E6,4.0E8])
         axes[2].set_yticks( np.logspace(-15,-7,9) )
@@ -916,7 +1787,7 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         axes[3].set_ylim([1.0E-26,1.0E-11])
         if len(times_ref) > 10:
             axes[3].set_xticks(save_times[::2]/60)
-    elif kernel_name == "Hall_Bott":
+    elif kernel_name == 'Hall_Bott':
         axes[0].set_yticks([1.0E8])
         axes[0].set_ylim([6.0E7,4.0E8])
         axes[2].set_yticks( np.logspace(-15,-7,9) )
@@ -926,14 +1797,14 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         if len(times_ref) > 10:
             axes[3].set_xticks(save_times[::2]/60)
     title=\
-        f"Moments of the distribution for various $\kappa$ (see legend)\n" \
-        + f"dt={dt:.1e}, eta={eta:.0e}, r_critmin=0.6, no_sims={no_sims}, " \
-        + f"gen_method={gen_method}, kernel={kernel_name}"
+        f'Moments of the distribution for various $kappa$ (see legend)\n' \
+        + f'dt={dt:.1e}, eta={eta:.0e}, r_critmin=0.6, no_sims={no_sims}, ' \
+        + f'gen_method={gen_method}, kernel={kernel_name}'
     fig.suptitle(title, fontsize=TTFS, y = 0.997)
     fig.tight_layout()
     plt.subplots_adjust(top=0.965)
     fig.savefig(fig_dir + fig_name)
-    plt.close("all")
+    plt.close('all')
 
 #%% plot moments 0, 2 and 3 of the mass distribution vs time for several kappa
 # in the same plot. formatting as in the GMD publication    
@@ -952,29 +1823,29 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
     
     for kappa_n,kappa in enumerate(kappa_list):
         load_dir = sim_data_path \
-                   + result_path_add + f"kappa_{kappa}/dt_{int(dt)}/"
-        save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+                   + result_path_add + f'kappa_{kappa}/dt_{int(dt)}/'
+        save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
         moments_vs_time_avg = \
             np.load(load_dir
-                    + f"moments_vs_time_avg_"
-                    + f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
+                    + f'moments_vs_time_avg_'
+                    + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
         # estimated errorbars can also be shown
         # load moments_vs_time_std in this case
 #        moments_vs_time_std = \
 #            np.load(load_dir
-#                    + f"moments_vs_time_std_"
-#                    + f"no_sims_{no_sims}_no_bins_{no_bins}.npy")
+#                    + f'moments_vs_time_std_'
+#                    + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
         
-        if kappa_n < 10: fmt = "-"
-        else: fmt = "x--"            
+        if kappa_n < 10: fmt = '-'
+        else: fmt = 'x--'            
         
         for ax_n,i in enumerate((0,2,3)):
             if kappa*5 < 100000:
-                lab = f"{kappa*5}"
+                lab = f'{kappa*5}'
             else:
-                lab = f"{float(kappa*5):.2}"
+                lab = f'{float(kappa*5):.2}'
             axes[ax_n].plot(save_times/60, moments_vs_time_avg[:,i],fmt,
-                            label=f"\\num{{{lab}}}",
+                            label=f'\num{{{lab}}}',
                             lw=1.2,
                             ms=5,                        
                             mew=0.8,
@@ -986,81 +1857,81 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
 #                                moments_vs_time_avg[:,i],
 #                                moments_vs_time_std[:,i],
 #                                fmt=fmt,
-#                                label=f"\\num{{{lab}}}",
+#                                label=f'\num{{{lab}}}',
 #                                lw=1.2,
 #                                ms=5,                        
 #                                mew=0.5,
 #                                elinewidth=1.0,
 #                                zorder=98)
  
-    if kernel_name == "Golovin":
+    if kernel_name == 'Golovin':
         DNC = 296799076.3
         LWC = 1E-3
         bG = 1.5
             
     for ax_n,i in enumerate((0,2,3)):
         ax = axes[ax_n]
-        if kernel_name == "Golovin":
+        if kernel_name == 'Golovin':
             
-            fmt = "o"
+            fmt = 'o'
             # load times_ref from 'collision/...'
             # calc moments directly from analytic function
             moments_ref_i = compute_moments_Golovin(times_ref, i, DNC, LWC, bG)
         else:
-            fmt = "o"
+            fmt = 'o'
             moments_ref_i = moments_ref[i]
         ax.plot(times_ref/60, moments_ref_i,
-                fmt, c = "k",
+                fmt, c = 'k',
                 fillstyle='none',
                 linewidth = 2,
                 markersize = 3, mew=0.4,
-                label="Ref",
+                label='Ref',
                 zorder=99)
         if i != 1:
-            ax.set_yscale("log")
-        if kernel_name == "Long_Bott":
-            ax.grid(which="major")
+            ax.set_yscale('log')
+        if kernel_name == 'Long_Bott':
+            ax.grid(which='major')
         else:
-            ax.grid(which="both")
+            ax.grid(which='both')
         if i == 2:
-            if kernel_name == "Golovin":
+            if kernel_name == 'Golovin':
                 ax.legend(
                           ncol=2, handlelength=0.8, handletextpad=0.2,
-                          columnspacing=0.5, borderpad=0.2, loc="lower left",
+                          columnspacing=0.5, borderpad=0.2, loc='lower left',
                           bbox_to_anchor=(0.0, 0.4)).set_zorder(100)          
-            if kernel_name == "Long_Bott":
+            if kernel_name == 'Long_Bott':
                 ax.legend(
                           ncol=2, handlelength=0.8, handletextpad=0.2,
-                          columnspacing=0.5, borderpad=0.2, loc="lower left",
+                          columnspacing=0.5, borderpad=0.2, loc='lower left',
                           bbox_to_anchor=(0.0, 0.6)).set_zorder(100)            
-            if kernel_name == "Hall_Bott":
+            if kernel_name == 'Hall_Bott':
                 ax.legend(
                           ncol=2, handlelength=0.8, handletextpad=0.2,
-                          columnspacing=0.5, borderpad=0.2, loc="lower left",
+                          columnspacing=0.5, borderpad=0.2, loc='lower left',
                           bbox_to_anchor=(0.0, 0.5)).set_zorder(100)            
         ax.set_xticks(save_times[::2]/60)
         ax.set_xlim([save_times[0]/60, save_times[-1]/60])
-        ax.tick_params(which="both", bottom=True, top=True,
+        ax.tick_params(which='both', bottom=True, top=True,
                        left=True, right=True
                        )
         ax.tick_params(axis='both', which='major', labelsize=TKFS,
                        width=0.8, size=3)
         ax.tick_params(axis='both', which='minor', labelsize=TKFS,
                        width=0.6, size=2, labelleft=False)
-    axes[-1].set_xlabel("Time (min)",fontsize=LFS)
-    axes[0].set_ylabel(r"$\lambda_0$ = DNC $(\mathrm{m^{-3}})$ ",
+    axes[-1].set_xlabel('Time (min)',fontsize=LFS)
+    axes[0].set_ylabel(r'$lambda_0$ = DNC $(mathrm{m^{-3}})$ ',
                        fontsize=LFS)
-    axes[1].set_ylabel(r"$\lambda_2$ $(\mathrm{kg^2 \, m^{-3}})$ ",
+    axes[1].set_ylabel(r'$lambda_2$ $(mathrm{kg^2 , m^{-3}})$ ',
                        fontsize=LFS)
-    axes[2].set_ylabel(r"$\lambda_3$ $(\mathrm{kg^3 \, m^{-3}})$ ",
+    axes[2].set_ylabel(r'$lambda_3$ $(mathrm{kg^3 , m^{-3}})$ ',
                        fontsize=LFS)
-    if kernel_name == "Golovin":
+    if kernel_name == 'Golovin':
         axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
         axes[0].set_yticks([5.0E6,5.0E7,5.0E8], minor=True)
         axes[1].set_yticks( np.logspace(-15,-9,7) )
         axes[2].set_yticks( np.logspace(-26,-15,12)[::2] )
         axes[2].set_yticks( np.logspace(-26,-15,12)[1::2], minor=True )
-    elif kernel_name == "Long_Bott":
+    elif kernel_name == 'Long_Bott':
         axes[0].set_yticks([1.0E6,1.0E7,1.0E8])
         axes[0].set_yticks(
                 np.concatenate((
@@ -1075,7 +1946,7 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
         axes[2].set_yticks( np.logspace(-26,-11,16)[::2])
         axes[2].set_yticks( np.logspace(-26,-11,16)[1::2],minor=True)
         axes[2].set_ylim([1.0E-26,1.0E-11])
-    elif kernel_name == "Hall_Bott":
+    elif kernel_name == 'Hall_Bott':
         axes[0].set_yticks([7E7,8E7,9E7,1E8,2.0E8,3E8])
 
         axes[0].set_ylim([7.0E7,4.0E8])
@@ -1089,23 +1960,23 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
         axes[2].set_yticks( np.logspace(-26,-12,8) )
         axes[2].set_ylim([1.0E-26,1.0E-12])
     
-    if kernel_name == "Hall_Bott":
+    if kernel_name == 'Hall_Bott':
         xpos_ = -0.19
         ypos_ = 0.86
-    elif kernel_name == "Long_Bott":
+    elif kernel_name == 'Long_Bott':
         xpos_ = -0.14
         ypos_ = 0.86
-    elif kernel_name == "Golovin":
+    elif kernel_name == 'Golovin':
         xpos_ = -0.14
         ypos_ = 0.86
-    fig.text(xpos_, ypos_ , r"\textbf{(c)}", fontsize=LFS)    
+    fig.text(xpos_, ypos_ , r'\textbf{(c)}', fontsize=LFS)    
     
     fig.savefig(figname,
                 bbox_inches = 'tight',
                 pad_inches = 0.04
                 )      
 
-    plt.close("all")        
+    plt.close('all')        
 
 #%% Plot g_lnR vs time for a single kappa
     
@@ -1116,32 +1987,32 @@ def plot_g_ln_R_for_given_kappa(kappa,
                                 load_dir,
                                 figsize, figname,
                                 LFS):
-    fn_end = f"no_sims_{no_sims}_no_bins_{no_bins}.npy"
+    fn_end = f'no_sims_{no_sims}_no_bins_{no_bins}.npy'
     bG = 1.5 # K = b * (m1 + m2) # b in m^3/(fg s)
-    save_times = np.load(load_dir + f"save_times_{start_seed}.npy")
+    save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
     bins_mass_centers = np.load(load_dir
-                                + f"bins_mass_centers_" + fn_end)
+                                + f'bins_mass_centers_' + fn_end)
     bins_rad_centers = np.load(load_dir
-                               + f"bins_rad_centers_" + fn_end)
+                               + f'bins_rad_centers_' + fn_end)
 
     add_masses = 4
     
     g_ln_r_num_avg_vs_time = np.load(load_dir
-                                     + f"g_ln_r_num_avg_vs_time_" + fn_end)
+                                     + f'g_ln_r_num_avg_vs_time_' + fn_end)
     g_ln_r_num_std_vs_time = np.load(load_dir
-                                     + f"g_ln_r_num_std_vs_time_" + fn_end)
+                                     + f'g_ln_r_num_std_vs_time_' + fn_end)
 
     no_rows = 1
     fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
     
     ax = axes
-    ax.set_xscale("log", nonposx="mask")    
-    ax.set_yscale("log", nonposy="mask")    
+    ax.set_xscale('log', nonposx='mask')    
+    ax.set_yscale('log', nonposy='mask')    
     for time_n in time_idx:
         mask = g_ln_r_num_avg_vs_time[time_n]*1000.0 > 1E-6
         ax.plot(bins_rad_centers[time_n][0][mask],
                 g_ln_r_num_avg_vs_time[time_n][mask]*1000.0,
-                label = f"{int(save_times[time_n]//60)}", zorder=50)
+                label = f'{int(save_times[time_n]//60)}', zorder=50)
         
         above_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
                       + g_ln_r_num_std_vs_time[time_n]*1000.0
@@ -1160,7 +2031,7 @@ def plot_g_ln_R_for_given_kappa(kappa,
                         )              
     ax.set_prop_cycle(None)
     for j,time_n in enumerate(time_idx):
-        if kernel_name == "Golovin":
+        if kernel_name == 'Golovin':
             scale_g=1000.      
             no_bins_ref = 2*no_bins
             ref_masses = np.zeros(no_bins_ref + add_masses)
@@ -1179,41 +2050,41 @@ def plot_g_ln_R_for_given_kappa(kappa,
             
         else:
             scale_g = 1.
-            dpref = f"collision/ref_data/{kernel_name}/"
+            dpref = f'collision/ref_data/{kernel_name}/'
             ref_radii = \
-                np.loadtxt(dpref + "Wang_2007_radius_bin_centers.txt")[j][::5]
+                np.loadtxt(dpref + 'Wang_2007_radius_bin_centers.txt')[j][::5]
             g_ln_r_ref = \
-                np.loadtxt(dpref + "Wang_2007_g_ln_R.txt")[j][::5]
+                np.loadtxt(dpref + 'Wang_2007_g_ln_R.txt')[j][::5]
         ax.plot(ref_radii,
                 g_ln_r_ref*scale_g,
-                "o",
+                'o',
                 fillstyle='none',
                 linewidth = 2,
                 markersize = 3, mew=0.4)                
     
-    ax.set_xlabel("Radius ($\si{\micro\meter}$)")
-    ax.set_ylabel(r"$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$")
-    if kernel_name == "Golovin":
+    ax.set_xlabel('Radius ($si{micrometer}$)')
+    ax.set_ylabel(r'$g_{ln(R)}$ $mathrm{(g ; m^{-3})}$')
+    if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(0,3,4) )
         ax.set_xlim([1.0,2.0E3])
         ax.set_ylim([1.0E-4,10.0])
-    elif kernel_name == "Long_Bott":
+    elif kernel_name == 'Long_Bott':
         ax.set_xlim([1.0,5.0E3])
         ax.set_ylim([1.0E-4,10.0])
-    elif kernel_name == "Hall_Bott":
+    elif kernel_name == 'Hall_Bott':
         ax.set_xlim([1.0,5.0E3])
         ax.set_yticks( np.logspace(-4,2,7) )
         ax.set_ylim([1.0E-4,10.0])        
-    ax.grid(which="major")
+    ax.grid(which='major')
     ax.legend(ncol=7, handlelength=0.8, handletextpad=0.2,
-              columnspacing=0.8, borderpad=0.2, loc="upper center")
-    ax.tick_params(which="both", bottom=True, top=True, left=True, right=True)
+              columnspacing=0.8, borderpad=0.2, loc='upper center')
+    ax.tick_params(which='both', bottom=True, top=True, left=True, right=True)
 
     fig.savefig(figname,
                 bbox_inches = 'tight',
                 pad_inches = 0.065
                 )    
-    plt.close("all")    
+    plt.close('all')    
 
 #%% Plot g_ln_R vs time for two chosen kappa 
     
@@ -1224,35 +2095,35 @@ def plot_g_ln_R_kappa_compare(kappa1, kappa2,
                               load_dir_k1, load_dir_k2,
                               figsize, figname_compare, LFS):
     bG = 1.5 # K = b * (m1 + m2) # b in m^3/(fg s)
-    save_times = np.load(load_dir_k1 + f"save_times_{start_seed}.npy")
+    save_times = np.load(load_dir_k1 + f'save_times_{start_seed}.npy')
 
     no_rows = 2
     fig, axes = plt.subplots(nrows=no_rows, figsize=figsize)
     
     load_dirs = (load_dir_k1, load_dir_k2)
     
-    fn_end = f"no_sims_{no_sims}_no_bins_{no_bins}.npy"
+    fn_end = f'no_sims_{no_sims}_no_bins_{no_bins}.npy'
     
     for n,kappa in enumerate((kappa1,kappa2)):
         load_dir = load_dirs[n]
-        bins_mass_centers = np.load(load_dir + f"bins_mass_centers_" + fn_end)
-        bins_rad_centers = np.load(load_dir + f"bins_rad_centers_"  + fn_end)
+        bins_mass_centers = np.load(load_dir + f'bins_mass_centers_' + fn_end)
+        bins_rad_centers = np.load(load_dir + f'bins_rad_centers_'  + fn_end)
     
         add_masses = 4
         g_ln_r_num_avg_vs_time = \
-            np.load(load_dir + f"g_ln_r_num_avg_vs_time_" + fn_end)
+            np.load(load_dir + f'g_ln_r_num_avg_vs_time_' + fn_end)
         g_ln_r_num_std_vs_time = \
-            np.load(load_dir + f"g_ln_r_num_std_vs_time_"  + fn_end)
+            np.load(load_dir + f'g_ln_r_num_std_vs_time_'  + fn_end)
         ax = axes[n]
         
-        ax.set_xscale("log", nonposx="mask")    
-        ax.set_yscale("log", nonposy="mask")                
+        ax.set_xscale('log', nonposx='mask')    
+        ax.set_yscale('log', nonposy='mask')                
     
         for time_n in time_idx:
             mask = g_ln_r_num_avg_vs_time[time_n]*1000.0 > 1E-6
             ax.plot(bins_rad_centers[time_n][0][mask],
                     g_ln_r_num_avg_vs_time[time_n][mask]*1000.0,
-                    label = f"{int(save_times[time_n]//60)}", zorder=50)
+                    label = f'{int(save_times[time_n]//60)}', zorder=50)
             
             above_curve = g_ln_r_num_avg_vs_time[time_n]*1000.0\
                           + g_ln_r_num_std_vs_time[time_n]*1000.0
@@ -1271,7 +2142,7 @@ def plot_g_ln_R_kappa_compare(kappa1, kappa2,
                             )                          
         ax.set_prop_cycle(None)
         for j,time_n in enumerate(time_idx):
-            if kernel_name == "Golovin":
+            if kernel_name == 'Golovin':
                 scale_g=1000.      
                 no_bins_ref = 2*no_bins
                 ref_masses = np.zeros(no_bins_ref+add_masses)
@@ -1291,51 +2162,51 @@ def plot_g_ln_R_kappa_compare(kappa1, kappa2,
                                    / (4. * math.pi * 1E3))**(1./3.)                
             else:
                 scale_g=1.
-                dpref = f"collision/ref_data/{kernel_name}/"
+                dpref = f'collision/ref_data/{kernel_name}/'
                 ref_radii = \
                     np.loadtxt(dpref
-                               + "Wang_2007_radius_bin_centers.txt")[j][::5]
-                g_ln_r_ref = np.loadtxt(dpref + "Wang_2007_g_ln_R.txt")[j][::5]
+                               + 'Wang_2007_radius_bin_centers.txt')[j][::5]
+                g_ln_r_ref = np.loadtxt(dpref + 'Wang_2007_g_ln_R.txt')[j][::5]
                 
-            fmt="o"    
+            fmt='o'    
             ax.plot(ref_radii, g_ln_r_ref*scale_g,
                     fmt,
                     fillstyle='none',
                     linewidth = 2,
                     markersize = 2.3,
                     mew=0.3, zorder=40)             
-        if kernel_name == "Golovin":
+        if kernel_name == 'Golovin':
             ax.set_xticks( np.logspace(0,3,4) )
             ax.set_yticks( np.logspace(-4,0,5) )
             ax.set_xlim([1.0,2.0E3])
             ax.set_ylim([1.0E-4,10.0])
-        elif kernel_name == "Long_Bott":
+        elif kernel_name == 'Long_Bott':
             ax.set_xlim([1.0,5.0E3])
             ax.set_yticks( np.logspace(-4,2,7) )
             ax.set_ylim([1.0E-4,10.0])
-        elif kernel_name == "Hall_Bott":
+        elif kernel_name == 'Hall_Bott':
             ax.set_xlim([1.0,5.0E3])
             ax.set_yticks( np.logspace(-4,2,7) )
             ax.set_ylim([1.0E-4,10.0])
-        ax.grid(which="major")
+        ax.grid(which='major')
         
-    axes[1].set_xlabel("Radius ($\si{\micro\meter}$)")
-    axes[0].set_ylabel(r"$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$")            
-    axes[1].set_ylabel(r"$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$")            
+    axes[1].set_xlabel('Radius ($si{micrometer}$)')
+    axes[0].set_ylabel(r'$g_{ln(R)}$ $mathrm{(g ; m^{-3})}$')            
+    axes[1].set_ylabel(r'$g_{ln(R)}$ $mathrm{(g ; m^{-3})}$')            
     
     axes[0].legend(ncol=7, handlelength=0.8, handletextpad=0.2,
-                      columnspacing=0.8, borderpad=0.15, loc="upper center",
+                      columnspacing=0.8, borderpad=0.15, loc='upper center',
                       bbox_to_anchor=(0.5,1.02))
-    axes[0].tick_params(which="both", bottom=True, top=True,
+    axes[0].tick_params(which='both', bottom=True, top=True,
                        left=True, right=True, labelbottom=False)
-    axes[1].tick_params(which="both", bottom=True, top=True,
+    axes[1].tick_params(which='both', bottom=True, top=True,
                        left=True, right=True)
     xpos_ = -0.054
     ypos_ = 0.86
-    fig.text(xpos_, ypos_ , r"\textbf{(a)}", fontsize=LFS)    
-    fig.text(xpos_, ypos_*0.51, r"\textbf{(b)}", fontsize=LFS)    
+    fig.text(xpos_, ypos_ , r'\textbf{(a)}', fontsize=LFS)    
+    fig.text(xpos_, ypos_*0.51, r'\textbf{(b)}', fontsize=LFS)    
     fig.savefig(figname_compare,
                 bbox_inches = 'tight',
                 pad_inches = 0.05
                 )    
-    plt.close("all")        
+    plt.close('all')        
