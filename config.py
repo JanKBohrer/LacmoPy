@@ -29,8 +29,8 @@ config = {
     'simdata' : '/home/jdesk/sim_data_cloudMP/'
 },
 
-'generate_grid'         : True,
-#'generate_grid'         : False,
+#'generate_grid'         : True,
+'generate_grid'         : False,
 # spin-up: no gravity, no collisions, no relaxation
 'execute_spin_up'       : True,
 #'execute_spin_up'       : False,
@@ -38,8 +38,8 @@ config = {
 # set 'True' when starting from a spin-up state
 # provides the opportunity to simulate directly without spin-up
 # in this case, set 'execute_spin_up' and 'spin_up_complete' to 'False'
-'spin_up_complete'      : False,
-#'spin_up_complete'      : True,
+#'spin_up_complete'      : False,
+'spin_up_complete'      : True,
 
 # set 'False', if spin_up shall be executed
 # set 'False', if the simulation starts from an existing spin-up state.
@@ -75,7 +75,7 @@ config = {
 
 # spatial step sizes [dx, dz] in meter
 # the number of grid cells is calculated from step sizes and domain sizes
-'grid_steps'        : [150., 150.],# in meter
+'grid_steps'        : [20., 20.],# in meter
 'dy'                : 1., # in meter, dy=1 is default in the 2D setup
 
 # initial thermodynamic environment 
@@ -89,11 +89,12 @@ config = {
 ### PARTICLES
 # solute material of the CCNs
 # options: 'AS' (ammon. sulf.) or 'NaCl'
-'solute_type'       : 'NaCl',
+'solute_type'       : 'AS',
 
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]
-'no_spcm'           : [3, 3],
+#'no_spcm'           : [3, 3],
+'no_spcm'           : [26, 38],
 ### particle dry size distribution
 # distribution type (only 'lognormal' available)
 'dist'              : 'lognormal', 
@@ -139,9 +140,9 @@ config = {
 # for a direct simulation without spin-up:
 # set t_start_spin_up = 0, t_end_spin_up = 0, t_start_sim = 0
 't_start_spin_up'        : 0, # seconds
-'t_end_spin_up'          : 600, # seconds
-'t_start_sim'            : 600, # seconds
-'t_end_sim'              : 900, # seconds
+'t_end_spin_up'          : 7200, # seconds
+'t_start_sim'            : 7200, # seconds
+'t_end_sim'              : 10800, # seconds
 
 # advection time step (seconds),
 # this is the largest time step of the simulation
@@ -168,13 +169,10 @@ config = {
 # Long kernel modified by Bott (1997), J Atmos Sci 55, p.2284
 #'kernel_type'           : 'Long_Bott', 
 # Hall kernel modified by Bott (1997), J Atmos Sci 55, p.2284
- 'kernel_type'         : 'Hall_Bott',
+#'kernel_type'         : 'Hall_Bott',
 # constant collision kernel, set value below
-# 'kernel_type'         : 'Hydro_E_const',
-# interpolation method for the kernel,
-# only option is 'Ecol_grid_R' (depending on radius)
-'kernel_method'         : 'Ecol_grid_R',
-# this value must always be set to some float.
+'kernel_type'         : 'Hydro_E_const',
+# 'E_col_const' must always be set to some float.
 # however, it is only used for kernel_type = 'Hydro_E_const'
 'E_col_const'           : 0.5,
 # this folder should be in the same directory,
@@ -189,5 +187,13 @@ config = {
 }
 
 #%% DERIVED QUANTITIES (DO NOT SET MANUALLY)
+# interpolation method for the kernel,
+# For 'Long' or 'Hall':
+# only option is 'E_col_grid_R' (coll. eff. depending on radius)
+if config['kernel_type'] in ['Long_Bott', 'Hall_Bott']:
+    config['kernel_method'] = 'Ecol_grid_R'
+elif config['kernel_type'] == 'Hydro_E_const':
+    config['kernel_method'] = 'Ecol_const'
+
 config['no_cells'] = compute_no_grid_cells_from_step_sizes(
                          config['grid_ranges'], config['grid_steps'])

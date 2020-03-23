@@ -326,6 +326,7 @@ def load_kernel_data_Ecol(kernel_method, save_dir_Ecol_grid, E_col_const=0.5):
         E_col_grid = E_col_const
         radius_grid = None
         R_kernel_low = None
+        bin_factor_R = None
         R_kernel_low_log = None
         bin_factor_R_log = None
         no_kernel_bins = None    

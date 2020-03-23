@@ -5,8 +5,8 @@
 # adjust the number of OMP threads for numpy
 # and threads available to numba per process
 first_seed_gen=2001
-first_seed_sim=1001
-no_sims=4
+first_seed_sim=2001
+no_sims=50
 
 for ((n=0; n<$no_sims; n++))
 do
