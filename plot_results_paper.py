@@ -50,20 +50,22 @@ mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 #%% DATA AND STORAGE DIRECTORIES
 
 # parent directory of the simulation data
-simdata_path = '/Users/bohrer/sim_data_cloudMP/'
-home_path = '/Users/bohrer/'
+#simdata_path = '/Users/bohrer/sim_data_cloudMP/'
+#home_path = '/Users/bohrer/'
+simdata_path = '/home/jdesk/sim_data_cloudMP2/'
+home_path = '/home/jdesk/'
 # save figures in this directory
-fig_dir = home_path \
-          + '/OneDrive - bwedu/Paper_LCM_2019/TeX/figures4/'
+#fig_dir = home_path \
+#          + 'OneDrive - bwedu/Paper_LCM_2019/TeX/figures4/'
+fig_dir = simdata_path + 'figures2/NaCl_Hall/'
 
-#%% PARAMETERS OF CONDUCTED SIMULATIONS (as lists/tuples)
-
-gen_seed_list = (6001, 2001) # (simulation series 0, sim. series 1, ...)
-sim_seed_list = (6001, 2001) # (simulation series 0, sim. series 1, ...)
+#%% PARAMETERS OF CONDUCTED SIMULATION SERIES (as lists/tuples)
+gen_seed_list = (1001, 2001) # (simulation series 0, sim. series 1, ...)
+sim_seed_list = (1001, 2001) # (simulation series 0, sim. series 1, ...)
 
 no_cells_x_list = (75, 75)
 no_cells_z_list = (75, 75)
-solute_type_list = ['AS', 'AS']
+solute_type_list = ['AS', 'NaCl']
 
 DNC1_list = np.array((60, 60)) # droplet number conc. in mode 1
 DNC2_list = DNC1_list * 2 // 3 # droplet number conc. in mode 1
@@ -71,22 +73,21 @@ no_spcm_0_list = (26, 26) # number of SIPs in mode 1
 no_spcm_1_list = (38, 38) # number of SIPS in mode 2
 no_col_per_adv_list = (2, 2)
 
-kernel_list = ['Hall', 'Long']
+kernel_list = ['Hall', 'Hall']
 
 #%% SET SIMULATION PARAS
 # choose simulation series (index of the lists/tuples above)
-SIM_N = 0  # Hall kernel, AS
+SIM_N = 1
 
 no_sims = 50
 t_grid = 0
 t_start = 7200
 t_end = 10800
-dt = 1. # advection time step
+dt = 1. # advection time step (seconds)
 # 'with_collisions', 'wo_collisions' or 'spin_up'
 simulation_mode = 'with_collisions'
 
 #%% SET PLOTTING PARAMETERS
-
 figsize_scalar_fields = cm2inch(13.7,22.)
 figsize_spectra = cm2inch(13.3,20.)
 figsize_tg_cells = cm2inch(6.6,7)
@@ -102,9 +103,6 @@ no_cols = None
 # if set to "None" the values are loaded from stored files
 no_bins_R_p = None
 no_bins_R_s = None
-
-plot_abs = True
-plot_rel = True
 
 # time indices for scalar field frames, the default time list is
 # [ 7200  7800  8400  9000  9600 10200 10800] seconds

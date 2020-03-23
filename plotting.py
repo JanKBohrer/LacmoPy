@@ -268,7 +268,7 @@ def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
                                 edgecolor='darkorange', lw=0.5,
                                 zorder=0)
             AN_pos = (2.5E-3, 2E3)
-            ax.annotate(f'\textbf{{{annotations[plot_n]}}}',
+            ax.annotate(f'\\textbf{{{annotations[plot_n]}}}',
                     AN_pos
                     )
             LW_vline = 1
@@ -304,7 +304,7 @@ def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
             xx = ( (target_cell[0] + 0.5 )*grid_steps[0])
             height = ( (target_cell[1] + 0.5 )*grid_steps[1])
             if row_n==no_rows-1:
-                ax.set_xlabel(r'$R_p$ (si{micrometer})',
+                ax.set_xlabel(r'$R_p$ (\si{\micro\meter})',
                               fontsize = LFS)
             if col_n==0:
                 ax.set_ylabel('$f_R$ $(\si{\micro\meter^{-1}\,mg^{-1}})$',
@@ -475,18 +475,18 @@ def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
                     z_ann_shift = 30E-3
                     
                 ANS = 8
-                ax.annotate(f'\textbf{{{annotations[tg_cell_n]}}}',
+                ax.annotate(f'\\textbf{{{annotations[tg_cell_n]}}}',
                             (x-x_ann_shift,z-z_ann_shift),
                             fontsize=ANS, zorder=100,
                             )
             else:
                 x_ann_shift = 60E-3
                 z_ann_shift = 60E-3
-                ax.annotate(f'\textbf{{{annotations[tg_cell_n]}}}',
+                ax.annotate(f'\\textbf{{{annotations[tg_cell_n]}}}',
                             (x-x_ann_shift,z-z_ann_shift),
                             fontsize=8, zorder=100,
                             )
-            textbox.append(f'\textbf{{{annotations[tg_cell_n]}}}: '
+            textbox.append(f'\\textbf{{{annotations[tg_cell_n]}}}: '
                            + f'{save_times_out[tg_cell_n]//60 - 120}')
         if show_textbox:
             textbox = r'$t$ (min): quad' + ', '.join(textbox)
@@ -519,25 +519,25 @@ def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
             
 #%% PLOT SCALAR FIELDS
 def plot_scalar_field_frames_avg(grid, fields_with_time,
-                                        save_times,
-                                        field_names,
-                                        units,
-                                        scales,
-                                        solute_type,
-                                        simulation_mode, # for time in label
-                                        fig_path,
-                                        figsize,
-                                        SIM_N=None,
-                                        no_ticks=[6,6],
-                                        alpha = 1.0,
-                                        TTFS = 12, LFS = 10, TKFS = 10,
-                                        cbar_precision = 2,
-                                        show_target_cells = False,
-                                        target_cell_list = None,
-                                        show_target_cell_labels = False,
-                                        no_cells_x = 0,
-                                        no_cells_z = 0
-                                        ):
+                                 save_times,
+                                 field_names,
+                                 units,
+                                 scales,
+                                 solute_type,
+                                 simulation_mode, # for time in label
+                                 fig_path,
+                                 figsize,
+                                 SIM_N=None,
+                                 no_ticks=[6,6],
+                                 alpha = 1.0,
+                                 TTFS = 12, LFS = 10, TKFS = 10,
+                                 cbar_precision = 2,
+                                 show_target_cells = False,
+                                 target_cell_list = None,
+                                 show_target_cell_labels = False,
+                                 no_cells_x = 0,
+                                 no_cells_z = 0
+                                 ):
     for i,fm in enumerate(field_names):
         print(i,fm)
     print(save_times)
@@ -613,17 +613,17 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
                 field_max = 150.
                 xticks_major = [0,50,100,150]
                 xticks_minor = [25,75,125]                
-            if ax_title == 'n_mathrm{aero}':
+            if ax_title == 'n_\mathrm{aero}':
                 field_min = 0.0
                 field_max = 150.
                 xticks_major = [0,50,100,150]
-            if ax_title in [r'R_mathrm{avg}', r'R_{2/1}', r'R_mathrm{eff}']:
+            if ax_title in [r'R_\mathrm{avg}', r'R_{2/1}', r'R_\mathrm{eff}']:
                 xticks_major = [1,5,10,15,20]
                 field_min = 1
                 field_max = 20.
                 # Arabas 2015
                 cmap = cmap_lcpp
-                unit = r'si{micrometer}'
+                unit = r'\si{\micro\meter}'
                 
             oom_max = int(math.log10(field_max))
             
@@ -783,7 +783,7 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
                             
                             ANS = 8
                             ax.annotate(
-                                f'\textbf{{{annotations[tg_cell_n]}}}',
+                                f'\\textbf{{{annotations[tg_cell_n]}}}',
                                 (x-x_ann_shift,z-z_ann_shift),
                                 fontsize=ANS, zorder=100,
                                 )       
@@ -922,7 +922,7 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                     xticks_major = np.linspace(field_min,field_max,5)
                     # Arabas 2015
                     cmap = cmap_lcpp
-                    unit = r'si{micrometer}'
+                    unit = r'\si{\micro\meter}'
                     
             elif compare_type == 'Nsip':
                 if ax_title in ['r_r', 'n_r']: #and field_max > 1E-2:
@@ -974,7 +974,7 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                     xticks_major = np.linspace(field_min,field_max,5)
                     # Arabas 2015
                     cmap = cmap_lcpp
-                    unit = r'si{micrometer}'
+                    unit = r'\si{\micro\meter}'
             else:
                 if ax_title in ['r_r', 'n_r']: #and field_max > 1E-2:
                     norm_ = mpl.colors.Normalize
@@ -1025,7 +1025,7 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                     xticks_major = np.linspace(field_min,field_max,7)
                     # Arabas 2015
                     cmap = cmap_lcpp
-                    unit = r'si{micrometer}'
+                    unit = r'\si{\micro\meter}'
                     
             oom_max = int(math.log10(field_max))
             
@@ -1269,7 +1269,7 @@ def plot_scalar_field_frames_abs_dev_MA(grid,
                     axins.xaxis.set_ticks(xticks_minor, minor=True)
                 if ax_title in [r'R_mathrm{avg}', r'R_{2/1}',
                                 r'R_mathrm{eff}']:
-                    unit = r'si{micrometer}'                                            
+                    unit = r'\si{\micro\meter}'                                            
                 axins.set_title(r'${0}$ abs. error ({1})'.format(ax_title,
                                                                  unit))
             

@@ -24,7 +24,7 @@ from grid import compute_no_grid_cells_from_step_sizes
 config = {
 # path to parent directory for data output
 'paths' : {
-#    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP/'
+#    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP2/'
 #    'simdata' : '/Users/bohrer/sim_data_cloudMP/'
     'simdata' : '/home/jdesk/sim_data_cloudMP/'
 },

@@ -37,7 +37,7 @@ from file_handling import load_grid_and_particles_full
 #%% DATA PARENT DIRECTORY
 
 #simdata_path = '/Users/bohrer/sim_data_cloudMP/'
-simdata_path = '/vols/fs1/work/bohrer/sim_data_cloudMP/'
+simdata_path = '/vols/fs1/work/bohrer/sim_data_cloudMP2/'
 
 if len(sys.argv) > 1:
     simdata_path = sys.argv[1]
@@ -191,7 +191,7 @@ duration_spin_up = 7200 # (seconds)
 ### SET PARAMETERS FOR MOMENT GENERATION
 # number of moments
 no_moments = 4
-# at these time indices (corr. to save_times), the moments are evaluated
+# at these time indices (corresp. to 'save_times'), the moments are evaluated
 time_ind_moments = np.arange(0, 13, 2)
 
 #%% DERIVED AND FIX PARAMETERS
@@ -251,8 +251,9 @@ R_s = compute_radius_from_mass_vec(m_s, mass_density_dry)
 
 show_target_cells = True
 
+print('### evaluation and generation of plotable data starts ###')
+
 if act_gen_grid_frames_avg:
-    
 
     load_path_list = []    
 
@@ -342,7 +343,6 @@ if act_gen_grid_frames_avg:
 #%% GENERATE SPECTRA AVG 
 
 if act_gen_spectra_avg_Arabas:
-    
     
     load_path_list = []    
     no_seeds = len(seed_SIP_gen_list)
@@ -527,7 +527,6 @@ if act_get_grid_data:
 
 if act_gen_moments_all_grid_cells:
     
-    
     load_path_list = []    
 
     for seed_n in range(no_seeds):
@@ -594,3 +593,5 @@ if act_gen_moments_all_grid_cells:
     print(load_path_list[0])    
     print('time indices moments:')
     print(time_ind_moments)
+
+print('### evaluation and generation of plotable data finished ###')

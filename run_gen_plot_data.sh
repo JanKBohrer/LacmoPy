@@ -23,8 +23,8 @@
 #storage_path="/Users/bohrer/sim_data_cloudMP/" # sim data is in here
 storage_path="/vols/fs1/work/bohrer/sim_data_cloudMP/" # sim data is in here
 
-gseed=1001 # SIP generation seed
-sseed=1001 # simulation seed
+gseed=1001 # first SIP generation seed
+sseed=1001 # first simulation seed
 no_sim=50 # number of seeds
 
 # load the basic grid time t_grid.

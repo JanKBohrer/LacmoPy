@@ -266,6 +266,13 @@ f'{dist}/{gen_method}/eta_{eta:.0e}_{eta_threshold}\
 if not os.path.exists(fig_path):
     os.makedirs(fig_path) 
 
+if set_log_file:
+    if not os.path.exists(simdata_path + result_path_add):
+        os.makedirs(simdata_path + result_path_add)
+    sys.stdout = open(simdata_path + result_path_add
+                      + f'std_out_kappa_{kappa_list[0]}_{kappa_list[-1]}'
+                      + f'_dt_{int(dt)}.log', 'w')
+
 #%% E_COL/KERNEL GRID GENERATION (DISCRETIZATION)
 if act_gen_Ecol_grid and kernel_name in ["Long_Bott", "Hall_Bott"]:
     if not os.path.exists(save_dir_Ecol_grid):
@@ -363,14 +370,8 @@ if act_analyze_and_plot_ensembles:
 
 #%% SIMULATE COLLISIONS
 if act_sim:
-    if set_log_file:
-        if not os.path.exists(simdata_path + result_path_add):
-            os.makedirs(simdata_path + result_path_add)
-        sys.stdout = open(simdata_path + result_path_add
-                          + f'std_out_kappa_{kappa_list[0]}_{kappa_list[-1]}'
-                          + f'_dt_{int(dt)}.log', 'w')
-        
-#%% SIMULATION DATA LOAD
+
+    #%% SIMULATION DATA LOAD
     if kernel_method == 'kernel_grid_m':
         # convert to 1E-18 kg if mass grid is given in kg
         mass_grid = \
