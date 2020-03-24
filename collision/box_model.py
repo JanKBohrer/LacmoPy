@@ -1816,6 +1816,8 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, eta_threshold,
     gen_method: str
         generation method used for SIP-generation.
         currently only 'SinSIP' available, as defined in Unterstrasser 2017
+    dist: str
+        mass distribution. 'expo' or 'lognormal'
     start_seed: int
         random number generator seed of the first independent simulation
         of the list. simulations are identified by their seed. it is assumed
@@ -1940,8 +1942,7 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
                                          kernel_name, gen_method,
                                          dist, start_seed,
                                          moments_ref, times_ref,
-                                         sim_data_path,
-                                         result_path_add,
+                                         data_dir,
                                          figsize, figname,
                                          TTFS, LFS, TKFS):
     """Plot moments (0,2,3) of the mass distrib. for several kappa in one plot
@@ -1960,9 +1961,6 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
         'eta' parameter, which relatively defines a lower border
         for the initial allowed multiplicity size,
         as defined in Unterstrasser 2017, SingleSIP method
-    eta_threshold: str
-        either 'fix' or 'weak'. sets fix or weak threshold during SIP
-        generation, as defined in Unterstrasser 2017, SingleSIP method
     dt: float
         collision time step
     no_sims: int
@@ -1973,17 +1971,11 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
         choose applied collection kernel
         one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
         see 'kernel.py' for definitions    
-    kernel_method: str
-        choose method for coll. kernel discretization.
-        one of 'analytic', 'Ecol_grid_R' or 'kernel_grid_m'.
-        'analytic' only possible for kernel_name='Golovin'.
-        'Ecol_grid_R': discretization of coll. eff. E_col(R1,R2) based
-        on a logarit. radius grid.
-        'kernel_grid_m': discretization of coll. kernel K(m1,m2) based
-        on logarit. mass grid.     
     gen_method: str
         generation method used for SIP-generation.
         currently only 'SinSIP' available, as defined in Unterstrasser 2017
+    dist: str
+        mass distribution. 'expo' or 'lognormal'    
     start_seed: int
         random number generator seed of the first independent simulation
         of the list. simulations are identified by their seed. it is assumed
@@ -2002,9 +1994,11 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
         path to the parent directory, where simulation data is stored
         must be one level above the 'kappa'-folders.
         provide as '/path/to/directory/'
-    fig_dir: str
-        path to the directory, where figures shall be stored
-        provide as '/path/to/directory/'
+    figsize: tuple of float
+        tuple (x,y), providing the figure sizes in inch
+    figname: str
+        full path to the output plot, including the figure name
+        provide as '/path/to/directory/figure.pdf'
     TTFS: int
         title font size
     LFS: int
@@ -2019,8 +2013,7 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
     fig, axes = plt.subplots(nrows=no_rows, figsize=(figsize), sharex=True)
     
     for kappa_n,kappa in enumerate(kappa_list):
-        load_dir = sim_data_path \
-                   + result_path_add + f'kappa_{kappa}/dt_{int(dt)}/'
+        load_dir = data_dir + f'kappa_{kappa}/dt_{int(dt)}/'
         save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
         moments_vs_time_avg = \
             np.load(load_dir
@@ -2184,6 +2177,62 @@ def plot_g_ln_R_for_given_kappa(kappa,
                                 load_dir,
                                 figsize, figname,
                                 LFS):
+    """Plot log. size distribution g_ln(R) for one kappa
+    
+    The plotting format is the one used in the GMD publication
+    Loads analyzed data and generates plot file
+    '{kernel}_g_ln_R_vs_R_kappa{...}.pdf'
+    
+    Parameters
+    ----------
+    kappa: float
+        'kappa' parameter, which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    dt: float
+        collision time step
+    no_sims: int
+        number of independent simulation runs
+    start_seed: int
+        random number generator seed of the first independent simulation
+        of the list. simulations are identified by their seed. it is assumed
+        that all 'no_sims' simulations, which are considered in the
+        statistical analysis have seeds
+        [start_seed, start_seed+2, start_seed+4, ...]          
+    no_bins: int
+        number of bins for the binning of SIPs
+    DNC0: float
+        initial droplet number concentration (1/m^3)
+    m_mean: float
+        initial 'mean mass' of the mass distribution.
+        for exponential distr. this is by default calculated by
+        m_mean = c_radius_to_mass * R_mean**3, where R_mean is set by user
+    kernel_name: str
+        choose applied collection kernel
+        one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
+        see 'kernel.py' for definitions
+    gen_method: str
+        generation method used for SIP-generation.
+        currently only 'SinSIP' available, as defined in Unterstrasser 2017        
+    time_idx: ndarray, dtype=int
+        1D array of indices, defining, which times from
+        the 'save_times'-array shall be plotted.
+    load_dir: str
+        path to the directory, where simulation data is stored
+        provide as '/path/to/directory/'        
+    figsize: tuple of float
+        tuple (x,y), providing the figure sizes in inch
+    figname: str
+        full path to the output plot, including the figure name
+        provide as '/path/to/directory/figure.pdf'
+    LFS: int
+        label font size
+    
+    """
+    
     fn_end = f'no_sims_{no_sims}_no_bins_{no_bins}.npy'
     bG = 1.5 # K = b * (m1 + m2) # b in m^3/(fg s)
     save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
@@ -2291,6 +2340,68 @@ def plot_g_ln_R_kappa_compare(kappa1, kappa2,
                               kernel_name, gen_method, time_idx,
                               load_dir_k1, load_dir_k2,
                               figsize, figname_compare, LFS):
+    """Plot log. size distribution g_ln(R) for two kappa below each other
+    
+    The plotting format is the one used in the GMD publication
+    Loads analyzed data and generates plot file
+    '{kernel}_g_ln_R_vs_R_kappa_comp_{kappa1}_{kappa2}.pdf'
+    
+    Parameters
+    ----------
+    kappa1: float
+        first 'kappa' param., which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method
+    kappa2: float
+        second 'kappa' param., which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    dt: float
+        collision time step
+    no_sims: int
+        number of independent simulation runs
+    start_seed: int
+        random number generator seed of the first independent simulation
+        of the list. simulations are identified by their seed. it is assumed
+        that all 'no_sims' simulations, which are considered in the
+        statistical analysis have seeds
+        [start_seed, start_seed+2, start_seed+4, ...]          
+    no_bins: int
+        number of bins for the binning of SIPs
+    DNC0: float
+        initial droplet number concentration (1/m^3)
+    m_mean: float
+        initial 'mean mass' of the mass distribution.
+        for exponential distr. this is by default calculated by
+        m_mean = c_radius_to_mass * R_mean**3, where R_mean is set by user
+    kernel_name: str
+        choose applied collection kernel
+        one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
+        see 'kernel.py' for definitions
+    gen_method: str
+        generation method used for SIP-generation.
+        currently only 'SinSIP' available, as defined in Unterstrasser 2017
+    time_idx: ndarray, dtype=int
+        1D array of indices, defining, which times from
+        the 'save_times'-array shall be plotted.
+    load_dir_k1: str
+        path to the directory, where simulation data for 'kappa1' is stored
+        provide as '/path/to/directory/'        
+    load_dir_k2: str
+        path to the directory, where simulation data for 'kappa2' is stored
+        provide as '/path/to/directory/'        
+    figsize: tuple of float
+        tuple (x,y), providing the figure sizes in inch
+    figname_compare: str
+        full path to the output plot, including the figure name
+        provide as '/path/to/directory/figure.pdf'
+    LFS: int
+        label font size
+    
+    """   
+    
     bG = 1.5 # K = b * (m1 + m2) # b in m^3/(fg s)
     save_times = np.load(load_dir_k1 + f'save_times_{start_seed}.npy')
 

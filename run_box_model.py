@@ -140,7 +140,7 @@ eta_threshold = 'fix'
 
 dV = 1.0 # box volume in m^3
 
-### for EXPO dist: set r0 and LWC0 analog to Unterstrasser 2017
+### for expo dist: set r0 and LWC0 analog to Unterstrasser 2017
 # -> DNC0 (droplet number conc.) will be calculated from that
 if dist == 'expo':
     LWC0 = 1E-3 # liquid water content (kg/m^3)
@@ -522,6 +522,7 @@ if act_plot_moments_kappa_var_paper:
     moments_ref = np.loadtxt(ref_data_path + "Wang_2007_moments.txt")
     times_ref = np.loadtxt(ref_data_path + "Wang_2007_times.txt")
     
+    data_dir = simdata_path + result_path_add
     figname = fig_path \
             + f"{kernel_name}_moments_vs_time_" \
             + f"kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"    
@@ -530,8 +531,7 @@ if act_plot_moments_kappa_var_paper:
                                               kernel_name, gen_method,
                                               dist, start_seed,
                                               moments_ref, times_ref,
-                                              simdata_path,
-                                              result_path_add,
+                                              data_dir,
                                               figsize, figname,
                                               TTFS, LFS, TKFS)
 

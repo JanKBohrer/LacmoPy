@@ -2,6 +2,7 @@ PATHS, DIRS, FOLDERS, NAMES
 
 figdir = "/home/jdesk/Masterthesis/Figures/03Particles/"
 figname = "Seq_vs_Rp.pdf"
+folder = "03Particles"
 
 figpath = figdir + figname
 
