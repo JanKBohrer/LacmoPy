@@ -607,7 +607,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
         ax.set_ylim((1.0E-4,1.0E8))
     ax.grid()
     
-    ax.set_xlabel(r'radius ($mathrm{mu m}$)')
+    ax.set_xlabel(r'radius ($\mathrm{\mu m}$)')
     ax.set_ylabel(r'mean multiplicity per SIP')
     
     fig.tight_layout()
@@ -655,7 +655,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('mass (kg)')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$')
     
     fig.tight_layout()
     
@@ -687,7 +687,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('mass (kg)')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$')
     
     ax = axes[1]
     ax.plot(bins_mass_center_exact, g_m_num_sampled, 'x')
@@ -695,15 +695,15 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('mass (kg)')
-    ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+    ax.set_ylabel(r'$g_m$ $\mathrm{(m^{-3})}$')
     
     ax = axes[2]
     ax.plot(bins_rad_center_exact, g_ln_r_num_sampled*1000.0, 'x')
     ax.plot(R_, g_ln_r_ana_)
     ax.set_yscale('log')
     ax.set_xscale('log')
-    ax.set_xlabel('radius $mathrm{(mu m)}$')
-    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    ax.set_xlabel('radius $\mathrm{(\mu m)}$')
+    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
     # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
@@ -720,7 +720,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('mass (kg)')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$  [my lin fit]')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$  [my lin fit]')
     ax.grid()
     
     ax = axes[4]
@@ -735,7 +735,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.xaxis.set_ticks([0,1,2,3])
     ax.set_xlabel('$k$')
     # ax.set_ylabel(r'($k$-th moment of $f_m$)/(analytic value)')
-    ax.set_ylabel(r'$lambda_k / lambda_{k,analytic}$')
+    ax.set_ylabel(r'$\lambda_k / \lambda_{k,analytic}$')
     
     for ax in axes[:2]:
         ax.grid()
@@ -803,7 +803,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
         ax.set_ylim((f_m_ana_[-1],1.0E21))
     # ax.set_ylim((1.0E6,1.0E21))
     ax.set_xlabel('mass (kg) [exact centers]')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$')
     ax = axes[1]
     ax.errorbar(bins_mass_center_exact,
                 # bins_mass_width,
@@ -824,7 +824,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
         # ax.set_ylim((1.0E-4,3.0E8))
         ax.set_ylim((g_m_ana_[-1],3.0E8))
         ax.set_xlabel('mass (kg) [exact centers]')
-        ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+        ax.set_ylabel(r'$g_m$ $\mathrm{(m^{-3})}$')
     ax = axes[2]
     ax.errorbar(bins_rad_center_exact,
                 # bins_mass_width,
@@ -840,8 +840,8 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.plot(R_, g_ln_r_ana_)
     ax.set_yscale('log')
     ax.set_xscale('log')
-    ax.set_xlabel('radius $mathrm{(mu m)}$ [exact centers]')
-    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    ax.set_xlabel('radius $\mathrm{(\mu m)}$ [exact centers]')
+    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
     # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
@@ -872,7 +872,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
         # ax.set_ylim((1.0E6,1.0E21))
         ax.set_ylim((f_m_ana_[-1],1.0E21))
     ax.set_xlabel('mass (kg) [my lin fit centers]')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$  [my lin fit]')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$  [my lin fit]')
     ax.grid()
     
     ax = axes[4]
@@ -887,7 +887,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.xaxis.set_ticks([0,1,2,3])
     ax.set_xlabel('$k$')
     # ax.set_ylabel(r'($k$-th moment of $f_m$)/(analytic value)')
-    ax.set_ylabel(r'$lambda_k / lambda_{k,mathrm{analytic}}$')
+    ax.set_ylabel(r'$\lambda_k / \lambda_{k,\mathrm{analytic}}$')
     
     for ax in axes[:2]:
         ax.grid()
@@ -934,7 +934,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
         ax.set_ylim((f_m_ana_[-1],1.0E21))
     # ax.set_ylim((1.0E6,1.0E21))
     ax.set_xlabel('mass (kg) [exact centers]')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$')
     ax = axes[1]
     ax.errorbar(bins_mass_center_exact,
                 # bins_mass_width,
@@ -955,7 +955,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
         # ax.set_ylim((1.0E-4,3.0E8))
         ax.set_ylim((g_m_ana_[-1],3.0E8))
         ax.set_xlabel('mass (kg) [exact centers]')
-        ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+        ax.set_ylabel(r'$g_m$ $\mathrm{(m^{-3})}$')
     ax = axes[2]
     ax.errorbar(bins_rad_center_exact,
                 # bins_mass_width,
@@ -971,8 +971,8 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.plot(R_, g_ln_r_ana_)
     ax.set_yscale('log')
     ax.set_xscale('log')
-    ax.set_xlabel('radius $mathrm{(mu m)}$ [exact centers]')
-    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    ax.set_xlabel('radius $\mathrm{(\mu m)}$ [exact centers]')
+    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
     # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
@@ -1003,7 +1003,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
         # ax.set_ylim((1.0E6,1.0E21))
         ax.set_ylim((f_m_ana_[-1],1.0E21))
     ax.set_xlabel('mass (kg) [my lin fit centers]')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$  [my lin fit]')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$  [my lin fit]')
     ax.grid()
     
     ax = axes[4]
@@ -1018,7 +1018,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.xaxis.set_ticks([0,1,2,3])
     ax.set_xlabel('$k$')
     # ax.set_ylabel(r'($k$-th moment of $f_m$)/(analytic value)')
-    ax.set_ylabel(r'$lambda_k / lambda_{k,mathrm{analytic}}$')
+    ax.set_ylabel(r'$\lambda_k / \lambda_{k,\mathrm{analytic}}$')
     
     for ax in axes[:2]:
         ax.grid()
@@ -1358,7 +1358,6 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
     Analyzes the loaded data statistically and writes files with statistical
     data to hard disc.
 
-    
     Parameters
     ----------
     kappa: float
@@ -1588,8 +1587,66 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
     
 def plot_for_given_kappa(kappa, eta, eta_threshold,
                          dt, no_sims, start_seed, no_bins,
-                         kernel_name, kernel_method, gen_method, bin_method,
+                         kernel_name, kernel_method, gen_method,
                          moments_ref, times_ref, load_dir):
+    """Plot size distributions and moments 0-3 for one given kappa
+    
+    Loads analyzed data and generates plot files
+    'fm_gm_glnr_vs_t_{...}.png' and 'moments_vs_time_{...}.png'
+    
+    Parameters
+    ----------
+    kappa: float
+        'kappa' parameter, which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    eta_threshold: str
+        either 'fix' or 'weak'. sets fix or weak threshold during SIP
+        generation, as defined in Unterstrasser 2017, SingleSIP method
+    dt: float
+        collision time step
+    no_sims: int
+        number of independent simulation runs
+    start_seed: int
+        random number generator seed of the first independent simulation
+        of the list. simulations are identified by their seed. it is assumed
+        that all 'no_sims' simulations, which are considered in the
+        statistical analysis have seeds
+        [start_seed, start_seed+2, start_seed+4, ...]
+    no_bins: int
+        number of bins for the binning of SIPs
+    kernel_name: str
+        choose applied collection kernel
+        one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
+        see 'kernel.py' for definitions    
+    kernel_method: str
+        choose method for coll. kernel discretization.
+        one of 'analytic', 'Ecol_grid_R' or 'kernel_grid_m'.
+        'analytic' only possible for kernel_name='Golovin'.
+        'Ecol_grid_R': discretization of coll. eff. E_col(R1,R2) based
+        on a logarit. radius grid.
+        'kernel_grid_m': discretization of coll. kernel K(m1,m2) based
+        on logarit. mass grid.     
+    gen_method: str
+        generation method used for SIP-generation.
+        currently only 'SinSIP' available, as defined in Unterstrasser 2017
+    moments_ref: ndarray, dtype=float
+        2D array[[],[],..], where moments_ref[n] is a 1D array, providing
+        mass distri. moment 'n' with time corresponding to times_ref
+        Note that for Long and Hall kernel, bin model ref. data of Wang 2007
+        is provided in /collision/ref_data/, while for the Golovin kernel,
+        dummy files are used and moments vs time are calculated analytically
+    times_ref: ndarray, dtype=float
+        1D array with times, for which the reference moments are given
+    load_dir: str
+        path to the directory, where simulation data is stored
+        provide as '/path/to/directory/'
+    
+    """ 
+    
     save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
     no_times = len(save_times)
     
@@ -1625,7 +1682,7 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('mass (kg)')
-    ax.set_ylabel(r'$f_m$ $mathrm{(kg^{-1} , m^{-3})}$')
+    ax.set_ylabel(r'$f_m$ $\mathrm{(kg^{-1} \, m^{-3})}$')
     if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(-15,-5,11) )
         ax.set_yticks( np.logspace(5,21,17) )
@@ -1637,7 +1694,7 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     ax.set_xscale('log')
     ax.set_yscale('log')
     ax.set_xlabel('mass (kg)')
-    ax.set_ylabel(r'$g_m$ $mathrm{(m^{-3})}$')
+    ax.set_ylabel(r'$g_m$ $\mathrm{(m^{-3})}$')
     if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(-15,-5,11) )
         ax.set_yticks( np.logspace(-2,9,12) )
@@ -1649,8 +1706,8 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
                 g_ln_r_num_avg_vs_time[time_n]*1000.0)
     ax.set_yscale('log')
     ax.set_xscale('log')
-    ax.set_xlabel('radius $mathrm{(mu m)}$')
-    ax.set_ylabel(r'$g_{ln(r)}$ $mathrm{(g ; m^{-3})}$')
+    ax.set_xlabel('radius $\mathrm{(\mu m)}$')
+    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
     if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(0,3,4) )
         ax.set_xlim([1.0,2.0E3])
@@ -1667,7 +1724,7 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     fig.suptitle(f'dt={dt}, kappa={kappa}, eta={eta:.0e} ({eta_threshold}), '
                  + f'no_sims={no_sims}, no_bins={no_bins}\n'
                  + f'gen_method={gen_method}, kernel={kernel_name}, '
-                 + f'kernel_method={kernel_method}, bin_method={bin_method}')
+                 + f'kernel_method={kernel_method}')
     fig.tight_layout()
     plt.subplots_adjust(top=0.95)
     fig.savefig(load_dir + fig_name)
@@ -1704,7 +1761,7 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     fig.suptitle(f'dt={dt}, kappa={kappa}, eta={eta:.0e} ({eta_threshold}), '
                  + f'no_sims={no_sims}, no_bins={no_bins}\n'
                  + f'gen_method={gen_method}, kernel={kernel_name}, '
-                 + f'kernel_method={kernel_method}, bin_method={bin_method}')        
+                 + f'kernel_method={kernel_method}')
     fig.tight_layout()
     plt.subplots_adjust(top=0.95)
     fig.savefig(load_dir + fig_name)
@@ -1712,14 +1769,83 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
 
 #%% PLOT MOMENTS VS TIME for several kappa
 
-# TTFS, LFS, TKFS: title, labels, ticks font size
-def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
-                                   kernel_name, gen_method,
+def plot_moments_vs_time_kappa_var(kappa_list, eta, eta_threshold,
+                                   dt, no_sims, no_bins,
+                                   kernel_name, kernel_method,
+                                   gen_method,
                                    dist, start_seed,
                                    moments_ref, times_ref,
-                                   sim_data_path,
-                                   result_path_add,
+                                   data_dir,
                                    fig_dir, TTFS, LFS, TKFS):
+    """Plot moments 0-3 of the mass distrib. for several kappa in one plot
+    
+    Loads analyzed data and generates plot file
+    'moments_vs_time_kappa_var_{...}.pdf'
+    
+    Parameters
+    ----------
+    kappa_list: list of int
+        list of 'kappa' parameters, which define the number of SIPs
+        per simulation box, as defined in Unterstrasser 2017, SingleSIP
+        method. All 'kappa' in 'kappa_list' will be plotted in the same plot
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    eta_threshold: str
+        either 'fix' or 'weak'. sets fix or weak threshold during SIP
+        generation, as defined in Unterstrasser 2017, SingleSIP method
+    dt: float
+        collision time step
+    no_sims: int
+        number of independent simulation runs
+    no_bins: int
+        number of bins for the binning of SIPs
+    kernel_name: str
+        choose applied collection kernel
+        one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
+        see 'kernel.py' for definitions    
+    kernel_method: str
+        choose method for coll. kernel discretization.
+        one of 'analytic', 'Ecol_grid_R' or 'kernel_grid_m'.
+        'analytic' only possible for kernel_name='Golovin'.
+        'Ecol_grid_R': discretization of coll. eff. E_col(R1,R2) based
+        on a logarit. radius grid.
+        'kernel_grid_m': discretization of coll. kernel K(m1,m2) based
+        on logarit. mass grid.     
+    gen_method: str
+        generation method used for SIP-generation.
+        currently only 'SinSIP' available, as defined in Unterstrasser 2017
+    start_seed: int
+        random number generator seed of the first independent simulation
+        of the list. simulations are identified by their seed. it is assumed
+        that all 'no_sims' simulations, which are considered in the
+        statistical analysis have seeds
+        [start_seed, start_seed+2, start_seed+4, ...]        
+    moments_ref: ndarray, dtype=float
+        2D array[[],[],..], where moments_ref[n] is a 1D array, providing
+        mass distri. moment 'n' with time corresponding to times_ref
+        Note that for Long and Hall kernel, bin model ref. data of Wang 2007
+        is provided in /collision/ref_data/, while for the Golovin kernel,
+        dummy files are used and moments vs time are calculated analytically
+    times_ref: ndarray, dtype=float
+        1D array with times, for which the reference moments are given
+    data_dir: str
+        path to the parent directory, where simulation data is stored
+        must be one level above the 'kappa'-folders.
+        provide as '/path/to/directory/'
+    fig_dir: str
+        path to the directory, where figures shall be stored
+        provide as '/path/to/directory/'
+    TTFS: int
+        title font size
+    LFS: int
+        label font size
+    TKFS: int
+        tick label font size
+    
+    """
+    
     no_kappas = len(kappa_list)
     
     fig_name = f'moments_vs_time_kappa_var_{no_kappas}'
@@ -1730,7 +1856,7 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                              sharex=True)
     
     for kappa_n,kappa in enumerate(kappa_list):
-        load_dir = sim_data_path + result_path_add \
+        load_dir = data_dir \
                    + f'kappa_{kappa}/dt_{int(dt)}/'
         save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
         moments_vs_time_avg = np.load(load_dir +
@@ -1756,7 +1882,7 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
         if i == 1:
             ax.legend(loc='lower left', bbox_to_anchor=(0.0, 0.05),
                       fontsize=TKFS)
-        ax.set_xticks(save_times/60)
+        ax.set_xticks(save_times[::2]/60)
         ax.set_xlim([save_times[0]/60, save_times[-1]/60])
         ax.tick_params(which='both', bottom=True, top=True,
                        left=True, right=True
@@ -1765,14 +1891,14 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
                        width=2, size=10)
         ax.tick_params(axis='both', which='minor', labelsize=TKFS,
                        width=1, size=6)
-    axes[-1].set_xlabel('time (min)',fontsize=LFS)
-    axes[0].set_ylabel(r'$lambda_0$ = DNC $(mathrm{m^{-3}})$ ',
+    axes[-1].set_xlabel('Time (min)',fontsize=LFS)
+    axes[0].set_ylabel(r'$\lambda_0$ = DNC $(\mathrm{m^{-3}})$ ',
                        fontsize=LFS)
-    axes[1].set_ylabel(r'$lambda_1$ = LWC $(mathrm{kg , m^{-3}})$ ',
+    axes[1].set_ylabel(r'$\lambda_1$ = LWC $(\mathrm{kg \, m^{-3}})$ ',
                        fontsize=LFS)
-    axes[2].set_ylabel(r'$lambda_2$ $(mathrm{kg^2 , m^{-3}})$ ',
+    axes[2].set_ylabel(r'$\lambda_2$ $(\mathrm{kg^2 \, m^{-3}})$ ',
                        fontsize=LFS)
-    axes[3].set_ylabel(r'$lambda_3$ $(mathrm{kg^3 , m^{-3}})$ ',
+    axes[3].set_ylabel(r'$\lambda_3$ $(\mathrm{kg^3 \, m^{-3}})$ ',
                        fontsize=LFS)
     if kernel_name == 'Golovin':
         axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
@@ -1798,16 +1924,17 @@ def plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
             axes[3].set_xticks(save_times[::2]/60)
     title=\
         f'Moments of the distribution for various $kappa$ (see legend)\n' \
-        + f'dt={dt:.1e}, eta={eta:.0e}, r_critmin=0.6, no_sims={no_sims}, ' \
-        + f'gen_method={gen_method}, kernel={kernel_name}'
+        + f'dt={dt:.1e}, eta={eta:.0e} ({eta_threshold}), ' \
+        + f'r_critmin=0.6, no_sims={no_sims}, ' \
+        + f'gen_method={gen_method},\n' \
+        + f'kernel={kernel_name}, kernel_method={kernel_method}'
     fig.suptitle(title, fontsize=TTFS, y = 0.997)
     fig.tight_layout()
     plt.subplots_adjust(top=0.965)
     fig.savefig(fig_dir + fig_name)
     plt.close('all')
 
-#%% plot moments 0, 2 and 3 of the mass distribution vs time for several kappa
-# in the same plot. formatting as in the GMD publication    
+#%% PLOT moments 0, 2 and 3 for several kappa as in GMD publication
     
 def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
                                          kernel_name, gen_method,
@@ -1817,6 +1944,76 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
                                          result_path_add,
                                          figsize, figname,
                                          TTFS, LFS, TKFS):
+    """Plot moments (0,2,3) of the mass distrib. for several kappa in one plot
+    
+    The plotting format is the one used in the GMD publication
+    Loads analyzed data and generates plot file
+    '{kernel}_moments_vs_time_kappa_{...}.pdf'
+    
+    Parameters
+    ----------
+    kappa_list: list of int
+        list of 'kappa' parameters, which define the number of SIPs
+        per simulation box, as defined in Unterstrasser 2017, SingleSIP
+        method. All 'kappa' in 'kappa_list' will be plotted in the same plot
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    eta_threshold: str
+        either 'fix' or 'weak'. sets fix or weak threshold during SIP
+        generation, as defined in Unterstrasser 2017, SingleSIP method
+    dt: float
+        collision time step
+    no_sims: int
+        number of independent simulation runs
+    no_bins: int
+        number of bins for the binning of SIPs
+    kernel_name: str
+        choose applied collection kernel
+        one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
+        see 'kernel.py' for definitions    
+    kernel_method: str
+        choose method for coll. kernel discretization.
+        one of 'analytic', 'Ecol_grid_R' or 'kernel_grid_m'.
+        'analytic' only possible for kernel_name='Golovin'.
+        'Ecol_grid_R': discretization of coll. eff. E_col(R1,R2) based
+        on a logarit. radius grid.
+        'kernel_grid_m': discretization of coll. kernel K(m1,m2) based
+        on logarit. mass grid.     
+    gen_method: str
+        generation method used for SIP-generation.
+        currently only 'SinSIP' available, as defined in Unterstrasser 2017
+    start_seed: int
+        random number generator seed of the first independent simulation
+        of the list. simulations are identified by their seed. it is assumed
+        that all 'no_sims' simulations, which are considered in the
+        statistical analysis have seeds
+        [start_seed, start_seed+2, start_seed+4, ...]        
+    moments_ref: ndarray, dtype=float
+        2D array[[],[],..], where moments_ref[n] is a 1D array, providing
+        mass distri. moment 'n' with time corresponding to times_ref
+        Note that for Long and Hall kernel, bin model ref. data of Wang 2007
+        is provided in /collision/ref_data/, while for the Golovin kernel,
+        dummy files are used and moments vs time are calculated analytically
+    times_ref: ndarray, dtype=float
+        1D array with times, for which the reference moments are given
+    data_dir: str
+        path to the parent directory, where simulation data is stored
+        must be one level above the 'kappa'-folders.
+        provide as '/path/to/directory/'
+    fig_dir: str
+        path to the directory, where figures shall be stored
+        provide as '/path/to/directory/'
+    TTFS: int
+        title font size
+    LFS: int
+        label font size
+    TKFS: int
+        tick label font size
+    
+    """
+    
     no_rows = 3
     
     fig, axes = plt.subplots(nrows=no_rows, figsize=(figsize), sharex=True)
@@ -1845,7 +2042,7 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
             else:
                 lab = f'{float(kappa*5):.2}'
             axes[ax_n].plot(save_times/60, moments_vs_time_avg[:,i],fmt,
-                            label=f'\num{{{lab}}}',
+                            label=f'\\num{{{lab}}}',
                             lw=1.2,
                             ms=5,                        
                             mew=0.8,
@@ -1857,7 +2054,7 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
 #                                moments_vs_time_avg[:,i],
 #                                moments_vs_time_std[:,i],
 #                                fmt=fmt,
-#                                label=f'\num{{{lab}}}',
+#                                label=f'\\num{{{lab}}}',
 #                                lw=1.2,
 #                                ms=5,                        
 #                                mew=0.5,
@@ -1919,11 +2116,11 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
         ax.tick_params(axis='both', which='minor', labelsize=TKFS,
                        width=0.6, size=2, labelleft=False)
     axes[-1].set_xlabel('Time (min)',fontsize=LFS)
-    axes[0].set_ylabel(r'$lambda_0$ = DNC $(mathrm{m^{-3}})$ ',
+    axes[0].set_ylabel(r'$\lambda_0$ = DNC $(\mathrm{m^{-3}})$ ',
                        fontsize=LFS)
-    axes[1].set_ylabel(r'$lambda_2$ $(mathrm{kg^2 , m^{-3}})$ ',
+    axes[1].set_ylabel(r'$\lambda_2$ $(\mathrm{kg^2 \, m^{-3}})$ ',
                        fontsize=LFS)
-    axes[2].set_ylabel(r'$lambda_3$ $(mathrm{kg^3 , m^{-3}})$ ',
+    axes[2].set_ylabel(r'$\lambda_3$ $(\mathrm{kg^3 \, m^{-3}})$ ',
                        fontsize=LFS)
     if kernel_name == 'Golovin':
         axes[0].set_yticks([1.0E6,1.0E7,1.0E8,1.0E9])
@@ -2062,8 +2259,8 @@ def plot_g_ln_R_for_given_kappa(kappa,
                 linewidth = 2,
                 markersize = 3, mew=0.4)                
     
-    ax.set_xlabel('Radius ($si{micrometer}$)')
-    ax.set_ylabel(r'$g_{ln(R)}$ $mathrm{(g ; m^{-3})}$')
+    ax.set_xlabel('Radius ($\si{\micro\meter}$)')
+    ax.set_ylabel(r'$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$')
     if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(0,3,4) )
         ax.set_xlim([1.0,2.0E3])
@@ -2190,9 +2387,9 @@ def plot_g_ln_R_kappa_compare(kappa1, kappa2,
             ax.set_ylim([1.0E-4,10.0])
         ax.grid(which='major')
         
-    axes[1].set_xlabel('Radius ($si{micrometer}$)')
-    axes[0].set_ylabel(r'$g_{ln(R)}$ $mathrm{(g ; m^{-3})}$')            
-    axes[1].set_ylabel(r'$g_{ln(R)}$ $mathrm{(g ; m^{-3})}$')            
+    axes[1].set_xlabel('Radius ($\si{\micro\meter}$)')
+    axes[0].set_ylabel(r'$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$')            
+    axes[1].set_ylabel(r'$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$')            
     
     axes[0].legend(ncol=7, handlelength=0.8, handletextpad=0.2,
                       columnspacing=0.8, borderpad=0.15, loc='upper center',

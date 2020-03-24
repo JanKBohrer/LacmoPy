@@ -88,6 +88,18 @@ pgf_dict = {
 #    'pgf.rcfonts': False,   # Do not set up fonts from rc parameters.
     'pgf.texsystem': 'pdflatex',
     'pgf.preamble': [
+        r'\usepackage[T1]{fontenc}',
+        r'\usepackage[]{siunitx}',
+        ],
+    'font.family': 'serif'
+}
+
+# matplotlib rcParams dict. for pgf backend -> set mpl.use('pgf')
+pgf_dict_libertine = {
+    'text.usetex': True,
+#    'pgf.rcfonts': False,   # Do not set up fonts from rc parameters.
+    'pgf.texsystem': 'pdflatex',
+    'pgf.preamble': [
         r'\usepackage[ttscale=.9]{libertine}',
         r'\usepackage[libertine]{newtxmath}',
         r'\usepackage[T1]{fontenc}',

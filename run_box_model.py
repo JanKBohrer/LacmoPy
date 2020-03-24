@@ -47,7 +47,7 @@ from plotting import cm2inch, generate_rcParams_dict, pgf_dict
 #%% SET PARAMETERS 
 # parent directory, where simulation data and ensembles are stored
 #simdata_path = '/Users/bohrer/sim_data_box_mod_test/'
-simdata_path = '/home/jdesk/sim_data_col_box_mod/'
+simdata_path = '/home/jdesk/sim_data_col_box_model2/'
 
 set_log_file = True
 #set_log_file = False
@@ -72,9 +72,9 @@ args_gen = [0,0,0,0]
 # i = 6: act. plotting of g_ln_R vs. R for two specific kappa as in the GMD pub
 #args_sim = [1,1,1,1,0,0]
 #args_sim = [0,0,0,0,0,0,0]
-#args_sim = [0,0,0,1,1,1,1]
+args_sim = [0,0,1,1,1,1,1]
 #args_sim = [0,0,0,0,0,0,1]
-args_sim = [1,1,1,1,1,1,1]
+#args_sim = [1,1,1,1,1,1,1]
 
 ###############################################################################
 ### SET PARAMETERS FOR SIMULATION OF COLLISION BOX MODEL
@@ -82,12 +82,12 @@ args_sim = [1,1,1,1,1,1,1]
 # the number of super-particles is approximatetly 5*kappa for the chosen 
 # init. method
 #kappa_list = [7,14]
-kappa_list = [5,10,20,40,80]
+kappa_list = [5,10,20,40,60,100,200]
 #kappa_list = [5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 # number of independent simulation per kappa value
 #no_sims = 10
-no_sims = 50
+no_sims = 500
 # random number seed of the first simulation. the following simulations,
 # get seeds 'start_seed'+2 , 'start_seed'+4, ...
 # it is also possible to set an individual "seed_list"
@@ -105,8 +105,8 @@ kernel_name = 'Golovin'
 # choose 'Ecol_grid_R' (discretize coll. efficiency of radius E_col(R1,R2))
 # or 'kernel_grid_m' (discretize whole kernel function K(m1,m2) for masses)
 # 'kernel_grid_m' is faster, 'Ecol_grid_R' uses less approximation
-kernel_method = 'analytic'
-#kernel_method = 'Ecol_grid_R'
+#kernel_method = 'analytic'
+kernel_method = 'Ecol_grid_R'
 #kernel_method = 'kernel_grid_m'
 
 # For Golovin kernel, only analytic is possible
@@ -116,9 +116,6 @@ if kernel_name == 'Golovin':
 dt = 1.0 # seconds
 dt_save = 150.0 # interval for data output (seconds)
 t_end = 3600.0 # simulation time (seconds)
-
-# binning of ensemble data: only avail. option: 'auto_bin'
-bin_method_sim_data = 'auto_bin'
 
 # directory, where figures in the style of the GMD publication are stored
 # note that additional figures are created in the automatically generated
@@ -192,8 +189,10 @@ overflow_factor = 2.0
 ### SET PARAMETERS FOR PLOTTING
 
 # g_ln_R vs R is plotted for two different kappas, if activated above
-kappa1 = kappa_list[0]
-kappa2 = kappa_list[1]
+kappa1 = 10
+kappa2 = 200
+#kappa1 = kappa_list[0]
+#kappa2 = kappa_list[1]
 
 ###############################################################################
 ### SET PARAMETERS FOR KERNEL/ECOL-GRID GENERATION AND LOADING
@@ -468,7 +467,6 @@ if act_plot_for_given_kappa:
         boxm.plot_for_given_kappa(kappa, eta, eta_threshold,
                                   dt, no_sims, start_seed, no_bins,
                                   kernel_name, kernel_method, gen_method,
-                                  bin_method_sim_data,
                                   moments_ref, times_ref,
                                   load_dir)
 
@@ -487,14 +485,15 @@ if act_plot_moments_kappa_var:
         for mom_n in range(4):
             moments_ref[mom_n] = \
                 compute_moments_Golovin(times_ref, mom_n, DNC0, LWC0, bG)
-        
+    data_dir = simdata_path + result_path_add
     fig_dir = simdata_path + result_path_add
-    boxm.plot_moments_vs_time_kappa_var(kappa_list, eta, dt, no_sims, no_bins,
-                                        kernel_name, gen_method,
+    boxm.plot_moments_vs_time_kappa_var(kappa_list, eta, eta_threshold,
+                                        dt, no_sims, no_bins,
+                                        kernel_name, kernel_method,
+                                        gen_method,
                                         dist, start_seed,
                                         moments_ref, times_ref,
-                                        simdata_path,
-                                        result_path_add,
+                                        data_dir,                                        
                                         fig_dir, TTFS, LFS, TKFS)
 
 #%% GMD PAPER PLOTS
