@@ -41,6 +41,33 @@ from file_handling import load_kernel_data_Ecol
 #%% CONFIG FILE PROCESSING
 
 def set_config(config, config_mode):
+    """
+    Parameters
+    ----------
+    config: dict
+        Dictionary, holding the configuration parameters
+    config_mode: str
+        Configuration variables are set depending on this mode.
+        One of
+        'generation' (of particles and grid)
+        'spin_up' (without gravity, collisions and relaxation)
+        'simulation' (with gravity, collisions and relaxation)
+
+    Returns
+    -------
+    E_col_grid: ndarray, dtype=float
+        1D array of collision efficiencies corresponding to a
+        logarithmic radius grid
+    no_cols: ndarray, shape=(2,), dtype=int
+        Counts the collisions
+        no_cols[0] = number of ordinary collision,
+        no_cols[1] = number of multiple collision event
+    water removed: ndarray, shape=(1,), dtype=float
+        1D array holding only one value, which counts the water removed
+        from the simulation domain by sedimentation
+        
+    """
+    
     config['no_spcm'] = np.array(config['no_spcm'])
     no_spcm = config['no_spcm']
     no_cells = config['no_cells']
@@ -180,43 +207,111 @@ def set_config(config, config_mode):
 
 #%% KINEMATIC MASS FLUX FIELD
 
-# stream function
 pi_inv = 1.0/np.pi
-def compute_stream_function(x_, z_, j_max_, x_domain_, z_domain_):
-    return -j_max_ * x_domain_ * pi_inv * np.sin(np.pi * z_ / z_domain_)\
-
-# dry mass flux  j_d = rho_d * vel
-# Z = domain height z
-# X = domain width x
-# X_over_Z = X/Z
-# k_z = pi/Z
-# k_x = 2 * pi / X
-# j_max = Amplitude
-def compute_mass_flux_air_dry( x_, z_, j_max_, k_x_, k_z_, X_over_Z_ ):
-    j_x = j_max_ * X_over_Z_ * np.cos(k_x_ * x_) * np.cos(k_z_ * z_ )
-    j_z = 2 * j_max_ * np.sin(k_x_ * x_) * np.sin(k_z_ * z_)
+def compute_stream_function(x, z, j_max, x_domain, z_domain):
+    """Computes the stream function, which defines the 2D mass flux field
+    
+    Two-dimensional kinematic framework
+    (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)    
+    
+    Parameters
+    ----------
+    x: float
+        horizontal position (m)
+    z: float
+        vertical position (m)
+    j_max: float
+        Maximum of the mass flux density (kg/(s*m^2))
+    x_domain: float
+        Domain width (m)
+    z_domain: float
+        Domain height (m)
+    
+    Returns
+    -------
+        Stream function evaluated at (x,z)
+    
+    """
+    
+    return -j_max * x_domain * pi_inv * np.sin(np.pi * z / z_domain)\
+            * np.cos(2. * np.pi * x / x_domain)
+            
+def compute_mass_flux_air_dry(x, z, j_max, k_x, k_z, X_over_Z):
+    """Computes the 2D mass flux density field
+    
+    Mass flux density = mass density * velocity
+    Two-dimensional kinematic framework
+    (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)    
+    Domain width X and height Z
+    
+    Parameters
+    ----------
+    x: float
+        Horizontal position (m)
+    z: float
+        Vertical position (m)
+    j_max: float
+        Maximum of the mass flux density (kg/(s*m^2))
+    k_x: float
+        k_x = 2*pi/X (1/m), Domain width X
+    k_z: float
+        k_z = pi/Z (1/m), Domain height Z
+    X_over_Z: float
+        Ratio of the domain width X and height Z
+    
+    Returns
+    -------
+    j_x: float
+        Horizontal component of the mass flux density (kg/(s*m^2) at (x,z)
+    j_z: float
+        Vertical component of the mass flux density (kg/(s*m^2) at (x,z)
+    
+    """
+    
+    j_x = j_max * X_over_Z * np.cos(k_x * x) * np.cos(k_z * z)
+    j_z = 2 * j_max * np.sin(k_x * x) * np.sin(k_z * z)
     return j_x, j_z
 
-def compute_initial_mass_flux_air_dry_kinematic_2D_ICMW_2012_case1(grid_,
-                                                                   j_max_):
-    X = grid_.sizes[0]
-    Z = grid_.sizes[1]
+def compute_initial_mass_flux_air_dry_kinematic_2D_ICMW_2012_case1(grid,
+                                                                   j_max):
+    """Computes the 2D mass flux density field on a given grid
+    
+    The field is calculated at the cell-edge-centers of the spatial grid.
+    Mass flux density = mass density * velocity.
+    Two-dimensional kinematic framework
+    (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)
+    Domain width X and height Z.
+    
+    Parameters
+    ----------
+    grid: :obj:`Grid`
+        Grid-class object, for which the mass flux field shall be calculated
+    j_max: float
+        Maximum of the mass flux density (kg/(s*m^2))
+    
+    Returns
+    -------
+    j_x: ndarray, dtype=float
+        2D grid holding the horizontal component of the mass flux density
+        at the cell-edge-centers of the spatial grid (kg/(s*m^2)
+    j_z: ndarray, dtype=float
+        2D grid holding the vertical component of the mass flux density
+        at the cell-edge-centers of the spatial grid (kg/(s*m^2)
+    
+    """
+    
+    X = grid.sizes[0]
+    Z = grid.sizes[1]
     k_x = 2.0 * np.pi / X
     k_z = np.pi / Z
     X_over_Z = X / Z
-    vel_pos_u = [grid_.corners[0], grid_.corners[1] + 0.5 * grid_.steps[1]]
-    vel_pos_w = [grid_.corners[0] + 0.5 * grid_.steps[0], grid_.corners[1]]
-    j_x = compute_mass_flux_air_dry( *vel_pos_u, j_max_,
+    vel_pos_u = [grid.corners[0], grid.corners[1] + 0.5 * grid.steps[1]]
+    vel_pos_w = [grid.corners[0] + 0.5 * grid.steps[0], grid.corners[1]]
+    j_x = compute_mass_flux_air_dry( *vel_pos_u, j_max,
                                             k_x, k_z, X_over_Z )[0]
-    j_z = compute_mass_flux_air_dry( *vel_pos_w, j_max_,
+    j_z = compute_mass_flux_air_dry( *vel_pos_w, j_max,
                                             k_x, k_z, X_over_Z )[1]
     return j_x, j_z
-
-# j_max_base = the appropriate value for a grid of 1500 x 1500 m^2
-def compute_j_max(j_max_base, grid):
-    return np.sqrt( grid.sizes[0] * grid.sizes[0]
-                  + grid.sizes[1] * grid.sizes[1] ) \
-           / np.sqrt(2.0 * 1500.0 * 1500.0)
 
 #%% RANDOM PARTICLE POSITIONS
           
@@ -225,6 +320,36 @@ def compute_j_max(j_max_base, grid):
 # no_spt = # SP total in full domain
 # returns positions of particles of shape (2, no_spt)
 def generate_random_positions(grid, no_spc, seed, set_seed = False):
+    """Computes random positions in all cells of a 2D grid
+    
+    Parameters
+    ----------
+    grid: :obj:`Grid`
+        Grid-class object, for which the random positions are generated
+    no_spc: int or ndarray
+        Number of super-particles per cell. either integer
+        or 2D array, where no_spc[i,j] = number of part. in cell [i,j]
+    seed: int
+        Seed for the random number generator
+    set_seed: bool, optional
+        Set True, if numpy number generator shall be initialized with 'seed'
+    
+    Returns
+    -------
+    pos: ndarray, dtype=float
+        2D array, where
+        pos[0] = 1D array of horizontal coordinates (m)
+        pos[1] = 1D array of vertical coordinates (m)
+        (pos[0,n], pos[1,n]) is the position of particle 'n'
+    rel_pos: ndarray, dtype=float
+        2D array with relative cell positions corresponding to 'pos'
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    """
+    
     if isinstance(no_spc, (list, tuple, np.ndarray)):
         no_spt = np.sum(no_spc)
     else:
@@ -257,8 +382,38 @@ def generate_random_positions(grid, no_spc, seed, set_seed = False):
 
 #%% COMPUTE VERTICAL PROFILES WITHOUT LIQUID
 def compute_profiles_T_p_rhod_S_without_liquid(
-        z, z_0, p_0, p_ref, Theta_l, r_tot, SCALE_FACTOR = 1.0 ):
-
+        z, z_0, p_0, p_ref, Theta_l, r_tot):
+    """Compute height depend. atmospheric variables in liquid-free atmosphere
+    
+    Parameters
+    ----------
+    z: float
+        Height in meter
+    z_0: float
+        Height (m), where p_0 is given
+    p_0: float
+        Pressure (Pa) at height z_0
+    p_ref: float
+        Reference pressure (Pa) for the potential temperature
+        Theta/T = (p_ref/p)^kappa
+    Theta_l: float
+        Liquid potential temperature (homogenous in domain) (Kelvin)
+    r_tot: float
+        Total water mixing ratio. r_tot= r_vapor + r_liquid
+    
+    Returns
+    -------
+    T: float
+        Temperature at height z (K)
+    p: float
+        pressure at height z (Pa)
+    rho_dry: float
+        mass density of dry air at height z (kg/m^3) 
+    S: float
+        Saturation at height z
+    
+    """
+    
     p_0_over_p_ref = p_0 / p_ref
     kappa_tot = atm.compute_kappa_air_moist(r_tot) # [-]
     kappa_tot_inv = 1.0 / kappa_tot # [-]
@@ -280,37 +435,65 @@ def compute_profiles_T_p_rhod_S_without_liquid(
     return T, p, rho_dry, S
 
 #%% INITIALIZE: GENERATE INIT GRID AND SUPER-PARTICLES
-# p_0 = 101500 # surface pressure in Pa
-# p_ref = 1.0E5 # ref pressure for potential temperature in Pa
-# r_tot_0 = 7.5E-3 # kg water / kg dry air, r_tot = r_v + r_l (spatially const)
-# Theta_l = 289.0 # K, Liquid potential temperature (spatially constant)
-# n_p: list of number density of particles in the modes [n1, n2, ..]
-# e.g. n_p = np.array([60.0E6, 40.0E6]) # m^3
-# no_spcm = list of number of super particles per cell [no_spc_1, no_spc_2, ..]
-# where no_spc_k is the number of SP per cell in mode k
-# dst: function or list of functions of the distribution to use,
-# e.g. [dst1, dst2, ..]
-# dst_par: parameters of the distributions, dst_par = [par1, par2, ...], 
-# where par1 = [par11, par12, ...] are pars of dst1
-# P_min = cutoff probability for the generation of random radii
-# P_max = cutoff probability for the generation of random radii
-# r0, r1, dr: parameters for the integration to set the quantiles during
-# generation of random radii
-# reseed: renew the random seed after the generation of the first mode
-## for initialization phase
-# S_init_max = 1.05
-# dt_init = 0.1 # s
-# Newton iterations for the implicit mass growth during initialization phase
-# maximal allowed iter counts in initial particle water take up to equilibrium
-# iter_cnt_limit = 500
-
-# grid_file_list = ['grid_basics.txt', 'arr_file1.npy', 'arr_file2.npy']
-# grid_file_list = [path + s for s in grid_file_list]
-
-# particle_file = 'stored_particles.txt'
-# particle_file = path + particle_file
 
 def initialize_grid_and_particles_SinSIP(config):
+    """Initializes atmosphere and particles in 2D kinematic setup
+
+    Two-dimensional kinematic framework
+    (Test Case 1 ICMW 2012, Muhlbauer et al. 2013)    
+    
+    A Grid-object is generated, holding the velocity field and the atmospheric
+    thermodynamic variables. Super-Particles are generated using the SinSIP-
+    method by Unterstrasser 2017 with an underlying lognormal size
+    distribution used in Arabas 2015.
+    At first, the atmosphere is initialized with dry particles and water
+    only in the vapor phase. In an saturation adjustment process, the water
+    is distributed onto the particles, which are artificially held at fixed
+    positions. Note, that before the main simulation, we suppose to conduct
+    an additional spin-up phase, where particle movement is allowed,
+    but collisions and gravity are switched off.
+    
+    The function will write a full copy of the initialized system state
+    at time t=0 to hard disc. The code is further explained
+    in the comments below.
+    
+    Parameters
+    ----------
+    config: dict
+        Dictionary, holding the configuration parameters
+    
+    Returns
+    -------
+    grid: :obj:`Grid`
+        Initialized Grid-class object
+    pos: ndarray, dtype=float
+        2D array, where
+        pos[0] = 1D array of horizontal coordinates (m)
+        pos[1] = 1D array of vertical coordinates (m)
+        (pos[0,n], pos[1,n]) is the position of particle 'n'
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    vel: ndarray, dtype=float
+        2D array, where
+        vel[0] = 1D array of horizontal velocity components (m/s)
+        vel[1] = 1D array of vertical velocity components (m/s)
+        (vel[0,n], vel[1,n]) is the velocity of particle 'n'
+    m_w: ndarray, dtype=float
+        1D array holding the particle water masses (1E-18 kg)
+    m_s: ndarray, dtype=float
+        1D array holding the particle solute masses (1E-18 kg)
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities
+    active_ids: ndarray, dtype=bool
+        1D mask-array. Each particle gets a flag 'True' or 'False', defining
+        if it still resides in the simulation domain or has already hit the
+        ground and is thereby removed from the simulation
+    
+    """
+    
     ##########################################################################
     ### 1. set base grid
     ##########################################################################
@@ -860,7 +1043,6 @@ def initialize_grid_and_particles_SinSIP(config):
     xi = np.concatenate(xi)        
     cells_x = np.concatenate(cells_x)        
     cells_z = np.concatenate(cells_z)   
-    cells_comb = np.array( (cells_x, cells_z) )
     modes = np.concatenate(modes)   
     
     print('')
@@ -1051,5 +1233,4 @@ def initialize_grid_and_particles_SinSIP(config):
                         f.write( f'{el} ' )
             else: f.write( f'{item} ' )        
     
-    return grid, pos, cells, cells_comb, vel, m_w, m_s, xi,\
-           active_ids 
+    return grid, pos, cells, vel, m_w, m_s, xi, active_ids 

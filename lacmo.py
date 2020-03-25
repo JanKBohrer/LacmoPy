@@ -50,7 +50,7 @@ if config['generate_grid']:
     if config['set_std_out_file']:
         sys.stdout = open( config['paths']['grid'] + 'std_out.log', 'a')
     
-    grid, pos, cells, cells_comb, vel, m_w, m_s, xi, active_ids =\
+    grid, pos, cells, vel, m_w, m_s, xi, active_ids =\
         initialize_grid_and_particles_SinSIP(config)
     
 #%% SPIN UP, IF REQUESTED

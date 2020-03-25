@@ -38,10 +38,26 @@ from material_properties import compute_viscosity_air
 from material_properties import compute_surface_tension_water
 
 #%% PERMUTATION
-# returns a permutation of the list of integers [0,1,2,..,N-1]
-# method of Shima 2009
+
 @njit()
 def generate_permutation(N):
+    """Generates a random permutation of the integer set {0,1,2,...,N-1}
+    
+    The method is described in
+    Shima 2009: Q. J. R. Meteorol. Soc. 135: 1307–1320
+    
+    Parameters
+    ----------
+    N: int
+        Number of elements of the set {0,1,2,...,N-1}
+    
+    Returns
+    -------
+    permutation: ndarray, dtype=int
+        1D array holding the permutation
+    
+    """
+    
     permutation = np.zeros(N, dtype=np.int64)
     for n_next in range(1, N):
         q = np.random.randint(0,n_next+1)
@@ -56,38 +72,62 @@ def generate_permutation(N):
 
 # par[0] belongs to the largest exponential x^(n-1) for par[i], i = 0, .., n 
 @njit()
-def compute_polynom(par,x):
+def compute_polynom(par, x):
+    """Computes the polynom p(x)
+
+    p(x) = par[0]*x^(N-1) + par[1]*x^(N-2) + ... + par[N]
+
+    Parameters
+    ----------
+    par: ndarray, dtype=float
+        1D array with the polynom parameters. par[n], n = 0, ..., N.
+        The order of the polynom is N-1
+    x: float
+        Argument of the polynom function
+    
+    Returns
+    -------
+    res: float
+        Polynom evaluated at x
+    
+    """
+    
     res = par[0] * x + par[1]
     for a in par[2:]:
         res = res * x + a
     return res
 
-# terminal velocity of falling cloud droplets
-# From Beard 1976, used also in Bott 1998 and Unterstrasser 2017
-# For radii larger the cutoff R_max, we set R = R_max for w_sed
-# i.e. the term. velocity is set const. at a max. value for R >= R_max
-# these parameters for the polys are checked with Beard 1976
-# note, that they dont have units, because Y = polynom(pi,X)
-# and Y and X are dimensionless   
-# the material constants are taken from Bott
-# in Bott's Code, there is a another version of the algorithm
-# implemented, which is, however, 1 to 1 equivalent
-# with the parameter factor 1.255 instead of 1.257
-# this function gets close to the provided tabulated values of Bott
-# 2E6 is the max. rel. error
+# constants used in compute_terminal_velocity_Beard
 p1_Beard = (-0.318657e1, 0.992696, -0.153193e-2,
           -0.987059e-3,-0.578878e-3,0.855176e-4,-0.327815e-5)[::-1]
 p2_Beard = (-0.500015e1,0.523778e1,-0.204914e1,0.475294,-0.542819e-1,
            0.238449e-2)[::-1]
 one_sixth = 1.0/6.0
-
 v_max_Beard = 9.04929248
 @njit()
 def compute_terminal_velocity_Beard(R):
-    rho_w = 1.0E3
-    rho_a = 1.225
-    viscosity_air_NTP = 1.818E-5
-    sigma_w_NTP = 73.0E-3
+    """Terminal velocity of falling cloud droplets depending on radius
+    
+    Parametrization by Beard 1976: J. Atm. Sci. 33: 851.
+    Used in Bott 1998 (s.a.) and Unterstrasser 2017, GMD 10: 1521–1548
+    Material constants are taken from Bott 1998
+
+    Parameters
+    ----------
+    R: float
+        Cloud droplet radius (microns)
+    
+    Returns
+    -------
+    v: float
+        Sedimentation velocity (m/s)
+    
+    """
+    
+    rho_w = 1.0E3 # density of droplets (water) (kg/m^3)
+    rho_a = 1.225 # density of air (kg/m^3)
+    viscosity_air_NTP = 1.818E-5 # (kg/(m*s))
+    sigma_w_NTP = 73.0E-3 # surface tension water-air (N/m)
     # R in mu = 1E-6 m
     R_0 = 10.0
     R_1 = 535.0
@@ -129,32 +169,71 @@ def compute_terminal_velocity_Beard(R):
 
 @vectorize("float64(float64)")
 def compute_terminal_velocity_Beard_vec(R):
+    """Terminal velocity of falling cloud droplets depending on radius
+    
+    Vectorized form using Numba package
+    Parametrization by Beard 1976: J. Atm. Sci. 33: 851.
+    Used in Bott 1998 (s.a.) and Unterstrasser 2017, GMD 10: 1521–1548
+    Material constants are taken from Bott 1998
+
+    Parameters
+    ----------
+    R: float
+        Cloud droplet radius (microns)
+    
+    Returns
+    -------
+    v: float
+        Sedimentation velocity (m/s)
+    
+    """
+    
     return compute_terminal_velocity_Beard(R)
 
 @njit()
 def update_velocity_Beard(vel, R):
+    """Updates terminal velocities of falling cloud droplets dep. on radius
+    
+    Parametrization by Beard 1976: J. Atm. Sci. 33: 851.
+    Used in Bott 1998 (s.a.) and Unterstrasser 2017, GMD 10: 1521–1548
+    Material constants are taken from Bott 1998
+
+    Parameters
+    ----------
+    vel: ndarray, dtype=float
+        1D array of velocities (m/s). gets updated
+    R: ndarray, dtype=float
+        1D array of cloud droplet radii (microns)
+    
+    """
+    
     for i in range(vel.shape[0]):
         vel[i] = compute_terminal_velocity_Beard(R[i])
-    
-# terminal velocity of falling cloud droplets
-# From Beard 1976, used also in Bott 1998 and Unterstrasser 2017
-# For radii larger the cutoff R_max, we set R = R_max for w_sed
-# i.e. the term. velocity is set const. at a max. value for R >= R_max
-# these parameters for the polys are checked with Beard 1976
-# note, that they dont have units, because Y = polynom(pi,X)
-# and Y and X are dimensionless
-# in Bott Code: sigma_w = 73.0, rho_w = 1.0, rho_a = 1.225E-3, g = 980.665
-# the function was tested vs the tabulated values from Unterstrasser/Beard
-# the rel devs. are (my_v_sed > v_sed_Beard) and 
-# (rel dev <0.6% for small R and <0.8% for large R)
-# and might come from different material
-# constants: sigma_w, g, rho_a, rho_w ...
+
+# constants used in compute_terminal_velocity_Beard_my_mat_const
 viscosity_air_NTP = compute_viscosity_air(293.15)
 sigma_w_NTP = compute_surface_tension_water(293.15)
-
 v_max_Beard_my_mat_const = 9.11498
 @njit()
 def compute_terminal_velocity_Beard_my_mat_const(R):
+    """Terminal velocity of falling cloud droplets depending on radius
+    
+    Parametrization by Beard 1976: J. Atm. Sci. 33: 851.
+    Used in Bott 1998 (s.a.) and Unterstrasser 2017, GMD 10: 1521–1548
+    Material constants are taken from 'constants.py' (see sources therein)
+
+    Parameters
+    ----------
+    R: float
+        Cloud droplet radius (microns)
+    
+    Returns
+    -------
+    v: float
+        Sedimentation velocity (m/s)
+    
+    """
+    
     # R in mu = 1E-6 m
     R_0 = 9.5
     R_1 = 535.0
@@ -192,9 +271,26 @@ def compute_terminal_velocity_Beard_my_mat_const(R):
 
 @njit()
 def linear_weight(i, weight, f):
+    """Linear interpolation on a one-dimensional grid (weight based)
+    
+    Parameters
+    ----------
+    i: int
+        Cell index
+    weight: float
+        Relative coordinate in cell i. Resides in interval [0,1)
+    f: ndarray, dtype=float
+        1D discrete grid f[i]
+    
+    Returns
+    -------
+        Linear interpolation between two grid points
+    
+    """    
+    
     return f[i+1]*weight + f[i]*(1.0-weight)
 
-### Coll. efficiency interpolated from original table of Hall 1980
+# Data for the original efficiency tables of Hall 1980
 # in Hall_E_col:
 # row =  collector drop radius (radius of larger drop) in mu
 # column = ratio of R_small/R_large "collector ratio"
@@ -204,6 +300,23 @@ Hall_R_col = np.load(fp_load + "Hall/Hall_collector_radius.npy")
 Hall_R_col_ratio = np.load(fp_load + "Hall/Hall_radius_ratio.npy")
 @njit()
 def compute_E_col_Hall(R_i, R_j):
+    """Interpolates the collision efficiency for a pair of two droplets
+    
+    Coll. efficiency interpolated from original table of Hall 1980
+    
+    Parameters
+    ----------
+    R_i: float
+        Radius of first droplet (microns)
+    R_j: float
+        Radius of second droplet (microns)
+    
+    Returns
+    -------
+        Interpolated collision efficiency
+    
+    """
+    
     if R_i <= 0.0 or R_j <= 0.0:
         return 0.0
     if R_i < R_j:
@@ -234,10 +347,26 @@ def compute_E_col_Hall(R_i, R_j):
             return bilinear_weight(ind_R, ind_ratio,
                                    weight_1, weight_2, Hall_E_col)
 
-### Col. Eff. "Long" from Bott 1998, as used in Unterstrasser 2017
-# input: rad in mu
 @njit()
 def compute_E_col_Long_Bott(R_i, R_j):
+    """Computes the collision efficiency for a pair of two droplets
+    
+    Collision efficiency parametrization by Long 1974, modified version
+    by Bott 1998, used in Unterstrasser 2017  
+    
+    Parameters
+    ----------
+    R_i: float
+        Radius of first droplet (microns)
+    R_j: float
+        Radius of second droplet (microns)
+    
+    Returns
+    -------
+        Collision efficiency
+    
+    """
+    
     if R_j >= R_i:
         R_max = R_j
         R_min = R_i
@@ -259,41 +388,163 @@ def compute_E_col_Long_Bott(R_i, R_j):
 # output: Hydrodynamic collection kernel in m^3/s
 @njit()
 def compute_kernel_hydro(R_1, R_2, E_col, dv):
+    """Computes the hydrodynamic collision kernel for a pair of two droplets
+    
+    Parameters
+    ----------
+    R_i: float
+        Radius of first droplet (microns)
+    R_j: float
+        Radius of second droplet (microns)
+    E_col: float
+        Collision efficiency
+    dv: float
+        Absolute difference in the droplet velocities of drop 1 and drop 2
+    
+    Returns
+    -------
+        Collision kernel (m^3/s)
+    
+    """
+    
     return math.pi * (R_1 + R_2) * (R_1 + R_2) * E_col * dv * 1.0E-12
 
-# Kernel "Long" as used in Bott 1998, direct computation for given radii
-# radii in microns    
 @njit()
 def compute_kernel_Long_Bott_R(R_i, R_j):
+    """Computes the modified 'Long' collision kernel for a droplet pair
+    
+    Analytic kernel from Long 1974, J. Atm. Sci. 31, 1040,
+    modified by Bott 1998, J. Atm. Sci. 55, 2284    
+    
+    Parameters
+    ----------
+    R_i: float
+        Radius of first droplet (microns)
+    R_j: float
+        Radius of second droplet (microns)
+    
+    Returns
+    -------
+        Collision kernel (m^3/s)
+    
+    """
+    
     E_col = compute_E_col_Long_Bott(R_i, R_j)
     dv = abs(compute_terminal_velocity_Beard(R_i)\
              - compute_terminal_velocity_Beard(R_j))
     return compute_kernel_hydro(R_i, R_j, E_col, dv)
 
-# Kernel "Long" as used in Bott 1998, direct computation for given masses 
-# masses in 1E-18 kg
 @njit()
 def compute_kernel_Long_Bott_m(m_i, m_j, mass_density):
+    """Computes the modified 'Long' collision kernel for a droplet pair
+    
+    Analytic kernel from Long 1974, J. Atm. Sci. 31, 1040,
+    modified by Bott 1998, J. Atm. Sci. 55, 2284    
+    
+    Parameters
+    ----------
+    m_i: float
+        Mass of first droplet (1E-18 kg = 1 fg)
+    m_j: float
+        Mass of second droplet (1E-18 kg = 1 fg)
+    
+    Returns
+    -------
+        Collision kernel (m^3/s)
+    
+    """
+    
     R_i = compute_radius_from_mass(m_i, mass_density)
     R_j = compute_radius_from_mass(m_j, mass_density)
     return compute_kernel_Long_Bott_R(R_i, R_j)
 
-# Kernel "Golovin" 
-# masses in 1E-18 kg
-# parameter from Unterstrasser 2017 b = 1.5 m^3/(kg s)
 @njit()
 def compute_kernel_Golovin(m_i, m_j):
+    """Computes the analytic 'Golovin' collision kernel for a droplet pair
+    
+    Analytic kernel from Golovin 1963, Izv. Geophys. Ser 5, 482
+    Proportionality constant as in Unterstrasser 2017
+    
+    Parameters
+    ----------
+    m_i: float
+        Mass of first droplet (1E-18 kg = 1 fg)
+    m_j: float
+        Mass of second droplet (1E-18 kg = 1 fg)
+    
+    Returns
+    -------
+        Collision kernel (m^3/s)
+    
+    """    
+    
     return (m_i + m_j) * 1.5E-18
     
 #%% GENERATION (DISCRETIZATION) OF COL. EFFICIENCY GRIDS
     
 @njit()
 def interpol_bilin(i,j,p,q,f):
+    """Bilinear interpolation on a two-dimensional grid (weight based)
+    
+    Parameters
+    ----------
+    i: int
+        Cell index first dimension
+    j: int
+        Cell index second dimension
+    p: float
+        Relative coordinate in cell [i,j] (first dimension)
+        Resides in interval [0,1)
+    q: float
+        Relative coordinate in cell [i,j] (2nd dimension)
+        Resides in interval [0,1)
+    f: ndarray, dtype=float
+        2D discrete grid f[i,j]
+    
+    Returns
+    -------
+        Bilinear interpolation between four grid points
+    
+    """
+    
     return (1.-p)*(1.-q)*f[i,j] + (1.-p)*q*f[i,j+1]\
            + p*(1.-q)*f[i+1,j] + p*q*f[i+1,j+1]
 
 def generate_E_col_grid_R_Long_Bott_np(R_low, R_high, no_bins_10,
                                        radius_grid_in=None):
+    """Generation of a discretized collision efficiency grid (radius based)
+    
+    When no radius grid is provided, the radius grid is generated
+    between R_low and R_high with logarithmic spacing
+    based on the number of bins per decade multiplication.
+    R_low and R_high are both included in the radius_grid range interval
+    but R_high itself might NOT be a value of the radius_grid
+    (which is def by no_bins_10 and R_low).
+    
+    Collision efficiency parametrization by Long 1974, modified version
+    by Bott 1998, used in Unterstrasser 2017.
+    
+    Parameters
+    ----------
+    R_low: float
+        Smallest radius of the discretized grid (microns). Must be > 0
+    R_high: float
+        Largest radius of the discretized grid (microns)
+    no_bins_10: int
+        Number of bins per decade multiplication on logarithmic scale
+    radius_grid_in: ndarray, dtype=float, optional
+        1D radius grid. The collision eff. is evaluated at these points.
+        When not provided, a logarithmic is automatically generated.
+    
+    Returns
+    -------
+    E_col_grid: ndarray, dtype=float
+        1D array of collision efficiencies corresponding to the radius grid        
+    radius_grid: ndarray, dtype=float
+        1D array of radii (microns), where the coll. eff. where evaluated
+    
+    """
+    
     if radius_grid_in is None:
         bin_factor = 10**(1.0/no_bins_10)
         no_bins = int(math.ceil( no_bins_10 * math.log10(R_high/R_low) ) ) + 1
@@ -318,6 +569,8 @@ def generate_E_col_grid_R_Long_Bott_np(R_low, R_high, no_bins_10,
 generate_E_col_grid_R_Long_Bott = \
     njit()(generate_E_col_grid_R_Long_Bott_np)
 
+# Data for the collision efficiency table used by Bott 1998
+# based on Hall 1980 and Seeßelberg 1996 (s.a.)
 # a typo was corrected for one single entry
 # of the original E_col table of Bott 1998
 Hall_Bott_E_col_raw_corr =\
@@ -326,9 +579,40 @@ Hall_Bott_R_col_raw =\
     np.load("collision/kernel_data/Hall/Hall_Bott_R_col_table_raw.npy")
 Hall_Bott_R_ratio_raw =\
     np.load("collision/kernel_data/Hall/Hall_Bott_R_ratio_table_raw.npy") 
-# R_low must be > 0 !
 def generate_E_col_grid_R_Hall_Bott_np(R_low, R_high, no_bins_10,
                                        radius_grid_in=None):
+    """Generation of a discretized collision efficiency grid (radius based)
+    
+    When no radius grid is provided, the radius grid is generated
+    between R_low and R_high with logarithmic spacing
+    based on the number of bins per decade multiplication.
+    R_low and R_high are both included in the radius_grid range interval
+    but R_high itself might NOT be a value of the radius_grid
+    (which is def by no_bins_10 and R_low).
+    
+    Collision efficiency table by Hall 1980, modified version
+    by Seeßelberg 1996, used in Bott 1998 and Unterstrasser 2017.
+    
+    Parameters
+    ----------
+    R_low: float
+        Smallest radius of the discretized grid (microns). Must be > 0
+    R_high: float
+        Largest radius of the discretized grid (microns)
+    no_bins_10: int
+        Number of bins per decade multiplication on logarithmic scale
+    radius_grid_in: ndarray, dtype=float, optional
+        1D radius grid. The collision eff. is evaluated at these points.
+        When not provided, a logarithmic is automatically generated.
+    
+    Returns
+    -------
+    E_col_grid: ndarray, dtype=float
+        1D array of collision efficiencies corresponding to the radius grid        
+    radius_grid: ndarray, dtype=float
+        1D array of radii (microns), where the coll. eff. where evaluated
+    
+    """
     
     no_R_table = Hall_Bott_R_col_raw.shape[0]
     no_rat_table = Hall_Bott_R_ratio_raw.shape[0]
@@ -413,6 +697,39 @@ generate_E_col_grid_R_Hall_Bott = \
     njit()(generate_E_col_grid_R_Hall_Bott_np)
 
 def generate_E_col_grid_R_np(R_low, R_high, no_bins_10, kernel_name):
+    """Generation of a discretized collision efficiency grid (radius based)
+    
+    The radius grid is generated
+    between R_low and R_high with logarithmic spacing
+    based on the number of bins per decade multiplication.
+    R_low and R_high are both included in the radius_grid range interval
+    but R_high itself might NOT be a value of the radius_grid
+    (which is def by no_bins_10 and R_low).
+    
+    This function wraps the two generation methods for
+    'Hall_Bott' and 'Long_Bott' kernels.
+    
+    Parameters
+    ----------
+    R_low: float
+        Smallest radius of the discretized grid (microns). Must be > 0
+    R_high: float
+        Largest radius of the discretized grid (microns)
+    no_bins_10: int
+        Number of bins per decade multiplication on logarithmic scale
+    kernel_name: str
+        Choose parametrization method for the collision efficiency.
+        Either 'Hall_Bott' or 'Long_Bott'.
+    
+    Returns
+    -------
+    E_col_grid: ndarray, dtype=float
+        1D array of collision efficiencies corresponding to the radius grid        
+    radius_grid: ndarray, dtype=float
+        1D array of radii (microns), where the coll. eff. where evaluated
+    
+    """
+    
     if kernel_name == "Hall_Bott":
         E_col_grid, radius_grid = \
             generate_E_col_grid_R_Hall_Bott(R_low, R_high, no_bins_10, None)
@@ -427,6 +744,43 @@ generate_E_col_grid_R = \
     
 def generate_and_save_E_col_grid_R(R_low, R_high, no_bins_10, kernel_name,
                                    save_dir):
+    """Generation of a discretized collision efficiency grid (radius based)
+    
+    The radius grid is generated
+    between R_low and R_high with logarithmic spacing
+    based on the number of bins per decade multiplication.
+    R_low and R_high are both included in the radius_grid range interval
+    but R_high itself might NOT be a value of the radius_grid
+    (which is def by no_bins_10 and R_low).    
+    
+    This function wraps the two generation methods for
+    'Hall_Bott' and 'Long_Bott' kernels and writes the grids to hard disc
+    in .npy data format.
+    
+    Parameters
+    ----------
+    R_low: float
+        Smallest radius of the discretized grid (microns). Must be > 0
+    R_high: float
+        Largest radius of the discretized grid (microns)
+    no_bins_10: int
+        Number of bins per decade multiplication on logarithmic scale
+    kernel_name: str
+        Choose parametrization method for the collision efficiency.
+        Either 'Hall_Bott' or 'Long_Bott'.
+    save_dir: str
+        Path to the directory, where the grid data shall be written.
+        Provide in form '/path/to/directory/'
+    
+    Returns
+    -------
+    E_col_grid: ndarray, dtype=float
+        1D array of collision efficiencies corresponding to the radius grid        
+    radius_grid: ndarray, dtype=float
+        1D array of radii (microns), where the coll. eff. where evaluated
+    
+    """
+    
     E_col_grid, radius_grid = \
         generate_E_col_grid_R_np(R_low, R_high, no_bins_10, kernel_name)
     
@@ -437,14 +791,46 @@ def generate_and_save_E_col_grid_R(R_low, R_high, no_bins_10, kernel_name,
 
 #%% GENERATION (DISCRETIZATION) OF COL. KERNEL GRIDS
 
-# R_low, R_high in mu = 1E-6 m
-# no_bins_10: number of bins per radius decade
-# mass_density in kg/m^3
-# R_low and R_high are both included in the radius_grid range interval
-# but R_high itself might NOT be a value of the radius_grid
-# (which is def by no_bins_10 and R_low)
 def generate_kernel_grid_Long_Bott_np(R_low, R_high, no_bins_10,
                                       mass_density):
+    """Generation of a discretized collision kernel grid (radius based)
+    
+    The radius grid is generated
+    between R_low and R_high with logarithmic spacing
+    based on the number of bins per decade multiplication.
+    R_low and R_high are both included in the radius_grid range interval
+    but R_high itself might NOT be a value of the radius_grid
+    (which is def by no_bins_10 and R_low).
+    
+    Collision efficiency parametrization by Long 1974, modified version
+    by Bott 1998, used in Unterstrasser 2017.
+    Velocity parameterization (radius based) by Beard 1976 (s.a.)
+    
+    Parameters
+    ----------
+    R_low: float
+        Smallest radius of the discretized grid (microns). Must be > 0
+    R_high: float
+        Largest radius of the discretized grid (microns)
+    no_bins_10: int
+        Number of bins per decade multiplication on logarithmic scale
+    mass_density: float
+        Droplet mass density (kg/m^3). The same density is assumed for all
+        droplets.
+    
+    Returns
+    -------
+    kernel_grid: ndarray, dtype=float
+        1D array of collision kernel values corresponding to the radius grid
+        unit m^3/s
+    vel_grid: ndarray, dtype=float
+        1D array of velocity values corresponding to the radius grid (m/s)
+    mass_grid: ndarray, dtype=float
+        1D array of masses (1E-18 kg) corresponding to the radius grid
+    radius_grid: ndarray, dtype=float
+        1D array of radii (microns), where the kernel was evaluated
+    
+    """
     
     bin_factor = 10**(1.0/no_bins_10)
     
@@ -481,14 +867,45 @@ def generate_kernel_grid_Long_Bott_np(R_low, R_high, no_bins_10,
     return kernel_grid, vel_grid, mass_grid, radius_grid
 generate_kernel_grid_Long_Bott = njit()(generate_kernel_grid_Long_Bott_np)
 
-# R_low, R_high in mu = 1E-6 m
-# no_bins_10: number of bins per radius decade
-# mass_density in kg/m^3
-# R_low and R_high are both included in the radius_grid range interval
-# but R_high itself might NOT be a value of the radius_grid
-# (which is def by no_bins_10 and R_low)
 def generate_kernel_grid_Hall_Bott_np(R_low, R_high, no_bins_10,
                                       mass_density):
+    """Generation of a discretized collision kernel grid (radius based)
+    
+    The radius grid is generated
+    between R_low and R_high with logarithmic spacing
+    based on the number of bins per decade multiplication.
+    R_low and R_high are both included in the radius_grid range interval
+    but R_high itself might NOT be a value of the radius_grid
+    (which is def by no_bins_10 and R_low).
+    
+    Collision efficiency table by Hall 1980, modified version
+    by Seeßelberg 1996, used in Bott 1998 and Unterstrasser 2017.
+    
+    Parameters
+    ----------
+    R_low: float
+        Smallest radius of the discretized grid (microns). Must be > 0
+    R_high: float
+        Largest radius of the discretized grid (microns)
+    no_bins_10: int
+        Number of bins per decade multiplication on logarithmic scale
+    mass_density: float
+        Droplet mass density (kg/m^3). The same density is assumed for all
+        droplets.
+    
+    Returns
+    -------
+    kernel_grid: ndarray, dtype=float
+        1D array of collision kernel values corresponding to the radius grid
+        unit m^3/s
+    vel_grid: ndarray, dtype=float
+        1D array of velocity values corresponding to the radius grid (m/s)
+    mass_grid: ndarray, dtype=float
+        1D array of masses (1E-18 kg) corresponding to the radius grid
+    radius_grid: ndarray, dtype=float
+        1D array of radii (microns), where the kernel was evaluated
+    
+    """
     
     bin_factor = 10**(1.0/no_bins_10)
     
@@ -525,14 +942,52 @@ def generate_kernel_grid_Hall_Bott_np(R_low, R_high, no_bins_10,
     return kernel_grid, vel_grid, mass_grid, radius_grid
 generate_kernel_grid_Hall_Bott = njit()(generate_kernel_grid_Hall_Bott_np)
 
-# R_low, R_high in mu = 1E-6 m
-# no_bins_10: number of bins per radius decade
-# mass_density in kg/m^3
-# R_low and R_high are both included in the radius_grid range interval
-# but R_high itself might NOT be a value of the radius_grid
-# (which is def by no_bins_10 and R_low)
 def generate_and_save_kernel_grid(R_low, R_high, no_bins_10,
                                   mass_density, kernel_name, save_dir):
+    """Generation of a discretized collision kernel grid (radius based)
+    
+    The radius grid is generated
+    between R_low and R_high with logarithmic spacing
+    based on the number of bins per decade multiplication.
+    R_low and R_high are both included in the radius_grid range interval
+    but R_high itself might NOT be a value of the radius_grid
+    (which is def by no_bins_10 and R_low).
+
+    This is a wrapper for the two generation methods
+    'Hall_Bott' and 'Long_Bott' (s.a.).
+    
+    Parameters
+    ----------
+    R_low: float
+        Smallest radius of the discretized grid (microns). Must be > 0
+    R_high: float
+        Largest radius of the discretized grid (microns)
+    no_bins_10: int
+        Number of bins per decade multiplication on logarithmic scale
+    mass_density: float
+        Droplet mass density (kg/m^3). The same density is assumed for all
+        droplets.
+    kernel_name: str
+        Choose parametrization method for the collision efficiency.
+        Either 'Hall_Bott' or 'Long_Bott'.
+    save_dir: str
+        Path to the directory, where the grid data shall be written.
+        Provide in form '/path/to/directory/'        
+    
+    Returns
+    -------
+    kernel_grid: ndarray, dtype=float
+        1D array of collision kernel values corresponding to the radius grid
+        unit m^3/s
+    vel_grid: ndarray, dtype=float
+        1D array of velocity values corresponding to the radius grid (m/s)
+    mass_grid: ndarray, dtype=float
+        1D array of masses (1E-18 kg) corresponding to the radius grid
+    radius_grid: ndarray, dtype=float
+        1D array of radii (microns), where the kernel was evaluated
+    
+    """
+    
     if kernel_name == "Long_Bott":
         kernel_grid, vel_grid, mass_grid, radius_grid = \
             generate_kernel_grid_Long_Bott(R_low, R_high, no_bins_10,
