@@ -105,12 +105,12 @@ def compute_solubility(temperature, solute_type):
 
 #%% SURFACE TENSION OF SOLUTIONS
 
-#    surface tension in N/m = J/m^2
-#    depends on T and not significantly on pressure (see Massoudi 1974)
-#    formula from IAPWS 2014
-#    note that the surface tension is in gen. dep. on 
-#    the mass fraction of the solution (kg solute/ kg solution)
-#    which is not considered!
+# surface tension in N/m = J/m^2
+# depends on T and not significantly on pressure (see Massoudi 1974)
+# formula from IAPWS 2014
+# note that the surface tension is in gen. dep. on 
+# the mass fraction of the solution (kg solute/ kg solution)
+# which is not considered!
 @vectorize("float64(float64)") 
 def compute_surface_tension_water(temperature):
     tau = 1 - temperature / 647.096

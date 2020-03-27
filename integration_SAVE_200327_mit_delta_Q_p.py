@@ -402,7 +402,7 @@ def update_material_properties(grid_scalar_fields, grid_mat_prop):
 def propagate_grid_subloop_step_np(grid_scalar_fields, grid_mat_prop,
                                    p_ref, p_ref_inv,
                                    delta_Theta_ad, delta_r_v_ad,
-                                   delta_m_l,
+                                   delta_m_l, delta_Q_p,
                                    grid_volume_cell):
     """Executes one subloop time step for the atmospheric scalar fields
     
@@ -438,9 +438,9 @@ def propagate_grid_subloop_step_np(grid_scalar_fields, grid_mat_prop,
     p_ref: float
         Reference pressure for potential temperature
     p_ref_inv: float
-        Inverse of the reference pressure (1/p_ref) for potential temperature
+        Inverse of the reference pressure for potential temperature
     delta_Theta_ad: ndarray, dtype=float
-        2D array with the change in potential temperature (K) by advection 
+        2D array with the change in potential temperature by advection 
         in each grid cell during one subloop step.
     delta_r_v_ad: ndarray, dtype=float
         2D array with the change in water vapor mixing ratio by advection
@@ -448,8 +448,12 @@ def propagate_grid_subloop_step_np(grid_scalar_fields, grid_mat_prop,
     delta_m_l: ndarray, dtype=float
         2D array with the change in liquid water mass (1E-18 kg) due to
         condensation in each grid cell during one subloop step.
-    grid_volume_cell: float
-        Volume of one grid cell (m^3)
+    ### IN WORK: remove delta_Q_p 
+    ### IN WORK: fix alpha_v factor in delta Theta 
+    delta_Q_p: ndarray, dtype=float
+        2D array with the change in Enthalpy () due to
+        condensation in each grid cell during one subloop step.
+    
     
     """    
     
@@ -461,10 +465,10 @@ def propagate_grid_subloop_step_np(grid_scalar_fields, grid_mat_prop,
                                             p_ref_inv)
 
     grid_scalar_fields[2] += \
-         Theta_over_T * (grid_mat_prop[2] * delta_m_l) \
+         Theta_over_T * (grid_mat_prop[2] * delta_m_l - delta_Q_p) \
         / (c.specific_heat_capacity_air_dry_NTP * grid_scalar_fields[3]
            * grid_volume_cell
-           * ( 1.0 + grid_scalar_fields[4] * atm.heat_factor_r_v ) )
+           * ( 1.0 + grid_scalar_fields[4] * atm.c_pv_over_c_pd ) )
 
     # update other grid properties
     p_dry_over_p_ref = atm.compute_p_dry_over_p_ref(grid_scalar_fields[3],
@@ -487,57 +491,12 @@ propagate_grid_subloop_step = njit()(propagate_grid_subloop_step_np)
     
 @njit()
 def update_T_p(grid_temp, cells, T_p):
-    """Updates the particle temperatures to the atmos. grid cell temperatures
-    
-    Parameters
-    ----------
-    grid_temp: ndarray, dtype=float
-        2D array holding the discretized temperature of the atmosphere
-    cells: ndarray, dtype=int
-        2D array, holding the particle cell indices, i.e.
-        cells[0] = 1D array of horizontal indices
-        cells[1] = 1D array of vertical indices
-        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
-    T_p: ndarray, dtype=float
-        1D array holding the particle temperatures sorted by particle IDs
-    
-    """
-    
     for ID in range(len(T_p)):
         T_p[ID] = grid_temp[cells[0,ID],cells[1,ID]]    
     
-def update_cells_and_rel_pos_np(pos, cells, rel_pos, active_ids,
+def update_cells_and_rel_pos_np(pos, cells, rel_pos,
+                                active_ids,
                                 grid_ranges, grid_steps):
-    """Updates particle cells and relative positions from absolute positions
-    
-    Parameters
-    ----------
-    pos: ndarray, dtype=float
-        2D array, where
-        pos[0] = 1D array of horizontal coordinates (m)
-        pos[1] = 1D array of vertical coordinates (m)
-        (pos[0,n], pos[1,n]) is the position of particle 'n'
-    cells: ndarray, dtype=int
-        2D array, holding the particle cell indices, i.e.
-        cells[0] = 1D array of horizontal indices
-        cells[1] = 1D array of vertical indices
-        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
-    rel_pos: ndarray, dtype=float
-        2D array with relative cell positions corresponding to 'pos'    
-    active_ids: ndarray, dtype=bool
-        1D mask-array. Each particle gets a flag 'True' or 'False', defining
-        if it still resides in the simulation domain or has already hit the
-        ground and is thereby removed from the simulation
-    grid_ranges: ndarray, dtype=float
-        2D array holding the coordinates of the domain box in two dimensions
-        grid_ranges[0] = [x_min, x_max]
-        grid_ranges[1] = [z_min, z_max]
-    grid_steps: ndarray, dtype=float
-        grid_steps[0] = horizontal grid step size in x (m)
-        grid_steps[1] = vertical grid step size in z (m)
-    
-    """    
-    
     x = pos[0][active_ids]
     y = pos[1][active_ids]
     rel_pos[0][active_ids] = x - grid_ranges[0,0] 
@@ -549,62 +508,13 @@ def update_cells_and_rel_pos_np(pos, cells, rel_pos, active_ids,
     rel_pos[1] = rel_pos[1] / grid_steps[1] - cells[1]
 update_cells_and_rel_pos = njit()(update_cells_and_rel_pos_np)
 
+# update location by one euler step (timestep of the euler step = dt)
+# used boundary conditions (BC): periodic in x, solid in z (BC = PS)
+# if particle hits bottom, its xi value it set to 0 (int)
 def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, cells,
                                  water_removed,
                                  id_list, active_ids,
                                  grid_ranges, grid_steps, dt):
-    """Updates particle positions by one Euler step, given their velocities
-
-    Used boundary conditions: periodic in x, solid in z.
-    If a particle hits the ground, its cell and position are set
-    to negative values, its velocity is set to zero and its 'active_ids'
-    flag is set to False.
-    
-    
-    Parameters
-    ----------
-    m_w: ndarray, dtype=float
-        1D array holding the particle water masses (1E-18 kg)
-    pos: ndarray, dtype=float
-        2D array, where
-        pos[0] = 1D array of horizontal coordinates (m)
-        pos[1] = 1D array of vertical coordinates (m)
-        (pos[0,n], pos[1,n]) is the position of particle 'n'
-    vel: ndarray, dtype=float
-        2D array, where
-        vel[0] = 1D array of horizontal velocity components (m/s)
-        vel[1] = 1D array of vertical velocity components (m/s)
-        (vel[0,n], vel[1,n]) is the velocity of particle 'n'
-    xi: ndarray, dtype=float
-        1D array holding the particle multiplicities        
-    cells: ndarray, dtype=int
-        2D array, holding the particle cell indices, i.e.
-        cells[0] = 1D array of horizontal indices
-        cells[1] = 1D array of vertical indices
-        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
-    water_removed: ndarray, shape=(1,), dtype=float
-        1D array holding only one value, which counts the water removed
-        from the simulation domain by sedimentation
-    id_list: ndarray, dtype=float
-        1D array holding the ordered particle IDs.
-        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
-        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
-    active_ids: ndarray, dtype=bool
-        1D mask-array. Each particle gets a flag 'True' or 'False', defining
-        if it still resides in the simulation domain or has already hit the
-        ground and is thereby removed from the simulation
-    grid_ranges: ndarray, dtype=float
-        2D array holding the coordinates of the domain box in two dimensions
-        grid_ranges[0] = [x_min, x_max]
-        grid_ranges[1] = [z_min, z_max]
-    grid_steps: ndarray, dtype=float
-        grid_steps[0] = horizontal grid step size in x (m)
-        grid_steps[1] = vertical grid step size in z (m)
-    dt: float
-        Euler time step for the update of positions
-    
-    """      
-    
     z_min = grid_ranges[1,0]
     pos += dt * vel
     # periodic BC
@@ -629,71 +539,11 @@ def update_pos_from_vel_BC_PS_np(m_w, pos, vel, xi, cells,
 update_pos_from_vel_BC_PS =\
     njit()(update_pos_from_vel_BC_PS_np)
 
+# note: g_set >= 0
 def update_vel_impl_np(vel, cells, rel_pos, xi, id_list, active_ids,
                        R_p, rho_p,
                        grid_vel, grid_viscosity, grid_mass_density_fluid, 
                        grid_no_cells, grav, dt):
-    """Updates particle velocities by one implicit Euler step
-    
-    Update scheme from time step n -> n+1
-    v_(n+1) = (v_n + ( u(x_(n+1/2)) * k_d - g ) * dt ) / (1 + k_d * dt)
-    x: Particle position, v: Particle velocity, u: Wind velocity.
-    g: Earth gravity (only in z-direction, here positive)
-    k_d: Drag factor, piecewise def., depends on particle Reynolds number.
-    
-    Parameters
-    ----------
-    vel: ndarray, dtype=float
-        2D array, where
-        vel[0] = 1D array of horizontal velocity components (m/s)
-        vel[1] = 1D array of vertical velocity components (m/s)
-        (vel[0,n], vel[1,n]) is the velocity of particle 'n'
-    cells: ndarray, dtype=int
-        2D array, holding the particle cell indices, i.e.
-        cells[0] = 1D array of horizontal indices
-        cells[1] = 1D array of vertical indices
-        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
-    rel_pos: ndarray, dtype=float
-        2D array with relative cell positions corresponding to 'pos'           
-    xi: ndarray, dtype=float
-        1D array holding the particle multiplicities        
-    id_list: ndarray, dtype=float
-        1D array holding the ordered particle IDs.
-        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
-        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
-    active_ids: ndarray, dtype=bool
-        1D mask-array. Each particle gets a flag 'True' or 'False', defining
-        if it still resides in the simulation domain or has already hit the
-        ground and is thereby removed from the simulation
-    R_p: ndarray, dtype=float
-        1D array holding the particle radii (microns)
-    rho_p: ndarray, dtype=float
-        1D array holding the particle mass densities (kg/m^3)
-    grid_vel: ndarray, dtype=float
-        Discretized velocity field (m/s) of dry air.
-        grid_vel[0] is a 2D array holding the x-components of the vel. field
-        projected onto the grid cell surface centers.
-        grid_vel[1] is a 2D array holding the z-components of the vel. field
-        projected onto the grid cell surface centers.
-    grid_viscosity: ndarray, dtype=float
-        2D array holding the discretized kinematic viscosity
-        of the surrounding air (SI units)
-    grid_mass_density_fluid: ndarray, dtype=float
-        2D array holding the mass density of the surrounding air (SI units)
-        2D array holding the coordinates of the domain box in two dimensions
-        grid_ranges[0] = [x_min, x_max]
-        grid_ranges[1] = [z_min, z_max]
-    grid_no_cells: ndarray, dtype=int
-        grid_no_cells[0] = number of grid cells in x (horizontal)
-        grid_no_cells[1] = number of grid cells in z (vertical)
-    grav: float
-        Gravity of earth. Set larger zero for active gravity or zero during
-        spin-up phase
-    dt: float
-        Time step
-    
-    """
-    
     vel_f = interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                                                     grid_vel, grid_no_cells)
     for ID in id_list[active_ids]:
@@ -728,60 +578,6 @@ w_s_max_AS_inv = 1. / mat.w_s_max_AS
 def compute_dml_and_gamma_impl_Newton_full_np(
         dt_sub, no_iter_impl_mass, m_w, m_s, w_s, R_p, T_p, rho_p,
         T_amb, p_amb, S_amb, e_s_amb, L_v, K, D_v, sigma_p, solute_type):
-    """Compute the change in droplet water mass by condensation
-    
-    Implicit Newton method with 'no_iter_impl_mass' iterations to evaluate
-    the amount of condensed/evaporated water of a cloud particle/droplet.
-    For the condensation mass rate, the formula
-    by Fukuta 1970, J. Atm. Sci. 27: 1160 is applied.
-    Note, that the function is documented for one single particle. However,
-    it will also work for an array of particles, i.e. m_w, m_s, ... as
-    1D arrays.
-    
-    Parameters
-    ----------
-    dt_sub: float
-        Time step used for the implicit Newton method
-    no_iter_impl_mass: int
-        Number of iteration steps for the implicit Newton method
-    m_w: float
-        Particle water mass (1E-18 kg)
-    m_s: float
-        Particle solute mass (1E-18 kg)
-    w_s: float
-        Particle solute mass fraction = m_s/m_p, where m_p = m_s + m_w
-    R_p: float
-        Particle radius (microns)
-    T_p: float
-        Particle temperature (K)
-    rho_p: float
-        Particle mass density (kg/m^3)
-    T_amb: float
-        Ambient temperature (K)
-    p_amb: float
-        Ambient pressure (Pa)
-    e_s_amb: float
-        Ambient saturation pressure vapor-liquid (Pa)
-    L_v: float
-        Specific heat of vaporization (J/kg)
-    K: float
-        Thermal conductivity of the ambient air
-    D_v: float
-        Diffusion coefficient (m^2/s)
-    sigma_p: float
-        Particle surface tension (N/m)
-    solute_type: str
-        Particle solute material.
-        Either 'AS' (ammonium sulfate) or 'NaCl' (sodium chloride)
-    
-    Returns
-    -------
-    mass_new - m_w: float
-        Change in particle water mass by condensation (1E-18 kg)
-    gamma0: float
-        Mass rate at the beginning of the Newton iterations
-    
-    """    
     
     m_w_effl = m_s * (w_s_max_AS_inv - 1.0)
     
@@ -841,77 +637,10 @@ def update_m_w_and_delta_m_l_impl_Newton_np(
         grid_temperature, grid_pressure, grid_saturation,
         grid_saturation_pressure, grid_thermal_conductivity, 
         grid_diffusion_constant, grid_heat_of_vaporization,
-        cells, m_w, m_s, xi, solute_type,
+        grid_surface_tension, cells, m_w, m_s, xi, solute_type,
         id_list, active_ids,
         R_p, w_s, rho_p, T_p, 
-        delta_m_l, dt_sub, no_iter_impl_mass):
-    """Update particle water masses due to condensation
-
-    Implicit Newton method with 'no_iter_impl_mass' iterations to evaluate
-    the amount of condensed/evaporated water of a cloud particle/droplet.
-    For the condensation mass rate, the formula
-    by Fukuta 1970, J. Atm. Sci. 27: 1160 is applied.
-    
-    Parameters
-    ----------
-    grid_temperature: ndarray, dtype=float
-        2D array holding the discretized temperature of the atmosphere
-    grid_pressure: ndarray, dtype=float
-        2D array holding the discretized pressure of the atmosphere
-    grid_saturation: ndarray, dtype=float
-        2D array holding the discretized saturation of the atmosphere
-    grid_saturation_pressure: ndarray, dtype=float
-        2D array holding the discretized saturation pressure of the atmosphere
-    grid_thermal_conductivity: ndarray, dtype=float
-        2D array holding the discretized thermal conductivity of the
-        ambient air in each grid cell
-    grid_diffusion_constant: ndarray, dtype=float
-        2D array holding the discretized diffusion coefficient of the
-        ambient air in each grid cell
-    grid_heat_of_vaporization: ndarray, dtype=float
-        2D array holding the discretized heat of vaporization
-        in each grid cell
-    cells: ndarray, dtype=int
-        2D array, holding the particle cell indices, i.e.
-        cells[0] = 1D array of horizontal indices
-        cells[1] = 1D array of vertical indices
-        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
-    m_w: ndarray, dtype=float
-        1D array holding the particle water masses (1E-18 kg)
-        This array gets updated by the function.
-    m_s: ndarray, dtype=float
-        1D array holding the particle solute masses (1E-18 kg)
-    xi: ndarray, dtype=float
-        1D array holding the particle multiplicities  
-    solute_type: str
-        Particle solute material.
-        Either 'AS' (ammonium sulfate) or 'NaCl' (sodium chloride)
-    id_list: ndarray, dtype=float
-        1D array holding the ordered particle IDs.
-        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
-        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
-    active_ids: ndarray, dtype=bool
-        1D mask-array. Each particle gets a flag 'True' or 'False', defining
-        if it still resides in the simulation domain or has already hit the
-        ground and is thereby removed from the simulation
-    R_p: ndarray, dtype=float
-        1D array holding the particle radii (microns)
-    w_s: ndarray, dtype=float
-        1D array holding the particle solute mass fractions
-        w_s = m_s / (m_s + m_w)
-    rho_p: ndarray, dtype=float
-        1D array holding the particle mass densities (kg/m^3)    
-    T_p: ndarray, dtype=float
-        1D array holding the particle temperatures (kg/m^3)
-    delta_m_l: ndarray, dtype=float
-        2D array, sampling the change in water mass in each grid cell (kg)
-    dt_sub: float
-        Time step used for the implicit Newton method
-    no_iter_impl_mass: int
-        Number of iteration steps for the implicit Newton method
-        
-    """
-    
+        delta_m_l, delta_Q_p, dt_sub,  no_iter_impl_mass):
     delta_m_l.fill(0.0)
     for ID in id_list[active_ids]:
         cell = (cells[0,ID], cells[1,ID])
@@ -941,112 +670,21 @@ update_m_w_and_delta_m_l_impl_Newton =\
 
 #%% PARTICLE PROPAGATION ONE SUBLOOP STEP
 
+# dt_sub_pos is ONLY for the particle location step x_new = x_old +v*dt_sub_loc
+# -->> give the opportunity to adjust this step, usually dt_sub_pos = dt_sub
+# at the end of subloop 2: dt_sub_pos = dt_sub_half
+# for velocity use m_(n+1) and v_n in |u-v_n| for calcing the Reynolds number
+# grid_scalar_fields = np.array([T, p, Theta, rho_dry, r_v, r_l, S, e_s])
+# grid_mat_prop = np.array([K, D_v, L, sigma_w, c_p_f, mu_f, rho_f])
 def propagate_particles_subloop_step_np(grid_scalar_fields, grid_mat_prop,
                                         grid_velocity,
                                         grid_no_cells, grid_ranges, grid_steps,
                                         pos, vel, cells, rel_pos, m_w, m_s, xi,
                                         water_removed, id_list, active_ids,
                                         T_p, solute_type,
-                                        delta_m_l,
+                                        delta_m_l, delta_Q_p,
                                         dt_sub, dt_sub_pos,
                                         no_iter_impl_mass, g_set):
-    """Update particle positions, velocities and masses, excluding collisions
-    
-    Parameters
-    ----------
-    grid_scalar_fields: ndarray, dtype=float
-        Array components are 2D arrays of the discretized scalar fields
-        grid_scalar_fields[0] = temperature
-        grid_scalar_fields[1] = pressure
-        grid_scalar_fields[2] = potential_temperature
-        grid_scalar_fields[3] = mass_density_air_dry
-        grid_scalar_fields[4] = mixing_ratio_water_vapor
-        grid_scalar_fields[5] = mixing_ratio_water_liquid
-        grid_scalar_fields[6] = saturation
-        grid_scalar_fields[7] = saturation_pressure
-        grid_scalar_fields[8] = mass_dry_inv
-        grid_scalar_fields[9] = rho_dry_inv
-    grid_mat_prop: ndarray, dtype=float
-        Array components are 2D arrays of the material properties in the
-        grid cells.
-        All material property grids get updated based on the scalar fields.
-        grid_mat_prop[0] = thermal_conductivity
-        grid_mat_prop[1] = diffusion_constant
-        grid_mat_prop[2] = heat_of_vaporization
-        grid_mat_prop[3] = surface_tension
-        grid_mat_prop[4] = specific_heat_capacity
-        grid_mat_prop[5] = viscosity
-        grid_mat_prop[6] = mass_density_fluid
-    grid_velocity: ndarray, dtype=float
-        Discretized velocity field (m/s) of dry air.
-        grid_vel[0] is a 2D array holding the x-components of the vel. field
-        projected onto the grid cell surface centers.
-        grid_vel[1] is a 2D array holding the z-components of the vel. field
-        projected onto the grid cell surface centers.
-    grid_no_cells: ndarray, dtype=int
-        grid_no_cells[0] = number of grid cells in x (horizontal)
-        grid_no_cells[1] = number of grid cells in z (vertical)
-    grid_ranges: ndarray, dtype=float
-        2D array holding the coordinates of the domain box in two dimensions
-        grid_ranges[0] = [x_min, x_max]
-        grid_ranges[1] = [z_min, z_max]
-    grid_steps: ndarray, dtype=float
-        grid_steps[0] = horizontal grid step size in x (m)
-        grid_steps[1] = vertical grid step size in z (m)
-    pos: ndarray, dtype=float
-        2D array, where
-        pos[0] = 1D array of horizontal coordinates (m)
-        pos[1] = 1D array of vertical coordinates (m)
-        (pos[0,n], pos[1,n]) is the position of particle 'n'
-    vel: ndarray, dtype=float
-        2D array, where
-        vel[0] = 1D array of horizontal velocity components (m/s)
-        vel[1] = 1D array of vertical velocity components (m/s)
-        (vel[0,n], vel[1,n]) is the velocity of particle 'n'
-    cells: ndarray, dtype=int
-        2D array, holding the particle cell indices, i.e.
-        cells[0] = 1D array of horizontal indices
-        cells[1] = 1D array of vertical indices
-        (cells[0,n], cells[1,n]) gives the cell of particle 'n'    
-    m_w: ndarray, dtype=float
-        1D array holding the particle water masses (1E-18 kg)
-        This array gets updated by the function.
-    m_s: ndarray, dtype=float
-        1D array holding the particle solute masses (1E-18 kg)
-    xi: ndarray, dtype=float
-        1D array holding the particle multiplicities     
-    water_removed: ndarray, shape=(1,), dtype=float
-        1D array holding only one value, which counts the water removed
-        from the simulation domain by sedimentation
-    id_list: ndarray, dtype=float
-        1D array holding the ordered particle IDs.
-        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
-        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
-    active_ids: ndarray, dtype=bool
-        1D mask-array. Each particle gets a flag 'True' or 'False', defining
-        if it still resides in the simulation domain or has already hit the
-        ground and is thereby removed from the simulation
-    T_p: ndarray, dtype=float
-        1D array holding the particle temperatures (kg/m^3)    
-    solute_type: str
-        Particle solute material.
-        Either 'AS' (ammonium sulfate) or 'NaCl' (sodium chloride)
-    delta_m_l: ndarray, dtype=float
-        2D array, sampling the change in water mass in each grid cell (kg)
-    dt_sub: float
-        Time step used for particle condensation and velocity calculation
-    dt_sub_pos: float
-        Time step used for particle position update.
-        Usually dt_sub_pos = dt_sub. Gives opportunity to adjust this step,
-        e.g. at the end of a subloop, when using Velocity-Verlet
-    no_iter_impl_mass: int
-        Number of iteration steps for the implicit Newton method
-    g_set: float
-        Gravity of earth. Set larger zero for active gravity or zero during
-        spin-up phase
-
-    """
-    
     ### 1. T_p = T_f
     update_T_p(grid_scalar_fields[0], cells, T_p)
             
@@ -1057,10 +695,10 @@ def propagate_particles_subloop_step_np(grid_scalar_fields, grid_mat_prop,
         grid_scalar_fields[0], grid_scalar_fields[1],
         grid_scalar_fields[6], grid_scalar_fields[7],
         grid_mat_prop[0], grid_mat_prop[1],
-        grid_mat_prop[2],
+        grid_mat_prop[2], grid_mat_prop[3],
         cells, m_w, m_s, xi, solute_type,
         id_list, active_ids, R_p, w_s, rho_p, T_p,
-        delta_m_l, dt_sub, no_iter_impl_mass)
+        delta_m_l, delta_Q_p, dt_sub, no_iter_impl_mass)
     
     ### 9. v_n -> v_n+1
     R_p, w_s, rho_p = mp.compute_R_p_w_s_rho_p_AS(m_w, m_s, T_p)
@@ -1092,7 +730,7 @@ def integrate_subloop_n_steps_np(
             R_kernel_low_log, bin_factor_R_log, no_cols,
             water_removed,
             id_list, active_ids, T_p,
-            delta_m_l, delta_Theta_ad, delta_r_v_ad,
+            delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
             dt_sub, dt_sub_pos, no_cond_steps, no_col_steps,
             no_iter_impl_mass, g_set, act_collisions):
     
@@ -1113,7 +751,7 @@ def integrate_subloop_n_steps_np(
                 dt_col_over_dV, E_col_grid, no_kernel_bins,
                 R_kernel_low_log, bin_factor_R_log, no_cols, solute_type)
         # i) for all particles
-        # updates delta_m_l
+        # updates delta_m_l and delta_Q_p
         propagate_particles_subloop_step(
             grid_scalar_fields, grid_mat_prop,
             grid_velocity,
@@ -1121,7 +759,7 @@ def integrate_subloop_n_steps_np(
             pos, vel, cells, rel_pos, m_w, m_s, xi,
             water_removed, id_list, active_ids,
             T_p, solute_type,
-            delta_m_l,
+            delta_m_l, delta_Q_p,
             dt_sub, dt_sub_pos,
             no_iter_impl_mass, g_set)
 
@@ -1129,7 +767,7 @@ def integrate_subloop_n_steps_np(
         propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
                                     p_ref, p_ref_inv,
                                     delta_Theta_ad, delta_r_v_ad,
-                                    delta_m_l,
+                                    delta_m_l, delta_Q_p,
                                     grid_volume_cell)
         
         # viii) to ix) included in "propagate_particles_subloop"
@@ -1177,7 +815,7 @@ def integrate_adv_step_np(
         pos, vel, cells, rel_pos, m_w, m_s, xi, solute_type,
         water_removed,
         id_list, active_ids, T_p,
-        delta_m_l,
+        delta_m_l, delta_Q_p,
         dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond,
         no_col_per_adv, act_collisions,
         act_relaxation, init_profile_r_v, init_profile_Theta,
@@ -1247,7 +885,7 @@ def integrate_adv_step_np(
                 R_kernel_low_log, bin_factor_R_log, no_cols,
                 water_removed,
                 id_list, active_ids, T_p,
-                delta_m_l, delta_Theta_ad, delta_r_v_ad,
+                delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
                 dt_sub, dt_sub, scale_dt_cond, no_col_steps,
                 no_iter_impl_mass, g_set, act_collisions)
     # SUBLOOP 1 END
@@ -1300,24 +938,24 @@ def integrate_adv_step_np(
                 R_kernel_low_log, bin_factor_R_log, no_cols,
                 water_removed,
                 id_list, active_ids, T_p,
-                delta_m_l, delta_Theta_ad, delta_r_v_ad,
+                delta_m_l, delta_Q_p, delta_Theta_ad, delta_r_v_ad,
                 dt_sub, dt_sub, scale_dt_cond-1, no_col_steps,
                 no_iter_impl_mass, g_set, act_collisions)
     # SUBLOOP 2 END
 
     # add one step, where pos is moved only by half timestep x_n+1/2 -> x_n
     # i) for all particles
-    # updates delta_m_l
+    # updates delta_m_l and delta_Q_p as well
     # NOTE that the additional collisions step is already in the method above
     
-    propagate_particles_subloop_step(
+    propagate_particles_subloop_step_np(
             grid_scalar_fields, grid_mat_prop,
             grid_velocity,
             grid_no_cells, grid_ranges, grid_steps,
             pos, vel, cells, rel_pos, m_w, m_s, xi,
             water_removed, id_list, active_ids,
             T_p, solute_type,
-            delta_m_l,
+            delta_m_l, delta_Q_p,
             dt_sub, dt_sub_half,
             no_iter_impl_mass, g_set)    
 
@@ -1325,7 +963,7 @@ def integrate_adv_step_np(
     propagate_grid_subloop_step(grid_scalar_fields, grid_mat_prop,
                                 p_ref, p_ref_inv,
                                 delta_Theta_ad, delta_r_v_ad,
-                                delta_m_l,
+                                delta_m_l, delta_Q_p,
                                 grid_volume_cell)    
     
 integrate_adv_step = njit()(integrate_adv_step_np)
@@ -1361,7 +999,7 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
                       pos, vel, cells, rel_pos, m_w, m_s, xi,
                       solute_type, water_removed,
                       id_list, active_ids, T_p,
-                      delta_m_l,
+                      delta_m_l, delta_Q_p,
                       dt, dt_sub, dt_sub_half, dt_col,
                       scale_dt_cond, no_col_per_adv, no_adv_steps,
                       act_collisions,
@@ -1395,7 +1033,7 @@ def simulate_interval(grid_scalar_fields, grid_mat_prop, grid_velocity,
             pos, vel, cells, rel_pos, m_w, m_s, xi, solute_type,
             water_removed,
             id_list, active_ids, T_p,
-            delta_m_l,
+            delta_m_l, delta_Q_p,
             dt, dt_sub, dt_sub_half, dt_col_over_dV, scale_dt_cond,
             no_col_per_adv, act_collisions,
             act_relaxation, init_profile_r_v, init_profile_Theta,
@@ -1491,6 +1129,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
         np.ones_like(grid.mass_density_air_dry) / grid.mass_density_air_dry
     grid.mass_dry_inv = V0_inv * grid.rho_dry_inv
     
+    delta_Q_p = np.zeros_like(grid.temperature)
     delta_m_l = np.zeros_like(grid.temperature)
     
     if act_relaxation:
@@ -1620,7 +1259,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
                       pos, vel, cells, rel_pos, m_w, m_s, xi,
                       solute_type, water_removed,
                       id_list, active_ids, T_p,
-                      delta_m_l,
+                      delta_m_l, delta_Q_p,
                       dt, dt_sub, dt_sub_half, dt_col,
                       scale_dt_cond, no_col_per_adv, frame_every,
                       act_collisions,

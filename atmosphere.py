@@ -98,8 +98,10 @@ def compute_density_air_dry(temperature, pressure):
 ### CONVERSION DRY POTENTIAL TEMPERATURE
 c_pv_over_c_pd = c.specific_heat_capacity_water_vapor_20C \
                  / c.specific_heat_capacity_air_dry_NTP
-c_pv_over_c_pd2 = (c.specific_heat_capacity_water_vapor_20C - 
-                   c.specific_gas_constant_air_dry) \
+# considers heating of water vapor in the update function for
+# dry potential temperature
+heat_factor_r_v = (c.specific_heat_capacity_water_vapor_20C - 
+                   c.specific_gas_constant_water_vapor) \
                  / (c.specific_heat_capacity_air_dry_NTP -
                     c.specific_gas_constant_air_dry)
                  

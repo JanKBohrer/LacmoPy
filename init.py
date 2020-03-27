@@ -62,7 +62,7 @@ def set_config(config, config_mode):
         Counts the collisions
         no_cols[0] = number of ordinary collision,
         no_cols[1] = number of multiple collision event
-    water removed: ndarray, shape=(1,), dtype=float
+    water_removed: ndarray, shape=(1,), dtype=float
         1D array holding only one value, which counts the water removed
         from the simulation domain by sedimentation
         
