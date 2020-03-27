@@ -9,7 +9,7 @@ Further contact: Oswald Knoth (knoth@tropos.de)
 
 GENERATION OF SIP ENSEMBLES
 
-for initialization, the "SingleSIP" method is applied, as proposed by
+for initialization, the 'SingleSIP' method is applied, as proposed by
 Unterstrasser 2017, GMD 10: 1521–1548
 
 basic units:
@@ -26,20 +26,75 @@ from numba import njit
 from microphysics import compute_mass_from_radius
 from distributions import pdf_expo, pdf_lognormal
 
-#%% GENERATION OF SINGLE SIP ENSEMBLES FOR CERTAIN DISTRIBUTIONS
+#%% GENERATION OF SIP ENSEMBLES FOR CERTAIN DISTRIBUTIONS
 
-# generate SIP ensemble from pure PDFs
-# return masses and weights 
-# -> In a second step multiply weights by 
-# total number of real particles in cell "nrpc" to get multiplicities
-# note that the multiplicities are not integers but floats
-# exponential distribution:
-# f = 1/m_avg * exp(-m/m_avg)
 def gen_mass_ensemble_weights_SinSIP_expo_np(
         m_mean, mass_density,
         dV, kappa, eta, weak_threshold, r_critmin,
         m_high_over_m_low=1.0E6,
         seed=3711, setseed=True):
+    """Generate weights for a particle ensemble from expo. mass distribution
+    
+    Adapted from 'SingleSIP'-method by Unterstrasser 2017.
+    Exponential probability density function:
+    f(m) = 1/m_mean * exp(-m / m_mean).
+    This function generates a 1D mass-array and a corresponding weight-array,
+    with a weight for each mass. The sum of weights adds up to a value close
+    to one. Due to restrictions of the allowed relative minimum weight, the
+    sum of weights will not exactly be one, but fluctuate around one.
+    To obtain the corresponding array of SIP-multiplicities,
+    one can multiply the array of weights by the number of
+    real particles in the current cell or simulation domain.
+    In contrast to the super-droplet approach by
+    Shima et al. 2009, Q. J. R. Meteorol. Soc. 135: 1307–1320,
+    the multiplicities will not be integers, but floats, which are also
+    allowed to assume values smaller than one.
+    
+    Parameters
+    ----------
+    m_mean: float
+        Expected value of the exponential PDF (1E-18 kg).
+    mass_density: float
+        Particle mass density (kg/m^3)
+    dV: float
+        Volume, in which the particles are generated (m^3).
+    kappa: float
+        'kappa' parameter, which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method.
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    weak_threshold: bool
+        Sets weak (True) or fix (False) threshold during SIP generation,
+        as defined in Unterstrasser 2017, SingleSIP method
+    r_critmin: float
+        Defines the smallest allowed particle radius and thereby the
+        smallest allowed mass of the SIP-ensemble (microns).
+    m_high_over_m_low: float, optional
+        Ratio of largest to smallest allowed mass of the SIP-ensemble. The
+        smallest mass is defined by the smallest radius r_critmin.
+    seed: int, optional
+        Seed of the Numpy random number generator.
+    setseed: bool, optional
+        'True' to initialize the Numpy random number generator with 'seed'.
+    
+    Returns
+    -------
+    masses: ndarray, dtype=float
+        1D array of generated simulation-particle masses. (1E-18 kg)
+    weights: ndarray, dtype=float
+        1D array of generated weights. To obtain the corresponding array
+        of SIP-multiplicities, one can multiply the array of weights by the
+        number of real particles in the current cell or simulation domain.
+    m_low: float
+        Smallest allowed particle mass, corr. to 'r_critmin' (1E-18 kg).
+    bins: ndarray, dtype=float
+        1D array holding the borders of the logarithmic mass bins. One mass
+        value is chosen randomly per mass bin.
+
+    """
+    
     if setseed: np.random.seed(seed)
     m_low = compute_mass_from_radius(r_critmin, mass_density) # in 1E-18 kg
     m_mean_inv = 1.0 / m_mean
@@ -89,20 +144,78 @@ def gen_mass_ensemble_weights_SinSIP_expo_np(
 gen_mass_ensemble_weights_SinSIP_expo =\
     njit()(gen_mass_ensemble_weights_SinSIP_expo_np)   
 
-# generate SIP ensemble from pure PDFs
-# return masses and weights 
-# -> In a second step multiply weights by total number of real particles
-# per cell and mode "no_rpcm" to get multiplicities
-# note that the multiplicities are not integers but floats
-# lognormal distribution for mode 'k':
-# f = \frac{DNC_k}{\sqrt{2 \pi} \, \ln (\sigma_k) m}
-# \exp [ -(\frac{\ln (m / \mu_k)}{\sqrt{2} \, \ln (\sigma_k)} )^2 ]
 def gen_mass_ensemble_weights_SinSIP_lognormal_np(
         mu_m_log, sigma_m_log,
         mass_density,
         dV, kappa, eta, weak_threshold, r_critmin,
         m_high_over_m_low,
         seed, setseed=True):
+    """Generate weights for a particle ensemble from lognorm. mass distrib.
+    
+    Adapted from 'SingleSIP'-method by Unterstrasser 2017.
+    Lognormal probability density function:
+    f(m) = \exp( -0.5 ( ( \ln( m ) - mu_m_log ) / sigma_m_log )^2 )
+           / ( m * two_pi_sqrt * sigma_m_log )
+    This function generates a 1D mass-array and a corresponding weight-array,
+    with a weight for each mass. The sum of weights adds up to a value close
+    to one. Due to restrictions of the allowed relative minimum weight, the
+    sum of weights will not exactly be one, but fluctuate around one.
+    To obtain the corresponding array of SIP-multiplicities,
+    one can multiply the array of weights by the number of
+    real particles in the current cell or simulation domain.
+    In contrast to the super-droplet approach by
+    Shima et al. 2009, Q. J. R. Meteorol. Soc. 135: 1307–1320,
+    the multiplicities will not be integers, but floats, which are also
+    allowed to assume values smaller than one.
+    
+    Parameters
+    ----------
+    mu_m_log: float
+        Log. nat. of the geometric expected value
+        of the lognormal PDF [ln(1E-18 kg)].
+    sigma_m_log: float
+        Log. nat. of the geometric standard deviation of the lognormal PDF
+    mass_density: float
+        Particle mass density (kg/m^3)
+    dV: float
+        Volume, in which the particles are generated (m^3).
+    kappa: float
+        'kappa' parameter, which defines the number of SIPs per simulation
+        box, as defined in Unterstrasser 2017, SingleSIP method.
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    weak_threshold: bool
+        Sets weak (True) or fix (False) threshold during SIP generation,
+        as defined in Unterstrasser 2017, SingleSIP method
+    r_critmin: float
+        Defines the smallest allowed particle radius and thereby the
+        smallest allowed mass of the SIP-ensemble (microns).
+    m_high_over_m_low: float, optional
+        Ratio of largest to smallest allowed mass of the SIP-ensemble. The
+        smallest mass is defined by the smallest radius r_critmin.
+    seed: int, optional
+        Seed of the Numpy random number generator.
+    setseed: bool, optional
+        'True' to initialize the Numpy random number generator with 'seed'.
+    
+    Returns
+    -------
+    masses: ndarray, dtype=float
+        1D array of generated simulation-particle masses. (1E-18 kg)
+    weights: ndarray, dtype=float
+        1D array of generated weights. To obtain the corresponding array
+        of SIP-multiplicities, one can multiply the array of weights by the
+        number of real particles in the current cell or simulation domain.
+    m_low: float
+        Smallest allowed particle mass, corr. to 'r_critmin' (1E-18 kg).
+    bins: ndarray, dtype=float
+        1D array holding the borders of the logarithmic mass bins. One mass
+        value is chosen randomly per mass bin.
+
+    """
+    
     if setseed: np.random.seed(seed)
     m_low = compute_mass_from_radius(r_critmin, mass_density) # in 1E-18 kg
     
@@ -150,18 +263,96 @@ gen_mass_ensemble_weights_SinSIP_lognormal =\
     njit()(gen_mass_ensemble_weights_SinSIP_lognormal_np)   
 
 #%% CREATE ENSEMBLE MASSES AND WEIGHTS IN EACH CELL of a given z-level (j-lvl)
-# at the z-level, the mass density and thereby the number of real particles per
-# cell is known
-# create SIPs for each cell of the level, then
-# lump all in one array and assign cell - x values for indexing
-# if no_modes = 1: monomodal, mu_m_log, sigma_m_log = scalars
-# if no_modes > 1: multimodal, mu_m_log = [mu0, mu1, ...] same for sigm & kappa
-# mass density is only for conversion r_critmin -> m_critmin
-# for lognorm weak threshold: kappa = 3.5 -> no_SIPs_avg = 20.2
-def gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
+
+def gen_mass_ensemble_SinSIP_lognormal_z_lvl(no_modes,
         mu_m_log, sigma_m_log, mass_density,
         dV, kappa, eta, weak_threshold, r_critmin,
         m_high_over_m_low, seed, no_cells_x, no_rpcm, setseed = True):
+    """Generate simulation-particle ensembles in cells at the same height
+    
+    Adapted from 'SingleSIP'-method by Unterstrasser 2017.
+    Multimodal lognormal probability density function:
+    f(m) = \sum_k \exp( -0.5 ( ( \ln( m ) - mu_m_log_k ) / sigma_m_log_k )^2 )
+           / ( m * two_pi_sqrt * sigma_m_log_k )
+    Given a 2D spatial grid. At the vertical z-level of grid cells, the mass
+    density and thereby the number of real particles per cell is known.
+    In each cell of the z-level, this function generates a 1D mass-array
+    and a corresponding weight-array with a weight for each mass.
+    The sum of weights in each cell adds up to a value close to one. Due to
+    restrictions of the allowed relative minimum weight, the sum of weights
+    will not exactly be one, but fluctuate around one. To obtain the
+    corresponding array of SIP-multiplicities, the array of weights is
+    multiplied by the number of real particles in the current cell.
+    In contrast to the super-droplet approach by
+    Shima et al. 2009, Q. J. R. Meteorol. Soc. 135: 1307–1320,
+    the multiplicities will not be integers, but floats, which are also
+    allowed to assume values smaller than one.
+    
+    Parameters
+    ----------
+    no_modes: int
+        Number of modes of the lognormal PDF. If no_modes==1, then the
+        parameters below must be provided as single floats.
+        If no_modes>1, then the parameters below must be provided as ndarrays.
+    mu_m_log: float or ndarray, dtype=float
+        1D array holding the log. nat. of the geometric expected values
+        of the lognormal PDF for each mode [ln(1E-18 kg)].
+        If no_modes==1: Provide single float
+    sigma_m_log: float or ndarray, dtype=float
+        1D array holding the log. nat. of the geometric standard deviation
+        of the lognormal PDF for each mode.
+        If no_modes==1: Provide single float
+    mass_density: float
+        Particle mass density (kg/m^3)
+    dV: float
+        Volume, in which the particles are generated (m^3).
+    kappa: float or ndarray, dtype=float
+        1D array holding for each mode the 'kappa' parameter,
+        which defines the number of SIPs per simulation box,
+        as defined in Unterstrasser 2017, SingleSIP method.
+        For lognorm weak threshold: kappa = 3.5 => no_SIPs_avg approx. 20.2
+        If no_modes==1: Provide single float
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    weak_threshold: bool
+        Sets weak (True) or fix (False) threshold during SIP generation,
+        as defined in Unterstrasser 2017, SingleSIP method
+    r_critmin: float or ndarray, dtype=float
+        1D array, holding for each mode the smallest allowed particle radius
+        and thereby the smallest allowed mass of the SIP-ensemble (microns).
+        If no_modes==1: Provide single float
+    m_high_over_m_low: float
+        Ratio of largest to smallest allowed mass of the SIP-ensemble. The
+        smallest mass is defined by the smallest radius r_critmin.
+    seed: int
+        Seed of the Numpy random number generator.
+    no_cells_x: int
+        Number of cells in horizontal direction of the 2D spatial grid.
+    no_rpcm: ndarray
+        Number of real particles per cell and mode:
+        no_rpcm[0] = Number of real particles per cell in mode 0 etc.
+    setseed: bool, optional
+        'True' to initialize the Numpy random number generator with 'seed'.
+    
+    Returns
+    -------
+    masses_lvl: ndarray, dtype=float
+        1D array holding generated simulation-particle masses of the entire
+        z-level (1E-18 kg). The masses are assigned to cells by 'cells_x_lvl'.
+    xis_lvl: ndarray, dtype=float
+        1D array holding generated multiplicities of the entire z-level.
+        The 'xis' are assigned to cells by 'cells_x_lvl'.
+    cells_x_lvl: ndarray, dtype=int
+        1D array providing the horizontal cell-index for 'masses' and 'xis'.
+    modes_lvl: ndarray, dtype=int
+        1D array providing the mode number for 'masses' and 'xis'.
+    no_spc_lvl: ndarray, dtype=int
+        1D array holding the number of generated simulation-particles
+        in each cell of the z-level.
+
+    """    
     
     if setseed:
         np.random.seed(seed)
@@ -265,33 +456,33 @@ def gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(no_modes,
 # because of layering process with saturation adjustment.
 # this function could be used for a box model with connected grid cells.    
 # njit not possible because of lists
-def gen_mass_ensemble_weights_SinSIP_lognormal_grid(
-        mu_m_log, sigma_m_log, mass_density,
-        dV, kappa, eta, weak_threshold, r_critmin,
-        m_high_over_m_low, seed, no_cells):
-    
-    mass_grid_ji = []
-    weights_grid_ji = []
-    
-    np.random.seed(seed)
-    
-    no_sp_placed_ji = np.zeros( no_cells, dtype = np.int64 )
-    
-    for j in range(no_cells[0]):
-        mg_ = []
-        wg_ = []
-        for i in range(no_cells[1]):
-            masses, weights, m_low, bins = \
-                gen_mass_ensemble_weights_SinSIP_lognormal_np(
-                    mu_m_log, sigma_m_log, mass_density,
-                    dV, kappa, eta, weak_threshold, r_critmin,
-                    m_high_over_m_low, seed, setseed=False)
-            mg_.append(masses)
-            wg_.append(weights)
-            no_sp_placed_ji[j,i] = len(masses)
-        mass_grid_ji.append(mg_)
-        weights_grid_ji.append(wg_)
-    return mass_grid_ji, weights_grid_ji, no_sp_placed_ji
+#def gen_mass_ensemble_weights_SinSIP_lognormal_grid(
+#        mu_m_log, sigma_m_log, mass_density,
+#        dV, kappa, eta, weak_threshold, r_critmin,
+#        m_high_over_m_low, seed, no_cells):
+#    
+#    mass_grid_ji = []
+#    weights_grid_ji = []
+#    
+#    np.random.seed(seed)
+#    
+#    no_sp_placed_ji = np.zeros( no_cells, dtype = np.int64 )
+#    
+#    for j in range(no_cells[0]):
+#        mg_ = []
+#        wg_ = []
+#        for i in range(no_cells[1]):
+#            masses, weights, m_low, bins = \
+#                gen_mass_ensemble_weights_SinSIP_lognormal_np(
+#                    mu_m_log, sigma_m_log, mass_density,
+#                    dV, kappa, eta, weak_threshold, r_critmin,
+#                    m_high_over_m_low, seed, setseed=False)
+#            mg_.append(masses)
+#            wg_.append(weights)
+#            no_sp_placed_ji[j,i] = len(masses)
+#        mass_grid_ji.append(mg_)
+#        weights_grid_ji.append(wg_)
+#    return mass_grid_ji, weights_grid_ji, no_sp_placed_ji
 
 # expo distr. not finished for grid
 # no_cells = [no_c_x, no_c_z]

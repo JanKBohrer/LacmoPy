@@ -33,7 +33,7 @@ import material_properties as mat
 import atmosphere as atm
 import microphysics as mp
 from generation_SIP_ensemble import \
-    gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl    
+    gen_mass_ensemble_SinSIP_lognormal_z_lvl    
 
 from file_handling import save_grid_and_particles_full
 from file_handling import load_kernel_data_Ecol
@@ -775,7 +775,7 @@ def initialize_grid_and_particles_SinSIP(config):
         # xi_lvl = ...
         if dist_name == 'lognormal':
             m_s_lvl, xi_lvl, cells_x_lvl, modes_lvl, no_spc_lvl = \
-                gen_mass_ensemble_weights_SinSIP_lognormal_z_lvl(
+                gen_mass_ensemble_SinSIP_lognormal_z_lvl(
                         no_modes,
                         mu_m_log, sigma_m_log, mass_density_dry,
                         grid.volume_cell, kappa_dst, eta,

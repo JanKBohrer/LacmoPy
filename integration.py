@@ -46,52 +46,152 @@ from file_handling import \
 # CFL = dt * ( u_x/dx + u_z/dz ) < cfl_max
 # => dt < cfl_max / | ( u_x/dx + u_z/dz ) | for all u_x, u_z
 # rhs is smallest for largest term1:
-def compute_dt_max_from_CFL(grid):
+def compute_dt_max_from_CFL(grid, cfl_max):
+    """Computes the maximum time step allowed for a given (Courant) CFL number
+    
+    Compute timestep estimate by Courant number (CFL number)
+    CFL = dt * ( u_x/dx + u_z/dz ) < cfl_max
+    => dt < cfl_max / | ( u_x/dx + u_z/dz ) | for all u_x, u_z
+        
+    Parameters
+    ----------
+    grid: :obj:`Grid`
+        Grid-class object, holding the velocity field.
+    cfl_max: float
+        Maximum Courant (CFL) number.
+    
+    Returns
+    -------
+    dt_max: float
+        Maximum time step allowed corresponding to cfl_max
+    
+    """
+    
     term1 = np.abs( grid.velocity[0] / grid.steps[0] )\
             + np.abs (grid.velocity[1] / grid.steps[1]  )
     term1_max = np.amax(term1)
-    # define max CFL number
-    cfl_max = 0.5
     dt_max = cfl_max / term1_max
+    
     print("dt_max from CFL = ", dt_max)
+    
     return dt_max
 
 @njit()            
-def compute_limiter( r_, delta_ = 2.0 ):
-    K = (1.0 + 2.0 * r_) * c.one_third
-    # fmin: elementwise minimum when comparing two arrays,
-    # and NaN is NOT propagated
-    return np.maximum(0.0, np.fmin (2.0 * r_, np.fmin( K, delta_ ) ) )
+def compute_limiter(r, delta = 2.0):
+    """Limiter for the 3rd order upwind advection scheme
+    
+    Advection scheme by Hundsdorfer 1995, J. Comp. Phys 117: 35
 
-def compute_limiter_from_scalars_upwind( a0, a1, da12 ):
-    if ( np.abs(da12) > 1.0E-16 ): 
-        limiter_argument = ( a0 - a1 ) / ( da12 )
-    else:
-        limiter_argument = 1.0
-    return compute_limiter(limiter_argument)
+    Parameters
+    ----------
+    r: float
+        Limiter argument = (a_(n+1) - a_n) / (a_n - a_(n-1)),
+        where 'a_n' is the state variable in cell 'n'
+    delta: float, optional
+        Parameter, largest allowed value of the limiter
+    
+    Returns
+    -------    
+        Limiter function evaluated at the limiter argument
+    
+    """
+    
+    K = (1.0 + 2.0 * r) * c.one_third
+    # np.fmin: elementwise minimum when comparing two arrays,
+    # NaN is not propagated
+    return np.maximum(0.0, np.fmin (2.0 * r, np.fmin( K, delta ) ) )
+
+# Currently not in use:
+#def compute_limiter_from_scalars_upwind( a0, a1, da12 ):
+#    if ( np.abs(da12) > 1.0E-16 ): 
+#        limiter_argument = ( a0 - a1 ) / ( da12 )
+#    else:
+#        limiter_argument = 1.0
+#    return compute_limiter(limiter_argument)
 
 @njit()
 def compute_limiter_from_scalar_grid_upwind( a0, a1, a2 ):
+    """Compute advection scheme limiter values for a 2D spatial grid
+    
+    3rd order advection scheme by Hundsdorfer 1995, J. Comp. Phys 117: 35
+    Let a1[i,j] be a discretized state variable in a 2D grid [i,j].
+    This function computes the limiter values in each grid cell for the
+    advection in one specific spatial transport direction (x or z).
+    For example in x: a0[i,j] = a1[i+1,j] and a2[i,j] = a1[i-1,j]
+    Then, the limiter argument is
+    (a1[i+1,j] - a1[i,j]) / (a1[i,j] - a1[i-1,j])
+    = (a0[i,j] - a1[i,j]) / (a1[i,j] - a2[i,j])
+    
+    Parameters
+    ----------
+    a0: ndarray, dtype=float
+        2D array holding the state-variable, but shifted by one index in
+        the transport-direction (s.a.)
+    a1: ndarray, dtype=float
+        2D array holding the state-variable
+    a2: ndarray, dtype=float
+        2D array holding the state-variable, but shifted by one index against
+        the transport-direction (s.a.)
+    
+    Returns
+    -------
+        ndarray, dtype=float
+        2D array with limiter function in each cell for
+        the given transport direction
+    
+    """
+    
     r = np.where( np.abs( a1 - a2 ) > 1.0E-8 * np.abs( a0 - a1 ) ,
                   ( a0 - a1 ) / ( a1 - a2 ),
                   ( a0 - a1 ) * 1.0E8 * np.sign( a1 - a2 )
                  )
     return compute_limiter( r )
 
-# computes divergencence of (a * vec) based on vec at the grid cell "surfaces".
-# for scalar field quantity a, it is calculated
-# div( a * vec ) = d/dx (a * vec_x) + d/dz (a * vec_z)
-# method: 3rd order upwind scheme following Hundsdorfer 1996
-# vec = velocity OR mass_flux_air_dry
-# possible boundary conditions (BC) as list/array in [x,z]:
-# 0 = 'periodic',
-# 1 = 'solid'
-# flux_field = one of
-# grid_velocity
-# grid_mass_flux_air_dry
 def compute_divergence_upwind_np(field, flux_field,
                                  grid_no_cells, grid_steps,
                                  boundary_conditions = np.array([0, 1])):
+    """Compute divergence of a flux at the grid cell surfaces
+    
+    3rd order advection scheme by Hundsdorfer 1995, J. Comp. Phys 117: 35.
+    The flux is actually 'field'*'flux_field' and 'flux_field' can
+    either be the velocity or the mass flux density of dry air at the
+    grid cell surfaces, as required.
+    The calculated divergence is given by div( field * flux_field )
+    = d/dx (field * flux_field_x) + d/dz (field * flux_field_z)
+    The boundary conditions at the domain borders can either be
+    solid or periodic.
+    
+    Parameters
+    ----------
+    field: ndarray, dtype=float
+        2D array holding the transported field (state variable)
+    flux_field: ndarray, dtype=float
+        Provide either velocity (m/s) or mass flux density (kg/(s m^2))
+        of dry air.
+        flux_field[0] is a 2D array holding the x-components of the flux_field
+        projected onto the grid cell surface centers.
+        flux_field[1] is a 2D array holding the z-components of the flux_field
+        projected onto the grid cell surface centers.
+    grid_no_cells: ndarray, dtype=int
+        grid_no_cells[0] = number of grid cells in x (horizontal)
+        grid_no_cells[1] = number of grid cells in z (vertical)
+    grid_steps: ndarray, dtype=float
+        grid_steps[0] = horizontal grid step size in x (m)
+        grid_steps[1] = vertical grid step size in z (m)
+    boundary_conditions: ndarray, dtype=int
+        boundary_conditions[0] = boundary conditions in x (horizontal)
+        boundary_conditions[1] = boundary conditions in z (vertical)
+        choose '0' for periodic BC and '1' for solid BC
+    
+    Returns
+    -------
+        ndarray, dtype=float
+        2D array providing the divergence of 'field'*'flux_field' in each
+        grid cell
+    
+    """
+    
+    
     Nx = grid_no_cells[0]
     Nz = grid_no_cells[1]
     
@@ -187,13 +287,27 @@ def compute_divergence_upwind_np(field, flux_field,
 compute_divergence_upwind = njit()(compute_divergence_upwind_np)
 
 #%% RELAXATION SOURCE TERM
-#   horizontal means of the atmosph. fields Theta and r_v are relaxed towards
-#   the inital profiles with height dependent relaxation time according to
-#   test case 1 ICMW 2012, Muhlbauer et al. 2013
 
-# ICMW 2012 Test case 1 (Muhlbauer 2013, used in Arabas 2015)
-# returns relax_time(z) profile in seconds
 def compute_relaxation_time_profile(z):
+    """Computes the height dependent relaxation time
+    
+    The horizontal means of the state variables (pot. temp. and water vapor)
+    are relaxed towards the initial values with the height dependent
+    relaxation time according to ICMW 2012 Test case 1
+    (Muhlbauer 2013, used in Arabas 2015)
+    
+    Parameters
+    ----------
+    z: float
+        Height in meter
+    
+    Returns
+    -------
+        float
+        Relaxation time in seconds
+    
+    """
+    
     return 300 * np.exp(z/200)
 
 # field is an 2D array(x,z)
@@ -209,13 +323,70 @@ def compute_relaxation_time_profile(z):
 # strength
 @njit()    
 def compute_relaxation_term(field, profile0, t_relax, dt):
-#    return dt * (profile0 - np.average(field, axis = 0)) / t_relax
+    """Compute height dependent relaxation terms for the state variables
+    
+    The horizontal means of the state variables (pot. temp. and water vapor)
+    are relaxed towards the initial profiles with the height dependent
+    relaxation time according to ICMW 2012 Test case 1
+    (Muhlbauer 2013, used in Arabas 2015)
+    
+    Parameters
+    ----------
+    field: ndarray, dtype=float
+        2D array. Either potential temp. 'Theta' or water vapor content 'r_v'
+    profile0: ndarray, dtype=float
+        1D array with the height dependent initial profile of 'field'
+    t_relax: ndarray, dtype=float
+        1D array with the height dependent relaxation time
+    dt: float
+        time step for the relaxation
+    
+    Returns
+    -------
+        ndarray, dtype=float
+        1D array with the height dependent right-hand-site relaxation terms
+        These terms do only depend on the height z
+    
+    """
+    
+    # np.average is not allowed with njit
+    # return dt * (profile0 - np.average(field, axis = 0)) / t_relax
     return dt * (profile0 - np.sum(field, axis = 0) / field.shape[0]) / t_relax
 
 #%% GRID PROPAGATION
 
 @njit()
 def update_material_properties(grid_scalar_fields, grid_mat_prop):
+    """Updates the material property grids based on the scalar field grids
+    
+    Parameters
+    ----------
+    grid_scalar_fields: ndarray, dtype=float
+        Array components are 2D arrays of the discretized scalar fields
+        grid_scalar_fields[0] = temperature
+        grid_scalar_fields[1] = pressure
+        grid_scalar_fields[2] = potential_temperature
+        grid_scalar_fields[3] = mass_density_air_dry
+        grid_scalar_fields[4] = mixing_ratio_water_vapor
+        grid_scalar_fields[5] = mixing_ratio_water_liquid
+        grid_scalar_fields[6] = saturation
+        grid_scalar_fields[7] = saturation_pressure
+        grid_scalar_fields[8] = mass_dry_inv
+        grid_scalar_fields[9] = rho_dry_inv
+    grid_mat_prop: ndarray, dtype=float
+        Array components are 2D arrays of the material properties in the
+        grid cells.
+        All material property grids get updated based on the scalar fields.
+        grid_mat_prop[0] = thermal_conductivity
+        grid_mat_prop[1] = diffusion_constant
+        grid_mat_prop[2] = heat_of_vaporization
+        grid_mat_prop[3] = surface_tension
+        grid_mat_prop[4] = specific_heat_capacity
+        grid_mat_prop[5] = viscosity
+        grid_mat_prop[6] = mass_density_fluid
+    
+    """
+    
     grid_mat_prop[0] = mat.compute_thermal_conductivity_air(
                            grid_scalar_fields[0])
     grid_mat_prop[1] = mat.compute_diffusion_constant(grid_scalar_fields[0],
@@ -233,24 +404,73 @@ def propagate_grid_subloop_step_np(grid_scalar_fields, grid_mat_prop,
                                    delta_Theta_ad, delta_r_v_ad,
                                    delta_m_l, delta_Q_p,
                                    grid_volume_cell):
+    """Executes one subloop time step for the atmospheric scalar fields
     
-    # iii) and iv)
+    One advection time step is divided into two subloops with refined time
+    step 'h'. In this refined time step, particle movement and
+    condensation/evaporation are conducted and the scalar fields are updated.
+    
+    Parameters
+    ----------
+    grid_scalar_fields: ndarray, dtype=float
+        Array components are 2D arrays of the discretized scalar fields
+        grid_scalar_fields[0] = temperature
+        grid_scalar_fields[1] = pressure
+        grid_scalar_fields[2] = potential_temperature
+        grid_scalar_fields[3] = mass_density_air_dry
+        grid_scalar_fields[4] = mixing_ratio_water_vapor
+        grid_scalar_fields[5] = mixing_ratio_water_liquid
+        grid_scalar_fields[6] = saturation
+        grid_scalar_fields[7] = saturation_pressure
+        grid_scalar_fields[8] = mass_dry_inv
+        grid_scalar_fields[9] = rho_dry_inv
+    grid_mat_prop: ndarray, dtype=float
+        Array components are 2D arrays of the material properties in the
+        grid cells.
+        All material property grids get updated based on the scalar fields.
+        grid_mat_prop[0] = thermal_conductivity
+        grid_mat_prop[1] = diffusion_constant
+        grid_mat_prop[2] = heat_of_vaporization
+        grid_mat_prop[3] = surface_tension
+        grid_mat_prop[4] = specific_heat_capacity
+        grid_mat_prop[5] = viscosity
+        grid_mat_prop[6] = mass_density_fluid
+    p_ref: float
+        Reference pressure for potential temperature
+    p_ref_inv: float
+        Inverse of the reference pressure for potential temperature
+    delta_Theta_ad: ndarray, dtype=float
+        2D array with the change in potential temperature by advection 
+        in each grid cell during one subloop step.
+    delta_r_v_ad: ndarray, dtype=float
+        2D array with the change in water vapor mixing ratio by advection
+        in each grid cell during one subloop step.
+    delta_m_l: ndarray, dtype=float
+        2D array with the change in liquid water mass (1E-18 kg) due to
+        condensation in each grid cell during one subloop step.
+    ### IN WORK: remove delta_Q_p 
+    ### IN WORK: fix alpha_v factor in delta Theta 
+    delta_Q_p: ndarray, dtype=float
+        2D array with the change in Enthalpy () due to
+        condensation in each grid cell during one subloop step.
+    
+    
+    """    
+    
     grid_scalar_fields[2] += delta_Theta_ad
     grid_scalar_fields[4] += delta_r_v_ad - delta_m_l*grid_scalar_fields[8]
 
-    # v)
     Theta_over_T = atm.compute_Theta_over_T(grid_scalar_fields[3],
                                             grid_scalar_fields[2],
                                             p_ref_inv)
 
-    # vi)
     grid_scalar_fields[2] += \
          Theta_over_T * (grid_mat_prop[2] * delta_m_l - delta_Q_p) \
         / (c.specific_heat_capacity_air_dry_NTP * grid_scalar_fields[3]
            * grid_volume_cell
            * ( 1.0 + grid_scalar_fields[4] * atm.c_pv_over_c_pd ) )
 
-    # vii) update other grid properties
+    # update other grid properties
     p_dry_over_p_ref = atm.compute_p_dry_over_p_ref(grid_scalar_fields[3],
                                                 grid_scalar_fields[2],
                                                 p_ref_inv)

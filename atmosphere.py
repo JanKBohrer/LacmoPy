@@ -98,6 +98,11 @@ def compute_density_air_dry(temperature, pressure):
 ### CONVERSION DRY POTENTIAL TEMPERATURE
 c_pv_over_c_pd = c.specific_heat_capacity_water_vapor_20C \
                  / c.specific_heat_capacity_air_dry_NTP
+c_pv_over_c_pd2 = (c.specific_heat_capacity_water_vapor_20C - 
+                   c.specific_gas_constant_air_dry) \
+                 / (c.specific_heat_capacity_air_dry_NTP -
+                    c.specific_gas_constant_air_dry)
+                 
 kappa_factor = 1.0 / (1.0 - kappa_air_dry)
 kappa_factor2 = -kappa_air_dry * kappa_factor
 @njit()
