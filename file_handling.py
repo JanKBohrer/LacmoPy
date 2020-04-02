@@ -7,7 +7,7 @@ Super-Droplet method in two-dimensional kinematic framework
 Author: Jan Bohrer (bohrer@tropos.de)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
-FILE HANDLING, WRITING AND READING OF DATA TO/FROM HARD DISC
+FILE HANDLING, WRITING AND READING OF DATA TO/FROM hard disk
 """
 
 #%% MODULE IMPORTS
@@ -49,7 +49,7 @@ def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
                             vector_filename, scalar_filename, cells_filename, 
                             xi_filename,
                             active_ids_filename):
-    """Write data of all particles to hard disc in .npy format
+    """Write data of all particles to hard disk in .npy format
     
     Parameters
     ----------
@@ -99,7 +99,7 @@ def save_particles_to_files(pos, cells, vel, m_w, m_s, xi,
     np.save(active_ids_filename, active_ids)
 
 def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):
-    """Dump particle tracer data to hard disc in .npy format
+    """Dump particle tracer data to hard disk in .npy format
     
     Parameters
     ----------
@@ -144,7 +144,7 @@ def dump_particle_data(t, pos, vel, m_w, m_s, xi, T_grid, rv_grid, path):
     print('particle data saved at t =', t)
 
 def load_particle_data(path, save_times):
-    """Load particle tracer data from hard disc
+    """Load particle tracer data from hard disk
     
     Parameters
     ----------
@@ -152,7 +152,7 @@ def load_particle_data(path, save_times):
         Path to directory, where data is stored.
         Provide in format '/path/to/directory/'
     save_times: ndarray
-        1D array of times, at which particle data should be loaded
+        1D array of times, at which particle data shall be loaded
     
     Returns
     -------
@@ -189,7 +189,7 @@ def dump_particle_tracer_data_block(time_block,
                                     traced_vectors, traced_scalars, traced_xi,
                                     traced_water,
                                     path):
-    """Dump particle tracer data at multiple times to hard disc in .npy format
+    """Dump particle tracer data at multiple times to hard disk in .npy format
     
     Parameters
     ----------
@@ -233,7 +233,7 @@ def dump_particle_tracer_data_block(time_block,
     
 def load_particle_data_from_blocks(path, grid_save_times,
                                    pt_dumps_per_grid_frame):
-    """Load particle tracer data from hard disc for multiple times
+    """Load particle tracer data from hard disk for multiple times
     
     Loads several time blocks. One block at each 'grid_save_time',
     corresponding to 'ind_t'. Each block contains particle tracer data
@@ -245,7 +245,7 @@ def load_particle_data_from_blocks(path, grid_save_times,
         Path to directory, where data is stored.
         Provide in format '/path/to/directory/'
     save_times: ndarray
-        1D array of times, at which particle data should be loaded
+        1D array of times, at which particle data shall be loaded
 
     Returns
     -------
@@ -290,7 +290,7 @@ def load_particle_data_from_blocks(path, grid_save_times,
     return vec_data, scal_data, xi_data
 
 def dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, path):
-    """Dump data of all particles to hard disc in .npy format
+    """Dump data of all particles to hard disk in .npy format
     
     Parameters
     ----------
@@ -343,7 +343,7 @@ def dump_particle_data_all(t, pos, vel, cells, m_w, m_s, xi, active_ids, path):
     print('all particle data saved at t =', t)
 
 def load_particle_data_all(path, save_times):
-    """Load data of all particles from hard disc at several time steps
+    """Load data of all particles from hard disk at several time steps
     
     Loads data for all times in 'save_times', corresponding to 'ind_t' below.
     
@@ -353,7 +353,7 @@ def load_particle_data_all(path, save_times):
         Path to directory, where data is stored.
         Provide in format '/path/to/directory/'
     save_times: ndarray
-        1D array of times, at which particle data should be loaded
+        1D array of times, at which particle data shall be loaded
 
     Returns
     -------
@@ -412,15 +412,46 @@ def load_particle_data_all(path, save_times):
     return vec_data, cells_data, scal_data, xi_data, active_ids_data
 
 #%% SAVE AND LOAD GRID DATA (ATMOSPHERIC VARIABLES)
-### IN WORK 
-def save_grid_basics_to_textfile(grid_, t_, filename):
+def save_grid_basics_to_textfile(grid, t, filename):
+    """Write basic grid parameters to file
+    
+    Parameters
+    ----------
+    grid: :obj:`Grid`
+        Grid-class object, holding the atmospheric field grids
+    t: float
+        Current simulation time
+    filename: str
+        Full path to the file.
+        Provide in format '/path/to/directory/filename.txt'
+    
+    """
+    
     with open(filename, 'w') as f:
-        f.write(f'\
-{grid_.ranges[0][0]} {grid_.ranges[0][1]} \
-{grid_.ranges[1][0]} {grid_.ranges[1][1]} \
-{grid_.steps[0]} {grid_.steps[1]} {grid_.step_y} {t_}')
-        
+        f.write(f'grid.ranges[0] grid.ranges[1] grid.steps grid.step_y t\n')
+        f.write(f'{grid.ranges[0][0]} {grid.ranges[0][1]} ')
+        f.write(f'{grid.ranges[1][0]} {grid.ranges[1][1]} ')
+        f.write(f'{grid.steps[0]} {grid.steps[1]} {grid.step_y} {t}')
+
 def save_grid_arrays_to_npy_file(grid, filename1, filename2):
+    """Write grid arrays to numpy (.npy) files
+    
+    Parameters
+    ----------
+    grid: :obj:`Grid`
+        Grid-class object, holding the atmospheric field grids
+    filename1: str
+        Full path to the file for pressure, temperature, dry density,
+        mixing ratios, saturation pressure, saturation and pot. temperature.
+        Provide in format '/path/to/directory/filename1', where
+        'filename' has no file format ending
+    filename2: str
+        Full path to the file for velocity and dry mass flux.
+        Provide in format '/path/to/directory/filename2', where
+        'filename' has no file format ending
+    
+    """
+    
     arr1 = np.array([grid.pressure, grid.temperature,
                      grid.mass_density_air_dry,
                      grid.mixing_ratio_water_vapor,
@@ -432,14 +463,42 @@ def save_grid_arrays_to_npy_file(grid, filename1, filename2):
     np.save(filename1, arr1)
     np.save(filename2, arr2)
 
-# save fields in this order:
-# 0 = r_v
-# 1 = r_l
-# 2 = Theta    
-# 3 = T
-# 4 = p
-# 5 = S
 def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
+    """Write grid scalar fields to numpy (.npy) files
+    
+    Given 'grid_scalar_fields' as used in the simulation, the grid arrays
+    are written in the following order:
+    0: r_v
+    1: r_l
+    2: Theta
+    3: T
+    4: p
+    5: S
+    
+    Parameters
+    ----------
+    t: float
+        Time used in the filename    
+    grid_scalar_fields: ndarray, dtype=float
+        Array components are 2D arrays of the discretized scalar fields
+        grid_scalar_fields[0] = temperature
+        grid_scalar_fields[1] = pressure
+        grid_scalar_fields[2] = potential_temperature
+        grid_scalar_fields[3] = mass_density_air_dry
+        grid_scalar_fields[4] = mixing_ratio_water_vapor
+        grid_scalar_fields[5] = mixing_ratio_water_liquid
+        grid_scalar_fields[6] = saturation
+        grid_scalar_fields[7] = saturation_pressure
+        grid_scalar_fields[8] = mass_dry_inv
+        grid_scalar_fields[9] = rho_dry_inv
+    path: str
+        Path to directory, where the file is stored.
+        Provide in format '/path/to/directory/'
+    start_time: str
+        Simulation start time in format provided by 'datetime.now()'
+
+    """
+    
     filename = path + 'grid_scalar_fields_t_' + str(int(t)) + '.npy'
     np.save(filename,
             (grid_scalar_fields[4],
@@ -452,6 +511,29 @@ def save_grid_scalar_fields(t, grid_scalar_fields, path, start_time):
           ', sim time:', datetime.now()-start_time)
 
 def load_grid_scalar_fields(path, save_times):
+    """Load grid scalar fields data from hard disk
+    
+    Parameters
+    ----------
+    path: str
+        Path to directory, where data is stored.
+        Provide in format '/path/to/directory/'
+    save_times: ndarray
+        1D array of times, at which the data shall be loaded
+    
+    Returns
+    -------
+    fields: ndarray, dtype=float
+        Array components are 2D arrays of the discretized scalar fields
+        fields[0] = mixing_ratio_water_vapor
+        fields[1] = mixing_ratio_water_liquid
+        fields[2] = potential_temperature
+        fields[3] = temperature
+        fields[4] = pressure
+        fields[5] = saturation
+
+    """
+    
     fields = []
     for t_ in save_times:
         filename = path + 'grid_scalar_fields_t_' + str(int(t_)) + '.npy'
@@ -460,11 +542,56 @@ def load_grid_scalar_fields(path, save_times):
     fields = np.array(fields)
     return fields
    
-def save_grid_to_files(grid, t_, basics_file, arr_file1, arr_file2):
-    save_grid_basics_to_textfile(grid, t_, basics_file)
+def save_grid_to_files(grid, t, basics_file, arr_file1, arr_file2):
+    """Write reproducible image of the atmospheric grid arrays and basics
+    
+    Parameters
+    ----------
+    grid: :obj:`Grid`
+        Grid-class object, holding the atmospheric field grids
+    t: float
+        Current simulation time
+    basics_file:
+        Full path to the file for grid basics.
+        Provide in format '/path/to/directory/filename.txt'
+    arr_file1: str
+        Full path to the file for pressure, temperature, dry density,
+        mixing ratios, saturation pressure, saturation and pot. temperature.
+        Provide in format '/path/to/directory/filename1', where
+        'filename' has no file format ending
+    arr_file2: str
+        Full path to the file for velocity and dry mass flux.
+        Provide in format '/path/to/directory/filename2', where
+        'filename' has no file format ending
+    
+    """
+    
+    save_grid_basics_to_textfile(grid, t, basics_file)
     save_grid_arrays_to_npy_file(grid, arr_file1, arr_file2)
     
 def load_grid_from_files(basics_file, arr_file1, arr_file2):
+    """Load system state of the atmospheric grid variables
+    
+    Parameters
+    ----------
+    basics_file:
+        Full path to the file for grid basics.
+        Provide in format '/path/to/directory/filename.txt'
+    arr_file1: str
+        Full path to the file for pressure, temperature, dry density,
+        mixing ratios, saturation pressure, saturation and pot. temperature.
+        Provide in format '/path/to/directory/filename1.npy'
+    arr_file2: str
+        Full path to the file for velocity and dry mass flux.
+        Provide in format '/path/to/directory/filename2.npy'
+    
+    Returns
+    -------
+    grid: :obj:`Grid`
+        Grid-class object, holding the atmospheric field grids
+    
+    """
+    
     basics = np.loadtxt(basics_file)
     scalars = np.load(arr_file1)
     vectors = np.load(arr_file2)
@@ -493,8 +620,47 @@ def load_grid_from_files(basics_file, arr_file1, arr_file2):
 #%% GRID AND PARTICLES LOAD/SAVE
        
 def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
-                                 active_ids,
-                                 path):
+                                 active_ids, path):
+    """Write reproducible image of atmospheric grid and particles
+    
+    Parameters
+    ----------
+    t: float
+        Current simulation time
+    grid: :obj:`Grid`
+        Grid-class object, holding the atmospheric field grids
+    pos: ndarray, dtype=float
+        2D array, where
+        pos[0] = 1D array of horizontal coordinates (m)
+        pos[1] = 1D array of vertical coordinates (m)
+        (pos[0,n], pos[1,n]) is the position of particle 'n'
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'    
+    vel: ndarray, dtype=float
+        2D array, where
+        vel[0] = 1D array of horizontal velocity components (m/s)
+        vel[1] = 1D array of vertical velocity components (m/s)
+        (vel[0,n], vel[1,n]) is the velocity of particle 'n'
+    m_w: ndarray, dtype=float
+        1D array holding the particle water masses (1E-18 kg)
+        This array gets updated by the function.
+    m_s: ndarray, dtype=float
+        1D array holding the particle solute masses (1E-18 kg)
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities
+    active_ids: ndarray, dtype=bool
+        1D mask-array. Each particle gets a flag 'True' or 'False', defining
+        if it still resides in the simulation domain or has already hit the
+        ground and is thereby removed from the simulation
+    path: str
+        Path to directory, where data is stored.
+        Provide in format '/path/to/directory/'
+
+    """
+    
     grid.mixing_ratio_water_liquid.fill(0.0)
     
     for ID in np.arange(len(xi))[active_ids]:
@@ -525,6 +691,49 @@ def save_grid_and_particles_full(t, grid, pos, cells, vel, m_w, m_s, xi,
                             active_ids_file)
     
 def load_grid_and_particles_full(t, path):
+    """Load full system state of atmospheric grid and particles
+    
+    Parameters
+    ----------
+    t: float
+        Current simulation time
+    path: str
+        Path to directory, where data is stored.
+        Provide in format '/path/to/directory/'
+
+    Returns
+    -------
+    grid: :obj:`Grid`
+        Grid-class object, holding the atmospheric field grids
+    pos: ndarray, dtype=float
+        2D array, where
+        pos[0] = 1D array of horizontal coordinates (m)
+        pos[1] = 1D array of vertical coordinates (m)
+        (pos[0,n], pos[1,n]) is the position of particle 'n'
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'    
+    vel: ndarray, dtype=float
+        2D array, where
+        vel[0] = 1D array of horizontal velocity components (m/s)
+        vel[1] = 1D array of vertical velocity components (m/s)
+        (vel[0,n], vel[1,n]) is the velocity of particle 'n'
+    m_w: ndarray, dtype=float
+        1D array holding the particle water masses (1E-18 kg)
+        This array gets updated by the function.
+    m_s: ndarray, dtype=float
+        1D array holding the particle solute masses (1E-18 kg)
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities
+    active_ids: ndarray, dtype=bool
+        1D mask-array. Each particle gets a flag 'True' or 'False', defining
+        if it still resides in the simulation domain or has already hit the
+        ground and is thereby removed from the simulation
+
+    """
+    
     grid_file_list = ['grid_basics_' + str(int(t)) + '.txt',
                       'arr_file1_' + str(int(t)) + '.npy',
                       'arr_file2_' + str(int(t)) + '.npy']
@@ -553,6 +762,24 @@ def load_grid_and_particles_full(t, path):
 
 #%% For parameter input file
 def load_kernel_data_Ecol(kernel_method, save_dir_Ecol_grid, E_col_const=0.5):
+    """Load data for the collision kernel
+    
+    Parameters
+    ----------
+    kernel_method: str
+        Either 'Ecol_grid_R' for a discretized collision efficiency
+        E_col(R1,R2) based on particle radius or 'Ecol_const' for
+        a constant collision efficiency for all particle pairs.
+    save_dir_Ecol_grid: str
+        Path to directory, where the kernel data is stored.
+        Provide in format '/path/to/directory/'
+        If kernel_method=='Ecol_const', set this to 'None' or arbitrary.
+    E_col_const: float, optional
+        If kernel_method=='Ecol_const', this value is used as constant
+        collision efficiency for all particle pairs.
+    
+    """
+    
     if kernel_method == 'Ecol_grid_R':
         radius_grid = \
             np.load(save_dir_Ecol_grid + 'radius_grid_out.npy')

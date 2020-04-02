@@ -30,34 +30,152 @@ from plotting import plot_scalar_field_2D
 #%% STANDARD FIELDS AND PROFILES
 
 omega = 0.3
-def u_rot_field(x_, y_):
-    return -omega * y_
-def v_rot_field(x_,y_):
-    return omega * x_
+def u_rot_field(x, y):
+    """Computes the x-component of a rotational velocity field.
+    
+    The field is vel = (u, v, w) = (-omega * y, omega * x, 0).
+    The rotation of the field is rot vel = 2 * omega * e_z,
+    where e_z is the unit vector in z-direction.
+    
+    Parameters
+    ----------
+    x: float
+        x-Position, where the field is evaluated
+    y: float
+        y-Position, where the field is evaluated
+    
+    Returns
+    -------
+        float
+            x-component of the velocity field
+    
+    """
+    
+    return -omega * y
+def v_rot_field(x, y):
+    """Computes the y-component of a rotational velocity field.
+    
+    The field is vel = (u, v, w) = (-omega * y, omega * x, 0).
+    The rotation of the field is rot vel = 2 * omega * e_z,
+    where e_z is the unit vector in z-direction.
+    
+    Parameters
+    ----------
+    x: float
+        x-Position, where the field is evaluated
+    y: float
+        y-Position, where the field is evaluated
+    
+    Returns
+    -------
+        float
+        y-component of the velocity field
+    
+    """
+    
+    return omega * x
 
-# x, y in meter
-# lapse rate = 6.5 K / km
 T_ref = 288.15 # K
 adiabatic_lapse_rate_dry = 0.0065 # K/m
-def temperature_field_linear(x_, y_):
-    return T_ref - adiabatic_lapse_rate_dry * y_
+def temperature_field_linear(x, y):
+    """Linear temperature profile with constant adiabatic lapse rate
+    
+    Parameters
+    ----------
+    x: float
+        x-Position, where the field is evaluated (m)
+    y: float
+        y-Position, where the field is evaluated (m)
+    
+    Returns
+    -------
+        float
+        Temperature at (x,y)
+    
+    """
+    
+    return T_ref - adiabatic_lapse_rate_dry * y
 
 p_ref = 101325.0 # Pa
-def pressure_field_exponential(x_, y_):
-    return p_ref * np.exp( -y_ * c.earth_gravity * c.molar_mass_air_dry\
+def pressure_field_exponential(x, y):
+    """Pressure field, which decreases exponentially with height
+    
+    Parameters
+    ----------
+    x: float
+        x-Position, where the field is evaluated (m)
+    y: float
+        y-Position, where the field is evaluated (m)
+    
+    Returns
+    -------
+        float
+        Pressure at (x,y)
+    
+    """
+    return p_ref * np.exp( -y * c.earth_gravity * c.molar_mass_air_dry\
                            / ( T_ref * c.universal_gas_constant ) )
 
 #%% OPERATIONS ON THE GRID CELLS
 
-def compute_no_grid_cells_from_step_sizes(gridranges_list_, stepsizes_list_):
-    no_cells = []
-    for i, range_i in enumerate(gridranges_list_):
-        no_cells.append(
-            int(np.ceil( (range_i[1] - range_i[0]) / stepsizes_list_[i] ) ) )
-    return np.array(no_cells)
+def compute_no_grid_cells_from_step_sizes(grid_ranges, grid_steps):
+    """Compute number of grid cells from domain sizes and grid step sizes
+    
+    Parameters
+    ----------
+    grid_ranges: ndarray, dtype=float
+        2D array holding the coordinates of the domain box in two dimensions
+        grid_ranges[0] = [x_min, x_max]
+        grid_ranges[1] = [z_min, z_max]
+    grid_steps: ndarray, dtype=float
+        grid_steps[0] = horizontal grid step size in x (m)
+        grid_steps[1] = vertical grid step size in z (m)
+    
+    Returns
+    -------
+    grid_no_cells: ndarray, dtype=int
+        grid_no_cells[0] = number of grid cells in x (horizontal)
+        grid_no_cells[1] = number of grid cells in z (vertical)
+    
+    """    
+    
+    grid_no_cells = []
+    for i, range_i in enumerate(grid_ranges):
+        grid_no_cells.append(
+            int(np.ceil( (range_i[1] - range_i[0]) / grid_steps[i] ) ) )
+    return np.array(grid_no_cells)
 
 @njit()
 def compute_cell_and_relative_position(pos, grid_ranges, grid_steps):
+    """Compute the cells and relative positions from full positions
+    
+    Parameters
+    ----------
+    pos: ndarray, dtype=float
+        2D array, where
+        pos[0] = 1D array of horizontal coordinates (m)
+        pos[1] = 1D array of vertical coordinates (m)
+        (pos[0,n], pos[1,n]) is the position of particle 'n'
+    grid_ranges: ndarray, dtype=float
+        2D array holding the coordinates of the domain box in two dimensions
+        grid_ranges[0] = [x_min, x_max]
+        grid_ranges[1] = [z_min, z_max]
+    grid_steps: ndarray, dtype=float
+        grid_steps[0] = horizontal grid step size in x (m)
+        grid_steps[1] = vertical grid step size in z (m)
+    
+    Returns
+    -------
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'    
+    rel_pos: ndarray, dtype=float
+        2D array with relative cell positions corresponding to 'pos'  
+    
+    """
+    
     x = pos[0]
     y = pos[1]
     cells = np.empty( (2,len(x)) , dtype = np.int64)
@@ -70,29 +188,107 @@ def compute_cell_and_relative_position(pos, grid_ranges, grid_steps):
     
     rel_pos[0] = rel_pos[0] / grid_steps[0] - cells[0]
     rel_pos[1] = rel_pos[1] / grid_steps[1] - cells[1]
+    
     return cells, rel_pos
 
 @njit()
 def weight_velocities_linear(i, j, a, b, u_n, v_n):
+    """Linear interpolation two dimensional velocity field (weight based)
+    
+    Parameters
+    ----------
+    i: int
+        Cell index in x
+    j: int
+        Cell index in y
+    a: float
+        Relative x-coordinate in cell [i,j]. Resides in interval [0,1).
+    b: float
+        Relative y-coordinate in cell [i,j]. Resides in interval [0,1).
+    u_n: ndarray, dtype=float
+        2D array holding the discretized x-component of the velocity field 
+    v_n: ndarray, dtype=float
+        2D array holding the discretized y-component of the velocity field 
+    
+    Returns
+    -------
+        tuple of floats
+        [0]: Interpolated x-component of the velocity field
+        [1]: Interpolated y-component of the velocity field
+    
+    """
+    
     return a * u_n[i + 1, j] + (1 - a) * u_n[i, j], \
            b * v_n[i, j + 1] + (1 - b) * v_n[i, j]
          
-# f is a 2D scalar array, giving values for the grid cell [i,j]
-# i.e. f[i,j] = scalar value of cell [i,j]
-# the interpolation is given for the normalized position [a,b]
-# in a cell with 4 corners 
-# [i, j+1]    [i+1, j+1]
-# [i, j]      [i+1, j]
-# where a = 0..1,  b = 0..1   
 @njit()
 def bilinear_weight(i, j, a, b, f):
+    """Bilinear interpolation of 2D scalar field (weight based)
+    
+    The interpolation is given for the normalized position [a,b]
+    in a cell with 4 corners 
+    [i, j+1]    [i+1, j+1]
+    [i, j]      [i+1, j]    
+    
+    Parameters
+    ----------
+    i: int
+        Cell index in x
+    j: int
+        Cell index in y
+    a: float
+        Relative x-coordinate in cell [i,j]. Resides in interval [0,1).
+    b: float
+        Relative y-coordinate in cell [i,j]. Resides in interval [0,1).
+    f: ndarray, dtype=float
+        2D array holding the discretized field
+    
+    Returns
+    -------
+        float
+        Bilinear interpolation of the field f at the given coordinates
+    
+    """
+    
     return a * (b * f[i+1, j+1] + (1 - b) * f[i+1, j]) + \
             (1 - a) * (b * f[i, j+1] + (1 - b) * f[i, j])
 
-# adjusted for period. bound. cond. in x and solid BC in z (BC = PS)
 @njit()
 def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                                             grid_vel, grid_no_cells):
+    """Bilin. interpol. of 2D velocity grid at particle cells and rel. pos.
+    
+    Adjusted for periodic boundary conditions in x and
+    solid BC in z.
+    
+    Parameters
+    ----------
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'    
+    rel_pos: ndarray, dtype=float
+        2D array with relative, normalized cell positions
+        corresponding to 'pos'.
+    grid_vel: ndarray, dtype=float
+        Discretized velocity field (m/s) of dry air.
+        grid_vel[0] is a 2D array holding the x-components of the vel. field
+        projected onto the grid cell surface centers.
+        grid_vel[1] is a 2D array holding the z-components of the vel. field
+        projected onto the grid cell surface centers.
+    grid_no_cells: ndarray, dtype=int
+        grid_no_cells[0] = number of grid cells in x (horizontal)
+        grid_no_cells[1] = number of grid cells in z (vertical)
+        
+    Returns
+    -------
+        tuple of floats
+        [0]: Interpolated x-component of the velocity field
+        [1]: Interpolated y-component of the velocity field
+    
+    """
+    
     no_pt = len(rel_pos[0])
     vel_ipol = np.empty( (2, no_pt), dtype = np.float64 )
     u, v = (0., 0.)
@@ -129,13 +325,86 @@ def interpolate_velocity_from_cell_bilinear(cells, rel_pos,
 @njit()
 def interpolate_velocity_from_position_bilinear(pos, grid_vel, grid_no_cells,
                                                 grid_ranges, grid_steps):
+    """Bilinear interpol. of 2D velocity grid field at particle positions
+    
+    Adjusted for periodic boundary conditions in x and
+    solid BC in z.
+    
+    Parameters
+    ----------
+    pos: ndarray, dtype=float
+        2D array, where
+        pos[0] = 1D array of horizontal coordinates (m)
+        pos[1] = 1D array of vertical coordinates (m)
+        (pos[0,n], pos[1,n]) is the position of particle 'n'
+    grid_vel: ndarray, dtype=float
+        Discretized velocity field (m/s) of dry air.
+        grid_vel[0] is a 2D array holding the x-components of the vel. field
+        projected onto the grid cell surface centers.
+        grid_vel[1] is a 2D array holding the z-components of the vel. field
+        projected onto the grid cell surface centers.
+    grid_no_cells: ndarray, dtype=int
+        grid_no_cells[0] = number of grid cells in x (horizontal)
+        grid_no_cells[1] = number of grid cells in z (vertical)
+    grid_ranges: ndarray, dtype=float
+        2D array holding the coordinates of the domain box in two dimensions
+        grid_ranges[0] = [x_min, x_max]
+        grid_ranges[1] = [z_min, z_max]
+    grid_steps: ndarray, dtype=float
+        grid_steps[0] = horizontal grid step size in x (m)
+        grid_steps[1] = vertical grid step size in z (m)
+
+    Returns
+    -------
+        tuple of floats
+        [0]: Interpolated x-component of the velocity field
+        [1]: Interpolated y-component of the velocity field
+    
+    """
+    
     cells, rel_pos = compute_cell_and_relative_position(pos, grid_ranges,
                                                         grid_steps)
     return interpolate_velocity_from_cell_bilinear(cells, rel_pos,
                 grid_vel, grid_no_cells)
 
-def update_grid_r_l_np(m_w, xi, cells, grid_r_l, grid_mass_dry_inv, active_ids,
-                       id_list):
+def update_grid_r_l_np(m_w, xi, cells, grid_r_l, grid_mass_dry_inv,
+                       active_ids, id_list):
+    """Update the atmospheric liquid water mixing ratio grid from particles
+    
+    Parameters
+    ----------
+    m_w: ndarray, dtype=float
+        1D array holding the particle water masses (1E-18 kg)
+        This array gets updated by the function.
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n' 
+    grid_r_l: ndarray, dtype=float
+        2D array holding the discretized atmos. liquid water mixing ratio
+    grid_mass_dry_inv: ndarray, dtype=float
+        2D array holding 1/m_dry, where m_dry is the inverse
+        discretized atmos. dry air mass in each cell (kg)
+    active_ids: ndarray, dtype=bool
+        1D mask-array. Each particle gets a flag 'True' or 'False', defining
+        if it still resides in the simulation domain or has already hit the
+        ground and is thereby removed from the simulation
+    id_list: ndarray, dtype=float
+        1D array holding the ordered particle IDs.
+        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
+        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
+    
+    Returns
+    -------
+        tuple of floats
+        [0]: Interpolated x-component of the velocity field
+        [1]: Interpolated y-component of the velocity field
+    
+    """
+    
     grid_r_l.fill(0.0)
     for ID in id_list[active_ids]:
         grid_r_l[cells[0,ID], cells[1,ID]] += m_w[ID] * xi[ID]
@@ -148,7 +417,7 @@ class Grid:
     # defaults:
     ranges = np.array( [ [-10.0, 10.0] , [-10.0,10.0] ] )
     no_cells = [10, 10]
-    sizes = np.array( [ ranges[0,1] - ranges[0,0], ranges[1,1] - ranges[1,0] ] )
+    sizes = np.array([ ranges[0,1] - ranges[0,0], ranges[1,1] - ranges[1,0] ])
     steps = [ sizes[0] / no_cells[0], sizes[1] / no_cells[1] ]
     
     # initialize with arguments in paranthesis of __init__
