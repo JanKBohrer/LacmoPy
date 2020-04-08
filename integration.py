@@ -676,7 +676,7 @@ def update_vel_impl_np(vel, cells, rel_pos, xi, id_list, active_ids,
         grid_vel[1] is a 2D array holding the z-components of the vel. field
         projected onto the grid cell surface centers.
     grid_viscosity: ndarray, dtype=float
-        2D array holding the discretized kinematic viscosity
+        2D array holding the discretized dynamic viscosity
         of the surrounding air (SI units)
     grid_mass_density_fluid: ndarray, dtype=float
         2D array holding the mass density of the surrounding air (SI units)

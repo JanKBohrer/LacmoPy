@@ -414,28 +414,160 @@ update_grid_r_l = njit()(update_grid_r_l_np)
 #%% GRID CLASS
 
 class Grid:
-    # defaults:
-    ranges = np.array( [ [-10.0, 10.0] , [-10.0,10.0] ] )
-    no_cells = [10, 10]
-    sizes = np.array([ ranges[0,1] - ranges[0,0], ranges[1,1] - ranges[1,0] ])
-    steps = [ sizes[0] / no_cells[0], sizes[1] / no_cells[1] ]
+    """Grid class with discretization parameters and atmospheric fields
+
+    For spatial discretization, we use a rectangular C-staggered
+    Arakawa grid with cells [i,j] in spatial directions (x, z). The extend
+    in the third dimension (y) has fixed size. The system is
+    two-dimensional in the sense that all field properties are
+    invariant under translation in y-direction.
+    
+    c ----- w ----- c ----- w ----- c
+    |               |               |
+    |               |               |
+    u       x       u       x       u
+    |     [0,1]     |     [1,1]     |
+    |               |               |
+    c ----- w ----- c ----- w ----- c
+    |               |               |
+    |               |               |
+    u       x       u       x       u
+    |     [0,0]     |     [1,0]     |
+    |               |               |    
+    c ----- w ----- c ----- w ----- c
+    
+    cells [i,j], c: corners, x: centers, (u, w): velocity components
+    
+    In the default case (ICMW 2012, Test Case 1, Mulhbauer et al. 2013),
+    the domain has periodic boundary conditions in x and solid boundary
+    conditions in z.
+    Since the applied Numba package is not (yet) able to deal with
+    class objects, the atmospheric fields are sampled in
+    'grid_scalar_fields' and 'grid_mat_prop', when passed to the
+    simulation algorithm.
+
+    Attributes
+    ----------
+    no_cells: ndarray, dtype=int
+        no_cells[0] = number of grid cells in x (horizontal)
+        no_cells[1] = number of grid cells in z (vertical)
+    no_cells_tot : int
+        Total number of grid cells
+    steps: ndarray, dtype=float
+        steps[0] = horizontal grid step size in x (m)
+        steps[1] = vertical grid step size in z (m)
+    step_y: float
+        Horizontal grid step size in y (m)
+    volume_cell: float
+        Grid cell volume (m^3). All grid cells have the same volume.
+    ranges: ndarray, dtype=float
+        2D array holding the coordinates of the domain box in two dimensions
+        ranges[0] = [x_min, x_max]
+        ranges[1] = [z_min, z_max]
+    sizes: ndarray, dtype=float
+        1D array holding the domain sizes (m)
+        sizes[0] = [x_max - x_min]
+        sizes[1] = [z_max - z_min]
+    corners: ndarray, dtype=float
+        Positions of the grid cell corners (marked 'c' in the sketch, s.a.)
+        corners[0] is a 2D array holding the x-components, such that
+        corners[0][i,j] is the x-component of the bottom left corner of
+        cell [i,j]
+        corners[1][i,j] is the z-component of the bottom left corner of
+        cell [i,j]
+    centers: ndarray, dtype=float
+        Positions of the grid cell centers (marked 'x' in the sketch, s.a.)
+        centers[0] is a 2D array holding the x-components, such that
+        centers[0][i,j] is the x-component of the center of cell [i,j]
+        centers[1][i,j] is the z-component of the center of cell [i,j]
+    surface_centers: list of ndarray, dtype=float
+        Positions of the grid cell surface centers.
+        (marked 'u' and 'w' in the sketch, s.a.)
+        surface_centers[0][0][i,j] is the x-component of the center
+        of the left surface of cell [i,j] (marked by 'u')
+        surface_centers[0][1][i,j] is the z-component of the center
+        of the left surface of cell [i,j] (marked by 'u')
+        surface_centers[1][0][i,j] is the x-component of the center
+        of the bottom surface of cell [i,j] (marked by 'w')
+        surface_centers[1][1][i,j] is the z-component of the center
+        of the bottom surface of cell [i,j] (marked by 'w')
+    pressure: ndarray, dtype=float
+        2D array of the discretized atmos. pressure field (Pa)
+    temperature: ndarray, dtype=float
+        2D array of the discretized atmos. temperature field (K)
+    potential_temperature: ndarray, dtype=float
+        2D array of the discretized atmos. dry potential temperature
+        field (K) := T (p_ref / p_dry)^(kappa_dry), where
+        kappa_dry = R_dry / c_dry, where R_dry = specific gas constant
+        of dry air, c_dry = specific isobaric heat capacity of dry air.
+    mass_density_air_dry: ndarray, dtype=float
+        2D array of the discretized atmos. dry mass density field (kg/m^3)
+    mass_density_fluid: ndarray, dtype=float
+        2D array of the discretized fluid mass density in each cell (kg/m^3)
+    rho_dry_inv: ndarray, dtype=float
+        2D array: 1 / mass_density_air_dry
+    mass_dry_inv: ndarray, dtype=float
+        2D array: 1 / mass_dry,
+        where mass_dry = mass_density_air_dry * volume_cell
+    mixing_ratio_water_vapor: ndarray, dtype=float
+        2D array of the discretized water vapor mixing ratio field (-)
+    mixing_ratio_water_liquid: ndarray, dtype=float
+        2D array of the discretized liquid water mixing ratio field (-)
+    saturation_pressure: ndarray, dtype=float
+        2D array of the discretized saturation pressure (vapor-liquid) (Pa)
+    saturation: ndarray, dtype=float
+        2D array of the discretized saturation field (vapor-liquid) (-)
+        saturation = partial pressure of water vapor / saturation pressure
+    velocity: ndarray, dtype=float
+        Discretized velocity field (m/s) of dry air.
+        Positions for the projection marked by 'u' and 'w' above.
+        velocity[0] is a 2D array holding the x-components of the vel. field
+        projected onto the grid cell surface centers 'u'.
+        velocity[1] is a 2D array holding the z-components of the vel. field
+        projected onto the grid cell surface centers 'w'.
+    mass_flux_air_dry: ndarray, dtype=float
+        Discretized mass flux density field (m/s) of dry air.
+        Positions for the projection marked by 'u' and 'w' above.
+        mass_flux_air_dry[0] is a 2D array holding the x-components of
+        the flux field projected onto the grid cell surface centers 'u'.
+        mass_flux_air_dry[1] is a 2D array holding the z-components of
+        the flux field projected onto the grid cell surface centers 'w'.
+    heat_of_vaporization: ndarray, dtype=float
+        2D array of the discretized heat of vaporization (J/kg)
+    thermal_conductivity: ndarray, dtype=float
+        2D array of the discretized thermal conductivity of air (W/(m K))
+    diffusion_constant: ndarray, dtype=float
+        2D array of the discretized diffusion coefficent of water vapor
+        in air (m^2/s)
+    surface_tension: ndarray, dtype=float
+        2D array of the discretized surface tension of water (N/m)
+    specific_heat_capacity: ndarray, dtype=float
+        2D array of the specific heat capacity of moist air (J/(kg K))
+    viscosity: ndarray, dtype=float
+        2D array of the dynamic viscosity in air (Pa s)
+    p_ref: float
+        Reference pressure for the potential temperature.
+    p_ref_inv: float
+        1 / p_ref
+
+    """
     
     # initialize with arguments in paranthesis of __init__
     def __init__(self,
-                 grid_ranges_, # (m), as list [ [x_min, x_max], [z_min, z_max]] 
-                 grid_steps_, # in meter as list [dx, dz]
-                 dy_, # in meter
+                 grid_ranges, # (m), as list [ [x_min, x_max], [z_min, z_max]] 
+                 grid_steps, # in meter as list [dx, dz]
+                 dy, # in meter
                  u_field = u_rot_field, v_field = v_rot_field,
-                 temperature_field_ = temperature_field_linear,
-                 pressure_field_ = pressure_field_exponential): # m/s
+                 temperature_field = temperature_field_linear,
+                 pressure_field = pressure_field_exponential): # m/s
         self.no_cells =\
-            np.array( compute_no_grid_cells_from_step_sizes(grid_ranges_,
-                                                            grid_steps_) )
+            np.array( compute_no_grid_cells_from_step_sizes(grid_ranges,
+                                                            grid_steps) )
         self.no_cells_tot = self.no_cells[0] * self.no_cells[1]
-        self.steps = np.array( grid_steps_ )
-        self.step_y = dy_
-        self.volume_cell = grid_steps_[0] * grid_steps_[1] * dy_
-        self.ranges = np.array( grid_ranges_ )
+        self.steps = np.array( grid_steps )
+        self.step_y = dy
+        self.volume_cell = grid_steps[0] * grid_steps[1] * dy
+        self.ranges = np.array( grid_ranges )
         self.ranges[:,1] = self.ranges[:,0] + self.steps * self.no_cells
         self.sizes = np.array( [ self.ranges[0,1] - self.ranges[0,0],
                                  self.ranges[1,1] - self.ranges[1,0] ]  )
@@ -469,10 +601,10 @@ class Grid:
         self.mass_flux_air_dry = np.zeros_like(self.velocity)
         # if the temperature field is given as discrete grid,
         # set default field first and change grid.pressure manually later
-        self.set_analytic_temperature_field_and_discretize(temperature_field_)
+        self.set_analytic_temperature_field_and_discretize(temperature_field)
         # if the pressure field is given as discrete grid,
         # set default field first and change grid.pressure manually later
-        self.set_analytic_pressure_field_and_discretize(pressure_field_)
+        self.set_analytic_pressure_field_and_discretize(pressure_field)
         
         # material properties
         self.heat_of_vaporization = np.zeros_like(self.centers[0])

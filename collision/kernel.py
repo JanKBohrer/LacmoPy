@@ -70,7 +70,6 @@ def generate_permutation(N):
 
 #%% TERMINAL VELOCITY AS FUNCTION OF RADIUS
 
-# par[0] belongs to the largest exponential x^(n-1) for par[i], i = 0, .., n 
 @njit()
 def compute_polynom(par, x):
     """Computes the polynom p(x)
