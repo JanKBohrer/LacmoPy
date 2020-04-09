@@ -753,7 +753,7 @@ def generate_and_save_E_col_grid_R(R_low, R_high, no_bins_10, kernel_name,
     (which is def by no_bins_10 and R_low).    
     
     This function wraps the two generation methods for
-    'Hall_Bott' and 'Long_Bott' kernels and writes the grids to hard disc
+    'Hall_Bott' and 'Long_Bott' kernels and writes the grids to hard disk
     in .npy data format.
     
     Parameters

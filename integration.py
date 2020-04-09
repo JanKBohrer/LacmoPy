@@ -1852,7 +1852,7 @@ def simulate(grid, pos, vel, cells, m_w, m_s, xi, active_ids,
     with advection time step 'dt', i.e., for a number of
     (t_start - t_end) / dt advection steps. The corresponding configuration
     file is 'config.py'. Grid fields and particle data are written to
-    hard disc every 'frame_every' advection steps. Trajectories
+    hard disk every 'frame_every' advection steps. Trajectories
     and velocities of a number of traced particles are dumped more often.
     
     Note: With Numba, at this point, it is not possible to store array

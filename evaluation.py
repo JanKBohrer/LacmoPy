@@ -27,31 +27,58 @@ from file_handling import load_grid_scalar_fields, load_particle_data_all
 
 #%% RUNTIME OF FUNCTIONS
 
-# INPUT:
-# functions: list of strings,
-# e.g. ["compute_r_l_grid_field", "compute_r_l_grid_field_np"]
-# pars: string,
-# e.g. "m_w, xi, cells, grid.mixing_ratio_water_liquid, grid.mass_dry_inv"
-# rs: list of repeats (int)
-# ns: number of exec per repeat (int)
-# example:
-# funcs = ["compute_r_l_grid_field_np", "compute_r_l_grid_field"]
-# pars = "m_w, xi, cells, grid.mixing_ratio_water_liquid, grid.mass_dry_inv"
-# rs = [5,5,5]
-# ns = [100,10000,1000]
-# compare_functions_run_time(funcs, pars, rs, ns, globals_=globals())
-# NOTE that we need to call with globals_=globals() explicitly
-# a default argument for globals_ cannot be given in the function definition..
-# because in that case, the globals are taken from module "analysis.py" and
-# not from the environment of the executed program
 def compare_functions_run_time(functions, pars, rs, ns, globals_):
+    """Analyzes the run time of several functions via timeit module
+
+    Example (assume the functions in 'funcs' and the
+             variables in 'pars' are defined)
+    
+    funcs = ["compute_r_l_grid_field_np", "compute_r_l_grid_field"]
+    pars = ["m_w, xi, cells, grid.mixing_ratio_water_liquid,
+            grid.mass_dry_inv", "m_w, xi, cells, r_l, m_dry_inv"]
+    rs = [5,7]
+    ns = [1000,10000]
+
+    compare_functions_run_time(funcs, pars, rs, ns, globals_=globals())
+    
+    Parameters
+    ----------
+    functions: list of str
+        List of the function names (strings)
+        e.g. ["compute_r_l_grid_field", "compute_r_l_grid_field_np"]
+    pars: list of str
+        List of function parameter names, e.g.
+        ["m_w, xi, cells, grid.mixing_ratio_water_liquid, grid.mass_dry_inv",
+         "m_w, xi, cells, r_l, m_dry_inv"]
+    rs: list of int
+        List of 'repeats' for each function in the function list.
+        Is used as 'repeat' argument in timeit.repeat().
+        This argument specifies how many times timeit() is called per function
+        e.g. rs = [5,5]
+    ns: list of int
+        List of 'numbers' for each function in the function list.
+        Is used as 'number' argument in timeit.repeat().
+        This argument specifies how many repetitions are executed
+        per timeit() call
+        e.g. ns = [100,10000]
+    globals_: dict
+        Dictionary of global variables which are required from the executed
+        module. Usually called with globals_=globals().
+        Note that one needs to call globals_=globals() explicitly.
+        A default argument for globals_ cannot be given
+        in the function definition, because in that case,
+        the globals would be taken from module "evaluation.py" and
+        not from the environment of the executed module.
+    
+    """
+    
     # print (__name__)
     t = []
     for i,func in enumerate(functions):
         print(func + ": repeats =", rs[i], "no reps = ", ns[i])
     # print(globals_)
     for i,func in enumerate(functions):
-        statement = func + "(" + pars + ")"
+        statement = func + "(" + pars[i] + ")"
         t_ = timeit.repeat(statement, repeat=rs[i],
                            number=ns[i], globals=globals_)
         t.append(t_)
@@ -62,64 +89,225 @@ def compare_functions_run_time(functions, pars, rs, ns, globals_):
 
 #%% UPDATE FUNCTIONS
 
-# in unit (kg/kg)
 @njit()
 def update_mixing_ratio(mixing_ratio, m_w, xi, cells, mass_dry_inv, 
                         id_list, mask):
+    """Updates the water mixing ratio with masked droplet characterization
+    
+    'mask' can be used to classify droplet categories. The 'mixing_ratio'
+    will only include contributions from the particle IDs, where 'mask'
+    is True.
+    
+    Parameters
+    ----------
+    mixing_ratio: ndarray, dtype=float
+        2D array of the discretized water vapor mixing ratio for the
+        chosen droplet category. This array will be filled with zeros and
+        then updated corresponding to 'm_w', 'xi' and 'mass_dry_inv'
+    m_w: ndarray, dtype=float
+        1D array holding the particle water masses (1E-18 kg)
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities      
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    mass_dry_inv: ndarray, dtype=float
+        2D array: 1 / mass_dry,
+        where mass_dry = mass_density_air_dry * volume_cell
+    id_list: ndarray, dtype=float
+        1D array holding the ordered particle IDs.
+        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
+        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
+    mask: ndarray, dtype=bool
+        1D array, which masks the particle IDs given in id_list.
+        If mask[i] = True, the particle ID in id_list[i] will be considered
+        when calculating the mixing ratio in the cell of this particle
+        
+    """
+    
     mixing_ratio.fill(0.0)
     for ID in id_list[mask]:
         mixing_ratio[cells[0,ID],cells[1,ID]] += m_w[ID] * xi[ID]
     mixing_ratio *= 1.0E-18 * mass_dry_inv  
 
-# in unit (1/kg)
 @njit()
 def update_number_concentration_per_dry_mass(conc, xi, cells, mass_dry_inv, 
                                              id_list, mask):
+    """Updates the number concentration with masked droplet characterization
+    
+    'mask' can be used to classify droplet categories. The 'conc'
+    will only include contributions from the particle IDs, where 'mask'
+    is True.
+    
+    Parameters
+    ----------
+    conc: ndarray, dtype=float
+        2D array of the discretized number concentration per dry mass (1/kg)
+        for the chosen droplet category. This array will be filled with
+        zeros and then updated corresponding to 'xi' and 'mass_dry_inv'
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities      
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    mass_dry_inv: ndarray, dtype=float
+        2D array: 1 / mass_dry,
+        where mass_dry = mass_density_air_dry * volume_cell
+    id_list: ndarray, dtype=float
+        1D array holding the ordered particle IDs.
+        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
+        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
+    mask: ndarray, dtype=bool
+        1D array, which masks the particle IDs given in id_list.
+        If mask[i] = True, the particle ID in id_list[i] will be considered
+        when calculating the number concentration in the cell of this particle
+        
+    """
+    
     conc.fill(0.0)
     for ID in id_list[mask]:
         conc[cells[0,ID],cells[1,ID]] += xi[ID]
     conc *= mass_dry_inv 
 
-# this function is also defined in "integration.py"
-# repeated definition to avoid import with large overhead
 @njit()
 def update_T_p(grid_temp, cells, T_p):
+    """Updates the particle temperatures to the atmos. grid cell temperatures
+    
+    This function is also defined in "integration.py".
+    Repeated definition to avoid import with large overhead.
+    
+    Parameters
+    ----------
+    grid_temp: ndarray, dtype=float
+        2D array holding the discretized temperature of the atmosphere
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    T_p: ndarray, dtype=float
+        1D array holding the particle temperatures sorted by particle IDs
+    
+    """
+    
     for ID in range(len(T_p)):
         T_p[ID] = grid_temp[cells[0,ID],cells[1,ID]] 
 
 #%% ANALYSIS OF GRID FIELDS
 
-# possible field indices:
-#0: r_v
-#1: r_l
-#2: Theta
-#3: T
-#4: p
-#5: S
-# possible derived indices:
-# 0: r_aero
-# 1: r_cloud
-# 2: r_rain     
-# 3: n_aero
-# 4: n_c
-# 5: n_r 
-# 6: R_avg
-# 7: R_1/2 = 2nd moment / 1st moment
-# 8: R_eff = 3rd moment/ 2nd moment of R-distribution
-# NOTE that time_indices must be an array because of indexing below     
 def generate_field_frame_data_avg(load_path_list,
                                   field_indices, time_indices,
                                   derived_indices,
                                   mass_dry_inv, grid_volume_cell,
                                   no_cells, solute_type):
-    # output: fields_with_time = [ [time0: all fields[] ],
-    #                              [time1],
-    #                              [time2], .. ]
-    # for collected fields:
-    # unit_list
-    # name_list
-    # scales_list
-    # save_times
+    """Statistical analysis of the atmos. grid fields of multiple runs
+    
+    For the applied stochastic simulation model, it is strongly advised
+    to conduct several independent runs with different initial conditions
+    and random number seeds applied in the particle collisions.
+    The simulation runs are identified by the initial random number seed.
+    Each independent run results in a time series of 'grid frames', 
+    where each 'grid frame' includes the discretized atmospheric fields of
+    0: r_v = water vapor mixing ratio
+    1: r_l = liquid water mixing ratio
+    2: Theta = dry potential temperature
+    3: T = temperature
+    4: p = pressure
+    5: S = saturation
+    The grid frame time series is stored on hard disk for each seed (run).
+    
+    This function provides a statistical analysis, yielding the average
+    values of chosen fields (over the independent simulation runs)
+    as well as the standard deviation for each grid cell.
+    Average values and standard deviation are calculated for a number of
+    time steps, which can be chosen by 'time_indices'.
+
+    The function is further used in 'generate_plot_data.py' to provide
+    plotable data.
+
+    Parameters
+    ----------
+    load_path_list: list of str
+        List of 'load_paths' [load_path_0, load_path_1, ...], 
+        where each 'load_path' provides the directory, where the data
+        of a single simulation seed is stored. Each 'load_path' must be
+        given in the format '/path/to/directory/' and is called later on by
+        load_grid_scalar_fields(load_path, grid_save_times)
+    field_indices: ndarray, dtype=int
+        Choose, which atmospheric fields shall be included in the analysis
+        by providing a list of indices, for which
+        0: r_v = water vapor mixing ratio
+        1: r_l = liquid water mixing ratio
+        2: Theta = dry potential temperature
+        3: T = temperature
+        4: p = pressure
+        5: S = saturation
+    time_indices: ndarray, dtype=int
+        Choose, which simulation times shall be included in the analysis.
+        The grid data was stored on hard disk in certain time intervals.
+        The format is something like data = [data_t0, data_t1, data_t2, ...]
+        This 1D array of indices selects, which of the recorded times in
+        'data' is included.
+    derived_indices: ndarray, dtype=int
+        From the stored grid data, a number of quantities can further be
+        derived. This array of indices selects, which derived fields
+        shall be included in the analysis. The indices correspond to
+        0: r_aero = water mixing ratio of 'aerosols' < 0.5 microns
+        1: r_cloud = water mixing ratio of 'cloud droplets' < 25 microns
+        2: r_rain = water mixing ratio of 'rain drops' > 25 microns
+        3: n_aero = number concentration of 'aerosols' < 0.5 microns
+        4: n_c = number concentration of 'cloud droplets' < 25 microns
+        5: n_r = number concentration of 'rain drops' > 25 microns
+        6: R_avg = average droplet radius (microns)
+        7: R_1/2 = 2nd moment / 1st moment of the radius distribution
+        8: R_eff = 3rd moment/ 2nd moment of radius distribution
+    mass_dry_inv: ndarray, dtype=float
+        2D array: 1 / mass_dry,
+        where mass_dry = mass_density_air_dry * volume_cell.
+        The dry air mass is stationary in the given kinematic model.
+    volume_cell: float
+        Grid cell volume (m^3). All grid cells have the same volume.
+    no_cells: ndarray, dtype=int
+        no_cells[0] = number of grid cells in x (horizontal)
+        no_cells[1] = number of grid cells in z (vertical)
+    solute_type: str
+        Particle solute material.
+        Either 'AS' (ammonium sulfate) or 'NaCl' (sodium chloride)
+        
+    Returns
+    -------
+    fields_with_time: ndarray, dtype=float
+        fields_with_time[it,n] = 2D array with the average over
+        independent simulation runs of analyzed field 'n' at
+        the time corresponding to index 'it' in save_times_out
+        Included are the fields chosen by 'field_indices' (n = 0, .., N_c)
+        and the derived fields chosen by 'derived_indices'
+        (n = N_c+1, .., N_tot)
+    fields_with_time_std: ndarray, dtype=float
+        fields_with_time_std[it,n] = 2D array with the standard deviation
+        from analysis over independent simulation runs of
+        analyzed field 'n' at the time corresponding to
+        index 'it' in save_times_out.
+        Included are the fields chosen by 'field_indices' (n = 0, .., N_c)
+        and the derived fields chosen by 'derived_indices'
+        (n = N_c+1, .., N_tot)
+    save_times_out: ndarray, dtype=float
+        1D array of simulation times, where the fields where analyzed
+    field_names_out: list of str
+        List of strings with the names of the analyzed fields used for
+        plotting.
+    units_out: list of str
+        List of strings with the names of the units of the analyzed
+        fields used for plotting.
+    scales_out: list of float
+        List of scaling factors for the analyzed fields. The scaling
+        factors are used for plotting to obtain appropriate units.
+        
+    """
     
     V0 = grid_volume_cell
     
@@ -306,153 +494,6 @@ def generate_field_frame_data_avg(load_path_list,
 
 #%% BINNING OF SIPs:
 
-def auto_bin_SIPs(masses, xis, no_bins, dV, no_sims, xi_min=1):
-
-    ind = np.nonzero(xis)
-    m_sort = masses[ind]
-    xi_sort = xis[ind]
-    
-    ind = np.argsort(m_sort)
-    m_sort = m_sort[ind]
-    xi_sort = xi_sort[ind]
-    
-    ### merge particles with xi < xi_min
-    for i in range(len(xi_sort)-1):
-        if xi_sort[i] < xi_min:
-            xi = xi_sort[i]
-            m = m_sort[i]
-            xi_left = 0
-            j = i
-            while(j > 0 and xi_left==0):
-                j -= 1
-                xi_left = xi_sort[j]
-            if xi_left != 0:
-                m1 = m_sort[j]
-                dm_left = m-m1
-            else:
-                dm_left = 1.0E18
-            m2 = m_sort[i+1]
-            if m2-m < dm_left:
-                j = i+1
-                # assign to m1 since distance is smaller
-                # i.e. increase number of xi[i-1],
-                # then reweight mass to total mass
-            m_sum = m*xi + m_sort[j]*xi_sort[j]
-            xi_sort[i] = 0           
-    
-    if xi_sort[-1] < xi_min:
-        i = -1
-        xi = xi_sort[i]
-        m = m_sort[-1]
-        xi_left = 0
-        j = i
-        while(xi_left==0):
-            j -= 1
-            xi_left = xi_sort[j]
-        
-        m_sum = m*xi + m_sort[j]*xi_sort[j]
-        xi_sort[j] += xi_sort[i]
-        m_sort[j] = m_sum / xi_sort[j]
-        xi_sort[i] = 0           
-    
-    ind = np.nonzero(xi_sort)
-    xi_sort = xi_sort[ind]
-    m_sort = m_sort[ind]
-    
-    ind = np.argsort(m_sort)
-    m_sort = m_sort[ind]
-    xi_sort = xi_sort[ind]
-    
-    ### merge particles, which have masses or xis < m_lim, xi_lim
-    no_bins0 = no_bins
-    no_bins *= 10
-    
-    no_spc = len(xi_sort)
-    n_save = int(no_spc//1000)
-    if n_save < 2: n_save = 2
-    
-    no_rpc = np.sum(xi_sort)
-    total_mass = np.sum(xi_sort*m_sort)
-    xi_lim = no_rpc / no_bins
-    m_lim = total_mass / no_bins
-    
-    bin_centers = []
-    m_bin = []
-    xi_bin = []
-    
-    n_left = no_rpc
-    
-    i = 0
-    while(n_left > 0 and i < len(xi_sort)-n_save):
-        bin_mass = 0.0
-        bin_xi = 0
-        while(bin_mass < m_lim and bin_xi < xi_lim and n_left > 0
-              and i < len(xi_sort)-n_save):
-            bin_xi += xi_sort[i]
-            bin_mass += xi_sort[i] * m_sort[i]
-            n_left -= xi_sort[i]
-            i += 1
-        bin_centers.append(bin_mass / bin_xi)
-        m_bin.append(bin_mass)
-        xi_bin.append(bin_xi)
-            
-    xi_bin = np.array(xi_bin)
-    bin_centers = np.array(bin_centers)
-    m_bin = np.array(m_bin)
-    
-    ### merge particles, whose masses are close together in log space:
-    bin_size_log =\
-        (np.log10(bin_centers[-1]) - np.log10(bin_centers[0])) / no_bins0
-    
-    i = 0
-    while(i < len(xi_bin)-1):
-        m_next_bin = bin_centers[i] * 10**bin_size_log
-        m = bin_centers[i]
-        j = i
-        while (m < m_next_bin and j < len(xi_bin)-1):
-            j += 1
-            m = bin_centers[j]
-        if m >= m_next_bin:
-            j -= 1
-        if (i != j):
-            m_sum = 0.0
-            xi_sum = 0
-            for k in range(i,j+1):
-                m_sum += m_bin[k]
-                xi_sum += xi_bin[k]
-                if k > i:
-                    xi_bin[k] = 0
-            bin_centers[i] = m_sum / xi_sum
-            xi_bin[i] = xi_sum
-            m_bin[i] = m_sum
-        i = j+1            
-    
-    
-    ind = np.nonzero(xi_bin)
-    xi_bin = xi_bin[ind]
-    bin_centers = bin_centers[ind]        
-    m_bin = m_bin[ind]
-    
-    radii = mp.compute_radius_from_mass_vec(bin_centers,
-                                            c.mass_density_water_liquid_NTP)
-    
-    # find the midpoints between the masses/radii
-    # midpoints = 0.5 * ( m_sort[:-1] + m_sort[1:] )
-    # m_left = 2.0 * m_sort[0] - midpoints[0]
-    # m_right = 2.0 * m_sort[-1] - midpoints[-1]
-    bins = 0.5 * ( radii[:-1] + radii[1:] )
-    # add missing bin borders for m_min and m_max:
-    R_left = 2.0 * radii[0] - bins[0]
-    R_right = 2.0 * radii[-1] - bins[-1]
-    
-    bins = np.hstack([R_left, bins, R_right])
-    bins_log = np.log(bins)
-    
-    m_bin = np.array(m_bin)
-    g_ln_R = m_bin * 1.0E-15 / no_sims / (bins_log[1:] - bins_log[0:-1]) / dV
-    
-    return g_ln_R, radii, bins, xi_bin, bin_centers
-
 # modified binning with different smoothing approaches
 # masses is a list of [masses0, masses1, ..., masses_no_sims]
 # where masses[i] = array of masses of a spec. SIP ensemble
@@ -462,8 +503,122 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
                                      no_bins, no_sims,
                                      bin_mode, spread_mode, scale_factor,
                                      shift_factor, overflow_factor):
-    # g_m_num = []
-    # g_ln_r_num = []
+    """Generation of mass based histograms with several analysis methods
+    
+    This function builds histograms of the simulation particle masses
+    and yields the discretized concentration distribution per mass f_m 
+    with integral f_m(m) dm = DNC = droplet number concentration (1/m^3)
+    and the discretized density distribution per mass g_m
+    with integral g_m(m) dm = LWC = liquid water content (kg/m^3).
+    Currently, bins are divided with equal distance on the logarithmic
+    mass axis. The masses of the super particles are collected in these
+    bins. One can further choose, which mass value should correspond to
+    each bin.
+    For example, a bin is given by the borders m0 < m1. The collected
+    value in the bin can be assigned to the bin center mc = (m0 + m1) / 2
+    or to the bin center on a logarithmic axis
+    log(mc) = (log(m0) + log(m1)) / 2. There are several other ways
+    to assign the bins mass value, which are are denoted by 'smoothing'
+    of the histograms and are defined in the code below.
+    For the plots in the GMD publication, we use exclusively the
+    bin center assignment (mc = (m0 + m1) / 2).
+    Histograms are built for data from several independent simulation runs
+    with the same mass bins. The resulting distribution functions are
+    averaged over the independent simulation runs in each bin.
+    
+    Parameters
+    ----------
+    masses: ndarray, dtype=float
+        1D array of SIP masses (unit = 1E-18 kg)
+    xis: ndarray, dtype=float
+        1D array of SIP multiplicities (real numbers, non-integer)
+    m_min: float
+        Defines the lower border of the bin with the smallest mass 
+    m_max: float
+        Defines the upper border of the bin with the largest mass 
+    dV: float
+        Grid cell volume (m^3)
+    DNC0: float
+        Initial droplet number concentration (1/m^3)
+    LWC0: float
+        Initial liquid water content (kg/m^3)
+    no_bins: int
+        Number of bins of the histograms
+    no_sims: int
+        Number of independent simulations
+    bin_mode: int
+        Method for SIP binning.
+        Only avail. option: bin_mode=1 (bins equal distance on log. axis)
+    spread_mode: int
+        spreading mode of the smoothed histogram
+        choose 0 (based on lin-scale) or 1 (based on log-scale)
+    scale_factor: float
+        scaling factor for the 1st correction of the smoothed histogram        
+    shift_factor: float
+        center shift factor for the 2nd correction of the smoothed histogram
+    overflow_factor: float
+        factor for artificial bins of the smoothed histogram
+    
+    Returns
+    -------
+    f_m_num_avg: ndarray, dtype=float
+        1D array with the discretized concentration distribution per mass.
+        (1/(kg m^3)).
+        In each bin, the function was average over the independent
+        simulation runs
+    f_m_num_std: ndarray, dtype=float
+        1D array with the standard deviation of the discretized
+        concentration distribution per mass.
+        In each bin, the standard deviation is evaluated by statistical
+        analysis of the independent simulation runs.
+    g_m_num_avg: ndarray, dtype=float
+        1D array with the discretized density distribution per mass (1/m^3).
+        In each bin, the function was average over the independent
+        simulation runs
+    g_m_num_std: ndarray, dtype=float
+        1D array with the standard deviation of the discretized
+        density distribution per mass.
+        In each bin, the standard deviation is evaluated by statistical
+        analysis of the independent simulation runs.
+    h_m_num_avg: ndarray, dtype=float
+        1D array with the discretized distribution h_m = f_m(m) * m^2
+        (kg/m^3).
+        In each bin, the function was average over the independent
+        simulation runs
+    h_m_num_std: ndarray, dtype=float
+        1D array with the standard deviation of the discretized
+        distribution h_m = f_m(m) * m^2.
+        In each bin, the standard deviation is evaluated by statistical
+        analysis of the independent simulation runs.
+    bins_mass: ndarray, dtype=float
+        1D array of the bin-borders. len(bins_mass) = no_bins + 1
+    bins_mass_width: ndarray, dtype=float
+        1D array with the widths of the mass bins
+    bins_mass_centers: ndarray, dtype=float
+        Array, collecting several 1D arrays with bin 'center' variations,
+        meaning the mass values assigned to the bins.
+        bins_mass_centers[0] = bins_mass_center_lin (center on lin scale)
+        bins_mass_centers[1] = bins_mass_center_log (center on log scale)
+        bins_mass_centers[2] = bins_mass_center_COM (center of mass
+            for each bin)
+        bins_mass_centers[3] = bins_mass_center_exact (exactly weighted
+            mass value for exponential distr.)
+        bins_mass_centers[4] = bins_mass_centers_lin_fit (mass value from
+            linear smoothing)
+        bins_mass_centers[5] = bins_mass_centers_qfit (mass value from
+            quadratic smoothing)
+        bins_mass_centers[6] = bins_mass_center_h_g (mass value
+            corresponding to h_m / g_m)
+    bins_mass_center_lin: ndarray, dtype=float
+        the same as 'bins_mass_centers[0]', but including two values left
+        and right of the binned area.
+    lin_par: ndarray, dtype=float
+        Parameters of the linear smoothing
+    a_par: ndarray, dtype=float
+        Parameters of the quadratic smoothing
+    
+    """
+    
     if bin_mode == 1:
             bin_factor = (m_max/m_min)**(1.0/no_bins)
             bin_log_dist = np.log(bin_factor)
@@ -805,41 +960,8 @@ def generate_myHisto_SIP_ensemble_np(masses, xis, m_min, m_max,
            bins_mass, bins_mass_width, \
            bins_mass_centers, bins_mass_center_lin, \
            np.array((lin_par0,lin_par1)), np.array((a0,a1,a2))
-# generate_myHisto_SIP_ensemble = njit()(generate_myHisto_SIP_ensemble_np)
 
 #%% PARTICLE SAMPLING FOR SIZE SPECTRA
-
-# active ids not necessary: choose target cell and no_cells_x
-# such that the region is included in the valid domain
-@njit()
-def sample_masses(m_w, m_s, xi, cells, id_list, grid_temperature,
-                  target_cell, no_cells_x, no_cells_z):
-    
-    dx = no_cells_x // 2
-    dz = no_cells_z // 2
-    
-    i_low = target_cell[0] - dx
-    i_high = target_cell[0] + dx
-    j_low = target_cell[0] - dz
-    j_high = target_cell[0] + dz
-    
-    mask =   ((cells[0] >= i_low) & (cells[0] <= i_high)) \
-           & ((cells[1] >= j_low) & (cells[1] <= j_high))
-    
-    no_masses = mask.sum()
-    
-    m_s_out = np.zeros(no_masses, dtype = np.float64)
-    m_w_out = np.zeros(no_masses, dtype = np.float64)
-    xi_out = np.zeros(no_masses, dtype = np.float64)
-    T_p = np.zeros(no_masses, dtype = np.float64)
-    
-    for cnt, ID in enumerate(id_list[mask]):
-        m_s_out[cnt] = m_s[ID]
-        m_w_out[cnt] = m_w[ID]
-        xi_out[cnt] = xi[ID]
-        T_p[cnt] = grid_temperature[ cells[0,ID], cells[1,ID] ]
-    
-    return m_w_out, m_s_out, xi_out, T_p
 
 # active ids not necessary: choose target cell and no_cells_x
 # such that the region is included in the valid domain
@@ -849,7 +971,69 @@ def sample_masses(m_w, m_s, xi, cells, id_list, grid_temperature,
 def sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
                             grid_mass_dry_inv,
                             target_cell, no_cells_x, no_cells_z):
+    """Method collects necessary data from a chosen evaluation volume
     
+    To build droplet size spectra at a certain 'target_cell' of the grid,
+    all super-particles of a chosen evaluation volume of
+    'no_cells_x' * 'no_cells_z' centered at the 'target_cell' are
+    included in the analysis.
+    
+    Parameters
+    ----------
+    m_w: ndarray, dtype=float
+        1D array holding the particle water masses (1E-18 kg)
+        This array gets updated by the function.
+    m_s: ndarray, dtype=float
+        1D array holding the particle solute masses (1E-18 kg)
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities  
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    id_list: ndarray, dtype=float
+        1D array holding the ordered particle IDs.
+        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
+        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
+    grid_temperature: ndarray, dtype=float
+        2D array holding the discretized temperature of the atmosphere
+    grid_mass_dry_inv: ndarray, dtype=float
+        2D array holding 1/m_dry, where m_dry is the inverse
+        discretized atmos. dry air mass in each cell (kg)
+    target_cell: ndarray, dtype=int
+        1D array holding two indices of the cell, which is the center of
+        the evaluated volume of the grid
+        target_cell[0] = horizontal index of the grid cell
+        target_cell[1] = vertical index of the grid cell
+    no_cells_x: int
+        A volume of no_cells_x * no_cells_z grid cells centered at
+        'target_cell' is included in the evaluation.
+        Provide as uneven integer.
+    no_cells_z: int
+        A volume of no_cells_x * no_cells_z grid cells centered at
+        'target_cell' is included in the evaluation.
+        Provide as uneven integer.
+    
+    Returns
+    -------
+    m_w_out: ndarray, dtype=float
+        1D array holding the water masses of all particles in the evaluation
+        volume
+    m_s_out: ndarray, dtype=float
+        1D array holding the solute masses of all particles in the evaluation
+        volume
+    xi_out: ndarray, dtype=float
+        1D array holding the multiplicities of all particles in the evaluation
+        volume
+    weights_out: ndarray, dtype=float
+        1D array holding the ratio of multiplicities and atmospheric dry
+        air mass of the grid cells for all particles in the evaluation volume
+    no_cells_eval: int
+        Number of grid cells included in the evaluation volume
+    
+    """
+        
     dx = no_cells_x // 2
     dz = no_cells_z // 2
     
@@ -880,30 +1064,77 @@ def sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
     
     return m_w_out, m_s_out, xi_out, weights_out, T_p, no_cells_eval
 
-# we always assume the only quantities stored are m_s, m_w, xi
-def sample_radii(m_w, m_s, xi, cells, solute_type, id_list,
-                 grid_temperature, target_cell, no_cells_x, no_cells_z):
-    m_w_out, m_s_out, xi_out, T_p = sample_masses(m_w, m_s, xi, cells, id_list,
-                                                  grid_temperature,
-                                                  target_cell, no_cells_x,
-                                                  no_cells_z)
-    if solute_type == "AS":
-        mass_density_dry = c.mass_density_AS_dry
-        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_AS
-    elif solute_type == "NaCl":
-        mass_density_dry = c.mass_density_NaCl_dry
-        compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_NaCl
-    
-    R_s = mp.compute_radius_from_mass_vec(m_s_out, mass_density_dry)
-    R_p, w_s, rho_p = compute_R_p_w_s_rho_p(m_w_out, m_s_out, T_p)
-    
-    return R_p, R_s, xi_out        
-
 # weights_out in number/kg_dry_air
 # we always assume the only quantities stored are m_s, m_w, xi
 def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
-                 grid_temperature, grid_mass_dry_inv,
-                 target_cell, no_cells_x, no_cells_z):
+                           grid_temperature, grid_mass_dry_inv,
+                           target_cell, no_cells_x, no_cells_z):
+    """Method collects necessary data from a chosen evaluation volume
+    
+    To build droplet size spectra at a certain 'target_cell' of the grid,
+    all super-particles of a chosen evaluation volume of
+    'no_cells_x' * 'no_cells_z' centered at the 'target_cell' are
+    included in the analysis.
+    
+    Parameters
+    ----------
+    m_w: ndarray, dtype=float
+        1D array holding the particle water masses (1E-18 kg)
+        This array gets updated by the function.
+    m_s: ndarray, dtype=float
+        1D array holding the particle solute masses (1E-18 kg)
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities  
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    solute_type: str
+        Particle solute material.
+        Either 'AS' (ammonium sulfate) or 'NaCl' (sodium chloride)
+    id_list: ndarray, dtype=float
+        1D array holding the ordered particle IDs.
+        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
+        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
+    grid_temperature: ndarray, dtype=float
+        2D array holding the discretized temperature of the atmosphere
+    grid_mass_dry_inv: ndarray, dtype=float
+        2D array holding 1/m_dry, where m_dry is the inverse
+        discretized atmos. dry air mass in each cell (kg)
+    target_cell: ndarray, dtype=int
+        1D array holding two indices of the cell, which is the center of
+        the evaluated volume of the grid
+        target_cell[0] = horizontal index of the grid cell
+        target_cell[1] = vertical index of the grid cell
+    no_cells_x: int
+        A volume of no_cells_x * no_cells_z grid cells centered at
+        'target_cell' is included in the evaluation.
+        Provide as uneven integer.
+    no_cells_z: int
+        A volume of no_cells_x * no_cells_z grid cells centered at
+        'target_cell' is included in the evaluation.
+        Provide as uneven integer.
+    
+    Returns
+    -------
+    R_p: ndarray, dtype=float
+        1D array holding the particle radii of all particles in the evaluation
+        volume
+    R_s: ndarray, dtype=float
+        1D array holding the dry particle radii of all particles
+        in the evaluation volume
+    xi_out: ndarray, dtype=float
+        1D array holding the multiplicities of all particles in the evaluation
+        volume
+    weights_out: ndarray, dtype=float
+        1D array holding the ratio of multiplicities and atmospheric dry
+        air mass of the grid cells for all particles in the evaluation volume
+    no_cells_eval: int
+        Number of grid cells included in the evaluation volume
+    
+    """
+    
     m_w_out, m_s_out, xi_out, weights_out, T_p, no_cells_eval = \
         sample_masses_per_m_dry(m_w, m_s, xi, cells, id_list, grid_temperature,
                                 grid_mass_dry_inv,
@@ -927,7 +1158,7 @@ def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
 # target_cell_list = [ [tgc1], [tgc2], ... ]; tgc1 = [i1, j1]
 # ind_time = [it1, it2, ..] = ind. of save times belonging to tgc1, tgc2, ...
 # -> to create one cycle cf with particle trajectories
-# grid scalar fields have been saved in this order on hard disc
+# grid scalar fields have been saved in this order on hard disk
 # 0 = r_v
 # 1 = r_l
 # 2 = Theta    
@@ -941,8 +1172,65 @@ def generate_size_spectra_R(load_path_list,
                             solute_type,
                             target_cell_list,
                             no_cells_x, no_cells_z,
-                            no_bins_R_p, no_bins_R_s):                                   
+                            no_bins_R_p, no_bins_R_s):
+    """
 
+
+    Parameters
+    ----------
+    load_path_list: list of str
+        List of 'load_paths' [load_path_0, load_path_1, ...], 
+        where each 'load_path' provides the directory, where the data
+        of a single simulation seed is stored. Each 'load_path' must be
+        given in the format '/path/to/directory/' and is called later on by
+        load_grid_scalar_fields(load_path, grid_save_times) and
+        load_particle_data_all(load_path, grid_save_times)
+    ind_time: ndarray, dtype=int
+        One size spectrum is generated for each grid target cell.
+        Grid and particle data were stored in time intervals collected in
+        'grid_save_times'. 'grid_save_times' is loaded from hard disk.
+        When generating the spectrum of target cell number 'n',
+        it=ind_time[n] holds the time index corresponding to the
+        simulation time 'grid_save_times[it]', at which the spectrum
+        is evaluated.
+    grid_mass_dry_inv: ndarray, dtype=float
+        2D array holding 1/m_dry, where m_dry is the inverse
+        discretized atmos. dry air mass in each cell (kg)
+    grid_no_cells: ndarray, dtype=int
+        grid_no_cells[0] = number of grid cells in x (horizontal)
+        grid_no_cells[1] = number of grid cells in z (vertical)
+    solute_type: str
+        Particle solute material.
+        Either 'AS' (ammonium sulfate) or 'NaCl' (sodium chloride)
+    target_cell_list: ndarray, dtype=int
+        Collects all target cells, for which a size spectrum shall be
+        generated.
+        target_cell_list[n] =
+        1D array holding two indices of the cell, which is the center of
+        the evaluated volume of the grid
+        target_cell_list[n][0] = horizontal index of the grid cell
+        target_cell_list[n][1] = vertical index of the grid cell
+    no_cells_x: int
+        A volume of no_cells_x * no_cells_z grid cells centered at
+        'target_cell' is included in the evaluation.
+        Provide as uneven integer.
+    no_cells_z: int
+        A volume of no_cells_x * no_cells_z grid cells centered at
+        'target_cell' is included in the evaluation.
+        Provide as uneven integer.
+    no_bins_R_p: int
+        Number of bins for the particle radius histograms
+    no_bins_R_p: int
+        Number of bins for the particle dry radius histograms
+        
+    Returns
+    -------
+    f_R_p_list: ndarray, dtype=float
+    
+    
+    """
+    
+        
     no_seeds = len(load_path_list)
     no_times = len(ind_time)
     no_tg_cells = len(target_cell_list[0])
@@ -1051,12 +1339,14 @@ def generate_size_spectra_R(load_path_list,
             h_p, b_p = np.histogram(R_p_tg, bins_R_p, weights= weights_tg)
 
             # convert from 1/(kg*micrometer) to unit 1/(milligram*micro_meter)
+            # (per dry air mass and per particle radius)
             f_R_p_list[tg_cell_n, seed_n] =\
                 1E-6 * h_p / bins_width_R_p / no_cells_eval
         
             h_s, b_s = np.histogram(R_s_tg, bins_R_s, weights= weights_tg)
             
             # convert from 1/(kg*micrometer) to unit 1/(milligram*micro_meter)
+            # (per dry air mass and per particle radius)
             f_R_s_list[tg_cell_n, seed_n] =\
                 1E-6 * h_s / bins_width_R_s / no_cells_eval
     

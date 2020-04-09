@@ -220,7 +220,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     generated, to achieve a binning closer to the analytic solution.
     The smoothed histogram is just for testing purposes and has no
     influence on the default plots.
-    see evaluation.generate_myHisto_SIP_ensemble_np()
+    See evaluation.generate_myHisto_SIP_ensemble_np()
         
     Parameters
     ----------
@@ -1356,7 +1356,7 @@ def analyze_sim_data(kappa, mass_density, dV, no_sims,
     
     Loads stored data, which was generated with simulate_collisions().
     Analyzes the loaded data statistically and writes files with statistical
-    data to hard disc.
+    data to hard disk.
 
     Parameters
     ----------

@@ -454,7 +454,7 @@ def initialize_grid_and_particles_SinSIP(config):
     but collisions and gravity are switched off.
     
     The function will write a full copy of the initialized system state
-    at time t=0 to hard disc. The code is further explained
+    at time t=0 to hard disk. The code is further explained
     in the comments below.
     
     Parameters
