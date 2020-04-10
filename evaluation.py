@@ -1153,18 +1153,6 @@ def sample_radii_per_m_dry(m_w, m_s, xi, cells, solute_type, id_list,
 
 #%% SIZE SPECTRA GENERATION
 
-# for one seed only for now
-# load_path_list = [[load_path0]] 
-# target_cell_list = [ [tgc1], [tgc2], ... ]; tgc1 = [i1, j1]
-# ind_time = [it1, it2, ..] = ind. of save times belonging to tgc1, tgc2, ...
-# -> to create one cycle cf with particle trajectories
-# grid scalar fields have been saved in this order on hard disk
-# 0 = r_v
-# 1 = r_l
-# 2 = Theta    
-# 3 = T
-# 4 = p
-# 5 = S    
 def generate_size_spectra_R(load_path_list,
                             ind_time,
                             grid_mass_dry_inv,
@@ -1173,8 +1161,12 @@ def generate_size_spectra_R(load_path_list,
                             target_cell_list,
                             no_cells_x, no_cells_z,
                             no_bins_R_p, no_bins_R_s):
-    """
-
+    """Evaluation of particle size spectra at chosen grid cells
+    
+    This function takes a number of 'target grid cells', at which particle
+    wet and dry size spectra are evaluated. All particles inside the
+    adjustable evaluation volume around the 'target cells' are included in
+    the analysis.
 
     Parameters
     ----------
@@ -1192,7 +1184,7 @@ def generate_size_spectra_R(load_path_list,
         When generating the spectrum of target cell number 'n',
         it=ind_time[n] holds the time index corresponding to the
         simulation time 'grid_save_times[it]', at which the spectrum
-        is evaluated.
+        is evaluated. len(ind_time) must be = number of target cells
     grid_mass_dry_inv: ndarray, dtype=float
         2D array holding 1/m_dry, where m_dry is the inverse
         discretized atmos. dry air mass in each cell (kg)
@@ -1220,17 +1212,43 @@ def generate_size_spectra_R(load_path_list,
         Provide as uneven integer.
     no_bins_R_p: int
         Number of bins for the particle radius histograms
-    no_bins_R_p: int
+    no_bins_R_s: int
         Number of bins for the particle dry radius histograms
         
     Returns
     -------
     f_R_p_list: ndarray, dtype=float
-    
+        f_R_p_list[n,k] = 1D array with the discretized radius distribution
+        f_R_p(R) for 'target cell' index 'n' and random seed index 'k'
+        (f_R_p: here, number of particles per dry air mass and particle
+         radius in 1/(mg*mu))
+    f_R_s_list: ndarray, dtype=float
+        f_R_s_list[n,k] = 1D array with the discret. dry radius distribution
+        f_R_s(R) for 'target cell' index 'n' and random seed index 'k'
+        (f_R_s: here, number of particles per dry air mass and dry particle
+         radius in 1/(mg*mu))
+    bins_R_p_list: ndarray, dtype=float
+        bins_R_p_list[n] = 1D array with the particle radius bin borders for
+        'target cell' index 'n'
+    bins_R_s_list: ndarray, dtype=float
+        bins_R_s_list[n] = 1D array with the particle dry radius bin borders
+        for 'target cell' index 'n'
+    save_times_out: ndarray, dtype=float
+        save_times_out[n] = simulation time, at which the spectrum at target
+        cell 'n' is evaluated (seconds)
+    grid_r_l_list: ndarray, dtype=float
+        grid_r_l_list[n] = 2D array holding the discret. liquid water mixing
+        ratio at the simulation time, when the spectrum of target cell 'n'
+        is evaluated
+    R_min_list: list of float
+        R_min_list[n] = Minimum particle radius in the evaluation volume
+        around target cell 'n' over all independent simulation seeds
+    R_max_list: list of float
+        R_max_list[n] = Maximum particle radius in the evaluation volume
+        around target cell 'n' over all independent simulation seeds
     
     """
     
-        
     no_seeds = len(load_path_list)
     no_times = len(ind_time)
     no_tg_cells = len(target_cell_list[0])
@@ -1356,9 +1374,51 @@ def generate_size_spectra_R(load_path_list,
 #%% MOMENT ANALYSIS
 
 @njit()
-# V0 = volume grid cell
 def compute_moment_R_grid(n, R_p, xi, V0,
                           cells, active_ids, id_list, no_cells):
+    """Evaluation of the n'th moment of the radius distribution from SIPs
+    
+    Given a SIP-ensemble, this function aims to reconstruct the n'th moment
+    of the radius distribution f_R, where f_R = number of particles per
+    volume and radius in 1/(m^3 * mu). Unit of moment 'n': mu^n / m^3
+    
+    Parameters
+    ----------
+    n: int
+        Moment order (0,1,2,...)
+    R_p: ndarray, dtype=float
+        1D array holding the particle radii (microns)
+    xi: ndarray, dtype=float
+        1D array holding the particle multiplicities        
+    V0: float
+        Grid cell volume (m^3)
+    cells: ndarray, dtype=int
+        2D array, holding the particle cell indices, i.e.
+        cells[0] = 1D array of horizontal indices
+        cells[1] = 1D array of vertical indices
+        (cells[0,n], cells[1,n]) gives the cell of particle 'n'
+    active_ids: ndarray, dtype=bool
+        1D mask-array. Each particle gets a flag 'True' or 'False', defining
+        if it still resides in the simulation domain or has already hit the
+        ground and is thereby removed from the simulation
+    id_list: ndarray, dtype=float
+        1D array holding the ordered particle IDs.
+        Other arrays, like 'm_w', 'm_s', 'xi' etc. refer to this list.
+        I.e. 'm_w[n]' is the water mass of particle with ID 'id_list[n]'
+    no_cells: ndarray, dtype=int
+        no_cells[0] = number of grid cells in x (horizontal)
+        no_cells[1] = number of grid cells in z (vertical)
+    
+    Returns
+    -------
+    moment: ndarray, dtype=float
+        Estimation of the n'th moment of the radius distribution f_R, where
+        f_R = number of particles per volume and radius in 1/(m^3 * mu)
+        Unit of moment 'n': mu^n / m^3
+        moment 0 = Droplet number concentration
+    
+    """
+    
     moment = np.zeros( (no_cells[0], no_cells[1]), dtype = np.float64 )
     if n == 0:
         for ID in id_list[active_ids]:
@@ -1368,52 +1428,56 @@ def compute_moment_R_grid(n, R_p, xi, V0,
             moment[cells[0,ID],cells[1,ID]] += xi[ID] * R_p[ID]**n
     return moment / V0
 
-def avg_moments_over_boxes(
-        moments_vs_time_all_seeds, no_seeds, idx_t, no_moments,
-        target_cells_x, target_cells_z,
-        no_cells_per_box_x, no_cells_per_box_z):
-    no_times_eval = len(idx_t)
-    no_target_cells_x = len(target_cells_x)
-    no_target_cells_z = len(target_cells_z)
-    di_cell = no_cells_per_box_x // 2
-    dj_cell = no_cells_per_box_z // 2    
-    moments_at_boxes_all_seeds = np.zeros( (no_seeds,no_times_eval,no_moments,
-                                  no_target_cells_x,no_target_cells_z),
-                                 dtype = np.float64)
-
-    for seed_n in range(no_seeds):
-        for time_n, time_ind in enumerate(idx_t):
-            for mom_n in range(no_moments):
-                for box_n_x, tg_cell_x in enumerate(target_cells_x):
-                    for box_n_z , tg_cell_z in enumerate(target_cells_z):
-                        moment_box = 0.
-                        i_tg_corner = tg_cell_x - di_cell
-                        j_tg_corner = tg_cell_z - dj_cell
-                        cells_box_x = np.arange(i_tg_corner,
-                                                i_tg_corner+no_cells_per_box_x)
-                        cells_box_z = np.arange(j_tg_corner,
-                                                j_tg_corner+no_cells_per_box_z)
-                        MG = np.meshgrid(cells_box_x, cells_box_z)
-                        
-                        cells_box_x = MG[0].flatten()
-                        cells_box_z = MG[1].flatten()
-                        
-                        moment_box = moments_vs_time_all_seeds[seed_n, time_n,
-                                                               mom_n,
-                                                               cells_box_x,
-                                                               cells_box_z]
-                        
-                        moment_box = np.average(moment_box)
-                        moments_at_boxes_all_seeds[seed_n, time_n, mom_n,
-                                                   box_n_x, box_n_z] = \
-                            moment_box
-    return moments_at_boxes_all_seeds 
-
-def generate_moments_avg_std(load_path_list,
-                             no_moments, time_indices,
-                             grid_volume_cell,
-                             no_cells, solute_type):
-
+def generate_moments_all_seeds(load_path_list,
+                               no_moments, time_indices,
+                               grid_volume_cell,
+                               no_cells, solute_type):
+    """Evaluation of the radius distribution moments from SIPs
+    
+    This function aims to reconstruct a time-series of moments of the
+    radius distribution f_R in every grid cell of the spatial grid
+    for several independent simulation runs (with different random seeds).
+    Here, f_R = number of particles per volume and radius in 1/(m^3 * mu).
+    Unit of moment 'n' = mu^n / m^3.
+    
+    Parameters
+    ----------
+    load_path_list: list of str
+        List of 'load_paths' [load_path_0, load_path_1, ...], 
+        where each 'load_path' provides the directory, where the data
+        of a single simulation seed is stored. Each 'load_path' must be
+        given in the format '/path/to/directory/' and is called later on by
+        load_grid_scalar_fields(load_path, grid_save_times) and
+        load_particle_data_all(load_path, grid_save_times)
+    no_moments: int
+        The moments 0, 1, ..., 'no_moments' are evaluated
+    time_indices: ndarray, dtype=int
+        Moments are generated for several simulation times.
+        Grid and particle data were stored in time intervals collected in
+        'grid_save_times'. 'grid_save_times' is loaded from hard disk.
+        When generating the moments, it=ind_time[n] holds the time
+        index corresponding to the simulation time 'grid_save_times[it]',
+        at which the spectrum is evaluated.
+    grid_volume_cell: float
+        Grid cell volume
+    no_cells: ndarray, dtype=int
+        no_cells[0] = number of grid cells in x (horizontal)
+        no_cells[1] = number of grid cells in z (vertical)
+    solute_type: str
+        Particle solute material.
+        Either 'AS' (ammonium sulfate) or 'NaCl' (sodium chloride)
+    
+    Returns
+    -------
+    moments_vs_time_all_seeds: ndarray, dtype=float
+        moments_vs_time_all_seeds[k,i,n] = 2D array holding the 'n'-th
+        moment for seed 'k' at time with index 'i' of all grid cells.
+        Time index 'i' corresponds to the simulation time save_times_out[i]
+    save_times_out: ndarray, dtype=float
+        1D array of simulation times, where the moments are analyzed
+        
+    """
+    
     if solute_type == "AS":
         compute_R_p_w_s_rho_p = mp.compute_R_p_w_s_rho_p_AS
     elif solute_type == "NaCl":
@@ -1467,3 +1531,110 @@ def generate_moments_avg_std(load_path_list,
                                              id_list, no_cells)
 
     return moments_vs_time_all_seeds, save_times_out
+
+def avg_moments_over_boxes(
+        moments_vs_time_all_seeds, no_seeds, idx_t, no_moments,
+        target_cells_x, target_cells_z,
+        no_cells_per_box_x, no_cells_per_box_z):
+    """Averages the radius distribution moments over several chosen volumes
+    
+    Given a mesh-grid of target cells [a,b].
+    a_j = target_cells_x[j], b_j = target_cells_z[j]
+    For example:
+    -------------------------
+    |                       |
+    |  [a0,b2]    [a1,b2]   |
+    |                       |
+    |                       |
+    |                       |
+    |  [a0,b1]    [a1,b1]   |
+    |                       |
+    |  [a0,b0]    [a1,b0]   |
+    |                       |
+    -------------------------
+    
+    This function uses a radius distribution moment time series returned by
+    'generate_moments_all_seeds' and averages the moments over boxes of
+    size no_cells_per_box_x * no_cells_per_box_z, centered at the target
+    cells of the target cell mesh-grid.
+    Here, f_R = number of particles per volume and radius in 1/(m^3 * mu).
+    Unit of moment 'n' = mu^n / m^3.
+    
+    Parameters
+    ----------
+    moments_vs_time_all_seeds: ndarray, dtype=float
+        moments_vs_time_all_seeds[k,i,n] = 2D array holding the 'n'-th
+        moment for seed 'k' at time with index 'i' of all grid cells.
+        Appropriate arrays 'moments_vs_time_all_seeds' and 'save_times_out'
+        are returned by the function 'generate_moments_all_seeds'
+        Time index 'i' corresponds to the simulation time save_times_out[i].
+    no_seeds: int
+        Number of independent simulation runs (with distinct random number
+        seeds)
+    idx_t: ndarray, dtype=int
+        1D array of chosen time indices [i0,i1,...] corresponding to input
+        array moments_vs_time_all_seeds[k,i,n]
+    no_moments: int
+        The moments 0, 1, ..., 'no_moments' are evaluated
+    target_cells_x: ndarray, dtype=int
+        1D array holding the horizontal cell indices of selected
+        2D-array of target cells
+    target_cells_z: ndarray, dtype=int
+        1D array holding the vertical cell indices of selected
+        2D-array of target cells
+    no_cells_per_box_x: int
+        Moments are averaged over volumes of
+        no_cells_per_box_x * no_cells_per_box_z grid cells centered at the
+        'target_cells'. Provide as uneven integer.
+    no_cells_per_box_z: int
+        Moments are averaged over volumes of
+        no_cells_per_box_x * no_cells_per_box_z grid cells centered at the
+        'target_cells'. Provide as uneven integer.
+        
+    Returns
+    -------
+    moments_at_boxes_all_seeds: ndarray, dtype=float
+        moments_at_boxes_all_seeds[k,it,n,a,b] = 'n'-th moment of the
+        radius distribution for seed 'k' at time with time index 'it' at the
+        target grid cell with numeration 'a' and 'b'
+        
+    """
+    
+    no_times_eval = len(idx_t)
+    no_target_cells_x = len(target_cells_x)
+    no_target_cells_z = len(target_cells_z)
+    di_cell = no_cells_per_box_x // 2
+    dj_cell = no_cells_per_box_z // 2    
+    moments_at_boxes_all_seeds = np.zeros( (no_seeds,no_times_eval,no_moments,
+                                  no_target_cells_x,no_target_cells_z),
+                                 dtype = np.float64)
+
+    for seed_n in range(no_seeds):
+        for time_n, time_ind in enumerate(idx_t):
+            for mom_n in range(no_moments):
+                for box_n_x, tg_cell_x in enumerate(target_cells_x):
+                    for box_n_z , tg_cell_z in enumerate(target_cells_z):
+                        moment_box = 0.
+                        i_tg_corner = tg_cell_x - di_cell
+                        j_tg_corner = tg_cell_z - dj_cell
+                        cells_box_x = np.arange(i_tg_corner,
+                                                i_tg_corner+no_cells_per_box_x)
+                        cells_box_z = np.arange(j_tg_corner,
+                                                j_tg_corner+no_cells_per_box_z)
+                        MG = np.meshgrid(cells_box_x, cells_box_z)
+                        
+                        cells_box_x = MG[0].flatten()
+                        cells_box_z = MG[1].flatten()
+                        
+                        moment_box = moments_vs_time_all_seeds[seed_n,
+                                                               time_ind,
+                                                               mom_n,
+                                                               cells_box_x,
+                                                               cells_box_z]
+                        
+                        moment_box = np.average(moment_box)
+                        moments_at_boxes_all_seeds[seed_n, time_n, mom_n,
+                                                   box_n_x, box_n_z] = \
+                            moment_box
+    
+    return moments_at_boxes_all_seeds 

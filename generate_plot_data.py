@@ -31,7 +31,7 @@ from microphysics import compute_R_p_w_s_rho_p
 from microphysics import compute_radius_from_mass_vec
 from evaluation import generate_field_frame_data_avg, \
                        generate_size_spectra_R, \
-                       generate_moments_avg_std
+                       generate_moments_all_seeds
 from file_handling import load_grid_and_particles_full 
 
 #%% DATA PARENT DIRECTORY
@@ -556,10 +556,10 @@ if act_gen_moments_all_grid_cells:
         load_path_list.append(simdata_path + grid_folder_ + save_folder_)
 
     moments_vs_time_all_seeds, save_times_out = \
-        generate_moments_avg_std(load_path_list,
-                                 no_moments, time_ind_moments,
-                                 grid.volume_cell,
-                                 no_cells, solute_type)
+        generate_moments_all_seeds(load_path_list,
+                                   no_moments, time_ind_moments,
+                                   grid.volume_cell,
+                                   no_cells, solute_type)
     
     ### create plotting data to be transfered
     output_folder = \

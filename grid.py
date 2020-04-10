@@ -828,15 +828,15 @@ class Grid:
             fig.savefig(fig_dir + f'scalar_fields_grid_t_{int(t)}.png')
     
     def plot_scalar_field_2D(self, field_,
-                         no_ticks_ = [5,5],
-                         no_contour_colors_ = 10, no_contour_lines_ = 5,
-                         colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
+                             no_ticks_ = [5,5],
+                             no_contour_colors_ = 10, no_contour_lines_ = 5,
+                             colorbar_fraction_=0.046, colorbar_pad_ = 0.02):
         
         tick_ranges_ = self.ranges
         plot_scalar_field_2D( *self.centers, field_,
-                         tick_ranges_, no_ticks_,
-                         no_contour_colors_, no_contour_lines_,
-                         colorbar_fraction_, colorbar_pad_)
+                             tick_ranges_, no_ticks_,
+                             no_contour_colors_, no_contour_lines_,
+                             colorbar_fraction_, colorbar_pad_)
         
     # velocity = [ velocity_x[i,j], velocity_z[i,j] ] for 2D
     def plot_velocity_field_at_cell_surface(
