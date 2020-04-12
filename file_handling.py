@@ -428,7 +428,7 @@ def save_grid_basics_to_textfile(grid, t, filename):
     """
     
     with open(filename, 'w') as f:
-        f.write(f'grid.ranges[0] grid.ranges[1] grid.steps grid.step_y t\n')
+        f.write(f'# grid.ranges[0] grid.ranges[1] grid.steps grid.step_y t\n')
         f.write(f'{grid.ranges[0][0]} {grid.ranges[0][1]} ')
         f.write(f'{grid.ranges[1][0]} {grid.ranges[1][1]} ')
         f.write(f'{grid.steps[0]} {grid.steps[1]} {grid.step_y} {t}')

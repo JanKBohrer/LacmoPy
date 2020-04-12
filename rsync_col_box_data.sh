@@ -1,3 +1,8 @@
+# sync data from collision box model simulation
+# requires analysis, i.e. args_sim[1], to be finished in source folders
+# copies only files of analyzed data such as f_m_num_avg_vs_time_....npy
+# and one of the save_times_seed1
+
 dist="expo"
 init="SinSIP"
 eta="1e-09"

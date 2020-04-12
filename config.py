@@ -24,13 +24,13 @@ from grid import compute_no_grid_cells_from_step_sizes
 config = {
 # path to parent directory for data output
 'paths' : {
-#    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP2/'
+    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP3/'
 #    'simdata' : '/Users/bohrer/sim_data_cloudMP/'
-    'simdata' : '/home/jdesk/sim_data_cloudMP/'
+    # 'simdata' : '/home/jdesk/sim_data_cloudMP/'
 },
 
-#'generate_grid'         : True,
-'generate_grid'         : False,
+'generate_grid'         : True,
+# 'generate_grid'         : False,
 # spin-up: no gravity, no collisions, no relaxation
 'execute_spin_up'       : True,
 #'execute_spin_up'       : False,
@@ -38,8 +38,8 @@ config = {
 # set 'True' when starting from a spin-up state
 # provides the opportunity to simulate directly without spin-up
 # in this case, set 'execute_spin_up' and 'spin_up_complete' to 'False'
-#'spin_up_complete'      : False,
-'spin_up_complete'      : True,
+'spin_up_complete'      : False,
+# 'spin_up_complete'      : True,
 
 # set 'False', if spin_up shall be executed
 # set 'False', if the simulation starts from an existing spin-up state.
@@ -90,6 +90,7 @@ config = {
 # solute material of the CCNs
 # options: 'AS' (ammon. sulf.) or 'NaCl'
 'solute_type'       : 'AS',
+# 'solute_type'       : 'NaCl',
 
 # initial number of super particles per cell and mode (avg. values)
 # list: [mode0, mode1, mode2...]

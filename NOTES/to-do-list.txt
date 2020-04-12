@@ -1,0 +1,10 @@
+1. Test Col Box Mod
+a) sim golo dt=1, Long, Hall dt=10
+b) plotting
+
+2. Test Cloud MP
+10 sims for all possible combinations
+
+relaxation
+solute type
+...

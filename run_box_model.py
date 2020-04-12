@@ -67,9 +67,10 @@ args_gen = [0,0,0,0]
 # i = 1: activate data analysis
 # i = 2: act. plotting of data for each kappa (req. analyzed data present)
 # i = 3: act. plotting of moments for sever. kappa (req. analy. data present)
+# from here on: requires latex installed compatible with pgflatex
 # i = 4: act. plotting of moments for sever. kappa as in the GMD publication
-# i = 5: act. plotting of g_ln_R vs. R for kappas from kappa_list individually
-# i = 6: act. plotting of g_ln_R vs. R for two specific kappa as in the GMD pub
+# i = 5: act. plot of g_ln_R vs. R for all kappas from kappa_list as GMD pub
+# i = 6: act. plot of g_ln_R vs. R for two specific kappa as in GMD pub
 #args_sim = [1,1,1,1,0,0]
 #args_sim = [0,0,0,0,0,0,0]
 args_sim = [0,0,1,1,1,1,1]
