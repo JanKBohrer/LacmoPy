@@ -24,7 +24,7 @@ from grid import compute_no_grid_cells_from_step_sizes
 config = {
 # path to parent directory for data output
 'paths' : {
-    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP3/'
+    'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP4/'
 #    'simdata' : '/Users/bohrer/sim_data_cloudMP/'
     # 'simdata' : '/home/jdesk/sim_data_cloudMP/'
 },
@@ -55,8 +55,8 @@ config = {
 
 #%% RANDOM NUMBER GENERATION SEEDS
 
-# seeds are overwritten, if LaCMo.py is executed with arguments:
-# 'python3 LaCMo.py 4711 5711'
+# seeds are overwritten, if LaCMo.py is executed with arguments
+# Example: 'python3 lacmo.py 4711 5711'
 # will overwrite 'seed_SIP_gen' by 4711 and 'seed_sim' by 5711
 # random number generator seed for inital particle generation
 'seed_SIP_gen'      : 1001,
