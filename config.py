@@ -170,9 +170,9 @@ config = {
 # Long kernel modified by Bott (1997), J Atmos Sci 55, p.2284
 #'kernel_type'           : 'Long_Bott', 
 # Hall kernel modified by Bott (1997), J Atmos Sci 55, p.2284
-#'kernel_type'         : 'Hall_Bott',
+'kernel_type'         : 'Hall_Bott',
 # constant collision kernel, set value below
-'kernel_type'         : 'Hydro_E_const',
+# 'kernel_type'         : 'Hydro_E_const',
 # 'E_col_const' must always be set to some float.
 # however, it is only used for kernel_type = 'Hydro_E_const'
 'E_col_const'           : 0.5,

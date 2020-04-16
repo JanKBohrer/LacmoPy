@@ -371,8 +371,8 @@ seed_sim_list = np.arange(seed_sim, seed_sim + no_sims * 2, 2)
 
 
 #simulation_mode = "spin_up"
-#simulation_mode = "wo_collision"
-simulation_mode = "with_collision"
+#simulation_mode = "wo_collisions"
+simulation_mode = "with_collisions"
 
 dt_col = 0.5
 #dt_col = 1.0
@@ -404,12 +404,12 @@ grid_folder =\
 
 if simulation_mode == "spin_up":
     save_folder = "spin_up_wo_col_wo_grav/"
-elif simulation_mode == "wo_collision":
+elif simulation_mode == "wo_collisions":
     if spin_up_finished:
         save_folder = "w_spin_up_wo_col/"
     else:
         save_folder = "wo_spin_up_wo_col/"
-elif simulation_mode == "with_collision":
+elif simulation_mode == "with_collisions":
     if spin_up_finished:
         save_folder = f"w_spin_up_w_col/{seed_sim}/"
     else:

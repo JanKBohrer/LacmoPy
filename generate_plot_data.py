@@ -211,7 +211,7 @@ grid_folder = f'{solute_type}'\
 
 if simulation_mode == 'spin_up':
     save_folder = 'spin_up_wo_col_wo_grav/'
-elif simulation_mode == 'wo_collision':
+elif simulation_mode == 'wo_collisions':
     if spin_up_finished:
         save_folder = 'w_spin_up_wo_col/'
     else:
@@ -269,7 +269,7 @@ if act_gen_grid_frames_avg:
         
         if simulation_mode == 'spin_up':
             save_folder_ = 'spin_up_wo_col_wo_grav/'
-        elif simulation_mode == 'wo_collision':
+        elif simulation_mode == 'wo_collisions':
             if spin_up_finished:
                 save_folder_ = 'w_spin_up_wo_col/'
             else:
@@ -358,7 +358,7 @@ if act_gen_spectra_avg_Arabas:
         
         if simulation_mode == 'spin_up':
             save_folder_ = 'spin_up_wo_col_wo_grav/'
-        elif simulation_mode == 'wo_collision':
+        elif simulation_mode == 'wo_collisions':
             if spin_up_finished:
                 save_folder_ = 'w_spin_up_wo_col/'
             else:
@@ -541,7 +541,7 @@ if act_gen_moments_all_grid_cells:
         
         if simulation_mode == 'spin_up':
             save_folder_ = 'spin_up_wo_col_wo_grav/'
-        elif simulation_mode == 'wo_collision':
+        elif simulation_mode == 'wo_collisions':
             if spin_up_finished:
                 save_folder_ = 'w_spin_up_wo_col/'
             else:

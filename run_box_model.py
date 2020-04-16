@@ -47,7 +47,7 @@ from plotting import cm2inch, generate_rcParams_dict, pgf_dict
 #%% SET PARAMETERS 
 # parent directory, where simulation data and ensembles are stored
 #simdata_path = '/Users/bohrer/sim_data_box_mod_test/'
-simdata_path = '/home/jdesk/sim_data_col_box_model2/'
+simdata_path = '/home/jdesk/sim_data_col_box_model5/'
 
 set_log_file = True
 #set_log_file = False
@@ -73,7 +73,7 @@ args_gen = [0,0,0,0]
 # i = 6: act. plot of g_ln_R vs. R for two specific kappa as in GMD pub
 #args_sim = [1,1,1,1,0,0]
 #args_sim = [0,0,0,0,0,0,0]
-args_sim = [0,0,1,1,1,1,1]
+args_sim = [0,0,0,0,1,1,1]
 #args_sim = [0,0,0,0,0,0,1]
 #args_sim = [1,1,1,1,1,1,1]
 
@@ -83,7 +83,7 @@ args_sim = [0,0,1,1,1,1,1]
 # the number of super-particles is approximatetly 5*kappa for the chosen 
 # init. method
 #kappa_list = [7,14]
-kappa_list = [5,10,20,40,60,100,200]
+kappa_list = [5,10,20,40,100,200,400,1000,2000,3000]
 #kappa_list = [5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 # number of independent simulation per kappa value
@@ -96,9 +96,9 @@ start_seed = 1001
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 # kernel type
-kernel_name = 'Golovin'
-#kernel_name = 'Long_Bott'
-#kernel_name = 'Hall_Bott'
+# kernel_name = 'Golovin'
+# kernel_name = 'Long_Bott'
+kernel_name = 'Hall_Bott'
 
 # kernel grid
 # for Golovin: choose 'analytic'
@@ -114,7 +114,7 @@ kernel_method = 'Ecol_grid_R'
 if kernel_name == 'Golovin':
     kernel_method = 'analytic'
 
-dt = 1.0 # seconds
+dt = 10.0 # seconds
 dt_save = 150.0 # interval for data output (seconds)
 t_end = 3600.0 # simulation time (seconds)
 
@@ -191,7 +191,7 @@ overflow_factor = 2.0
 
 # g_ln_R vs R is plotted for two different kappas, if activated above
 kappa1 = 10
-kappa2 = 200
+kappa2 = 3000
 #kappa1 = kappa_list[0]
 #kappa2 = kappa_list[1]
 
