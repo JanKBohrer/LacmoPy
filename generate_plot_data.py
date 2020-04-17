@@ -488,11 +488,18 @@ if act_get_grid_data:
         grid_path_base = grid_path_base0 + f'{seed_SIP_gen_list[seed_n]}/'
         output_path = output_path0 + f'{s1}_{s2}/'
         
+        seed_sim_ = seed_sim_list[seed_n]
+        
         if not os.path.exists(output_path):
             os.makedirs(output_path) 
-            
+        
+        if simulation_mode == 'wo_collisions':
+            save_folder_ = 'wo_spin_up_wo_col/'
+        elif simulation_mode == 'with_collisions':
+            save_folder_ = f'wo_spin_up_w_col/{seed_sim_}/'
+        
         for gt in grid_times:
-            if gt == 0:
+            if int(gt) == 0:
                 shutil.copy(grid_path_base + 'grid_basics_0.txt',
                             output_path)
                 shutil.copy(grid_path_base + 'arr_file1_0.npy', output_path)
@@ -509,17 +516,18 @@ if act_get_grid_data:
                              output_path)
             elif gt > duration_spin_up:
                 shutil.copy(grid_path_base
-                             + f'w_spin_up_w_col/{seed_sim_list[seed_n]}/'
+                             + save_folder_
                              + f'grid_basics_{int(gt)}.txt',
                              output_path)
                 shutil.copy(grid_path_base
-                             + f'w_spin_up_w_col/{seed_sim_list[seed_n]}/'
+                             + save_folder_
                              + f'arr_file1_{int(gt)}.npy',
                              output_path)
                 shutil.copy(grid_path_base
-                             + f'w_spin_up_w_col/{seed_sim_list[seed_n]}/'
+                             + save_folder_
                              + f'arr_file2_{int(gt)}.npy',
-                             output_path)    
+                             output_path)  
+    
     print('extracted grid data for times:')
     print(grid_times)
 
