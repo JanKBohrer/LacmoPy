@@ -493,10 +493,6 @@ if act_get_grid_data:
         if not os.path.exists(output_path):
             os.makedirs(output_path) 
         
-        if simulation_mode == 'wo_collisions':
-            save_folder_ = 'wo_spin_up_wo_col/'
-        elif simulation_mode == 'with_collisions':
-            save_folder_ = f'wo_spin_up_w_col/{seed_sim_}/'
         
         for gt in grid_times:
             if int(gt) == 0:
@@ -515,6 +511,10 @@ if act_get_grid_data:
                              + f'arr_file2_{int(gt)}.npy',
                              output_path)
             elif gt > duration_spin_up:
+                if simulation_mode == 'wo_collisions':
+                    save_folder_ = 'w_spin_up_wo_col/'
+                elif simulation_mode == 'with_collisions':
+                    save_folder_ = f'w_spin_up_w_col/{seed_sim_}/'
                 shutil.copy(grid_path_base
                              + save_folder_
                              + f'grid_basics_{int(gt)}.txt',
