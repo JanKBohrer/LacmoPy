@@ -52,40 +52,43 @@ mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 # parent directory of the simulation data
 #simdata_path = '/Users/bohrer/sim_data_cloudMP/'
 #home_path = '/Users/bohrer/'
-simdata_path = '/home/jdesk/sim_data_cloudMP2/'
+simdata_path = '/home/jdesk/sim_data_cloudMP3/'
 home_path = '/home/jdesk/'
 # save figures in this directory
 #fig_dir = home_path \
 #          + 'OneDrive - bwedu/Paper_LCM_2019/TeX/figures4/'
-fig_dir = simdata_path + 'figures2/NaCl_Hall/'
+fig_dir = simdata_path + '/AS/figures/'
 
 #%% PARAMETERS OF CONDUCTED SIMULATION SERIES (as lists/tuples)
-gen_seed_list = (1001, 2001) # (simulation series 0, sim. series 1, ...)
-sim_seed_list = (1001, 2001) # (simulation series 0, sim. series 1, ...)
+# Enter parameters for each simulation series:
+# (simulation series 0, sim. series 1, ...)
+gen_seed_list = [1001, 1101, 1201, 1301] + [1001, 1101, 1201, 1301]
+sim_seed_list = [1001, 1101, 1201, 1301] + [1001, 1101, 1201, 1301]
 
-no_cells_x_list = (75, 75)
-no_cells_z_list = (75, 75)
-solute_type_list = ['AS', 'NaCl']
+no_cells_x_list = 8*[75]
+no_cells_z_list = 8*[75]
+solute_type_list = ['AS', 'AS', 'AS', 'AS',
+                    'NaCl', 'NaCl', 'NaCl', 'NaCl']
 
-DNC1_list = np.array((60, 60)) # droplet number conc. in mode 1
+DNC1_list = np.array(8*[60]) # droplet number conc. in mode 1
 DNC2_list = DNC1_list * 2 // 3 # droplet number conc. in mode 1
-no_spcm_0_list = (26, 26) # number of SIPs in mode 1
-no_spcm_1_list = (38, 38) # number of SIPS in mode 2
-no_col_per_adv_list = (2, 2)
+no_spcm_0_list = 8*[26] # number of SIPs in mode 1
+no_spcm_1_list = 8*[38] # number of SIPS in mode 2
+no_col_per_adv_list = 8*[2]
 
-kernel_list = ['Hall', 'Hall']
+kernel_list = 8*['Ecol_const']
 
 #%% SET SIMULATION PARAS
 # choose simulation series (index of the lists/tuples above)
 SIM_N = 1
 
-no_sims = 50
+no_sims = 10
 t_grid = 0
 t_start = 7200
 t_end = 10800
 dt = 1. # advection time step (seconds)
 # 'with_collisions', 'wo_collisions' or 'spin_up'
-simulation_mode = 'with_collisions'
+# simulation_mode = 'with_collisions'
 
 #%% SET PLOTTING PARAMETERS
 figsize_scalar_fields = cm2inch(13.7,22.)
@@ -105,7 +108,7 @@ no_bins_R_p = None
 no_bins_R_s = None
 
 # time indices for scalar field frames, the default time list is
-# [ 7200  7800  8400  9000  9600 10200 10800] seconds
+# [7200  7800  8400  9000  9600 10200 10800] seconds
 idx_times_plot = np.array((0,2,3))
 
 #%% DERIVED PARAMETERS
@@ -292,7 +295,7 @@ if act_plot_spectra_avg:
     R_max_list = np.load(data_path
             + f"R_max_list_avg_Ns_{no_seeds}_"
             + f"sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}.npy"
-            )    
+            )
     
     # if not set manually above:
     if no_rows is None:
@@ -302,8 +305,10 @@ if act_plot_spectra_avg:
                 )    
         no_rows = no_rowcol[0]
         no_cols = no_rowcol[1]
-        
-    print(no_rows, no_cols)    
+    
+    print('no_rows, no_cols')
+    print(no_rows, no_cols)
+    
     if no_bins_R_p is None:
         no_bins_p_s = np.load(data_path
                 + f"no_bins_p_s_avg_Ns_{no_seeds}_"

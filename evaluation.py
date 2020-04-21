@@ -318,16 +318,19 @@ def generate_field_frame_data_avg(load_path_list,
     
     bins_R_p_drop_classif = [0.5, 25.]
     
-    field_names_orig = ["r_v", "r_l", "\Theta", "T", "p", "S"]
+    field_names_orig = [r"r_\mathrm{v}", r"r_\mathrm{l}",
+                        r"\Theta", "T", "p", "S"]
     scales_orig = [1000., 1000., 1, 1, 0.01, 1]
     units_orig = ["g/kg", "g/kg", "K", "K", "hPa", "-"]
     
-    field_names_deri = ["r_\mathrm{aero}", "r_c", "r_r",
-                       "n_\mathrm{aero}", "n_c", "n_r",
+    field_names_deri = [r"r_\mathrm{aero}", r"r_\mathrm{c}", r"r_\mathrm{r}",
+                       r"n_\mathrm{aero}", r"n_\mathrm{c}", r"n_\mathrm{r}",
                        r"R_\mathrm{avg}", r"R_{2/1}", r"R_\mathrm{eff}"]
+    
     units_deri = ["g/kg", "g/kg", "g/kg", "1/mg", "1/mg", "1/mg",
                   r"$\mathrm{\mu m}$",
                   r"$\mathrm{\mu m}$", r"$\mathrm{\mu m}$"]
+    
     scales_deri = [1000., 1000., 1000., 1E-6, 1E-6, 1E-6, 1., 1., 1.]    
     
     no_seeds = len(load_path_list)
@@ -342,7 +345,6 @@ def generate_field_frame_data_avg(load_path_list,
     fields_with_time_sq = np.zeros( (no_times, no_fields,
                                   no_cells[0], no_cells[1]),
                                 dtype = np.float64)
-    
     
     load_path = load_path_list[0]
     frame_every, no_grid_frames, dump_every = \
@@ -490,7 +492,7 @@ def generate_field_frame_data_avg(load_path_list,
     
     return fields_with_time, fields_with_time_std, \
            save_times_out, field_names_out, units_out, \
-           scales_out 
+           scales_out
 
 #%% BINNING OF SIPs:
 

@@ -498,11 +498,12 @@ def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
             xx = ( (target_cell[0] + 0.5 )*grid_steps[0])
             height = ( (target_cell[1] + 0.5 )*grid_steps[1])
             if row_n==no_rows-1:
-                ax.set_xlabel(r'$R_p$ (\si{\micro\meter})',
+                ax.set_xlabel(r'$R_\mathrm{p}$ (\si{\micro\meter})',
                               fontsize = LFS)
             if col_n==0:
-                ax.set_ylabel('$f_R$ $(\si{\micro\meter^{-1}\,mg^{-1}})$',
-                              fontsize = LFS)
+                ax.set_ylabel(
+                    '$f_\mathrm{R}$ $(\si{\micro\meter^{-1}\,mg^{-1}})$',
+                    fontsize = LFS)
                 
             if trajectory is None:            
                 ax.set_title( f'$(x,z)=$ ({xx:.2}, {height:.2}) km, ', 
@@ -711,7 +712,7 @@ def plot_size_spectra_vs_R(f_R_p_list, f_R_s_list,
                         bbox_inches = 'tight',
                         pad_inches = 0.05
                         )   
-            
+
 #%% PLOT SCALAR FIELDS
 def plot_scalar_field_frames_avg(grid, fields_with_time,
                                  save_times,
