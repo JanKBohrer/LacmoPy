@@ -1,13 +1,13 @@
-gseed=1301
-sseed=1301
-Ns=10
+gseed=1001
+sseed=1001
+Ns=50
 nc=75
 n1=26
 n2=38
-type="NaCl"
+type="AS"
 
-source_dir="bohrer@gauss5:/vols/fs1/work/bohrer/sim_data_cloudMP3/"
-destination_dir="/home/jdesk/sim_data_cloudMP3/"
+source_dir="bohrer@gauss5:/vols/fs1/work/bohrer/sim_data_cloudMP4/"
+destination_dir="/home/jdesk/sim_data_cloudMP4/"
 #destination_dir="/Users/bohrer/sim_data_cloudMP/"
 #home_dir="/Users/bohrer/"
 

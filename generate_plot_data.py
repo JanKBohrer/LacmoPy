@@ -187,6 +187,7 @@ no_bins_R_s = 30
 ### SET TIMES, WHERE GRID DATA IS EXTRACTED
 grid_times = [0, 7200, 10800] # (seconds)
 duration_spin_up = 7200 # (seconds)
+simulation_end_time = 10800 # (seconds)
 
 ### SET PARAMETERS FOR MOMENT GENERATION
 # number of moments
@@ -460,7 +461,7 @@ if act_get_grid_data:
         + f'{solute_type}' \
         + f'/grid_{no_cells[0]}_{no_cells[1]}_spcm_{no_spcm[0]}_{no_spcm[1]}/'\
         + f'eval_data_avg_Ns_{no_seeds}_' \
-        + f'sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}/grid_data/'    
+        + f'sg_{seed_SIP_gen_list[0]}_ss_{seed_sim_list[0]}/logs_and_grid_data/'
 
     grid_path_base0 = \
         simdata_path \
@@ -500,6 +501,7 @@ if act_get_grid_data:
                             output_path)
                 shutil.copy(grid_path_base + 'arr_file1_0.npy', output_path)
                 shutil.copy(grid_path_base + 'arr_file2_0.npy', output_path)
+                shutil.copy(grid_path_base + 'log_grid.txt', output_path)
             elif gt <= duration_spin_up:
                 shutil.copy(grid_path_base + 'spin_up_wo_col_wo_grav/'
                              + f'grid_basics_{int(gt)}.txt',
@@ -509,6 +511,9 @@ if act_get_grid_data:
                              output_path)
                 shutil.copy(grid_path_base + 'spin_up_wo_col_wo_grav/'
                              + f'arr_file2_{int(gt)}.npy',
+                             output_path)
+                shutil.copy(grid_path_base + 'spin_up_wo_col_wo_grav/'
+                             + f'log_sim_t_0_{int(duration_spin_up)}.txt',
                              output_path)
             elif gt > duration_spin_up:
                 if simulation_mode == 'wo_collisions':
@@ -527,6 +532,11 @@ if act_get_grid_data:
                              + save_folder_
                              + f'arr_file2_{int(gt)}.npy',
                              output_path)  
+                shutil.copy(grid_path_base
+                             + save_folder_
+                             + f'log_sim_t_{int(duration_spin_up)}_'
+                             + f'{int(simulation_end_time)}.txt',
+                             output_path)
     
     print('extracted grid data for times:')
     print(grid_times)
