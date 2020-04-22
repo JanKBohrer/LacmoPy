@@ -797,27 +797,31 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
         Provide as uneven integer.
     
     """
-    
+
+    print("Chosen atmospheric fields:")
     for i,fm in enumerate(field_names):
         print(i,fm)
+
+    print("Chosen save times")
+    print("(if full sim., the times do not include spin up)")
     print(save_times)
-    
+
     tick_ranges = grid.ranges
 
     no_rows = len(save_times)
     no_cols = len(field_names)
-    
+
     fig, axes = plt.subplots(nrows=no_rows, ncols=no_cols,
                        figsize = figsize,
                        sharex=True, sharey=True)
-    
+
     for time_n in range(no_rows):
         for field_n in range(no_cols):
             ax = axes[time_n,field_n]
             field = fields_with_time[time_n, field_n] * scales[field_n]
             ax_title = field_names[field_n]
             unit = units[field_n]
-            if ax_title in ['T','p',r'Theta']:
+            if ax_title in ['T', 'p', r'\Theta']:
                 cmap = 'coolwarm'
                 alpha = 1.0
             else :
@@ -829,19 +833,20 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
             xticks_major = None
             xticks_minor = None
 
-            norm_ = mpl.colors.Normalize 
-            if ax_title in ['r_r', 'n_r']: #and field_max > 1E-2:
+            norm_ = mpl.colors.Normalize
+            #and field_max > 1E-2:
+            if ax_title in ['r_\mathrm{r}', 'n_\mathrm{r}']:
                 norm_ = mpl.colors.LogNorm
                 field_min = 0.01
                 cmap = cmap_lcpp                
-                if ax_title == 'r_r':
+                if ax_title == 'r_\mathrm{r}':
                     field_max = 1.
                     xticks_major = [0.01,0.1,1.]
                     xticks_minor = np.concatenate((
                             np.linspace(2E-2,1E-1,9),
                             np.linspace(2E-1,1,9),
                             ))
-                elif ax_title == 'n_r':
+                elif ax_title == 'n_\mathrm{r}':
                     field_max = 10.
                     xticks_major = [0.01,0.1,1.,10.]
                     xticks_minor = np.concatenate((
@@ -851,24 +856,24 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
                             ))
             else: norm_ = mpl.colors.Normalize   
             
-            if ax_title == r'Theta':
+            if ax_title == r'\Theta':
                 field_min = 289.2
                 field_max = 292.5
                 xticks_major = [290,291,292]
-            if ax_title == 'r_v':
+            if ax_title == 'r_\mathrm{v}':
                 field_min = 6.5
                 field_max = 7.6
                 xticks_minor = [6.75,7.25]
-            if ax_title == 'r_l':
+            if ax_title == 'r_\mathrm{l}':
                 field_min = 0.0
                 field_max = 1.3
                 xticks_minor = [0.25,0.75,1.25]
                 
-            if ax_title == 'r_c':
+            if ax_title == 'r_\mathrm{c}':
                 field_min = 0.0
                 field_max = 1.3
                 xticks_major = np.linspace(0,1.2,7)
-            if ax_title == 'n_c':
+            if ax_title == 'n_\mathrm{c}':
                 field_min = 0.0
                 field_max = 150.
                 xticks_major = [0,50,100,150]
@@ -915,7 +920,7 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
                                 rasterized=True,
                                 antialiased=True, linewidth=0.0
                                 )
-            if ax_title == r'Theta':
+            if ax_title == r'\Theta':
                 cmap_x = mpl.cm.get_cmap('coolwarm')
                 print('cmap_x(0.0)')
                 print(cmap_x(0.0))
@@ -981,7 +986,7 @@ def plot_scalar_field_frames_avg(grid, fields_with_time,
                     axins.xaxis.set_ticks(xticks_major)
                 if xticks_minor is not None:
                     axins.xaxis.set_ticks(xticks_minor, minor=True)
-                if ax_title == 'n_c':
+                if ax_title == 'n_\mathrm{c}':
                     xticks2 = axins.xaxis.get_major_ticks()
                     xticks2[-1].label1.set_visible(False)                
                 axins.set_title(r'${0}$ ({1})'.format(ax_title, unit))

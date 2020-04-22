@@ -176,7 +176,8 @@ config = {
 # 'E_col_const' must always be set to some float.
 # however, it is only used for kernel_type = 'Hydro_E_const'
 'E_col_const'           : 0.5,
-# this folder should be in the same directory,
+# Name of the folder, where the parametrized collection efficiency is stored.
+# This folder should be in the same directory,
 # from which the program is executed
 'save_folder_Ecol_grid' : 'Ecol_grid_data',
 

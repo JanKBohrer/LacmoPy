@@ -57,7 +57,7 @@ home_path = '/home/jdesk/'
 # save figures in this directory
 #fig_dir = home_path \
 #          + 'OneDrive - bwedu/Paper_LCM_2019/TeX/figures4/'
-fig_dir = simdata_path + '/AS/figures/'
+#fig_dir = simdata_path + f'/{solute_type}/figures/{seed_SIP_gen}/'
 
 #%% PARAMETERS OF CONDUCTED SIMULATION SERIES (as lists/tuples)
 # Enter parameters for each simulation series:
@@ -80,7 +80,7 @@ kernel_list = 8*['Ecol_const']
 
 #%% SET SIMULATION PARAS
 # choose simulation series (index of the lists/tuples above)
-SIM_N = 1
+SIM_N = 3
 
 no_sims = 10
 t_grid = 0
@@ -134,6 +134,8 @@ figname_base =\
     f"{solute_type}_{kernel}_dim_{no_cells[0]}_{no_cells[1]}_"\
     + f"SIP_{no_spcm[0]}_{no_spcm[1]}_Ns_{no_seeds}_"\
     + f"DNC_{DNC0[0]}_{DNC0[1]}_dtcol_{int(dt_col*10)}"
+
+fig_dir = simdata_path + f'/{solute_type}/figures/{seed_SIP_gen}/'
 
 #%% LOAD GRID AND SET PATHS
 

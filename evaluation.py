@@ -483,12 +483,26 @@ def generate_field_frame_data_avg(load_path_list,
             fields_with_time_sq[time_n,no_fields_orig:no_fields] += \
                 fields_derived * fields_derived
     
+    # convert fields_with_time to the average value
     fields_with_time /= no_seeds
     
-    fields_with_time_std =\
-        np.sqrt((fields_with_time_sq
-                 - no_seeds*fields_with_time*fields_with_time)\
-                / (no_seeds * (no_seeds-1)) )
+    # fields_with_time is now the average value
+    # fields_with_time_std =\
+    #     np.sqrt((fields_with_time_sq
+    #              - no_seeds*fields_with_time*fields_with_time)\
+    #             / (no_seeds * (no_seeds-1)) )
+    
+    if no_seeds <= 1:
+        fields_with_time_std = np.zeros_like(fields_with_time)
+    else:
+        # fields_with_time is now the average value
+        condi_h = fields_with_time_sq \
+                  - no_seeds*fields_with_time*fields_with_time
+        fields_with_time_std = np.where(condi_h < 0,
+                                        np.zeros_like(fields_with_time_sq),
+                                        condi_h)
+        fields_with_time_std = np.sqrt( fields_with_time_std
+                                        / (no_seeds * (no_seeds-1)) )
     
     return fields_with_time, fields_with_time_std, \
            save_times_out, field_names_out, units_out, \
