@@ -703,7 +703,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.set_yscale('log')
     ax.set_xscale('log')
     ax.set_xlabel('radius $\mathrm{(\mu m)}$')
-    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
+    ax.set_ylabel(r'$g_{ln(\mathrm{R})}$ $\mathrm{(g \; m^{-3})}$')
     # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
@@ -749,7 +749,8 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
 
     ### 4. sampled data: deviations of fm
     no_rows = 4
-    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows), sharex=True)
+    fig, axes = plt.subplots(nrows=no_rows, figsize=(10,5*no_rows),
+                             sharex=True)
     
     ax_titles = ['lin', 'log', 'COM', 'exact']
     
@@ -841,7 +842,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.set_yscale('log')
     ax.set_xscale('log')
     ax.set_xlabel('radius $\mathrm{(\mu m)}$ [exact centers]')
-    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
+    ax.set_ylabel(r'$g_{ln(\mathrm{R})}$ $\mathrm{(g \; m^{-3})}$')
     # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
@@ -972,7 +973,7 @@ def analyze_and_plot_ensemble_data(dist, mass_density, kappa, no_sims,
     ax.set_yscale('log')
     ax.set_xscale('log')
     ax.set_xlabel('radius $\mathrm{(\mu m)}$ [exact centers]')
-    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
+    ax.set_ylabel(r'$g_{ln(\mathrm{R})}$ $\mathrm{(g \; m^{-3})}$')
     # ax.xaxis.set_ticks(np.logspace(np.log10(0.6), np.log10(30),18))
     # ax.xaxis.set_ticks([0.6,1.0,2.0,5.0,10.0,20.0,30.0])
     if dist == 'expo':
@@ -1707,7 +1708,7 @@ def plot_for_given_kappa(kappa, eta, eta_threshold,
     ax.set_yscale('log')
     ax.set_xscale('log')
     ax.set_xlabel('radius $\mathrm{(\mu m)}$')
-    ax.set_ylabel(r'$g_{ln(r)}$ $\mathrm{(g \; m^{-3})}$')
+    ax.set_ylabel(r'$g_{ln(\mathrm{R})}$ $\mathrm{(g \; m^{-3})}$')
     if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(0,3,4) )
         ax.set_xlim([1.0,2.0E3])
@@ -2168,6 +2169,207 @@ def plot_moments_vs_time_kappa_var_paper(kappa_list, eta, dt, no_sims, no_bins,
 
     plt.close('all')        
 
+#%% PLOT moments deviations from reference for sev. kappa for one given time
+
+def plot_moments_convergence_vs_Nsip(kappa_list, eta, dt, no_sims, no_bins,
+                                     kernel_name, gen_method,
+                                     dist, start_seed,
+                                     moments_ref, times_ref,
+                                     time_index, time_index_ref,
+                                     data_dir,
+                                     figsize, figname,
+                                     TTFS, LFS, TKFS,
+                                     lower_y_border=1E-4):
+    """Plot the relative deviations of the moments vs. number of sim. particles
+    
+    The deviations are relative to the reference given by 'moments_ref'.
+    The plotting format is the one used in the GMD publication
+    Loads analyzed data and generates plot file
+    '{kernel}_moments_vs_time_kappa_{...}.pdf'
+    
+    Parameters
+    ----------
+    kappa_list: list of int
+        list of 'kappa' parameters, which define the number of SIPs
+        per simulation box, as defined in Unterstrasser 2017, SingleSIP
+        method. All 'kappa' in 'kappa_list' will be plotted in the same plot
+    eta: float
+        'eta' parameter, which relatively defines a lower border
+        for the initial allowed multiplicity size,
+        as defined in Unterstrasser 2017, SingleSIP method
+    dt: float
+        collision time step
+    no_sims: int
+        number of independent simulation runs
+    no_bins: int
+        number of bins for the binning of SIPs
+    kernel_name: str
+        choose applied collection kernel
+        one of 'Golovin', 'Hall_Bott' or 'Long_Bott'
+        see 'kernel.py' for definitions    
+    gen_method: str
+        generation method used for SIP-generation.
+        currently only 'SinSIP' available, as defined in Unterstrasser 2017
+    dist: str
+        mass distribution. 'expo' or 'lognormal'    
+    start_seed: int
+        random number generator seed of the first independent simulation
+        of the list. simulations are identified by their seed. it is assumed
+        that all 'no_sims' simulations, which are considered in the
+        statistical analysis have seeds
+        [start_seed, start_seed+2, start_seed+4, ...]        
+    moments_ref: ndarray, dtype=float
+        2D array[[],[],..], where moments_ref[n] is a 1D array, providing
+        mass distri. moment 'n' with time corresponding to times_ref
+        Note that for Long and Hall kernel, bin model ref. data of Wang 2007
+        is provided in /collision/ref_data/, while for the Golovin kernel,
+        dummy files are used and moments vs time are calculated analytically
+    times_ref: ndarray, dtype=float
+        1D array with times, for which the reference moments are given
+    time_index: int
+        Moments are stored in an array for several simulation times.
+        This index selects one simulation time, for which the convergence
+        is plotted. The chosen time must correspond to the time selected by
+        'time_index_ref'.
+    time_index_ref: int
+        Reference moments are stored in an array for several simulation times.
+        This index selects one simulation time, for which the convergence
+        is plotted. The chosen time must correspond to the time selected by
+        'time_index'.
+    data_dir: str
+        path to the parent directory, where simulation data is stored
+        must be one level above the 'kappa'-folders.
+        provide as '/path/to/directory/'
+    figsize: tuple of float
+        tuple (x,y), providing the figure sizes in inch
+    figname: str
+        full path to the output plot, including the figure name
+        provide as '/path/to/directory/figure.pdf'
+    TTFS: int
+        title font size
+    LFS: int
+        label font size
+    TKFS: int
+        tick label font size
+    lower_y_border: float
+        The y-axis (quantity = relative deviation) is cut at this lower border
+    
+    """
+    
+    no_rows = 1
+    
+    fig, ax = plt.subplots(nrows=no_rows, figsize=(figsize), sharex=True)
+    
+    moments_vs_Nsip = []
+    moments_vs_Nsip_std = []
+    
+    for kappa_n,kappa in enumerate(kappa_list):
+        load_dir = data_dir + f'kappa_{kappa}/dt_{int(dt)}/'
+        # save_times = np.load(load_dir + f'save_times_{start_seed}.npy')
+        moments_vs_time_avg = \
+            np.load(load_dir
+                    + f'moments_vs_time_avg_'
+                    + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
+        # estimated errorbars can also be shown
+        # load moments_vs_time_std in this case
+        moments_vs_time_std = \
+            np.load(load_dir
+                    + f'moments_vs_time_std_'
+                    + f'no_sims_{no_sims}_no_bins_{no_bins}.npy')
+        
+        moments_vs_Nsip.append(moments_vs_time_avg)
+        moments_vs_Nsip_std.append(moments_vs_time_std)
+
+    moments_vs_Nsip = np.array(moments_vs_Nsip)
+    moments_vs_Nsip_std = np.array(moments_vs_Nsip_std)
+    
+    upper_y_border = 0.0
+    
+    for graph_n, mom_n in enumerate((0,2,3)):
+        if kernel_name == 'Golovin':
+            DNC = 296799076.3
+            LWC = 1E-3
+            bG = 1.5
+            # fmt = 'o'
+            # load times_ref from 'collision/...'
+            # calc moments directly from analytic function
+            moment_ref = compute_moments_Golovin(times_ref, mom_n,
+                                                 DNC, LWC, bG)[time_index_ref]
+        else:
+            # fmt = 'o'
+            moment_ref = moments_ref[mom_n][time_index_ref]
+        print("moments_vs_Nsip[:,mom_n,time_index]")
+        print(moments_vs_Nsip[:,time_index, mom_n])
+        print("moment_ref")
+        print(moment_ref)
+        rel_dev = np.abs((moments_vs_Nsip[:,time_index, mom_n] - moment_ref) \
+                          / moment_ref)
+        rel_dev_max_ = np.max(rel_dev)
+        if upper_y_border < rel_dev_max_:
+            upper_y_border = rel_dev_max_
+        rel_err = (moments_vs_Nsip_std[:,time_index, mom_n]) \
+                          / moment_ref
+        
+        fmt_list = ['o--', 'x:', 'd-.']
+        # fmt_list = ['o', 'x', 'd']
+        
+        below_border_ = lower_y_border
+
+        above_curve = rel_dev + rel_err
+        above_curve = \
+            np.where(above_curve <= below_border_, below_border_, above_curve)
+        
+        above_err = above_curve - rel_dev
+        
+        below_curve = rel_dev - rel_err
+        below_curve = \
+            np.where(below_curve <= below_border_, below_border_, below_curve)
+        below_err = rel_dev - below_curve
+
+        # for errorbar plot:
+        ax.errorbar(np.array(kappa_list)*5, rel_dev, [below_err,above_err],
+                    fmt=fmt_list[graph_n], fillstyle='none',
+                    markersize=4,
+                    markeredgewidth=0.5,
+                    linewidth=0.4,
+                    elinewidth=0.6,
+                    capsize=2,
+                    label=mom_n)
+        
+        # with errorbars as filled regions:
+        # ax.plot(np.array(kappa_list)*5, rel_dev,
+        #            fmt_list[graph_n], fillstyle='none',
+        #            markersize=5,
+        #            markeredgewidth=0.7,
+        #            linewidth=0.4,
+        #            label=mom_n)
+        # ax.fill_between(np.array(kappa_list)*5,
+        #                 below_curve,
+        #                 above_curve,
+        #                 alpha=0.2, lw=1
+        #                 )              
+    
+    upper_y_border *= 1.3
+    if kernel_name == "Golovin":
+        ax.set_xticks([0,1000,2000,5000])
+    else:
+        ax.set_xticks([0,2000,5000,10000,15000])
+    ax.set_ylim([lower_y_border, upper_y_border])
+    ax.set_xlabel('Number of sim. particles')
+    ax.set_yscale('log')
+    ax.set_ylabel(
+        'Rel. dev. '
+        + r'$|\lambda - \lambda_\mathrm{ref}| / \lambda_\mathrm{ref}$')
+    
+    ax.legend()
+    
+    fig.savefig(figname,
+                bbox_inches = 'tight',
+                pad_inches = 0.04
+                )      
+
+    plt.close('all')  
+
 #%% Plot g_lnR vs time for a single kappa
     
 def plot_g_ln_R_for_given_kappa(kappa,
@@ -2309,7 +2511,7 @@ def plot_g_ln_R_for_given_kappa(kappa,
                 markersize = 3, mew=0.4)                
     
     ax.set_xlabel('Radius ($\si{\micro\meter}$)')
-    ax.set_ylabel(r'$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$')
+    ax.set_ylabel(r'$g_{\ln(\mathrm{R})}$ $\mathrm{(g \; m^{-3})}$')
     if kernel_name == 'Golovin':
         ax.set_xticks( np.logspace(0,3,4) )
         ax.set_xlim([1.0,2.0E3])
@@ -2499,8 +2701,8 @@ def plot_g_ln_R_kappa_compare(kappa1, kappa2,
         ax.grid(which='major')
         
     axes[1].set_xlabel('Radius ($\si{\micro\meter}$)')
-    axes[0].set_ylabel(r'$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$')            
-    axes[1].set_ylabel(r'$g_{\ln(R)}$ $\mathrm{(g \; m^{-3})}$')            
+    axes[0].set_ylabel(r'$g_{\ln(\mathrm{R})}$ $\mathrm{(g \; m^{-3})}$')            
+    axes[1].set_ylabel(r'$g_{\ln(\mathrm{R})}$ $\mathrm{(g \; m^{-3})}$')            
     
     axes[0].legend(ncol=7, handlelength=0.8, handletextpad=0.2,
                       columnspacing=0.8, borderpad=0.15, loc='upper center',

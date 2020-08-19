@@ -52,9 +52,10 @@ mpl.rcParams.update(generate_rcParams_dict(LW, MS, TTFS, LFS, TKFS, DPI))
 # parent directory of the simulation data
 #simdata_path = '/Users/bohrer/sim_data_cloudMP/'
 #home_path = '/Users/bohrer/'
-simdata_path = '/home/jdesk/sim_data_cloudMP3/'
+simdata_path = '/home/jdesk/sim_data_cloudMP4/'
 home_path = '/home/jdesk/'
 # save figures in this directory
+# IN WORK: ADJUSTABLE fig_dir -> remove below.
 #fig_dir = home_path \
 #          + 'OneDrive - bwedu/Paper_LCM_2019/TeX/figures4/'
 #fig_dir = simdata_path + f'/{solute_type}/figures/{seed_SIP_gen}/'
@@ -62,27 +63,26 @@ home_path = '/home/jdesk/'
 #%% PARAMETERS OF CONDUCTED SIMULATION SERIES (as lists/tuples)
 # Enter parameters for each simulation series:
 # (simulation series 0, sim. series 1, ...)
-gen_seed_list = [1001, 1101, 1201, 1301] + [1001, 1101, 1201, 1301]
-sim_seed_list = [1001, 1101, 1201, 1301] + [1001, 1101, 1201, 1301]
+gen_seed_list = [1001, 2001, 3001]
+sim_seed_list = [1001, 2001, 3001]
 
-no_cells_x_list = 8*[75]
-no_cells_z_list = 8*[75]
-solute_type_list = ['AS', 'AS', 'AS', 'AS',
-                    'NaCl', 'NaCl', 'NaCl', 'NaCl']
+no_cells_x_list = 3*[75]
+no_cells_z_list = 3*[75]
+solute_type_list = 3*['AS']
 
-DNC1_list = np.array(8*[60]) # droplet number conc. in mode 1
+DNC1_list = np.array(3*[60]) # droplet number conc. in mode 1
 DNC2_list = DNC1_list * 2 // 3 # droplet number conc. in mode 1
-no_spcm_0_list = 8*[26] # number of SIPs in mode 1
-no_spcm_1_list = 8*[38] # number of SIPS in mode 2
-no_col_per_adv_list = 8*[2]
+no_spcm_0_list = 3*[26] # number of SIPs in mode 1
+no_spcm_1_list = 3*[38] # number of SIPS in mode 2
+no_col_per_adv_list = 3*[2]
 
-kernel_list = 8*['Ecol_const']
+kernel_list = ['Hall_Bott', 'Ecol_const', 'Long_Bott']
 
 #%% SET SIMULATION PARAS
 # choose simulation series (index of the lists/tuples above)
-SIM_N = 3
+SIM_N = 2
 
-no_sims = 10
+no_sims = 50
 t_grid = 0
 t_start = 7200
 t_end = 10800
@@ -147,7 +147,7 @@ data_folder = \
 
 data_path = simdata_path + data_folder
 
-grid_path = simdata_path + data_folder + "grid_data/" \
+grid_path = simdata_path + data_folder + "logs_and_grid_data/" \
             + f"{seed_SIP_gen}_{seed_sim}/"
 
 grid = load_grid_from_files(grid_path + f"grid_basics_{int(t_grid)}.txt",

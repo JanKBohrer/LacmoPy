@@ -49,8 +49,8 @@ from plotting import cm2inch, generate_rcParams_dict, pgf_dict
 #simdata_path = '/Users/bohrer/sim_data_box_mod_test/'
 simdata_path = '/home/jdesk/sim_data_col_box_model5/'
 
-set_log_file = True
-#set_log_file = False
+# set_log_file = True
+set_log_file = False
 
 ###############################################################################
 ### SET options for SIP ensemble generation AND Kernel-grid generation
@@ -61,19 +61,20 @@ set_log_file = True
 # i = 3: generate discretized collection kernel K(m_1,m_2) from raw data
 args_gen = [0,0,0,0]
 
-# SET options for simulation
+# SET options for simulation and data evaluation
 # args_sim[i] is either 1 or 0 (activated or not activated)
 # i = 0: activate simulation
 # i = 1: activate data analysis
 # i = 2: act. plotting of data for each kappa (req. analyzed data present)
 # i = 3: act. plotting of moments for sever. kappa (req. analy. data present)
 # from here on: requires latex installed compatible with pgflatex
-# i = 4: act. plotting of moments for sever. kappa as in the GMD publication
+# i = 4: act. plotting of moments for kappas in same plot as in the GMD publ
 # i = 5: act. plot of g_ln_R vs. R for all kappas from kappa_list as GMD pub
 # i = 6: act. plot of g_ln_R vs. R for two specific kappa as in GMD pub
+# i = 7: act. plot of moments convergence behavior as in GMD pub
 #args_sim = [1,1,1,1,0,0]
 #args_sim = [0,0,0,0,0,0,0]
-args_sim = [0,0,0,0,1,1,1]
+args_sim = [0,0,0,0,0,0,1,0]
 #args_sim = [0,0,0,0,0,0,1]
 #args_sim = [1,1,1,1,1,1,1]
 
@@ -83,7 +84,8 @@ args_sim = [0,0,0,0,1,1,1]
 # the number of super-particles is approximatetly 5*kappa for the chosen 
 # init. method
 #kappa_list = [7,14]
-kappa_list = [5,10,20,40,100,200,400,1000,2000,3000]
+# kappa_list = [5,10,20,40,100,200,400,1000,2000,3000]
+kappa_list = [5,10,20,40,100,200,400,1000]
 #kappa_list = [5,10,20,40,60,100,200,400,600,800,1000,1500,2000,3000]
 
 # number of independent simulation per kappa value
@@ -96,9 +98,9 @@ start_seed = 1001
 seed_list = np.arange(start_seed, start_seed+no_sims*2, 2)
 
 # kernel type
-# kernel_name = 'Golovin'
+kernel_name = 'Golovin'
 # kernel_name = 'Long_Bott'
-kernel_name = 'Hall_Bott'
+# kernel_name = 'Hall_Bott'
 
 # kernel grid
 # for Golovin: choose 'analytic'
@@ -114,7 +116,8 @@ kernel_method = 'Ecol_grid_R'
 if kernel_name == 'Golovin':
     kernel_method = 'analytic'
 
-dt = 10.0 # seconds
+dt = 1.0 # seconds
+# dt = 10.0 # seconds
 dt_save = 150.0 # interval for data output (seconds)
 t_end = 3600.0 # simulation time (seconds)
 
@@ -191,7 +194,7 @@ overflow_factor = 2.0
 
 # g_ln_R vs R is plotted for two different kappas, if activated above
 kappa1 = 10
-kappa2 = 3000
+kappa2 = 200
 #kappa1 = kappa_list[0]
 #kappa2 = kappa_list[1]
 
@@ -222,6 +225,7 @@ act_plot_moments_kappa_var = bool(args_sim[3])
 act_plot_moments_kappa_var_paper = bool(args_sim[4])
 act_plot_g_ln_R_for_given_kappa = bool(args_sim[5])
 act_plot_g_ln_R_compare = bool(args_sim[6])
+act_plot_moments_convergence = bool(args_sim[7])
 
 # constant converts radius in mu to mass in kg (m = 4/3 pi rho R^3)
 c_radius_to_mass = 4.0E-18 * math.pi * mass_density / 3.0
@@ -569,6 +573,38 @@ if act_plot_g_ln_R_compare:
                                    kernel_name, gen_method, time_idx,
                                    load_dir_k1, load_dir_k2,
                                    figsize, figname_compare, LFS)
+
+if act_plot_moments_convergence:
+    figsize = cm2inch(7,5)
+    time_index_ = -1
+    time_index_ref_ = -1
+    
+    ref_data_path = "collision/ref_data/" \
+                    + f"{kernel_name}/"
+    moments_ref = np.loadtxt(ref_data_path + "Wang_2007_moments.txt")
+    times_ref = np.loadtxt(ref_data_path + "Wang_2007_times.txt")
+    
+    data_dir = simdata_path + result_path_add
+    figname = fig_path \
+            + f"{kernel_name}_moments_rel_dev_"\
+            + f"t_{int(times_ref[time_index_ref_])}_"\
+            + f"kappa_{kappa_list[0]}_{kappa_list[-1]}.pdf"
+            
+    if kernel_name == 'Golovin':
+        lower_y_border = 1E-4
+    else:
+        lower_y_border = 1E-3
+    
+    boxm.plot_moments_convergence_vs_Nsip(kappa_list, eta, dt,
+                                          no_sims, no_bins,
+                                          kernel_name, gen_method,
+                                          dist, start_seed,
+                                          moments_ref, times_ref,
+                                          time_index_, time_index_ref_,
+                                          data_dir,
+                                          figsize, figname,
+                                          TTFS, LFS, TKFS,
+                                          lower_y_border)
 
 mpl.rcParams.update(plt.rcParamsDefault)
 

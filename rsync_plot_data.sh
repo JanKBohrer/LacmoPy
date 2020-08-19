@@ -1,5 +1,5 @@
-gseed=1001
-sseed=1001
+gseed=3001
+sseed=3001
 Ns=50
 nc=75
 n1=26
