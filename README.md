@@ -10,6 +10,6 @@ To perform and evaluate a simulation:
 1. Set required parameters in the config file "config.py". It is possible (and recommended) to include a spin-up period of 2h = 7200s.
 2. Execute the simulation: Set the number of independent simulation runs (starting from independent grids) and the first random seeds for grid generation and simulation in "run_lacmo.sh". Then execute the script "run_lacmo.sh" in the terminal (may require to be set as executable via chmod +x).
 3. If required, evaluate data, using "run_gen_data.sh". This will include a statistical analysis over the independent simulation runs.
-4. Data can be plotted with the python scripts "plot_results.py" and "plot_results_MA.py". See comments in there.
+4. Data can be plotted with the python scripts "plot_results_paper.py" See comments in there.
 
 In case of any questions, please contact the repository admin (Jan Bohrer).
