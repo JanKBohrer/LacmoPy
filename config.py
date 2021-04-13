@@ -25,28 +25,29 @@ config = {
 # path to parent directory for data output
 'paths' : {
     'simdata' : '/vols/fs1/work/bohrer/sim_data_cloudMP4/'
-#    'simdata' : '/Users/bohrer/sim_data_cloudMP/'
-    # 'simdata' : '/home/jdesk/sim_data_cloudMP/'
 },
 
+# set 'False', if spin_up shall be executed or
+# set 'False', if the simulation starts from a saved spin-up state.
+# set 'True', if a simulation is continued from a simulation state, 
+# which was stored at t_start_sim entered below.
+'continued_simulation'  : False,
+#'continued_simulation'  : True,    
+
+# set 'True', if you want to generate a new spatial grid and particles
+# set 'False', if you want to start from an existing system state
 'generate_grid'         : True,
 # 'generate_grid'         : False,
 # spin-up: no gravity, no collisions, no relaxation
 'execute_spin_up'       : True,
 #'execute_spin_up'       : False,
 'execute_simulation'    : True,
-# set 'True' when starting from a spin-up state
+
+# set 'True' when starting from an existing saved spin-up state
 # provides the opportunity to simulate directly without spin-up
 # in this case, set 'execute_spin_up' and 'spin_up_complete' to 'False'
 'spin_up_complete'      : False,
 # 'spin_up_complete'      : True,
-
-# set 'False', if spin_up shall be executed
-# set 'False', if the simulation starts from an existing spin-up state.
-# set 'True', if a simulation is continued from a simulation state, 
-# which was stored at t_start_sim given below.
-'continued_simulation'  : False,
-#'continued_simulation'  : True,
 
 # collisions during simulation phase
 'act_collisions'        : True,
