@@ -5,7 +5,7 @@ TROPOS LAGRANGIAN CLOUD MODEL
 Super-Droplet method in a two-dimensional kinematic framework
 Test Case 1, ICMW 2012, Muhlbauer et al. 2013, ‎Bull. Am. Meteorol. Soc. 94, 25
 
-Author: Jan Bohrer (bohrer@tropos.de)
+Author: Jan Bohrer (bohrer@vki.ac.be)
 Further contact: Oswald Knoth (knoth@tropos.de)
 
 CONFIGURATION FILE
@@ -38,7 +38,8 @@ config = {
 # set 'False', if you want to start from an existing system state
 'generate_grid'         : True,
 # 'generate_grid'         : False,
-# spin-up: no gravity, no collisions, no relaxation
+# set 'True', if to execute a spin-up period before the "real" simulation:
+# during spin-up, there is no gravity, no collisions, no relaxation
 'execute_spin_up'       : True,
 #'execute_spin_up'       : False,
 'execute_simulation'    : True,
@@ -56,7 +57,7 @@ config = {
 
 #%% RANDOM NUMBER GENERATION SEEDS
 
-# seeds are overwritten, if LaCMo.py is executed with arguments
+# seeds are overwritten, if lacmo.py is executed with arguments
 # Example: 'python3 lacmo.py 4711 5711'
 # will overwrite 'seed_SIP_gen' by 4711 and 'seed_sim' by 5711
 # random number generator seed for inital particle generation
