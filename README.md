@@ -1,4 +1,4 @@
-# CloudMP
+# LacmoPy
 Simulation program for warm cloud microphysics using Lagrangian (discrete) particle methods.
 
 The program enables the simulation of a drizzling stratocumulus cloud in a two-dimensional kinematic framework, built for the 8th International Cloud Modeling Workshop 2012 (Test case 1 in Muhlbauer et al., Bulletin of the American Meteorological Society 94, 45 (2013))
